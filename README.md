@@ -23,7 +23,7 @@ The project uses [boost](https://www.boost.org/) and [SDL2](https://www.libsdl.o
 For the other dependencies:
 - clone the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl) into `deps/3rd-party/cnl`.
 - clone [cpu_features](https://github.com/google/cpu_features) into `deps/3rd-party/cpu_features`
-- clone [fmt](https://github.com/fmtlib) into `deps/3rd-party/fmt`
+- clone [fmt](https://github.com/fmtlib/fmt) into `deps/3rd-party/fmt`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
 - clone [ml](https://github.com/flubbe/ml) into `deps/ml`
 
@@ -40,7 +40,7 @@ Install the dependencies listed above. In the root directory, execute:
 
 If everything succeeded, you should find the demo files in the `bin`-directory.
 
-Building was tested on Linux, GCC 10.2 (with C++-14 enabled), CMake 3.19.7 and [Ninja](https://ninja-build.org/) 1.10.2.
+Building was tested on Linux, GCC 10.2 (with C++-20 enabled), CMake 3.19.7 and [Ninja](https://ninja-build.org/) 1.10.2.
 
 ## Limitations
 
