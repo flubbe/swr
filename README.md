@@ -1,5 +1,7 @@
 # Software Rasterizer
 
+[![Build Status](https://travis-ci.com/flubbe/swr.svg?branch=main)](https://travis-ci.com/flubbe/swr)
+
 ## Introduction
 
 This project is for learning how software rasterization (or rasterization in general) works. It mimics part of the
