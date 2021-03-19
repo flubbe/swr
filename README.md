@@ -21,9 +21,9 @@ The primitive rasterization takes places in `src/library/rasterizer/point_st.cpp
 The project uses [boost](https://www.boost.org/) and [SDL2](https://www.libsdl.org/). 
 
 For the other dependencies:
-- clone the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl) into `deps/3rd-party/cnl`.
-- clone [cpu_features](https://github.com/google/cpu_features) into `deps/3rd-party/cpu_features`
-- clone [fmt](https://github.com/fmtlib/fmt) into `deps/3rd-party/fmt`
+- put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release 1.1.2, in `deps/3rd-party/cnl`.
+- put [cpu_features](https://github.com/google/cpu_features), release 0.6.0, into `deps/3rd-party/cpu_features`
+- put [fmt](https://github.com/fmtlib/fmt), release 7.1.3, into `deps/3rd-party/fmt`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
 - clone [ml](https://github.com/flubbe/ml) into `deps/ml`
 
@@ -37,6 +37,11 @@ Install the dependencies listed above. In the root directory, execute:
 - `cd build`
 - `cmake .. -G Ninja` (or use any generator you like)
 - `ninja`
+
+Alternatively, you can use the included build scripts:
+- Make the scripts executable: `chmod +x ./scripts/*`
+- Set up the build directory structure and download the dependencies: `./scripts/pre-build.sh`
+- Build the library and demos: `./scripts/build.sh`
 
 If everything succeeded, you should find the demo files in the `bin`-directory.
 
