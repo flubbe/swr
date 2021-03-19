@@ -45,7 +45,7 @@ Alternatively, you can use the included build scripts:
 
 If everything succeeded, you should find the demo files in the `bin`-directory.
 
-Building was tested on Linux, GCC 10.2 (with C++-20 enabled), CMake 3.19.7 and [Ninja](https://ninja-build.org/) 1.10.2.
+Building was tested on Linux, GCC 10.2 (with C++-17 enabled), CMake 3.19.7 and [Ninja](https://ninja-build.org/) 1.10.2.
 
 ## Limitations
 
