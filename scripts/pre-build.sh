@@ -26,8 +26,11 @@ git clone https://github.com/lvandeve/lodepng.git
 # mathematics library
 cd ..
 git clone https://github.com/flubbe/ml.git
+cd ml
+chmod +x ./scripts/*
+./scripts/pre-build.sh
 
-cd ..
+cd ../..
 
 #
 # Set up folder structure for build.
