@@ -377,7 +377,7 @@ public:
  */
 
 /** the (thread-)global rendering context. */
-extern thread_local struct render_device_context* global_context;
+extern thread_local render_device_context* global_context;
 
 /** assert validity of render context in debug builds. */
 #define ASSERT_INTERNAL_CONTEXT assert(impl::global_context)
@@ -387,14 +387,14 @@ extern thread_local struct render_device_context* global_context;
  */
 
 /** create a default texture. */
-void create_default_texture(struct render_device_context* context);
+void create_default_texture(render_device_context* context);
 
 /*
  * shader helpers.
  */
 
 /** create a default shader in the supplied context which outputs empty fragments. */
-void create_default_shader(struct render_device_context* context);
+void create_default_shader(render_device_context* context);
 
 } /* namespace impl */
 
