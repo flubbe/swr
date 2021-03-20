@@ -19,11 +19,11 @@ class log_device
     /** singleton */
     static log_device* singleton;
 
-  protected:
+protected:
     /** log with newline at end. */
     virtual void log_n(const std::string& message) = 0;
 
-  public:
+public:
     /** empty destructor */
     virtual ~log_device()
     {
@@ -70,7 +70,7 @@ inline void log_n()
 /** Fall-back null log device. Does not log. */
 class log_null : public log_device
 {
-  protected:
+protected:
     void log_n(const std::string&)
     {
     }
