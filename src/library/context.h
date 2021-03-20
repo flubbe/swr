@@ -87,7 +87,7 @@ struct program_info
 /** a general render device context (not associated to any output device/window). */
 class render_device_context
 {
-  public:
+public:
     /*
      * context states.
      */
@@ -326,7 +326,7 @@ class render_device_context
 /** a render device context for an SDL window. */
 class sdl_render_context : public render_device_context
 {
-  protected:
+protected:
     /** context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
     SDL_Rect ContextDimensions;
 
@@ -339,7 +339,7 @@ class sdl_render_context : public render_device_context
     /** associated SDL window. */
     SDL_Window* Window{nullptr};
 
-  public:
+public:
     /** default constructor. */
     sdl_render_context() = default;
 

@@ -65,7 +65,7 @@ struct pixel_format_descriptor
 /** convert between colors and pixels. */
 class pixel_format_converter
 {
-  public:
+public:
     /** pixel format. */
     pixel_format_descriptor pf;
 

@@ -224,7 +224,7 @@ class sampler_2d_impl : public sampler_2d
         return (associated_texture->data.data_ptrs[mipmap_level])[texel_coords.y * pitch + texel_coords.x];
     }
 
-  public:
+public:
     /** constructor. */
     sampler_2d_impl(texture_2d* tex)
     : associated_texture(tex)
