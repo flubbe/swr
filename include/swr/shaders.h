@@ -98,6 +98,18 @@ struct varying
     /** interpolation qualifier. */
     interpolation_qualifier iq{interpolation_qualifier::smooth};
 
+    /** default constructor. */
+    varying() = default;
+
+    /** initializing constructor. */
+    varying(const ml::vec4& in_value, const ml::vec4& in_dFdx, const ml::vec4& in_dFdy, interpolation_qualifier in_iq)
+    : value(in_value)
+    , dFdx(in_dFdx)
+    , dFdy(in_dFdy)
+    , iq(in_iq)
+    {
+    }
+
     /** assignment to vectors. does not reset the other values. */
     varying& operator=(ml::vec4 v)
     {
@@ -131,10 +143,10 @@ class program
     /** the context this shader is bound to. this is here e.g. for texture access. */
     context_handle Context{nullptr};
 
-  protected:
+protected:
     const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
 
-  public:
+public:
     virtual ~program()
     {
     }
