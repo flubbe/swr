@@ -66,7 +66,7 @@ class color : public swr::program
         const ml::vec4 color = varyings[0];
 
         // write color.
-        color_attachments[0] = { color.rgb(), 0.5f };
+        color_attachments[0] = {color.rgb(), 0.5f};
 
         // accept fragment.
         return swr::accept;
