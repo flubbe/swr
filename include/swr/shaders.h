@@ -42,19 +42,34 @@ union uniform
     ml::mat4x4 m4;
 
     /** default constructor. sets f to zero. */
-    uniform() : f(0) {}
+    uniform()
+    : f(0)
+    {
+    }
 
     /** integer constructor. */
-    uniform(int in_i) : i(in_i) {}
+    uniform(int in_i)
+    : i(in_i)
+    {
+    }
 
     /** float constructor. */
-    uniform(float in_f) : f(in_f) {}
+    uniform(float in_f)
+    : f(in_f)
+    {
+    }
 
     /** vector constructor. */
-    uniform(ml::vec4 in_v4) : v4(in_v4) {}
+    uniform(ml::vec4 in_v4)
+    : v4(in_v4)
+    {
+    }
 
     /** matrix constructor. */
-    uniform(const ml::mat4x4& in_m4) : m4(in_m4) {}
+    uniform(const ml::mat4x4& in_m4)
+    : m4(in_m4)
+    {
+    }
 };
 
 /**
@@ -84,7 +99,7 @@ struct varying
     interpolation_qualifier iq{interpolation_qualifier::smooth};
 
     /** assignment to vectors. does not reset the other values. */
-    varying& operator=( ml::vec4 v )
+    varying& operator=(ml::vec4 v)
     {
         value = v;
         return *this;
@@ -107,7 +122,7 @@ enum fragment_shader_result
     discard,
     accept
 };
-    
+
 /**
  * A complete graphics program, consisting of vertex- and fragment shader.
  */
@@ -116,93 +131,91 @@ class program
     /** the context this shader is bound to. this is here e.g. for texture access. */
     context_handle Context{nullptr};
 
-protected:
+  protected:
     const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
-    
-public:
+
+  public:
     virtual ~program()
-    {}
-    
-    void update_uniforms( const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* in_uniforms )
+    {
+    }
+
+    void update_uniforms(const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* in_uniforms)
     {
         uniforms = in_uniforms;
     }
-    
-    bool bind( context_handle in_context );
-            
+
+    bool bind(context_handle in_context);
+
     /** pre-link the program. */
-    virtual void pre_link( boost::container::static_vector<swr::interpolation_qualifier,geom::limits::max::varyings>& iqs )
+    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs)
     {
         // from https://www.khronos.org/opengl/wiki/Fragment_Shader:
         //
-        // "The user-defined inputs received by this fragment shader will be interpolated according to the interpolation qualifiers 
-        //  declared on the input variables declared by this fragment shader. The fragment shader's input variables must be declared 
-        //  in accord with the interface matching rules between shader stages. Specifically, between this stage and the last Vertex 
+        // "The user-defined inputs received by this fragment shader will be interpolated according to the interpolation qualifiers
+        //  declared on the input variables declared by this fragment shader. The fragment shader's input variables must be declared
+        //  in accord with the interface matching rules between shader stages. Specifically, between this stage and the last Vertex
         //  Processing shader stage in the program or pipeline object."
-        // 
+        //
         // That is, interpolation qualifiers should be set here.
-        
+
         iqs.resize(0);
 
         // !!todo: Also see https://www.khronos.org/opengl/wiki/Shader_Compilation for pre-linking setup.
     }
-    
+
     /**
      * Vertex shader entry point.
      */
-    virtual void vertex_shader
-    ( 
-        int gl_VertexID, 
-        int gl_InstanceID, 
-        const boost::container::static_vector<ml::vec4,geom::limits::max::attributes>& attribs,
-        ml::vec4& gl_Position, 
-        float& gl_PointSize, 
-        float* gl_ClipDistance, 
-        boost::container::static_vector<ml::vec4,geom::limits::max::varyings>& varyings
-    )
-    {}
-    
+    virtual void vertex_shader(
+      int gl_VertexID,
+      int gl_InstanceID,
+      const boost::container::static_vector<ml::vec4, geom::limits::max::attributes>& attribs,
+      ml::vec4& gl_Position,
+      float& gl_PointSize,
+      float* gl_ClipDistance,
+      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings)
+    {
+    }
+
     /**
      * Fragment shader entry point.
      */
-    virtual fragment_shader_result fragment_shader
-    ( 
-        const ml::vec4& gl_FragCoord, 
-        bool gl_FrontFacing, 
-        const ml::vec2& gl_PointCoord, 
-        const boost::container::static_vector<swr::varying,geom::limits::max::varyings>& varyings,
-        float& gl_FragDepth, 
-        boost::container::static_vector<ml::vec4,max_color_attachments>& color_attachments 
-    )
+    virtual fragment_shader_result fragment_shader(
+      const ml::vec4& gl_FragCoord,
+      bool gl_FrontFacing,
+      const ml::vec2& gl_PointCoord,
+      const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
+      float& gl_FragDepth,
+      boost::container::static_vector<ml::vec4, max_color_attachments>& color_attachments)
     {
         return accept;
     }
 };
-    
+
 /*
  * Interface.
  */
-    
+
 /**
  * Register a new shader.
  * \param InShader Pointer to the shader.
  * \return On success, this returns the (positive) Id of the shader. If an error occured, the return value is 0.
  */
-uint32_t RegisterShader( program* InShader );
-    
+uint32_t RegisterShader(program* InShader);
+
 /**
  * Removes a shader from the graphics pipeline.
  *
  * \param Id The (positive) Id of the shader. If 0 is passed, the function sets last_error to invalid_value.
  */
-void UnregisterShader( uint32_t Id );
-    
+void UnregisterShader(uint32_t Id);
+
 /**
  * Bind a shader.
  *
  * \param Id The Id of the shader. If zero is passed, an empty shader is selected.
  * \return Returns false if the Id was invalid.
  */
-bool BindShader( uint32_t Id );
-    
-}
+bool BindShader(uint32_t Id);
+
+}    // namespace swr
