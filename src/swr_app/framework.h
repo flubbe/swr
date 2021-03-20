@@ -19,7 +19,7 @@ namespace swr_app
 /** SDL window with an associated SDL renderer and software renderer context. */
 class renderwindow
 {
-protected:
+  protected:
     /** window title. */
     std::string title;
 
@@ -30,20 +30,22 @@ protected:
     swr::context_handle context{nullptr};
 
     /** The main SDL window. */
-    SDL_Window *sdl_window{nullptr};
-    
+    SDL_Window* sdl_window{nullptr};
+
     /** Main SDL renderer. */
-    SDL_Renderer *sdl_renderer{nullptr};
+    SDL_Renderer* sdl_renderer{nullptr};
 
     /** free the window and the renderer. */
     void free_resources();
-    
-public:
+
+  public:
     /** constructor. */
     renderwindow(const std::string& in_title, int in_width = 320, int in_height = 240)
-    : title(in_title), width(in_width), height(in_height)
+    : title(in_title)
+    , width(in_width)
+    , height(in_height)
     {
-        if(in_width<=0 || in_height<=0)
+        if(in_width <= 0 || in_height <= 0)
         {
             throw std::runtime_error(fmt::format("invalid window dimensions: ({},{})", in_width, in_height));
         }
@@ -74,18 +76,18 @@ public:
     }
 
     /** get the contents of the window as RGBA 32-bit values. */
-    bool get_surface_buffer_rgba32( std::vector<uint32_t>& contents ) const;
+    bool get_surface_buffer_rgba32(std::vector<uint32_t>& contents) const;
 
     /** get the contents of the window as an SDL surface. SDL_FreeSurface needs to be invoked by the caller. */
     SDL_Surface* get_surface()
     {
-        if( !sdl_renderer )
+        if(!sdl_renderer)
         {
             throw std::runtime_error("sdl_renderer==0");
         }
 
-        SDL_Surface *surface = SDL_CreateRGBSurface(0, width, height, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0);
-        if( !surface )
+        SDL_Surface* surface = SDL_CreateRGBSurface(0, width, height, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0);
+        if(!surface)
         {
             throw std::runtime_error(fmt::format("SDL_CreateRGBSurface failed: {}", SDL_GetError()));
         }
@@ -96,7 +98,7 @@ public:
     /* get window width */
     int get_surface_width() const
     {
-        if( !sdl_window )
+        if(!sdl_window)
         {
             return 0;
         }
@@ -108,11 +110,11 @@ public:
     /* get window height */
     int get_surface_height() const
     {
-        if( !sdl_window )
+        if(!sdl_window)
         {
             return 0;
         }
-        
+
         auto surface = SDL_GetWindowSurface(sdl_window);
         return surface ? surface->h : 0;
     }
@@ -133,14 +135,14 @@ class application
     /** global_app mutex. */
     static std::mutex global_app_mtx;
 
-protected:
+  protected:
     /** the renderer. */
     renderwindow* window{nullptr};
 
     /** An indicator showing whether we want to run or exit the program. */
     bool quit_program{false};
 
-public:
+  public:
     /** instance initialization */
     static void initialize_instance();
 
@@ -155,7 +157,7 @@ public:
     }
 
     /** thread-safe singleton setter. */
-    static void set_instance( application* new_app )
+    static void set_instance(application* new_app)
     {
         std::lock_guard<std::mutex> lock(global_app_mtx);
         global_app = new_app;
@@ -166,7 +168,7 @@ public:
     {
         std::lock_guard<std::mutex> lock(global_app_mtx);
 
-        if( !global_app )
+        if(!global_app)
         {
             throw std::runtime_error("application not initialized");
         }
@@ -178,17 +180,17 @@ public:
     static void quit()
     {
         std::lock_guard<std::mutex> lock(global_app_mtx);
-        if( global_app )
+        if(global_app)
         {
             global_app->quit_program = true;
         }
     }
 
-public:
+  public:
     /** constructor. */
     application()
     {
-        if( has_instance() )
+        if(has_instance())
         {
             throw std::runtime_error("multiple applications");
         }
@@ -205,16 +207,19 @@ public:
 
     /** override this e.g. to create a render window. */
     virtual void initialize()
-    {}
+    {
+    }
 
     /** override this e,g, for global resource de-allocation. */
     virtual void shutdown()
-    {}
+    {
+    }
 
     /** event loop. this only renders frames until a quit condition is met. does not process input. */
     virtual void event_loop()
     {
-        while (!quit_program && window) {
+        while(!quit_program && window)
+        {
             window->update();
         }
     }
@@ -257,6 +262,6 @@ struct boost_global_fixture
     }
 };
 
-#endif 
+#endif
 
 } /* namespace swr_app */

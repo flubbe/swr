@@ -26,56 +26,52 @@ namespace shader
 /** A shader that applies the diffuse texture. */
 class texture : public swr::program
 {
-public:
-    virtual void pre_link( boost::container::static_vector<swr::interpolation_qualifier,geom::limits::max::varyings>& iqs ) override
+  public:
+    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
     {
         // set varying count and interpolation qualifiers.
         iqs.resize(1);
         iqs[0] = swr::interpolation_qualifier::smooth;
     }
-    
-    void vertex_shader
-    ( 
-        int gl_VertexID, 
-        int gl_InstanceID, 
-        const boost::container::static_vector<ml::vec4,geom::limits::max::attributes>& attribs,
-        ml::vec4& gl_Position, 
-        float& gl_PointSize, 
-        float* gl_ClipDistance, 
-        boost::container::static_vector<ml::vec4,geom::limits::max::varyings>& varyings
-    ) override
+
+    void vertex_shader(
+      int gl_VertexID,
+      int gl_InstanceID,
+      const boost::container::static_vector<ml::vec4, geom::limits::max::attributes>& attribs,
+      ml::vec4& gl_Position,
+      float& gl_PointSize,
+      float* gl_ClipDistance,
+      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) override
     {
         ml::mat4x4 proj = (*uniforms)[0].m4;
         ml::mat4x4 view = (*uniforms)[1].m4;
 
         // transform vertex.
         gl_Position = proj * (view * attribs[0]);
-        
+
         // pass texture coordinates to fragment shader.
         varyings[0] = attribs[1];
     }
-    
-    swr::fragment_shader_result fragment_shader
-    ( 
-        const ml::vec4& gl_FragCoord, 
-        bool gl_FrontFacing, 
-        const ml::vec2& gl_PointCoord, 
-        const boost::container::static_vector<swr::varying,geom::limits::max::varyings>& varyings,
-        float& gl_FragDepth, 
-        boost::container::static_vector<ml::vec4,swr::max_color_attachments>& color_attachments 
-    ) override
+
+    swr::fragment_shader_result fragment_shader(
+      const ml::vec4& gl_FragCoord,
+      bool gl_FrontFacing,
+      const ml::vec2& gl_PointCoord,
+      const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
+      float& gl_FragDepth,
+      boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) override
     {
         // texture coordinates.
         const ml::vec4 tex_coords = varyings[0];
-        
+
         // get texture from uniform.
         uint32_t tex_id = (*uniforms)[2].i;
-        swr::sampler_2d* sampler = swr::GetSampler2d( tex_id );
-        ml::vec4 color = sampler->sample_at( tex_coords.xy() );
+        swr::sampler_2d* sampler = swr::GetSampler2d(tex_id);
+        ml::vec4 color = sampler->sample_at(tex_coords.xy());
 
         // write fragment color.
         color_attachments[0] = color;
-        
+
         // accept fragment.
         return swr::accept;
     }

@@ -47,7 +47,7 @@ struct render_states
 
     /* textures */
     struct texture_2d* tex_2d{nullptr};
-    
+
     /* shaders */
     struct program_info* shader_info{nullptr};
     boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations> uniforms;

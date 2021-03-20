@@ -11,7 +11,10 @@
 /* user headers. */
 #include "swr_internal.h"
 
-namespace swr { namespace stats {
+namespace swr
+{
+namespace stats
+{
 
 void get_fragment_data(fragment_data& data)
 {
@@ -19,4 +22,5 @@ void get_fragment_data(fragment_data& data)
     data = impl::global_context->stats_frag;
 }
 
-} } /* namespace swr::stats */
+}    // namespace stats
+}    // namespace swr

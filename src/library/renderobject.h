@@ -37,25 +37,28 @@ struct render_object
 
     /** Constructors */
     render_object()
-    {}
+    {
+    }
 
     /** Initialize the object with vertices in sequential order. */
-    render_object( std::size_t count, vertex_buffer_mode in_mode, const render_states& in_states )
-        : vertices( count ), indices( count )
-        , mode( in_mode )
-        , states( in_states )
+    render_object(std::size_t count, vertex_buffer_mode in_mode, const render_states& in_states)
+    : vertices(count)
+    , indices(count)
+    , mode(in_mode)
+    , states(in_states)
     {
         // populate index buffer with consecutive numbers.
         std::iota(std::begin(indices), std::end(indices), 0);
     }
 
     /** Initialize the object with vertices and indices. */
-    render_object( const index_buffer& in_indices, vertex_buffer_mode in_mode, const render_states& in_states )
-        : vertices( in_indices.size() )
-        , indices( in_indices )
-        , mode( in_mode )
-        , states( in_states )
-    {}
+    render_object(const index_buffer& in_indices, vertex_buffer_mode in_mode, const render_states& in_states)
+    : vertices(in_indices.size())
+    , indices(in_indices)
+    , mode(in_mode)
+    , states(in_states)
+    {
+    }
 };
 
 } /* namespace impl */

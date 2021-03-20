@@ -17,16 +17,16 @@
 
 namespace platform
 {
-    
+
 /** log_device singleton */
 static log_null null_log;
 log_device* log_device::singleton{&null_log};
-        
+
 /*
  * singleton interface 
  */
-    
-void log_device::set( log_device* new_singleton )
+
+void log_device::set(log_device* new_singleton)
 {
     if(new_singleton)
     {
@@ -37,16 +37,16 @@ void log_device::set( log_device* new_singleton )
         singleton = &null_log;
     }
 }
-    
+
 log_device& log_device::get()
 {
     assert(is_initialized());
     return *singleton;
 }
-    
+
 void log_device::cleanup()
 {
     singleton = &null_log;
 }
-    
+
 } /* namespace platform */

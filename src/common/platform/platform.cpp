@@ -14,13 +14,13 @@
 
 /* SDL */
 #ifndef __linux__
-#ifdef __APPLE__
-#include <SDL.h>
+#    ifdef __APPLE__
+#        include <SDL.h>
+#    else
+#        include "SDL.h"
+#    endif
 #else
-#include "SDL.h"
-#endif
-#else
-#include <SDL2/SDL.h>
+#    include <SDL2/SDL.h>
 #endif
 
 #include "platform.h"
@@ -34,7 +34,7 @@ static SDL_LogOutputFunction default_sdl_log{nullptr};
 /** map SDL output to log device. */
 void sdl_log(void* userdata, int category, SDL_LogPriority priority, const char* message)
 {
-    logf( "{}", message );
+    logf("{}", message);
 }
 
 /**
@@ -46,45 +46,45 @@ void sdl_log(void* userdata, int category, SDL_LogPriority priority, const char*
  *
  * early subsystems may later be handed over to other systems
  */
-void global_initialize( log_device* in_log )
+void global_initialize(log_device* in_log)
 {
-    if( in_log )
+    if(in_log)
     {
-        log_device::set( in_log );
+        log_device::set(in_log);
     }
-    logf( "logging enabled" );
+    logf("logging enabled");
 
     get_cpu_info();
-    logf( "std::thread::hardware_concurrency: {0}", std::thread::hardware_concurrency() );
-    
+    logf("std::thread::hardware_concurrency: {0}", std::thread::hardware_concurrency());
+
     /* map SDL output to log. */
-    SDL_LogGetOutputFunction( &default_sdl_log, nullptr );
-    SDL_LogSetOutputFunction( &sdl_log, nullptr );
-    
-    logf( "platform initialized" );
+    SDL_LogGetOutputFunction(&default_sdl_log, nullptr);
+    SDL_LogSetOutputFunction(&sdl_log, nullptr);
+
+    logf("platform initialized");
 }
-    
+
 void global_shutdown()
 {
     /* reset SDL log. */
-    if( default_sdl_log != nullptr )
+    if(default_sdl_log != nullptr)
     {
-        SDL_LogSetOutputFunction( default_sdl_log, nullptr );
+        SDL_LogSetOutputFunction(default_sdl_log, nullptr);
         default_sdl_log = nullptr;
     }
-    
-    logf( "platform shut down" );
+
+    logf("platform shut down");
     log_device::cleanup();
 }
 
-void set_log( log_device* in_log )
+void set_log(log_device* in_log)
 {
     // reset log device to null_log.
     log_device::cleanup();
 
-    if( in_log )
+    if(in_log)
     {
-        log_device::set( in_log );
+        log_device::set(in_log);
     }
 }
 

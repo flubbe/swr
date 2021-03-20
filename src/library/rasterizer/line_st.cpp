@@ -16,7 +16,7 @@
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
- 
+
 /* C++ headers */
 #include <vector>
 #include <list>
@@ -41,38 +41,40 @@ struct line_info
 {
     /** the vertices of the line. after calling setup, v1 contains the left-most vertex (for x-major lines) resp. the upper-most (for y-major lines) vertex. */
     const geom::vertex *v1, *v2;
-    
+
     /** Line deltas. These are always with respect to v1 as initial vertex and v2 as end vertex. */
     float dx, dy;
-    
+
     /** maximum of the absolute values of the deltas. */
     const float max_absolute_delta;
-    
+
     /** If the line is parameterized over the x axis (i.e. if abs(dy)<=abs(dx)), this is true. */
     const bool is_x_major;
-        
+
     /** Calculated start- and end offsets. */
-    ml::vec2 offset_v1{0.f,0.f};
-    ml::vec2 offset_v2{0.f,0.f};
+    ml::vec2 offset_v1{0.f, 0.f};
+    ml::vec2 offset_v2{0.f, 0.f};
 
     /** no default constructor. */
     line_info() = delete;
-    
+
     /** constructor. */
-    line_info( const geom::vertex& in_v1, const geom::vertex& in_v2 )
-    : v1{&in_v1}, v2{&in_v2}
+    line_info(const geom::vertex& in_v1, const geom::vertex& in_v2)
+    : v1{&in_v1}
+    , v2{&in_v2}
     , dx{in_v2.coords.x - in_v1.coords.x}
     , dy{in_v2.coords.y - in_v1.coords.y}
-    , max_absolute_delta{ std::max( std::abs(dx), std::abs(dy) ) }
+    , max_absolute_delta{std::max(std::abs(dx), std::abs(dy))}
     , is_x_major{std::abs(dy) <= std::abs(dx)}
-    {}
+    {
+    }
 
     /** implement diamond exit rule and set up line info. */
     void setup();
 };
 
 /** extract the fractional part of a positive float */
-static float fracf( float f )
+static float fracf(float f)
 {
     return f - std::floor(f);
 }
@@ -99,37 +101,37 @@ static float fracf( float f )
 void line_info::setup()
 {
     /* distance from vertices to the mid-point of the pixel. */
-    ml::vec2 v1_diff = { fracf(v1->coords.x) - 0.5f, fracf(v1->coords.y) - 0.5f };
-    ml::vec2 v2_diff = { fracf(v2->coords.x) - 0.5f, fracf(v2->coords.y) - 0.5f };
+    ml::vec2 v1_diff = {fracf(v1->coords.x) - 0.5f, fracf(v1->coords.y) - 0.5f};
+    ml::vec2 v2_diff = {fracf(v2->coords.x) - 0.5f, fracf(v2->coords.y) - 0.5f};
 
     /* should we draw the start (resp. end) pixel? */
     bool should_draw_start{false}, should_draw_end{false};
 
     /* are we already drawing the start (resp. end) pixel? */
     bool is_drawing_start{true}, is_drawing_end{false};
-    
-    if( is_x_major )
+
+    if(is_x_major)
     {
         auto dydx = dy / dx;
         assert(dydx >= -1 && dydx <= 1);
 
         /* check if the end point lies vertically exactly between two pixels and the line is coming from above */
-        if( v2_diff.y == -0.5 && dy>=0 )
+        if(v2_diff.y == -0.5 && dy >= 0)
         {
             /* in this case, the pixel above should be considered as the ending pixel, so we need to adjust v2_diff.y. */
             v2_diff.y = 0.5;
         }
-        
+
         /*
          * check if the starting pixel should (potentially) be drawn.
          */
 
-        if( std::abs(v1_diff.x) + std::abs(v1_diff.y) < 0.5f )
+        if(std::abs(v1_diff.x) + std::abs(v1_diff.y) < 0.5f)
         {
             // we start inside the diamond.
             should_draw_start = true;
         }
-        else if( boost::math::sign(-dx) == boost::math::sign( -v1_diff.x ) )
+        else if(boost::math::sign(-dx) == boost::math::sign(-v1_diff.x))
         {
             /*
              * we start outside the diamond, and one of the following holds:
@@ -141,7 +143,7 @@ void line_info::setup()
              */
             should_draw_start = false;
         }
-        else if( boost::math::sign(-dy) != boost::math::sign( -v1_diff.y ) )
+        else if(boost::math::sign(-dy) != boost::math::sign(-v1_diff.y))
         {
             /*
              * from the previous if-clauses, we start outside the diamond and potentially cross it horizontally.
@@ -168,13 +170,13 @@ void line_info::setup()
         /*
          * End pixel.
          */
-        
-        if( std::abs(v2_diff.x) + std::abs(v2_diff.y) < 0.5f )
+
+        if(std::abs(v2_diff.x) + std::abs(v2_diff.y) < 0.5f)
         {
             // we end inside the diamond.
             should_draw_end = false;
         }
-        else if( boost::math::sign(-dx) == boost::math::sign(v2_diff.x) )
+        else if(boost::math::sign(-dx) == boost::math::sign(v2_diff.x))
         {
             /*
              * we start outside the diamond, and one of the following holds:
@@ -186,7 +188,7 @@ void line_info::setup()
              */
             should_draw_end = false;
         }
-        else if( boost::math::sign(dy) == boost::math::sign( v2_diff.y ) )
+        else if(boost::math::sign(dy) == boost::math::sign(v2_diff.y))
         {
             /*
              * from the previous if-clauses, we end outside the diamond and potentially crossed it horizontally.
@@ -214,24 +216,24 @@ void line_info::setup()
          * Check if the calculated pixel center directions agree with the line directions.
          * If they do not agree, we need to modify the line's start point (resp. end point).
          */
-        is_drawing_start = boost::math::sign( v1_diff.x ) != boost::math::sign( dx );
-        is_drawing_end = boost::math::sign( v2_diff.x ) != boost::math::sign( -dx );
+        is_drawing_start = boost::math::sign(v1_diff.x) != boost::math::sign(dx);
+        is_drawing_end = boost::math::sign(v2_diff.x) != boost::math::sign(-dx);
 
-        if( dx < 0 )
+        if(dx < 0)
         {
             std::swap(v1, v2);
             std::swap(v1_diff, v2_diff);
-            
+
             dx = -dx;
             dy = -dy;
 
-            if( should_draw_start != is_drawing_start )
+            if(should_draw_start != is_drawing_start)
             {
                 offset_v2.x = -v2_diff.x + 0.5f;
                 offset_v2.y = offset_v2.x * dydx;
             }
 
-            if( should_draw_end != is_drawing_end )
+            if(should_draw_end != is_drawing_end)
             {
                 offset_v1.x = -v1_diff.x + 0.5f;
                 offset_v1.y = offset_v1.x * dydx;
@@ -239,13 +241,13 @@ void line_info::setup()
         }
         else
         {
-            if( should_draw_start != is_drawing_start )
+            if(should_draw_start != is_drawing_start)
             {
                 offset_v1.x = -v1_diff.x - 0.5f;
                 offset_v1.y = offset_v1.x * dydx;
             }
 
-            if( should_draw_end != is_drawing_end )
+            if(should_draw_end != is_drawing_end)
             {
                 offset_v2.x = -v2_diff.x - 0.5f;
                 offset_v2.y = offset_v2.x * dydx;
@@ -257,24 +259,24 @@ void line_info::setup()
         auto dxdy = dx / dy;
         assert(dxdy >= -1 && dxdy <= 1);
 
-        if( v2_diff.x == -0.5 && dx>=0 )
+        if(v2_diff.x == -0.5 && dx >= 0)
         {
             v2_diff.x = 0.5;
         }
-        
+
         /*
          * Start pixel.
          */
-        
-        if( std::abs(v1_diff.x) + std::abs(v1_diff.y) < 0.5f )
+
+        if(std::abs(v1_diff.x) + std::abs(v1_diff.y) < 0.5f)
         {
             should_draw_start = true;
         }
-        else if( boost::math::sign(-dy) == boost::math::sign( - v1_diff.y ) )
+        else if(boost::math::sign(-dy) == boost::math::sign(-v1_diff.y))
         {
             should_draw_start = false;
         }
-        else if( boost::math::sign(-dx) != boost::math::sign( -v1_diff.x ) )
+        else if(boost::math::sign(-dx) != boost::math::sign(-v1_diff.x))
         {
             should_draw_start = true;
         }
@@ -283,20 +285,20 @@ void line_info::setup()
             float xintersect = fracf(v1->coords.x) + dxdy * v1_diff.y;
             should_draw_start = (xintersect >= 0 && xintersect < 1);
         }
-        
+
         /*
          * End pixel.
          */
-        
-        if( std::abs(v2_diff.x) + std::abs(v2_diff.y) < 0.5f )
+
+        if(std::abs(v2_diff.x) + std::abs(v2_diff.y) < 0.5f)
         {
             should_draw_end = false;
         }
-        else if( boost::math::sign(dy) != boost::math::sign(v2_diff.y) )
+        else if(boost::math::sign(dy) != boost::math::sign(v2_diff.y))
         {
             should_draw_end = false;
         }
-        else if( boost::math::sign(dx) == boost::math::sign( v2_diff.x ) )
+        else if(boost::math::sign(dx) == boost::math::sign(v2_diff.x))
         {
             should_draw_end = true;
         }
@@ -305,29 +307,29 @@ void line_info::setup()
             float xintersect = fracf(v2->coords.x) + dxdy * v2_diff.y;
             should_draw_end = (xintersect >= 0 && xintersect < 1);
         }
-        
+
         /*
          * Check if the calculated pixel center directions agree with the line directions.
          * If they do not agree, we need to modify the line's start point (resp. end point).
          */
-        is_drawing_start = boost::math::sign( v1_diff.y ) == boost::math::sign( -dy );
-        is_drawing_end = boost::math::sign( -v2_diff.y ) == boost::math::sign( -dy ) || (v2_diff.y == 0);
-            
-        if( dy < 0 )
+        is_drawing_start = boost::math::sign(v1_diff.y) == boost::math::sign(-dy);
+        is_drawing_end = boost::math::sign(-v2_diff.y) == boost::math::sign(-dy) || (v2_diff.y == 0);
+
+        if(dy < 0)
         {
             std::swap(v1, v2);
             std::swap(v1_diff, v2_diff);
-            
+
             dx = -dx;
             dy = -dy;
-            
-            if( should_draw_start != is_drawing_start )
+
+            if(should_draw_start != is_drawing_start)
             {
                 offset_v2.y = -v2_diff.y + 0.5f;
                 offset_v2.x = offset_v2.y * dxdy;
             }
-            
-            if( should_draw_end != is_drawing_end )
+
+            if(should_draw_end != is_drawing_end)
             {
                 offset_v1.y = -v1_diff.y + 0.5f;
                 offset_v1.x = offset_v1.y * dxdy;
@@ -335,13 +337,13 @@ void line_info::setup()
         }
         else
         {
-            if( should_draw_start != is_drawing_start )
+            if(should_draw_start != is_drawing_start)
             {
                 offset_v1.y = -v1_diff.y - 0.5f;
                 offset_v1.x = offset_v1.y * dxdy;
             }
-            
-            if( should_draw_end != is_drawing_end )
+
+            if(should_draw_end != is_drawing_end)
             {
                 offset_v2.y = -v2_diff.y - 0.5f;
                 offset_v2.x = offset_v2.y * dxdy;
@@ -349,8 +351,8 @@ void line_info::setup()
         }
     }
 }
-    
-void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states& States, bool InDrawEndPoint, const geom::vertex& V1, const geom::vertex& V2 )
+
+void sweep_rasterizer_single_threaded::draw_line(const swr::impl::render_states& States, bool InDrawEndPoint, const geom::vertex& V1, const geom::vertex& V2)
 {
     line_info info{V1, V2};
 
@@ -359,7 +361,7 @@ void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states
     {
         return;
     }
-    
+
     // set up line info.
     info.setup();
 
@@ -371,7 +373,7 @@ void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states
     ml::fixed_t fix_dp, fix_dv;
     ml::fixed_t p, v;
     ml::fixed_t inc_v;
-    
+
     /*
      * Initialize the error/decision variable.
      *
@@ -396,24 +398,24 @@ void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states
 
     ml::fixed_t error;
     ml::fixed_t end_p;
-    
+
     // get line values.
     ml::fixed_t start_x = info.v1->coords.x + info.offset_v1.x;
     ml::fixed_t start_y = info.v1->coords.y + info.offset_v1.y;
 
     // initialize gradients along the line.
-    rast::line_interpolator attr( *info.v1, *info.v2, States.shader_info->iqs, 1.0f / info.max_absolute_delta );
+    rast::line_interpolator attr(*info.v1, *info.v2, States.shader_info->iqs, 1.0f / info.max_absolute_delta);
     attr.setup(0.f);
 
     // advance to pixel center and initialize end coordinate.
-    if( info.is_x_major )
+    if(info.is_x_major)
     {
         // calculate parameter range, value range and parameter increment.
-        fix_dp = ml::fixed_t( info.dx );
-        fix_dv = ml::fixed_t( std::abs(info.dy) );
-        
+        fix_dp = ml::fixed_t(info.dx);
+        fix_dv = ml::fixed_t(std::abs(info.dy));
+
         inc_v = boost::math::sign(info.dy);
-        
+
         /*
          * set initial parameter, value and error.
          *
@@ -422,19 +424,19 @@ void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states
          */
         p = start_x;
         v = start_y;
-        error = fix_dv*2 - fix_dp;
+        error = fix_dv * 2 - fix_dp;
 
         // set final parameter
-        end_p = ml::fixed_t( std::min(info.v2->coords.x + info.offset_v2.x, static_cast<float>(raster_width-1) ));
+        end_p = ml::fixed_t(std::min(info.v2->coords.x + info.offset_v2.x, static_cast<float>(raster_width - 1)));
     }
     else
     {
         // calculate parameter range, value range and parameter increment.
-        fix_dp = ml::fixed_t( info.dy );
-        fix_dv = ml::fixed_t( std::abs(info.dx) );
-        
+        fix_dp = ml::fixed_t(info.dy);
+        fix_dv = ml::fixed_t(std::abs(info.dx));
+
         inc_v = boost::math::sign(info.dx);
-        
+
         /*
          * set initial parameter, value and error.
          *
@@ -443,22 +445,22 @@ void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states
          */
         p = start_y;
         v = start_x;
-        error = fix_dv*2 - fix_dp;
+        error = fix_dv * 2 - fix_dp;
 
         // set final parameter
-        end_p = ml::fixed_t( std::min( info.v2->coords.y + info.offset_v2.y, static_cast<float>(raster_height-1) ));
+        end_p = ml::fixed_t(std::min(info.v2->coords.y + info.offset_v2.y, static_cast<float>(raster_height - 1)));
     }
-        
+
     /*
      * Execute Bresenham's line drawing algorithm.
      */
-    
-    boost::container::static_vector<swr::varying,geom::limits::max::varyings> temp_varyings( attr.varyings.size() );
-    if( info.is_x_major )
+
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings(attr.varyings.size());
+    if(info.is_x_major)
     {
-        while( p < end_p )
+        while(p < end_p)
         {
-            for( size_t i=0;i<attr.varyings.size();++i )
+            for(size_t i = 0; i < attr.varyings.size(); ++i)
             {
                 temp_varyings[i].value = attr.varyings[i].value;
                 temp_varyings[i].dFdx = attr.varyings[i].dFdx;
@@ -467,29 +469,29 @@ void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states
             }
 
             // only draw the fragment if it is inside the viewport.
-            if( v >= 0 && v < raster_height )
+            if(v >= 0 && v < raster_height)
             {
-                rast::fragment_info info( attr.depth_value.value, true, &temp_varyings );
-                process_fragment( ml::integral_part(p), ml::integral_part(v), States, attr.one_over_viewport_z.value, info );
+                rast::fragment_info info(attr.depth_value.value, true, &temp_varyings);
+                process_fragment(ml::integral_part(p), ml::integral_part(v), States, attr.one_over_viewport_z.value, info);
             }
-            
+
             // update error variable.
-            if( error > 0 )
+            if(error > 0)
             {
                 v += inc_v;
-                error -= fix_dp*2;
+                error -= fix_dp * 2;
             }
-            error += fix_dv*2;
-            
+            error += fix_dv * 2;
+
             ++p;
             attr.advance();
         }
     }
     else
     {
-        while( p < end_p )
+        while(p < end_p)
         {
-            for( size_t i=0;i<attr.varyings.size();++i )
+            for(size_t i = 0; i < attr.varyings.size(); ++i)
             {
                 temp_varyings[i].value = attr.varyings[i].value;
                 temp_varyings[i].dFdx = attr.varyings[i].dFdx;
@@ -498,21 +500,21 @@ void sweep_rasterizer_single_threaded::draw_line( const swr::impl::render_states
             }
 
             // only draw the fragment if it is inside the viewport.
-            if( v >= 0 && v < raster_width )
+            if(v >= 0 && v < raster_width)
             {
-                rast::fragment_info info( attr.depth_value.value, true, &temp_varyings );
-                process_fragment( ml::integral_part(v), ml::integral_part(p), States, attr.one_over_viewport_z.value, info );
+                rast::fragment_info info(attr.depth_value.value, true, &temp_varyings);
+                process_fragment(ml::integral_part(v), ml::integral_part(p), States, attr.one_over_viewport_z.value, info);
             }
-            
-            // update error variable.
-            error += fix_dv*2;
 
-            if( error > 0 )
+            // update error variable.
+            error += fix_dv * 2;
+
+            if(error > 0)
             {
                 v += inc_v;
-                error -= fix_dp*2;
+                error -= fix_dp * 2;
             }
-            
+
             ++p;
             attr.advance();
         }

@@ -23,19 +23,21 @@ struct fragment_info
     bool front_facing;
 
     /** Veryings. */
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings>* Varyings=nullptr;
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings>* Varyings = nullptr;
 
     /** no default constructor. */
     fragment_info() = delete;
 
     /** constructor. */
     fragment_info(
-                 float depth,
-                 bool in_front_facing,
-                 boost::container::static_vector<swr::varying, geom::limits::max::varyings>* InVaryings
-                 )
-        : depth_value(depth), front_facing(in_front_facing), Varyings(InVaryings)
-    {}
+      float depth,
+      bool in_front_facing,
+      boost::container::static_vector<swr::varying, geom::limits::max::varyings>* InVaryings)
+    : depth_value(depth)
+    , front_facing(in_front_facing)
+    , Varyings(InVaryings)
+    {
+    }
 };
 
 } /* namespace rast */

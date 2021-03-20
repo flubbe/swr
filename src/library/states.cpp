@@ -23,23 +23,23 @@ void SetState(state s, bool enable)
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* Context = impl::global_context;
 
-    if (s == state::blend)
+    if(s == state::blend)
     {
         Context->RenderStates.blending_enabled = enable;
     }
-    else if (s == state::cull_face)
+    else if(s == state::cull_face)
     {
         Context->RenderStates.culling_enabled = enable;
     }
-    else if (s == state::depth_test)
+    else if(s == state::depth_test)
     {
         Context->RenderStates.depth_test_enabled = enable;
     }
-    else if (s == state::depth_write)
+    else if(s == state::depth_write)
     {
         Context->RenderStates.write_depth = enable;
     }
-    else if (s == state::scissor_test)
+    else if(s == state::scissor_test)
     {
         Context->RenderStates.scissor_test_enabled = enable;
     }
@@ -50,23 +50,23 @@ bool GetState(state s)
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* Context = impl::global_context;
 
-    if (s == state::blend)
+    if(s == state::blend)
     {
         return Context->RenderStates.blending_enabled;
     }
-    else if (s == state::cull_face)
+    else if(s == state::cull_face)
     {
         return Context->RenderStates.culling_enabled;
     }
-    else if (s == state::depth_test)
+    else if(s == state::depth_test)
     {
         return Context->RenderStates.depth_test_enabled;
     }
-    else if (s == state::depth_write)
+    else if(s == state::depth_write)
     {
         return Context->RenderStates.write_depth;
     }
-    else if (s == state::scissor_test)
+    else if(s == state::scissor_test)
     {
         return Context->RenderStates.scissor_test_enabled;
     }
@@ -78,12 +78,12 @@ bool GetState(state s)
  * blending.
  */
 
-void SetBlendFunc( blend_func sfactor, blend_func dfactor )
+void SetBlendFunc(blend_func sfactor, blend_func dfactor)
 {
     ASSERT_INTERNAL_CONTEXT;
     auto* Context = impl::global_context;
 
-    if( Context->im_declaring_primitives )
+    if(Context->im_declaring_primitives)
     {
         Context->last_error = error::invalid_operation;
         return;
@@ -109,7 +109,7 @@ blend_func GetDestinationBlendFunc()
  * depth test. 
  */
 
-void SetDepthTest( comparison_func func )
+void SetDepthTest(comparison_func func)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* Context = impl::global_context;

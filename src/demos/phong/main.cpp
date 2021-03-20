@@ -66,7 +66,7 @@ class demo_cube : public swr_app::renderwindow
     float cube_rotation{0};
 
     /** light position. */
-    ml::vec4 light_position{0,0,0,1};
+    ml::vec4 light_position{0, 0, 0, 1};
 
     /** reference time to provide animation. */
     Uint32 reference_time{0};
@@ -80,20 +80,21 @@ class demo_cube : public swr_app::renderwindow
     /** viewport height. */
     static const int height = 480;
 
-public:
+  public:
     /** constructor. */
     demo_cube()
     : swr_app::renderwindow(demo_title, width, height)
-    {}
+    {
+    }
 
     bool create()
     {
-        if( !renderwindow::create() )
+        if(!renderwindow::create())
         {
             return false;
         }
 
-        if( context )
+        if(context)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -104,59 +105,59 @@ public:
         {
             throw std::runtime_error("MakeContextCurrent failed");
         }
-        
+
         swr::SetClearColor(0, 0, 0, 0);
         swr::SetClearDepth(1.0f);
-        swr::SetViewport(0,0,width,height);
+        swr::SetViewport(0, 0, width, height);
 
         swr::SetState(swr::state::cull_face, true);
         swr::SetState(swr::state::depth_test, true);
 
         shader_id = swr::RegisterShader(&shader);
-        if( !shader_id )
+        if(!shader_id)
         {
             throw std::runtime_error("shader registration failed");
         }
 
         // set projection matrix.
-        proj = ml::matrices::perspective_projection( static_cast<float>(width)/static_cast<float>(height), static_cast<float>(M_PI/2.f), 1.f, 10.f );
+        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI / 2.f), 1.f, 10.f);
 
         // load cube.
         std::vector<uint32_t> indices = {
-            #define FACE_LIST(...) __VA_ARGS__
-            #include "../common/cube.geom"
-            #undef FACE_LIST
+#define FACE_LIST(...) __VA_ARGS__
+#include "../common/cube.geom"
+#undef FACE_LIST
         };
-        cube_indices = swr::CreateIndexBuffer( indices );
+        cube_indices = swr::CreateIndexBuffer(indices);
 
         std::vector<ml::vec4> vertices = {
-            #define VERTEX_LIST(...) __VA_ARGS__
-            #include "../common/cube.geom"
-            #undef VERTEX_LIST
+#define VERTEX_LIST(...) __VA_ARGS__
+#include "../common/cube.geom"
+#undef VERTEX_LIST
         };
         cube_verts = swr::CreateAttributeBuffer(vertices);
 
         std::vector<ml::vec4> uvs = {
-            #define UV_LIST(...) __VA_ARGS__
-            #include "../common/cube.geom"
-            #undef UV_LIST
+#define UV_LIST(...) __VA_ARGS__
+#include "../common/cube.geom"
+#undef UV_LIST
         };
         cube_uvs = swr::CreateAttributeBuffer(uvs);
 
         std::vector<ml::vec4> normals = {
-            #define NORMAL_LIST(...) __VA_ARGS__
-            #include "../common/cube.geom"
-            #undef NORMAL_LIST
+#define NORMAL_LIST(...) __VA_ARGS__
+#include "../common/cube.geom"
+#undef NORMAL_LIST
         };
         cube_normals = swr::CreateAttributeBuffer(normals);
 
         // cube texture.
         std::vector<uint8_t> img_data;
         uint32_t w = 0, h = 0;
-        uint32_t ret = lodepng::decode(img_data, w, h, "../textures/crate1/crate1_diffuse.png" );
+        uint32_t ret = lodepng::decode(img_data, w, h, "../textures/crate1/crate1_diffuse.png");
         if(ret != 0)
         {
-            platform::logf( "[!!] lodepng error: {}", lodepng_error_text(ret) );
+            platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));
             return false;
         }
         cube_tex = swr::CreateTexture(w, h, swr::pixel_format::rgba8888, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat, img_data);
@@ -180,31 +181,31 @@ public:
         cube_verts = 0;
         cube_indices = 0;
 
-        if( shader_id )
+        if(shader_id)
         {
-            if( context )
+            if(context)
             {
                 swr::UnregisterShader(shader_id);
-            } 
+            }
             shader_id = 0;
         }
 
-        if( context )
+        if(context)
         {
             swr::DestroyContext(context);
             context = nullptr;
         }
 
-        renderwindow::destroy();        
+        renderwindow::destroy();
     }
 
     void update()
     {
         // gracefully exit when asked.
         SDL_Event e;
-        if (SDL_PollEvent(&e))
+        if(SDL_PollEvent(&e))
         {
-            if (e.type == SDL_QUIT)
+            if(e.type == SDL_QUIT)
             {
                 swr_app::application::quit();
                 return;
@@ -215,21 +216,21 @@ public:
          * update time.
          */
         Uint32 ticks = SDL_GetTicks();
-        float delta_time = static_cast<float>(ticks + reference_time)/1000.f;
+        float delta_time = static_cast<float>(ticks + reference_time) / 1000.f;
         reference_time = -ticks;
 
         /*
          * update animation.
          */
-        cube_rotation += 0.2f*delta_time;
-        if(cube_rotation > 2*M_PI)
+        cube_rotation += 0.2f * delta_time;
+        if(cube_rotation > 2 * M_PI)
         {
-            cube_rotation -= 2*M_PI;
+            cube_rotation -= 2 * M_PI;
         }
 
         begin_render();
-        draw_cube( ml::vec3{-4,0,-7}, cube_rotation );
-        draw_cube( ml::vec3{4,0,-7}, cube_rotation );
+        draw_cube(ml::vec3{-4, 0, -7}, cube_rotation);
+        draw_cube(ml::vec3{4, 0, -7}, cube_rotation);
         end_render();
 
         ++frame_count;
@@ -246,33 +247,33 @@ public:
         swr::Present();
         swr::CopyDefaultColorBuffer(context);
     }
-    
-    void draw_cube( ml::vec3 pos, float angle )
+
+    void draw_cube(ml::vec3 pos, float angle)
     {
-        ml::mat4x4 view = ml::matrices::translation( pos.x, pos.y, pos.z );
-        view *= ml::matrices::scaling( 2.0f );
-        view *= ml::matrices::rotation_y( angle );
-        view *= ml::matrices::rotation_z( 2*angle );
-        view *= ml::matrices::rotation_x( 3*angle );
+        ml::mat4x4 view = ml::matrices::translation(pos.x, pos.y, pos.z);
+        view *= ml::matrices::scaling(2.0f);
+        view *= ml::matrices::rotation_y(angle);
+        view *= ml::matrices::rotation_z(2 * angle);
+        view *= ml::matrices::rotation_x(3 * angle);
 
         swr::BindShader(shader_id);
-        
-        swr::EnableAttributeBuffer( cube_verts, 0 );
-        swr::EnableAttributeBuffer( cube_normals, 1 );
-        swr::EnableAttributeBuffer( cube_uvs, 2 );
 
-        swr::BindUniform( 0, proj );
-        swr::BindUniform( 1, view );
-        swr::BindUniform( 2, light_position );
-        swr::BindUniform( 3, static_cast<int>(cube_tex) );
-        
+        swr::EnableAttributeBuffer(cube_verts, 0);
+        swr::EnableAttributeBuffer(cube_normals, 1);
+        swr::EnableAttributeBuffer(cube_uvs, 2);
+
+        swr::BindUniform(0, proj);
+        swr::BindUniform(1, view);
+        swr::BindUniform(2, light_position);
+        swr::BindUniform(3, static_cast<int>(cube_tex));
+
         // draw the buffer.
-        swr::DrawIndexedElements( cube_indices, swr::vertex_buffer_mode::triangles );
-        
-        swr::DisableAttributeBuffer( cube_uvs );
-        swr::DisableAttributeBuffer( cube_normals );
-        swr::DisableAttributeBuffer( cube_verts );
-        
+        swr::DrawIndexedElements(cube_indices, swr::vertex_buffer_mode::triangles);
+
+        swr::DisableAttributeBuffer(cube_uvs);
+        swr::DisableAttributeBuffer(cube_normals);
+        swr::DisableAttributeBuffer(cube_verts);
+
         swr::BindShader(0);
     }
 
@@ -286,9 +287,9 @@ public:
 class log_iostream : public platform::log_device
 {
     std::mutex mtx;
-    
-protected:
-    void log_n( const std::string& message )
+
+  protected:
+    void log_n(const std::string& message)
     {
         std::lock_guard<std::mutex> lock(mtx); /* prevent unpredictable output interleaving */
         std::cout << message << std::endl;
@@ -301,7 +302,7 @@ class demo_app : public swr_app::application
     log_iostream log;
     Uint32 run_time{0};
 
-public:
+  public:
     /** create a window. */
     void initialize()
     {
@@ -320,9 +321,9 @@ public:
         {
             auto* w = static_cast<demo_cube*>(window);
             run_time += SDL_GetTicks();
-            float run_time_in_s = static_cast<float>(run_time)/1000.f;
+            float run_time_in_s = static_cast<float>(run_time) / 1000.f;
             float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;
-            platform::logf( "frames: {}     runtime: {:.2f}s     fps: {:.2f}", w->get_frame_count(), run_time_in_s, fps );
+            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}", w->get_frame_count(), run_time_in_s, fps);
 
             window->destroy();
 

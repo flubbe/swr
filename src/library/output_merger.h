@@ -16,7 +16,7 @@ namespace output_merger
 {
 
 /** apply blending. */
-uint32_t blend( const pixel_format_converter& pf_conv, const swr::impl::render_states& states, const uint32_t dest, const uint32_t src );
+uint32_t blend(const pixel_format_converter& pf_conv, const swr::impl::render_states& states, const uint32_t dest, const uint32_t src);
 
 } /* namespace output_merger */
 

@@ -1,18 +1,19 @@
 /**
  * swr - a software rasterizer
  * 
- * A shader that applies coloring.
+ * A shader that applies the diffuse texture.
  *
  * vertex shader input:
  *   attribute 0: vertex position
- *   attribute 1: vertex color
+ *   attribute 2: texture coordinates
  * 
  * varyings:
- *   location 0: color
+ *   location 0: texture coordinates
  * 
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
+ *   location 2: texture id                     [int]
  * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
@@ -22,8 +23,8 @@
 namespace shader
 {
 
-/** A shader that applies coloring. */
-class color : public swr::program
+/** A shader that applies the diffuse texture. */
+class texture : public swr::program
 {
   public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
@@ -46,10 +47,10 @@ class color : public swr::program
         ml::mat4x4 view = (*uniforms)[1].m4;
 
         // transform vertex.
-        gl_Position = proj * (view * attribs[0]);
+        gl_Position = proj * (view * attribs[swr::default_index::position]);
 
-        // pass color to fragment shader.
-        varyings[0] = attribs[1];
+        // pass texture coordinates to fragment shader.
+        varyings[0] = attribs[swr::default_index::tex_coord];
     }
 
     swr::fragment_shader_result fragment_shader(
@@ -60,10 +61,15 @@ class color : public swr::program
       float& gl_FragDepth,
       boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) override
     {
-        // get color.
-        const ml::vec4 color = varyings[0];
+        // texture coordinates.
+        const ml::vec4 tex_coords = varyings[0];
 
-        // write color.
+        // get texture from uniform.
+        uint32_t tex_id = (*uniforms)[2].i;
+        swr::sampler_2d* sampler = swr::GetSampler2d(tex_id);
+        ml::vec4 color = sampler->sample_at(tex_coords.xy());
+
+        // write fragment color.
         color_attachments[0] = color;
 
         // accept fragment.

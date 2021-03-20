@@ -28,7 +28,10 @@ typedef std::vector<uint32_t> index_buffer;
  */
 struct vertex_attribute_buffer
 {
-    enum no_slot_associated { no_slot_associated = -1 };
+    enum no_slot_associated
+    {
+        no_slot_associated = -1
+    };
 
     /** The slot this buffer is bound to; no_slot_associated if none. */
     int slot{no_slot_associated};
@@ -40,9 +43,10 @@ struct vertex_attribute_buffer
     vertex_attribute_buffer() = default;
 
     /** constructor. */
-    vertex_attribute_buffer( const std::vector<ml::vec4>& in_data )
-    : data( in_data )
-    {}
+    vertex_attribute_buffer(const std::vector<ml::vec4>& in_data)
+    : data(in_data)
+    {
+    }
 };
 
 } /* namespace impl */

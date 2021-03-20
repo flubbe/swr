@@ -18,7 +18,7 @@ namespace swr
  * immediate mode implementation.
  */
 
-void BeginPrimitives( vertex_buffer_mode mode )
+void BeginPrimitives(vertex_buffer_mode mode)
 {
     ASSERT_INTERNAL_CONTEXT;
     auto context = impl::global_context;
@@ -61,9 +61,9 @@ void EndPrimitives()
 
     // check that the buffer sizes match.
     auto ref_size = context->im_vertex_buf.size();
-    if( ref_size != context->im_color_buf.size() 
-     || ref_size != context->im_tex_coord_buf.size()
-     || ref_size != context->im_normal_buf.size() )
+    if(ref_size != context->im_color_buf.size()
+       || ref_size != context->im_tex_coord_buf.size()
+       || ref_size != context->im_normal_buf.size())
     {
         // inconsistent declaration.
         context->im_vertex_buf.resize(0);
@@ -86,7 +86,7 @@ void EndPrimitives()
         /*
          * check if we constructed triangles out of more complex primitives during.
          */
-        if( mode != vertex_buffer_mode::points && mode != vertex_buffer_mode::lines && mode != vertex_buffer_mode::triangles )
+        if(mode != vertex_buffer_mode::points && mode != vertex_buffer_mode::lines && mode != vertex_buffer_mode::triangles)
         {
             // here BufferMode is one of triangle_tan, triangle_strip, quads, polygon.
             // these were divided into triangles during vertex insertion, so we need to change the buffer's mode.
@@ -109,10 +109,10 @@ void EndPrimitives()
         EnableAttributeBuffer(normal_id, default_index::normal);
 
         // add the object to the draw list.
-        auto* NewObject = context->CreateRenderObject( context->im_vertex_buf.size(), mode );
-        if( NewObject != nullptr )
+        auto* NewObject = context->CreateRenderObject(context->im_vertex_buf.size(), mode);
+        if(NewObject != nullptr)
         {
-            context->DrawList.push_back( NewObject );
+            context->DrawList.push_back(NewObject);
         }
 
         // disable attribute buffers.
@@ -149,37 +149,37 @@ void EndPrimitives()
  * Here, we immediately update the current color and thus clamp the values on insertion.
  */
 
-void SetColor( float r, float g, float b, float a )
+void SetColor(float r, float g, float b, float a)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->im_color = ml::clamp_to_unit_interval( {r,g,b,a} );
+    impl::global_context->im_color = ml::clamp_to_unit_interval({r, g, b, a});
 }
 
-void SetTexCoord( float u, float v )
+void SetTexCoord(float u, float v)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->im_tex_coord = { u, v, 0.f, 0.f };
+    impl::global_context->im_tex_coord = {u, v, 0.f, 0.f};
 }
 
-void InsertVertex( float x, float y, float z, float w )
+void InsertVertex(float x, float y, float z, float w)
 {
     ASSERT_INTERNAL_CONTEXT;
     auto* context = impl::global_context;
 
     const size_t buffer_size = context->im_vertex_buf.size();
-    assert(buffer_size==context->im_color_buf.size());
-    assert(buffer_size==context->im_tex_coord_buf.size());
-    assert(buffer_size==context->im_normal_buf.size());
+    assert(buffer_size == context->im_color_buf.size());
+    assert(buffer_size == context->im_tex_coord_buf.size());
+    assert(buffer_size == context->im_normal_buf.size());
 
-    if (context->im_mode == vertex_buffer_mode::triangle_strip)
-	{
-		if (buffer_size >= 3)
-		{
-			const auto num_tris = buffer_size / 3;
-			
-			// every second triangle has reversed orientation (vertex ordering checked).
-			if (num_tris & 2)
-			{
+    if(context->im_mode == vertex_buffer_mode::triangle_strip)
+    {
+        if(buffer_size >= 3)
+        {
+            const auto num_tris = buffer_size / 3;
+
+            // every second triangle has reversed orientation (vertex ordering checked).
+            if(num_tris & 2)
+            {
                 const auto v1 = context->im_vertex_buf[buffer_size - 2];
                 const auto v2 = context->im_vertex_buf[buffer_size - 1];
                 context->im_vertex_buf.push_back(v2);
@@ -199,10 +199,10 @@ void InsertVertex( float x, float y, float z, float w )
                 const auto n2 = context->im_normal_buf[buffer_size - 1];
                 context->im_normal_buf.push_back(n2);
                 context->im_normal_buf.push_back(n1);
-			}
-			else
-			{
-                const auto v1 = context->im_vertex_buf[buffer_size - 2]; 
+            }
+            else
+            {
+                const auto v1 = context->im_vertex_buf[buffer_size - 2];
                 const auto v2 = context->im_vertex_buf[buffer_size - 1];
                 context->im_vertex_buf.push_back(v1);
                 context->im_vertex_buf.push_back(v2);
@@ -221,66 +221,14 @@ void InsertVertex( float x, float y, float z, float w )
                 const auto n2 = context->im_normal_buf[buffer_size - 1];
                 context->im_normal_buf.push_back(n1);
                 context->im_normal_buf.push_back(n2);
-			}
-		}
-	}
-    else if (context->im_mode == vertex_buffer_mode::triangle_fan)
-	{
-		if (buffer_size >= 3)
-		{
-			// insert the previous two vertices to convert fan to triangles (vertex ordering checked).
-            const auto v1 = context->im_vertex_buf[0];
-            const auto v2 = context->im_vertex_buf[buffer_size-1];
-            context->im_vertex_buf.push_back(v1);
-            context->im_vertex_buf.push_back(v2);
-
-            const auto c1 = context->im_color_buf[0];
-            const auto c2 = context->im_color_buf[buffer_size - 1];
-            context->im_color_buf.push_back(c1);
-            context->im_color_buf.push_back(c2);
-
-            const auto t1 = context->im_tex_coord_buf[0];
-            const auto t2 = context->im_tex_coord_buf[buffer_size - 1];
-            context->im_tex_coord_buf.push_back(t1);
-            context->im_tex_coord_buf.push_back(t2);
-
-            const auto n1 = context->im_normal_buf[0];
-            const auto n2 = context->im_normal_buf[buffer_size - 1];
-            context->im_normal_buf.push_back(n1);
-            context->im_normal_buf.push_back(n2);
-		}
-	}
-    else if (context->im_mode == vertex_buffer_mode::quads)
-	{
-        // insert additional vertices to convert quads to triangles.
-        if((buffer_size % 6) / 3 == 1)
-        {
-            const auto v1 = context->im_vertex_buf[buffer_size-3];
-            const auto v2 = context->im_vertex_buf[buffer_size-1];
-            context->im_vertex_buf.push_back(v1);
-            context->im_vertex_buf.push_back(v2);
-
-            const auto c1 = context->im_color_buf[buffer_size - 3];
-            const auto c2 = context->im_color_buf[buffer_size - 1];
-            context->im_color_buf.push_back(c1);
-            context->im_color_buf.push_back(c2);
-
-            const auto t1 = context->im_tex_coord_buf[buffer_size - 3];
-            const auto t2 = context->im_tex_coord_buf[buffer_size - 1];
-            context->im_tex_coord_buf.push_back(t1);
-            context->im_tex_coord_buf.push_back(t2);
-
-            const auto n1 = context->im_normal_buf[buffer_size - 3];
-            const auto n2 = context->im_normal_buf[buffer_size - 1];
-            context->im_normal_buf.push_back(n1);
-            context->im_normal_buf.push_back(n2);
+            }
         }
     }
-    else if (context->im_mode == vertex_buffer_mode::polygon)
-	{
-		if (buffer_size >= 3)
-		{
-			// insert additional vertices to convert polygons to triangles (vertex ordering checked).
+    else if(context->im_mode == vertex_buffer_mode::triangle_fan)
+    {
+        if(buffer_size >= 3)
+        {
+            // insert the previous two vertices to convert fan to triangles (vertex ordering checked).
             const auto v1 = context->im_vertex_buf[0];
             const auto v2 = context->im_vertex_buf[buffer_size - 1];
             context->im_vertex_buf.push_back(v1);
@@ -300,13 +248,65 @@ void InsertVertex( float x, float y, float z, float w )
             const auto n2 = context->im_normal_buf[buffer_size - 1];
             context->im_normal_buf.push_back(n1);
             context->im_normal_buf.push_back(n2);
-		}
-	}
+        }
+    }
+    else if(context->im_mode == vertex_buffer_mode::quads)
+    {
+        // insert additional vertices to convert quads to triangles.
+        if((buffer_size % 6) / 3 == 1)
+        {
+            const auto v1 = context->im_vertex_buf[buffer_size - 3];
+            const auto v2 = context->im_vertex_buf[buffer_size - 1];
+            context->im_vertex_buf.push_back(v1);
+            context->im_vertex_buf.push_back(v2);
 
-    context->im_vertex_buf.push_back( ml::vec4{ x, y, z, w } );
-    context->im_color_buf.push_back( context->im_color );
-    context->im_tex_coord_buf.push_back( context->im_tex_coord );
-    context->im_normal_buf.push_back( context->im_normal );
+            const auto c1 = context->im_color_buf[buffer_size - 3];
+            const auto c2 = context->im_color_buf[buffer_size - 1];
+            context->im_color_buf.push_back(c1);
+            context->im_color_buf.push_back(c2);
+
+            const auto t1 = context->im_tex_coord_buf[buffer_size - 3];
+            const auto t2 = context->im_tex_coord_buf[buffer_size - 1];
+            context->im_tex_coord_buf.push_back(t1);
+            context->im_tex_coord_buf.push_back(t2);
+
+            const auto n1 = context->im_normal_buf[buffer_size - 3];
+            const auto n2 = context->im_normal_buf[buffer_size - 1];
+            context->im_normal_buf.push_back(n1);
+            context->im_normal_buf.push_back(n2);
+        }
+    }
+    else if(context->im_mode == vertex_buffer_mode::polygon)
+    {
+        if(buffer_size >= 3)
+        {
+            // insert additional vertices to convert polygons to triangles (vertex ordering checked).
+            const auto v1 = context->im_vertex_buf[0];
+            const auto v2 = context->im_vertex_buf[buffer_size - 1];
+            context->im_vertex_buf.push_back(v1);
+            context->im_vertex_buf.push_back(v2);
+
+            const auto c1 = context->im_color_buf[0];
+            const auto c2 = context->im_color_buf[buffer_size - 1];
+            context->im_color_buf.push_back(c1);
+            context->im_color_buf.push_back(c2);
+
+            const auto t1 = context->im_tex_coord_buf[0];
+            const auto t2 = context->im_tex_coord_buf[buffer_size - 1];
+            context->im_tex_coord_buf.push_back(t1);
+            context->im_tex_coord_buf.push_back(t2);
+
+            const auto n1 = context->im_normal_buf[0];
+            const auto n2 = context->im_normal_buf[buffer_size - 1];
+            context->im_normal_buf.push_back(n1);
+            context->im_normal_buf.push_back(n2);
+        }
+    }
+
+    context->im_vertex_buf.push_back(ml::vec4{x, y, z, w});
+    context->im_color_buf.push_back(context->im_color);
+    context->im_tex_coord_buf.push_back(context->im_tex_coord);
+    context->im_normal_buf.push_back(context->im_normal);
 }
 
 } /* namespace swr */

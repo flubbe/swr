@@ -14,7 +14,7 @@
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
- 
+
 /* C++ headers */
 #include <vector>
 #include <list>
@@ -32,53 +32,53 @@
 
 namespace rast
 {
-    
+
 void sweep_rasterizer_single_threaded::process_block(const swr::impl::render_states& States, triangle_interpolator& AttrInt, int start_x, int y, bool front_facing)
 {
-    boost::container::static_vector<swr::varying,geom::limits::max::varyings> TempVaryings( AttrInt.varyings.size() );
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
 
     const auto end_x = start_x + swr::impl::rasterizer_block_size;
     const auto end_y = y + swr::impl::rasterizer_block_size;
-    
-	// process block.
-	for (; y < end_y; ++y)
-	{
-		for (int x = start_x; x < end_x; ++x)
-		{
-            for( size_t i=0;i<AttrInt.varyings.size();++i )
+
+    // process block.
+    for(; y < end_y; ++y)
+    {
+        for(int x = start_x; x < end_x; ++x)
+        {
+            for(size_t i = 0; i < AttrInt.varyings.size(); ++i)
             {
                 TempVaryings[i] = AttrInt.varyings[i];
             }
-            
+
             rast::fragment_info FragInfo(AttrInt.depth_value.value, front_facing, &TempVaryings);
             process_fragment(x, y, States, AttrInt.one_over_viewport_z.value, FragInfo);
-            
-			AttrInt.advance_x();
-		}
-		AttrInt.advance_y();
-	}
+
+            AttrInt.advance_x();
+        }
+        AttrInt.advance_y();
+    }
 }
 
 void sweep_rasterizer_single_threaded::process_block_checked(const swr::impl::render_states& States, triangle_interpolator& AttrInt, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3], int start_x, int y, bool front_facing)
 {
-    boost::container::static_vector<swr::varying,geom::limits::max::varyings> TempVaryings( AttrInt.varyings.size() );
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
 
     const auto end_x = start_x + swr::impl::rasterizer_block_size;
     const auto end_y = y + swr::impl::rasterizer_block_size;
-    geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3] = { lambdas_top_left[0], lambdas_top_left[1], lambdas_top_left[2] };
+    geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3] = {lambdas_top_left[0], lambdas_top_left[1], lambdas_top_left[2]};
 
-	// process block.
-	for (; y < end_y; ++y)
-	{
-		for (int x = start_x; x < end_x; ++x)
-		{
-			if (lambdas[0].value > 0 && lambdas[1].value > 0 && lambdas[2].value > 0)
-			{
-                for( size_t i=0;i<AttrInt.varyings.size();++i )
+    // process block.
+    for(; y < end_y; ++y)
+    {
+        for(int x = start_x; x < end_x; ++x)
+        {
+            if(lambdas[0].value > 0 && lambdas[1].value > 0 && lambdas[2].value > 0)
+            {
+                for(size_t i = 0; i < AttrInt.varyings.size(); ++i)
                 {
                     TempVaryings[i] = AttrInt.varyings[i];
                 }
-                
+
                 rast::fragment_info FragInfo(AttrInt.depth_value.value, front_facing, &TempVaryings);
                 process_fragment(x, y, States, AttrInt.one_over_viewport_z.value, FragInfo);
             }
@@ -86,14 +86,14 @@ void sweep_rasterizer_single_threaded::process_block_checked(const swr::impl::re
             lambdas[0].advance_x();
             lambdas[1].advance_x();
             lambdas[2].advance_x();
-			AttrInt.advance_x();
-		}
+            AttrInt.advance_x();
+        }
 
         lambdas[0].advance_y();
         lambdas[1].advance_y();
         lambdas[2].advance_y();
-		AttrInt.advance_y();
-	}
+        AttrInt.advance_y();
+    }
 }
 
 /** 
@@ -118,37 +118,56 @@ struct barycentric_coordinate_stepper
     barycentric_coordinate_stepper() = default;
 
     /** initialize both top coordinates with the same values and also both bottom coordinates with the same values. */
-    barycentric_coordinate_stepper( const geom::linear_interpolator_2d<ml::fixed_24_8_t> top[3], const geom::linear_interpolator_2d<ml::fixed_24_8_t> bottom[3] )
-    : top_left{ top[0], top[1], top[2] }, top_right{ top[0], top[1], top[2] }
-    , bottom_left{ bottom[0], bottom[1], bottom[2] }, bottom_right{ bottom[0], bottom[1], bottom[2] }
-    {}
+    barycentric_coordinate_stepper(const geom::linear_interpolator_2d<ml::fixed_24_8_t> top[3], const geom::linear_interpolator_2d<ml::fixed_24_8_t> bottom[3])
+    : top_left{top[0], top[1], top[2]}
+    , top_right{top[0], top[1], top[2]}
+    , bottom_left{bottom[0], bottom[1], bottom[2]}
+    , bottom_right{bottom[0], bottom[1], bottom[2]}
+    {
+    }
 
     /** advance the top-right and bottom-right coordinates in x direction. */
     void advance_right_x(int i)
     {
-           top_right[0].advance_x(i);    top_right[1].advance_x(i);    top_right[2].advance_x(i);
-        bottom_right[0].advance_x(i); bottom_right[1].advance_x(i); bottom_right[2].advance_x(i);
+        top_right[0].advance_x(i);
+        top_right[1].advance_x(i);
+        top_right[2].advance_x(i);
+        bottom_right[0].advance_x(i);
+        bottom_right[1].advance_x(i);
+        bottom_right[2].advance_x(i);
     }
 
     /** advance the top-left and bottom-left coordinates in x direction. */
     void advance_left_x(int i)
     {
-           top_left[0].advance_x(i);    top_left[1].advance_x(i);    top_left[2].advance_x(i);
-        bottom_left[0].advance_x(i); bottom_left[1].advance_x(i); bottom_left[2].advance_x(i);
+        top_left[0].advance_x(i);
+        top_left[1].advance_x(i);
+        top_left[2].advance_x(i);
+        bottom_left[0].advance_x(i);
+        bottom_left[1].advance_x(i);
+        bottom_left[2].advance_x(i);
     }
 
     /** prepare the next advance_right_x-step by seting top_left to top_right and bottom_left to bottom_right. */
     void setup_next_advance_right_x()
     {
-           top_left[0] =    top_right[0];    top_left[1] =    top_right[1];    top_left[2] =    top_right[2];
-        bottom_left[0] = bottom_right[0]; bottom_left[1] = bottom_right[1]; bottom_left[2] = bottom_right[2];
+        top_left[0] = top_right[0];
+        top_left[1] = top_right[1];
+        top_left[2] = top_right[2];
+        bottom_left[0] = bottom_right[0];
+        bottom_left[1] = bottom_right[1];
+        bottom_left[2] = bottom_right[2];
     }
 
     /** prepare the next advance_left_x-step by seting top_right to top_left and bottom_right to bottom_left. */
     void setup_next_advance_left_x()
     {
-           top_right[0] =    top_left[0];    top_right[1] =    top_left[1];    top_right[2] =    top_left[2];
-        bottom_right[0] = bottom_left[0]; bottom_right[1] = bottom_left[1]; bottom_right[2] = bottom_left[2];
+        top_right[0] = top_left[0];
+        top_right[1] = top_left[1];
+        top_right[2] = top_left[2];
+        bottom_right[0] = bottom_left[0];
+        bottom_right[1] = bottom_left[1];
+        bottom_right[2] = bottom_left[2];
     }
 
     /** 
@@ -156,21 +175,21 @@ struct barycentric_coordinate_stepper
      * 
      * \return -1 if all rectangle coordinates are outside the triangle, 1 if all tuples are positive and 0 in all other cases.
      */
-    int sign() const 
+    int sign() const
     {
-        if(       top_left[0].value > 0 &&     top_left[1].value > 0 &&     top_left[2].value > 0
-           &&    top_right[0].value > 0 &&    top_right[1].value > 0 &&    top_right[2].value > 0
-           &&  bottom_left[0].value > 0 &&  bottom_left[1].value > 0 &&  bottom_left[2].value > 0
-           && bottom_right[0].value > 0 && bottom_right[1].value > 0 && bottom_right[2].value > 0 )
+        if(top_left[0].value > 0 && top_left[1].value > 0 && top_left[2].value > 0
+           && top_right[0].value > 0 && top_right[1].value > 0 && top_right[2].value > 0
+           && bottom_left[0].value > 0 && bottom_left[1].value > 0 && bottom_left[2].value > 0
+           && bottom_right[0].value > 0 && bottom_right[1].value > 0 && bottom_right[2].value > 0)
         {
             // the rectangle is completely inside the triangle.
             return 1;
         }
 
         // here we know that we the rectangle is either partially or completely outside the triangle.
-        if(   (top_left[0].value < 0 && top_right[0].value < 0 && bottom_left[0].value < 0 && bottom_right[0].value < 0)
+        if((top_left[0].value < 0 && top_right[0].value < 0 && bottom_left[0].value < 0 && bottom_right[0].value < 0)
            || (top_left[1].value < 0 && top_right[1].value < 0 && bottom_left[1].value < 0 && bottom_right[1].value < 0)
-           || (top_left[2].value < 0 && top_right[2].value < 0 && bottom_left[2].value < 0 && bottom_right[2].value < 0) )
+           || (top_left[2].value < 0 && top_right[2].value < 0 && bottom_left[2].value < 0 && bottom_right[2].value < 0))
         {
             // the rectangle is completely outside the triangle.
             return -1;
@@ -181,17 +200,17 @@ struct barycentric_coordinate_stepper
     }
 };
 
-void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3 )
+void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3)
 {
-	// calculate the (signed) parallelogram area spanned by the difference vectors.
+    // calculate the (signed) parallelogram area spanned by the difference vectors.
     auto v1_xy = v1.coords.xy();
     auto v2_xy = v2.coords.xy();
     auto v3_xy = v3.coords.xy();
 
     auto area = (v2_xy - v1_xy).area(v3_xy - v1_xy);
-    
+
     // don't consider degenerate triangles.
-    if (ml::fixed_24_8_t(area) == 0)
+    if(ml::fixed_24_8_t(area) == 0)
     {
         return;
     }
@@ -207,9 +226,9 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
      * If a triangle is set up this way, we can check for a sign of the "fixed-point barycentric coordinates" below
      * (instead of checking that all of them have the same sign).
      */
-	const geom::vertex* v1_cw{nullptr}, *v2_cw{nullptr};
+    const geom::vertex *v1_cw{nullptr}, *v2_cw{nullptr};
 
-    if( area > 0 )
+    if(area > 0)
     {
         // keep vertex order.
         v1_cw = &v1;
@@ -226,16 +245,15 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
     }
 
     // convert triangle coordinates into a fixed-point representation with 4-bit subpixel precision.
-    ml::vec2_fixed<4> v1_xy_fix( v1_xy.x, v1_xy.y );
-    ml::vec2_fixed<4> v2_xy_fix( v2_xy.x, v2_xy.y );
-    ml::vec2_fixed<4> v3_xy_fix( v3_xy.x, v3_xy.y );
+    ml::vec2_fixed<4> v1_xy_fix(v1_xy.x, v1_xy.y);
+    ml::vec2_fixed<4> v2_xy_fix(v2_xy.x, v2_xy.y);
+    ml::vec2_fixed<4> v3_xy_fix(v3_xy.x, v3_xy.y);
 
     // list all edge in fixed point to use them for checking if a particular
     // pixel lies inside the triangle. the order of the edges does not matter,
     // but their orientation does.
     geom::edge_function_fixed edges_fix[3] = {
-	    {v1_xy_fix, v2_xy_fix}, {v2_xy_fix, v3_xy_fix}, {v3_xy_fix, v1_xy_fix}
-    };
+      {v1_xy_fix, v2_xy_fix}, {v2_xy_fix, v3_xy_fix}, {v3_xy_fix, v1_xy_fix}};
 
     /*
      * Fill Rules.
@@ -265,33 +283,33 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
 	 *
 	 * Note that this coordinate system may or may not correspond to the actual rendered output.
      */
-    for( int i=0; i<3; ++i )
+    for(int i = 0; i < 3; ++i)
     {
         // Top edge test.
         //
-        // 'exactly horizontal' implies that the y coordinate does not change. Since the triangle's vertices are 
-		// wound CW, the top edge is determined by checking that its x-direction is positive.
-        if( edges_fix[i].v_diff.y == 0
-         && edges_fix[i].v_diff.x > 0)
+        // 'exactly horizontal' implies that the y coordinate does not change. Since the triangle's vertices are
+        // wound CW, the top edge is determined by checking that its x-direction is positive.
+        if(edges_fix[i].v_diff.y == 0
+           && edges_fix[i].v_diff.x > 0)
         {
-			//  This is equivalent to EdgeList[i]->c += ml::fixed_28_4_t(0.0625f * FILL_RULE_EDGE_BIAS);
-			edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
-		}
+            //  This is equivalent to EdgeList[i]->c += ml::fixed_28_4_t(0.0625f * FILL_RULE_EDGE_BIAS);
+            edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
+        }
         // Left edge test.
         //
         // In a CW triangle, a left edge goes up, i.e. its endpoint is strictly above its starting point.
         // In terms of the y coordinate, the difference vector has to be strictly negative.
-        else if( edges_fix[i].v_diff.y < 0 )
+        else if(edges_fix[i].v_diff.y < 0)
         {
-			//  This is equivalent to EdgeList[i]->c += ml::fixed_28_4_t(0.0625f * FILL_RULE_EDGE_BIAS);
-			edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
-		}
+            //  This is equivalent to EdgeList[i]->c += ml::fixed_28_4_t(0.0625f * FILL_RULE_EDGE_BIAS);
+            edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
+        }
         else
         {
             // Here we have either a bottom edge or a right edge. Thus, we intentionally do nothing.
-		}
+        }
     }
-        
+
     /*
 	 * Loop through blocks of size (rasterizer_block_size,rasterizer_block_size), starting and ending on an aligned value.
 	 */
@@ -305,62 +323,49 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
 
     // take scissor box into account.
     int start_x{0}, start_y{0}, end_x{0}, end_y{0};
-    if( states.scissor_test_enabled )
+    if(states.scissor_test_enabled)
     {
-        int x_min = std::max( states.scissor_box.x_min, 0 );
-        int x_max = std::min( states.scissor_box.x_max, raster_width );
-        int y_min = std::max( raster_height-states.scissor_box.y_max, 0 );
-        int y_max = std::min( raster_height-states.scissor_box.y_min, raster_height );
+        int x_min = std::max(states.scissor_box.x_min, 0);
+        int x_max = std::min(states.scissor_box.x_max, raster_width);
+        int y_min = std::max(raster_height - states.scissor_box.y_max, 0);
+        int y_max = std::min(raster_height - states.scissor_box.y_min, raster_height);
 
-        start_x = std::max(swr::impl::lower_align_on_block_size(std::min({ v1x,   v2x,   v3x   })), x_min );
-        end_x   = std::min(swr::impl::upper_align_on_block_size(std::max({ v1x+1, v2x+1, v3x+1 })), x_max );
-        start_y = std::max(swr::impl::lower_align_on_block_size(std::min({ v1y,   v2y,   v3y   })), y_min );
-        end_y   = std::min(swr::impl::upper_align_on_block_size(std::max({ v1y+1, v2y+1, v3y+1 })), y_max );
+        start_x = std::max(swr::impl::lower_align_on_block_size(std::min({v1x, v2x, v3x})), x_min);
+        end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), x_max);
+        start_y = std::max(swr::impl::lower_align_on_block_size(std::min({v1y, v2y, v3y})), y_min);
+        end_y = std::min(swr::impl::upper_align_on_block_size(std::max({v1y + 1, v2y + 1, v3y + 1})), y_max);
     }
     else
     {
-        start_x = std::max(swr::impl::lower_align_on_block_size(std::min({ v1x,   v2x,   v3x   })), 0 );
-        end_x   = std::min(swr::impl::upper_align_on_block_size(std::max({ v1x+1, v2x+1, v3x+1 })), raster_width);
-        start_y = std::max(swr::impl::lower_align_on_block_size(std::min({ v1y,   v2y,   v3y   })), 0 );
-        end_y   = std::min(swr::impl::upper_align_on_block_size(std::max({ v1y+1, v2y+1, v3y+1 })), raster_height);
+        start_x = std::max(swr::impl::lower_align_on_block_size(std::min({v1x, v2x, v3x})), 0);
+        end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), raster_width);
+        start_y = std::max(swr::impl::lower_align_on_block_size(std::min({v1y, v2y, v3y})), 0);
+        end_y = std::min(swr::impl::upper_align_on_block_size(std::max({v1y + 1, v2y + 1, v3y + 1})), raster_height);
     }
 
     // initialize lambdas for point-in-triangle detection.
-    const auto start_coord = ml::vec2_fixed<4>{ ml::fixed_28_4_t{start_x} + ml::fixed_28_4_t{0.5f}, ml::fixed_28_4_t{start_y} + ml::fixed_28_4_t{0.5f} };
+    const auto start_coord = ml::vec2_fixed<4>{ml::fixed_28_4_t{start_x} + ml::fixed_28_4_t{0.5f}, ml::fixed_28_4_t{start_y} + ml::fixed_28_4_t{0.5f}};
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_row_top_left_next[3] = {
-        { 
-          { -edges_fix[0].evaluate(start_coord) },
-          { 
-            -edges_fix[0].get_change_x(), 
-            -edges_fix[0].get_change_y() 
-          },
-          {}
-        },
-        {
-          { -edges_fix[1].evaluate(start_coord) },
-          { 
-            -edges_fix[1].get_change_x(), 
-            -edges_fix[1].get_change_y() 
-          },
-          {}
-        },
-        {
-          { -edges_fix[2].evaluate(start_coord) },
-          { 
-            -edges_fix[2].get_change_x(), 
-            -edges_fix[2].get_change_y() 
-          },
-          {}
-        }
-    };
+      {{-edges_fix[0].evaluate(start_coord)},
+       {-edges_fix[0].get_change_x(),
+        -edges_fix[0].get_change_y()},
+       {}},
+      {{-edges_fix[1].evaluate(start_coord)},
+       {-edges_fix[1].get_change_x(),
+        -edges_fix[1].get_change_y()},
+       {}},
+      {{-edges_fix[2].evaluate(start_coord)},
+       {-edges_fix[2].get_change_x(),
+        -edges_fix[2].get_change_y()},
+       {}}};
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_row_top_left[3];
 
     /*
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
      */
-    rast::triangle_interpolator attributes{ *v1_cw, *v2_cw, v3, states.shader_info->iqs, 1.0f/area };
-    
-    for( auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size )
+    rast::triangle_interpolator attributes{*v1_cw, *v2_cw, v3, states.shader_info->iqs, 1.0f / area};
+
+    for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
     {
         // set up next lambdas for the "bottom part" of the block.
         lambda_row_top_left[0] = lambda_row_top_left_next[0];
@@ -371,10 +376,10 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
         lambda_row_top_left_next[2].step_y(swr::impl::rasterizer_block_size);
 
         // initialize lambdas for top-left and bottom-left corner of the block.
-        barycentric_coordinate_stepper lambdas_box_next{ lambda_row_top_left, lambda_row_top_left_next };
+        barycentric_coordinate_stepper lambdas_box_next{lambda_row_top_left, lambda_row_top_left_next};
         barycentric_coordinate_stepper lambdas_box;
 
-        for( auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size )
+        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size)
         {
             // set up lambdas for the current row.
             lambdas_box_next.advance_right_x(swr::impl::rasterizer_block_size);
@@ -382,14 +387,14 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
             lambdas_box_next.setup_next_advance_right_x();
 
             int sign = lambdas_box.sign();
-            if( sign < 0 )
+            if(sign < 0)
             {
                 // the block is outisde the triangle.
                 continue;
             }
-            
-            attributes.setup_from_screen_coords( { static_cast<float>(x)+0.5f, static_cast<float>(y)+0.5f } );
-            if( sign > 0 )
+
+            attributes.setup_from_screen_coords({static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f});
+            if(sign > 0)
             {
                 // the block is completely covered.
                 process_block(states, attributes, x, y, is_front_facing);

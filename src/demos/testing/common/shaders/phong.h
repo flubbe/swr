@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  * 
- * Phong lighting shader.
+ * Two shaders that apply texturing and phong (resp. blinn-phong) shading.
  *
  * vertex shader input:
  *   attribute 0: vertex position
@@ -29,14 +29,15 @@
 namespace shader
 {
 
-class blinn_phong : public swr::program
+/** Base class for phong- and blinn-phong shader. */
+class phong_base : public swr::program
 {
     const ml::vec4 light_color{1, 1, 1, 1};
-    const ml::vec4 light_specular_color{0.7, 0.7, 0.7, 1};
+    const ml::vec4 light_specular_color{0.5, 0.5, 0.5, 1};
     const float light_power{10.0f};
-    const float shininess{25.f};
+    const float shininess{16.f};
 
-    const float ambient_diffuse_factor{0.1f};
+    const float ambient_diffuse_factor{0.2f};
 
   public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
@@ -127,15 +128,39 @@ class blinn_phong : public swr::program
 
         if(lambertian > 0.0f)
         {
-            auto half_dir = (eye_direction.xyz().normalized() + l).normalized();
-            auto specular_angle = n * half_dir;
-            specular = std::pow(boost::algorithm::clamp(specular_angle, 0.f, 1.f), shininess);
+            specular = calculate_specular(eye_direction.xyz().normalized(), l, n, shininess);
         }
 
         color_attachments[0] = ambient_color + (diffuse_color + light_specular_color * specular) * falloff;
 
         // accept fragment.
         return swr::accept;
+    }
+
+    virtual float calculate_specular(const ml::vec3 eye_direction, const ml::vec3 light_direction, const ml::vec3 normal, float shininess) = 0;
+};
+
+/** Phong shader. */
+class phong : public phong_base
+{
+  public:
+    virtual float calculate_specular(const ml::vec3 eye_direction, const ml::vec3 light_direction, const ml::vec3 normal, float shininess) override
+    {
+        auto reflect_dir = -(light_direction - normal * 2.f * (light_direction * normal)); /* reflect vector w.r.t. normal */
+        auto specular_angle = reflect_dir * eye_direction;
+        return std::pow(boost::algorithm::clamp(specular_angle, 0.f, 1.f), shininess / 4.f); /* exponent is different for phong shading */
+    }
+};
+
+/** Blinn-Phong shader. */
+class blinn_phong : public phong_base
+{
+  public:
+    virtual float calculate_specular(const ml::vec3 eye_direction, const ml::vec3 light_direction, const ml::vec3 normal, float shininess) override
+    {
+        auto half_dir = (eye_direction + light_direction).normalized();
+        auto specular_angle = normal * half_dir;
+        return std::pow(boost::algorithm::clamp(specular_angle, 0.f, 1.f), shininess);
     }
 };
 

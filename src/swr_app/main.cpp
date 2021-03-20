@@ -29,7 +29,7 @@ int main(int /* argc*/, char* /*argv*/[])
     }
     catch(const std::exception& e)
     {
-        platform::logf( "{}", e.what() );
+        platform::logf("{}", e.what());
         return EXIT_FAILURE;
     }
 

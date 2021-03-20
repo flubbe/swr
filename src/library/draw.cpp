@@ -21,35 +21,35 @@ namespace swr
 void DrawElements(std::size_t vertex_count, vertex_buffer_mode mode)
 {
     ASSERT_INTERNAL_CONTEXT;
-    
+
     auto* Context = impl::global_context;
-    if( Context->im_declaring_primitives )
+    if(Context->im_declaring_primitives)
     {
         Context->last_error = error::invalid_operation;
         return;
     }
 
     // add the object to the draw list.
-    Context->DrawList.push_back( Context->CreateRenderObject( vertex_count, mode ) );
+    Context->DrawList.push_back(Context->CreateRenderObject(vertex_count, mode));
 }
 
 void DrawIndexedElements(uint32_t IndexBufferId, vertex_buffer_mode Mode)
 {
     ASSERT_INTERNAL_CONTEXT;
-    
+
     auto* Context = impl::global_context;
-    if( Context->im_declaring_primitives )
+    if(Context->im_declaring_primitives)
     {
         Context->last_error = error::invalid_operation;
         return;
     }
 
-    if( IndexBufferId < Context->index_buffers.size() )
+    if(IndexBufferId < Context->index_buffers.size())
     {
         // add the object to the draw list.
         auto& ib = Context->index_buffers[IndexBufferId];
-        Context->DrawList.push_back( Context->CreateIndexedRenderObject( ib, Mode ) );
+        Context->DrawList.push_back(Context->CreateIndexedRenderObject(ib, Mode));
     }
 }
-    
+
 } /* namespace swr */

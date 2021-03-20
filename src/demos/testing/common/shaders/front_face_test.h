@@ -1,14 +1,13 @@
 /**
  * swr - a software rasterizer
  * 
- * A shader that applies coloring.
+ * A shader that draws front-facing polygons green and back-facing polygons red.
  *
  * vertex shader input:
  *   attribute 0: vertex position
- *   attribute 1: vertex color
  * 
  * varyings:
- *   location 0: color
+ *   none.
  * 
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
@@ -22,15 +21,14 @@
 namespace shader
 {
 
-/** A shader that applies coloring. */
-class color : public swr::program
+/** A shader that colors front-facing polygons green and back-facing polygons red. */
+class front_face_test : public swr::program
 {
   public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
     {
         // set varying count and interpolation qualifiers.
-        iqs.resize(1);
-        iqs[0] = swr::interpolation_qualifier::smooth;
+        iqs.resize(0);
     }
 
     void vertex_shader(
@@ -42,14 +40,11 @@ class color : public swr::program
       float* gl_ClipDistance,
       boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) override
     {
-        ml::mat4x4 proj = (*uniforms)[0].m4;
-        ml::mat4x4 view = (*uniforms)[1].m4;
+        const ml::mat4x4 proj = (*uniforms)[0].m4;
+        const ml::mat4x4 view = (*uniforms)[1].m4;
 
-        // transform vertex.
-        gl_Position = proj * (view * attribs[0]);
-
-        // pass color to fragment shader.
-        varyings[0] = attribs[1];
+        // transform vertex. this overwrites the vertex position.
+        gl_Position = proj * view * attribs[0];
     }
 
     swr::fragment_shader_result fragment_shader(
@@ -60,11 +55,14 @@ class color : public swr::program
       float& gl_FragDepth,
       boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) override
     {
-        // get color.
-        const ml::vec4 color = varyings[0];
-
-        // write color.
-        color_attachments[0] = color;
+        if(!gl_FrontFacing)
+        {
+            color_attachments[0] = ml::vec4(1, 0, 0, 1);
+        }
+        else
+        {
+            color_attachments[0] = ml::vec4(0, 1, 0, 1);
+        }
 
         // accept fragment.
         return swr::accept;

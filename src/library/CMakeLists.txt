@@ -1,4 +1,4 @@
-project (libswr)
+project (libswraster)
 
 #
 # Set up project include directories
@@ -31,5 +31,5 @@ set(SOURCES
 	textures.cpp
 )
 
-add_library(swr SHARED ${SOURCES})
-target_link_libraries(swr fmt ${EXTRA_LIBS})
+add_library(swrast SHARED ${SOURCES})
+target_link_libraries(swrast fmt ${EXTRA_LIBS})

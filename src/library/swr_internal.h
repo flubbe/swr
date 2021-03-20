@@ -41,21 +41,21 @@ namespace impl
  */
 
 /** Block size for triangle rasterization. The context buffer sizes have to be aligned on this value. */
-constexpr int rasterizer_block_size {1 << 3};
+constexpr int rasterizer_block_size{1 << 3};
 static_assert((rasterizer_block_size & (rasterizer_block_size - 1)) == 0, "rasterizer_block_size has to be a power of 2");
 
 /** round down to block size. */
 inline int lower_align_on_block_size(int v)
 {
-    return v & ~(rasterizer_block_size-1);
+    return v & ~(rasterizer_block_size - 1);
 };
 
 /** round up to block size. */
 inline int upper_align_on_block_size(int v)
 {
-    return (v + (rasterizer_block_size-1)) & ~(rasterizer_block_size-1);
+    return (v + (rasterizer_block_size - 1)) & ~(rasterizer_block_size - 1);
 }
-    
+
 } /* namespace impl */
 
 } /* namespace swr */
