@@ -134,7 +134,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
             auto step = dir * one_over_span_length;
 
             varyings[i] = varying_interpolator(
-              {varying_v1, ml::vec4::zero(), ml::vec4::zero(), iqs[i]},
+              swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero(), iqs[i]},
               {step, ml::vec4::zero()},
               {dir, ml::vec4::zero()});
         }
