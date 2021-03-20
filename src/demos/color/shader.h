@@ -25,7 +25,7 @@ namespace shader
 /** A shader that applies coloring. */
 class color : public swr::program
 {
-  public:
+public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
     {
         // set varying count and interpolation qualifiers.

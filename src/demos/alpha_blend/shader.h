@@ -27,7 +27,7 @@ namespace shader
  */
 class color : public swr::program
 {
-  public:
+public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
     {
         // set varying count and interpolation qualifiers.
@@ -90,7 +90,7 @@ class color : public swr::program
  */
 class texture : public swr::program
 {
-  public:
+public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
     {
         // set varying count and interpolation qualifiers.

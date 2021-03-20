@@ -38,7 +38,7 @@ class blinn_phong : public swr::program
 
     const float ambient_diffuse_factor{0.1f};
 
-  public:
+public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
     {
         // set varying count and interpolation qualifiers.

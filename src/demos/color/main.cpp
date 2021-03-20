@@ -68,7 +68,7 @@ class demo_cube : public swr_app::renderwindow
     /** viewport height. */
     static const int height = 480;
 
-  public:
+public:
     /** constructor. */
     demo_cube()
     : swr_app::renderwindow(demo_title, width, height)
@@ -253,7 +253,7 @@ class log_iostream : public platform::log_device
 {
     std::mutex mtx;
 
-  protected:
+protected:
     void log_n(const std::string& message)
     {
         std::lock_guard<std::mutex> lock(mtx); /* prevent unpredictable output interleaving */
@@ -267,7 +267,7 @@ class demo_app : public swr_app::application
     log_iostream log;
     Uint32 run_time{0};
 
-  public:
+public:
     /** create a window. */
     void initialize()
     {
