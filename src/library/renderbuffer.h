@@ -19,7 +19,7 @@ template<typename T>
 struct render_buffer
 {
     // this is here because of the pixel format conversion.
-    static_assert(sizeof(T) == sizeof(uint32_t));
+    static_assert(sizeof(T) == sizeof(uint32_t), "Type size does not match size needed for pixel format conversion");
 
     /** Width of the allocated color- and depth buffers. Has to be aligned on RASTERIZE_BLOCK_SIZE.  */
     int width = 0;

@@ -54,7 +54,7 @@ struct texture_2d
     texture_storage data;
 
     /** texture sampler. */
-    struct sampler_2d_impl* sampler{nullptr};
+    class sampler_2d_impl* sampler{nullptr};
 
     /** constructor. */
     texture_2d()
@@ -132,7 +132,7 @@ inline int wrap(wrap_mode m, int coord, int max)
 /** texture sampler implementation. */
 class sampler_2d_impl : public sampler_2d
 {
-    friend class texture_2d;
+    friend struct texture_2d;
 
     /** associated texture. */
     struct texture_2d* associated_texture{nullptr};
