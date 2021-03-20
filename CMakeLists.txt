@@ -14,6 +14,11 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Test if linux
+if(UNIX AND NOT APPLE)
+    set(LINUX TRUE)
+endif()
+
 #
 # Set compiler specific options.
 #
@@ -34,6 +39,8 @@ elseif(LINUX)
 	find_library(SDL_LIBRARY SDL2)
 	set(EXTRA_LIBS ${SDL_LIBRARY})
 endif()
+
+message(STATUS ${EXTRA_LIBS})
 
 #
 # Set up output directories
