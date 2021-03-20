@@ -11,6 +11,9 @@ project(swr_root)
 
 set(CMAKE_BUILD_TYPE Release)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 #
 # Set compiler specific options.
 #
@@ -23,8 +26,14 @@ endif()
 #
 # Set system specific options.
 #
-find_library(SDL_LIBRARY SDL2)
-set(EXTRA_LIBS ${SDL_LIBRARY})
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+	include_directories(/Library/Frameworks/SDL2.framework/Headers /opt/local/include)
+	find_library(SDL_LIBRARY SDL2)
+	set(EXTRA_LIBS ${SDL_LIBRARY})
+elseif(LINUX)
+	find_library(SDL_LIBRARY SDL2)
+	set(EXTRA_LIBS ${SDL_LIBRARY})
+endif()
 
 #
 # Set up output directories
