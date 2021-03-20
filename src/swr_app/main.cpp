@@ -1,3 +1,13 @@
+/**
+ * swr - a software rasterizer
+ * 
+ * entry point for framework to quickly set up an application with a software rasterizer.
+ * 
+ * \author Felix Lubbe
+ * \copyright Copyright (c) 2021
+ * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
+ */
+
 /* C++ headers. */
 #include <mutex>
 
