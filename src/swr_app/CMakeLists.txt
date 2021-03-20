@@ -17,4 +17,4 @@ add_library(swr_app SHARED
 	framework.cpp
 	)
 
-target_link_libraries(swr_app cpu_features fmt)
+target_link_libraries(swr_app cpu_features fmt ${EXTRA_LIBS})

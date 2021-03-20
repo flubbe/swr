@@ -70,7 +70,7 @@ public:
     virtual void update() = 0;
 
     /** context access. */
-    auto get_rasterizer_context() const
+    swr::context_handle get_rasterizer_context() const
     {
         return context;
     }
