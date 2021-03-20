@@ -38,6 +38,22 @@ struct pixel_format_descriptor
     /** Alpha shift. */
     uint32_t alpha_shift{0};
 
+    /** default constuctor . */
+    pixel_format_descriptor() = default;
+
+    /** initializing constructor. */
+    pixel_format_descriptor(uint32_t in_red_bits, uint32_t in_red_shift, uint32_t in_green_bits, uint32_t in_green_shift, uint32_t in_blue_bits, uint32_t in_blue_shift, uint32_t in_alpha_bits, uint32_t in_alpha_shift)
+    : red_bits(in_red_bits)
+    , red_shift(in_red_shift)
+    , green_bits(in_green_bits)
+    , green_shift(in_green_shift)
+    , blue_bits(in_blue_bits)
+    , blue_shift(in_blue_shift)
+    , alpha_bits(in_alpha_bits)
+    , alpha_shift(in_alpha_shift)
+    {
+    }
+
     /** return pixel format description of named formats. */
     static pixel_format_descriptor named_format(pixel_format name)
     {
