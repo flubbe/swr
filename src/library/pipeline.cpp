@@ -127,10 +127,10 @@ void Present()
         it->states.shader_info->shader->update_uniforms(&it->states.uniforms);
 
         /*
-		 * Invoke the vertex shaders and preprocess vertices with respect to clipping.
-		 * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
-		 * The clip preprecessing sets a marker for each vertex outside the view frustum.
-		 */
+         * Invoke the vertex shaders and preprocess vertices with respect to clipping.
+         * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
+         * The clip preprecessing sets a marker for each vertex outside the view frustum.
+         */
         bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(it->states.shader_info, it->vertices);
         if(discard_buffer)
         {
@@ -143,9 +143,9 @@ void Present()
 
         /*
          * clip the vertex buffer.
-		 *
-		 * if we only want to draw a list of points, we already have enough clipping
-		 * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
+         *
+         * if we only want to draw a list of points, we already have enough clipping
+         * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
          *
          * Clipping pre-assembles the primitives, i.e. it creates triangles.
          */
