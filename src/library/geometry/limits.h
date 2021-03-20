@@ -10,7 +10,10 @@
 
 #pragma once
 
-namespace geom::limits
+namespace geom
+{
+
+namespace limits
 {
 
 namespace max
@@ -27,4 +30,6 @@ constexpr int uniform_locations = 1024;
 
 } /* namespace max */
 
-} /* namespace geom::limits */
+} /* namespace limits */
+
+} /* namespace geom */
