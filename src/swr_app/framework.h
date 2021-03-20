@@ -19,7 +19,7 @@ namespace swr_app
 /** SDL window with an associated SDL renderer and software renderer context. */
 class renderwindow
 {
-  protected:
+protected:
     /** window title. */
     std::string title;
 
@@ -38,7 +38,7 @@ class renderwindow
     /** free the window and the renderer. */
     void free_resources();
 
-  public:
+public:
     /** constructor. */
     renderwindow(const std::string& in_title, int in_width = 320, int in_height = 240)
     : title(in_title)
@@ -135,14 +135,14 @@ class application
     /** global_app mutex. */
     static std::mutex global_app_mtx;
 
-  protected:
+protected:
     /** the renderer. */
     renderwindow* window{nullptr};
 
     /** An indicator showing whether we want to run or exit the program. */
     bool quit_program{false};
 
-  public:
+public:
     /** instance initialization */
     static void initialize_instance();
 
@@ -186,7 +186,7 @@ class application
         }
     }
 
-  public:
+public:
     /** constructor. */
     application()
     {
