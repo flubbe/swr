@@ -144,7 +144,7 @@ class sweep_rasterizer_single_threaded : public rasterizer
      */
     void draw_point(const swr::impl::render_states& states, const geom::vertex& v);
 
-  public:
+public:
     /** Constructor. */
     sweep_rasterizer_single_threaded(swr::impl::color_buffer* in_color_buffer, swr::impl::depth_buffer* in_depth_buffer)
     : rasterizer(in_color_buffer, in_depth_buffer)
