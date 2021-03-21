@@ -61,4 +61,5 @@ throw std::runtime_error, while others may just set an error flag.
 ## Licenses
 
 The project itself is licensed according to the MIT License.
-- The textures are public domain (CC-0) and can be obtained [here](https://opengameart.org/content/3-crate-textures-w-bump-normal).
+
+The textures are licensed under the terms found in the NOTICE files in the respective directories.
