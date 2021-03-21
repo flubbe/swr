@@ -21,6 +21,14 @@ add_executable(demo_alpha_blend
 )
 target_link_libraries(demo_alpha_blend swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
+add_executable(demo_bitmap_font
+	${COMMON_SOURCES}
+	../../deps/3rd-party/lodepng/lodepng.cpp
+	bitmap_font/font.cpp
+	bitmap_font/main.cpp
+)
+target_link_libraries(demo_bitmap_font swrast cpu_features fmt swr_app ${EXTRA_LIBS})
+
 add_executable(demo_blinn_phong
 	${COMMON_SOURCES}
 	../../deps/3rd-party/lodepng/lodepng.cpp
