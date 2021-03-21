@@ -25,7 +25,7 @@ jobs:
       TARGET=x86_64-linux-gnu
   - os: osx
     env:
-      MATRIX_EVAL="brew update && brew install boost && brew install sdl2 && brew install ninja"
+      MATRIX_EVAL="brew install boost && brew install sdl2 && brew install ninja"
       
 
 before_install:
