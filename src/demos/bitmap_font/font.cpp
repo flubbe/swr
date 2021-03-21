@@ -76,10 +76,10 @@ void extended_ascii_bitmap_font::get_string_dimensions(const std::string& s, uin
 {
     w = 0;
     h = 0;
-    for( auto it : s )
+    for(auto it: s)
     {
         w += font_glyphs[static_cast<int>(it)].get_width();
-        h = std::max( h, font_glyphs[static_cast<int>(it)].get_height() );
+        h = std::max(h, font_glyphs[static_cast<int>(it)].get_height());
     }
 }
 
@@ -157,7 +157,7 @@ void renderer::draw_string(unsigned int alignment, const std::string& s, uint32_
 
     if((alignment & string_alignment::center_horz) == string_alignment::center_horz)
     {
-        x = (viewport_width - w)/2;
+        x = (viewport_width - w) / 2;
     }
     else if((alignment & string_alignment::left) == string_alignment::left)
     {
@@ -170,7 +170,7 @@ void renderer::draw_string(unsigned int alignment, const std::string& s, uint32_
 
     if((alignment & string_alignment::center_vert) == string_alignment::center_vert)
     {
-        y = (viewport_height - h)/2;
+        y = (viewport_height - h) / 2;
     }
     else if((alignment & string_alignment::top) == string_alignment::top)
     {
@@ -183,6 +183,5 @@ void renderer::draw_string(unsigned int alignment, const std::string& s, uint32_
 
     draw_string_at(s, x, y);
 }
-
 
 } /* namespace font */

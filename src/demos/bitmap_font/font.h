@@ -133,7 +133,7 @@ public:
     };
 
     /** draw a string. */
-    void draw_string(unsigned int alignment, const std::string& s, uint32_t x=0, uint32_t y=0) const;
+    void draw_string(unsigned int alignment, const std::string& s, uint32_t x = 0, uint32_t y = 0) const;
 };
 
 } /* namespace font */
