@@ -64,3 +64,11 @@ add_executable(demo_texture
 )
 target_link_libraries(demo_texture swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
+add_executable(demo_timings
+	${COMMON_SOURCES}
+	../../deps/3rd-party/lodepng/lodepng.cpp
+	timings/main.cpp
+	timings/font.cpp
+	timings/main.cpp
+)
+target_link_libraries(demo_timings swrast cpu_features fmt swr_app ${EXTRA_LIBS})
