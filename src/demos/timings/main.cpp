@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  * 
- * software renderer demonstration (bitmap font).
+ * software renderer demonstration (timings/bitmap font).
  * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
@@ -92,7 +92,7 @@ static uint32_t load_texture(uint32_t w, uint32_t h, const std::vector<uint8_t>&
 }
 
 /** demo window. */
-class demo_bitmap_font : public swr_app::renderwindow
+class demo_timings : public swr_app::renderwindow
 {
     /** font shader */
     shader::im_texture font_shader;
@@ -153,7 +153,7 @@ class demo_bitmap_font : public swr_app::renderwindow
 
 public:
     /** constructor. */
-    demo_bitmap_font()
+    demo_timings()
     : swr_app::renderwindow(demo_title, width, height)
     {
     }
@@ -441,7 +441,7 @@ public:
 
         run_time -= SDL_GetTicks();
 
-        window = new demo_bitmap_font();
+        window = new demo_timings();
         window->create();
     }
 
@@ -450,7 +450,7 @@ public:
     {
         if(window)
         {
-            auto* w = static_cast<demo_bitmap_font*>(window);
+            auto* w = static_cast<demo_timings*>(window);
             run_time += SDL_GetTicks();
             float run_time_in_s = static_cast<float>(run_time) / 1000.f;
             float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;
