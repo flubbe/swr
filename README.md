@@ -16,7 +16,7 @@ The project directory layout consists of:
  6. a texture in `textures/crate1/`.
 
 For understanding the graphics pipeline code, you should probably start with the function `Present` in `src/library/pipeline.cpp`.
-The primitive rasterization takes places in `src/library/rasterizer/point_st.cpp`, `src/library/rasterizer/line_st.cpp` and `src/library/rasterizer/triangle_st.cpp`.
+The primitive rasterization takes places in `src/library/rasterizer/point_st.cpp`, `src/library/rasterizer/line_st.cpp` and `src/library/rasterizer/triangle.cpp`.
 
 ## Dependencies
 
