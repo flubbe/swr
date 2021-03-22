@@ -11,6 +11,8 @@
 namespace rast
 {
 
+#define SWR_ENABLE_MULTI_THREADING
+
 /**
  * Bias for application to fill rules. This is edge to the line equations if the corresponding
  * edge is a left or top one. Since this is done before any normalization took place, the fill
@@ -85,6 +87,11 @@ class sweep_rasterizer_single_threaded : public rasterizer
     /** list containing all primitives which are to be rasterized. */
     std::vector<primitive> draw_list;
 
+#ifdef SWR_ENABLE_MULTI_THREADING
+    /** worker threads. */
+    utils::thread_pool rasterizer_threads;
+#endif
+
     /**
      * Process fragments and merge outputs.
      *
@@ -122,6 +129,14 @@ class sweep_rasterizer_single_threaded : public rasterizer
      */
     void process_block_checked(const swr::impl::render_states& states, triangle_interpolator& attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], int x, int y, bool front_facing);
 
+#ifdef SWR_ENABLE_MULTI_THREADING
+    /** static block drawing functions. callable by threads. */
+    static void thread_process_block(sweep_rasterizer_single_threaded* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, int x, int y, bool front_facing);
+
+    /** static block drawing functions. callable by threads. */
+    static void thread_process_block_checked(sweep_rasterizer_single_threaded* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], int x, int y, bool front_facing);
+#endif
+
     /**
      * Draw the triangle (v1,v2,v3) using a sweep algorithm with blocks of size rasterizer_block_size.
      * The triangle is rasterized regardless of its orientation.
@@ -157,7 +172,7 @@ public:
 
     const std::string describe() const override
     {
-        return std::string("Sweep Rasterizer (x86, single-threaded)");
+        return std::string("Sweep Rasterizer");
     }
     void set_dimensions(int in_width, int in_height) override;
     void add_point(const swr::impl::render_states* S, const geom::vertex* V) override;

@@ -167,7 +167,7 @@ void application::initialize_instance()
 void application::shutdown_instance()
 {
     // thread-safe shutdown. this prevents multiple threads accessing the singleton at the same time.
-    std::lock_guard<std::mutex> lock(global_app_mtx);
+    const std::scoped_lock lock{global_app_mtx};
 
     // shut down SDL
     if(SDL_WasInit(SDL_INIT_EVERYTHING) != 0)

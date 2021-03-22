@@ -36,7 +36,7 @@ namespace rast
  * 
  * If it succeeds, we calculate all interpolated values for the varyings.
  * 
- *  2) Set the dither reference values which may be used for sampling from textures.
+ *  2) Set the dither reference values which may be used for sampling from textures. (!!todo)
  *  3) Call the fragment shader.
  *  4) Depth test (called here, since the fragment shader may modify the depth value).
  * 

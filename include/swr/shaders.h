@@ -146,6 +146,9 @@ class program
 protected:
     const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
 
+    /** get texture sampler. temporary. */
+    swr::sampler_2d* get_sampler_2d(uint32_t id);
+
 public:
     virtual ~program()
     {

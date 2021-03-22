@@ -130,7 +130,7 @@ public:
 
         // get texture from uniform.
         uint32_t tex_id = (*uniforms)[2].i;
-        swr::sampler_2d* sampler = swr::GetSampler2d(tex_id);
+        swr::sampler_2d* sampler = get_sampler_2d(tex_id);
         ml::vec4 color = sampler->sample_at(tex_coords.xy());
 
         // write fragment color.

@@ -152,21 +152,21 @@ public:
     /** check if the global instance already exists. */
     static bool has_instance()
     {
-        std::lock_guard<std::mutex> lock(global_app_mtx);
+        const std::scoped_lock lock{global_app_mtx};
         return global_app != nullptr;
     }
 
     /** thread-safe singleton setter. */
     static void set_instance(application* new_app)
     {
-        std::lock_guard<std::mutex> lock(global_app_mtx);
+        const std::scoped_lock lock{global_app_mtx};
         global_app = new_app;
     }
 
     /** singleton getter. */
     static application& get_instance()
     {
-        std::lock_guard<std::mutex> lock(global_app_mtx);
+        const std::scoped_lock lock{global_app_mtx};
 
         if(!global_app)
         {
@@ -179,7 +179,7 @@ public:
     /** quit application. */
     static void quit()
     {
-        std::lock_guard<std::mutex> lock(global_app_mtx);
+        const std::scoped_lock lock{global_app_mtx};
         if(global_app)
         {
             global_app->quit_program = true;

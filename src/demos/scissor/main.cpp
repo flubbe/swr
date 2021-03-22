@@ -298,7 +298,7 @@ class log_iostream : public platform::log_device
 protected:
     void log_n(const std::string& message)
     {
-        std::lock_guard<std::mutex> lock(mtx); /* prevent unpredictable output interleaving */
+        const std::scoped_lock lock{mtx}; /* prevent unpredictable output interleaving */
         std::cout << message << std::endl;
     }
 };

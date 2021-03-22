@@ -102,7 +102,7 @@ public:
 
         // material properties.
         uint32_t diffuse_tex_id = (*uniforms)[3].i;
-        swr::sampler_2d* diffuse_sampler = swr::GetSampler2d(diffuse_tex_id);
+        swr::sampler_2d* diffuse_sampler = get_sampler_2d(diffuse_tex_id);
         ml::vec4 material_diffuse_color = diffuse_sampler->sample_at({tex_coords.x, tex_coords.y});
 
         // distance to light.

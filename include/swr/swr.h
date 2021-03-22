@@ -455,8 +455,6 @@ struct sampler_2d
     virtual ml::vec4 sample_at(const ml::vec2 UV) const = 0;
 };
 
-sampler_2d* GetSampler2d(uint32_t TextureId);
-
 /*
  * Alpha blending.
  */

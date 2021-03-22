@@ -13,7 +13,7 @@ set(SOURCES
 	rasterizer/line_st.cpp
 	rasterizer/point_st.cpp
 	rasterizer/sweep_st.cpp
-	rasterizer/triangle_st.cpp
+	rasterizer/triangle.cpp
 	assembly.cpp
 	buffers.cpp
 	context.cpp

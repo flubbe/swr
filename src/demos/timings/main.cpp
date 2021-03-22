@@ -312,7 +312,7 @@ public:
         auto now = std::chrono::steady_clock::now();
         auto msec_delta_time = std::chrono::duration_cast<std::chrono::duration<float, std::milli>>(now - msec_reference_time).count();
         msec_reference_time = now;
-        
+
         /*
          * update animation.
          */
@@ -400,12 +400,12 @@ public:
         swr::BindUniform(0, ml::matrices::orthographic_projection(0, width, height, 0, -1000, 1000));
         swr::BindUniform(1, ml::mat4x4::identity());
 
-        std::string msec_str = fmt::format("msec: {: #6.2f}", display_msec );
+        std::string msec_str = fmt::format("msec: {: #6.2f}", display_msec);
         font_rend.draw_string(font::renderer::string_alignment::right | font::renderer::string_alignment::top, msec_str);
 
         uint32_t w{0}, h{0};
-        font.get_string_dimensions( msec_str, w, h );
-        font_rend.draw_string(font::renderer::string_alignment::right, fmt::format(" fps: {: #5.1f}", 1000.0f/display_msec), 0 /* ignored */, h );
+        font.get_string_dimensions(msec_str, w, h);
+        font_rend.draw_string(font::renderer::string_alignment::right, fmt::format(" fps: {: #5.1f}", 1000.0f / display_msec), 0 /* ignored */, h);
     }
 
     int get_frame_count() const
@@ -422,7 +422,7 @@ class log_iostream : public platform::log_device
 protected:
     void log_n(const std::string& message)
     {
-        std::lock_guard<std::mutex> lock(mtx); /* prevent unpredictable output interleaving */
+        const std::scoped_lock lock{mtx}; /* prevent unpredictable output interleaving */
         std::cout << message << std::endl;
     }
 };

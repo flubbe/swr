@@ -490,23 +490,4 @@ texture_filter GetTextureMagnificationFilter()
     return texture_filter::nearest;
 }
 
-sampler_2d* GetSampler2d(uint32_t TextureId)
-{
-    ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
-
-    if(TextureId == impl::default_tex_id)
-    {
-        return Context->DefaultTexture2d->sampler;
-    }
-
-    if(TextureId < Context->Texture2dHash.size())
-    {
-        impl::texture_2d* Tex = Context->Texture2dHash[TextureId];
-        return (Tex ? Tex->sampler : nullptr);
-    }
-
-    return nullptr;
-}
-
 } /* namespace swr */
