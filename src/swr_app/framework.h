@@ -12,6 +12,7 @@
  * dependencies.
  */
 #include <mutex>
+#include <boost/lexical_cast.hpp>
 
 namespace swr_app
 {
@@ -135,6 +136,9 @@ class application
     /** global_app mutex. */
     static std::mutex global_app_mtx;
 
+    /** command line arguments. */
+    std::vector<std::string> cmd_args;
+
 protected:
     /** the renderer. */
     renderwindow* window{nullptr};
@@ -142,9 +146,12 @@ protected:
     /** An indicator showing whether we want to run or exit the program. */
     bool quit_program{false};
 
+    /** process command line argument. */
+    bool process_cmdline(int argc, char* argv[]);
+
 public:
     /** instance initialization */
-    static void initialize_instance();
+    static void initialize_instance(int argc, char* argv[]);
 
     /** instance shutdown. */
     static void shutdown_instance();
@@ -222,6 +229,55 @@ public:
         {
             window->update();
         }
+    }
+
+    /*
+     * command line arguments.
+     */
+
+    /** return the value of a parameter-value pair of the form 'name=value'. if there are multiply instances of 'name=', returns the last value. */
+    template<typename T>
+    bool get_argument( const std::string& name, T& value ) const
+    {
+        std::string opt = fmt::format("{}=", name);
+        auto it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
+            [opt](const std::string& p) { return p.substr(0,opt.length()) == opt; }
+        );
+
+        if( it == cmd_args.rend() )
+        {
+            return false;
+        }
+
+        value = boost::lexical_cast<T>( it->substr(opt.length(), std::string::npos ) );
+        return true;
+    }
+
+    /** return the values of all parameter-value pairs of the form 'name=value'. */
+    template<typename T>
+    std::size_t get_arguments( const std::string& name, std::vector<T>& values )
+    {
+        values.clear();
+
+        std::string opt = fmt::format("{}=", name);
+        auto it = cmd_args.begin();
+        while(true)
+        {
+            auto it = std::find_if(it, cmd_args.end(),
+                [opt](const std::string& p) { return p.substr(0,opt.length()) == opt; }
+            );
+
+            if( it == cmd_args.end() )
+            {
+                break;
+            }
+
+            // convert type and add to vector.
+            values.push_back( boost::lexical_cast<T>( it->substr(opt.length(), std::string::npos) ) );
+            ++it;
+        }
+
+        return values.size();
     }
 
     /** get application window. */

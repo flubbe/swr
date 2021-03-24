@@ -142,8 +142,13 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) co
 application* application::global_app = nullptr;
 std::mutex application::global_app_mtx;
 
-void application::initialize_instance()
+void application::initialize_instance(int argc, char* argv[])
 {
+    assert(global_app != nullptr);
+
+    // process command-line arguments.
+    global_app->process_cmdline(argc, argv);
+
     // platform initialization with log disabled.
     platform::global_initialize();
 
@@ -178,5 +183,19 @@ void application::shutdown_instance()
     // shut down other platform services.
     platform::global_shutdown();
 }
+
+bool application::process_cmdline(int argc, char* argv[])
+{
+    if( argc < 0 || argv == nullptr )
+    {
+        return false;
+    }
+
+    // skip the first argument, since it only contains the program's name
+    cmd_args = { argv+1, argv+argc };
+
+    return true;
+}
+
 
 } /* namespace swr_app */

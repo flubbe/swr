@@ -22,14 +22,14 @@
 
 /** Program entry point. */
 #if defined(_WIN32) || defined(_WIN64)
-int _tmain(int /* argc*/, _TCHAR* /*argv*/[])
+int _tmain(int argc, _TCHAR* argv[])
 #else
-int main(int /* argc*/, char* /*argv*/[])
+int main(int argc, char* argv[])
 #endif
 {
     try
     {
-        swr_app::application::initialize_instance();
+        swr_app::application::initialize_instance(argc, argv);
 
         swr_app::application::get_instance().initialize();
         swr_app::application::get_instance().event_loop();
