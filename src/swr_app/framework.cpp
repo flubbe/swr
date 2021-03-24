@@ -186,16 +186,15 @@ void application::shutdown_instance()
 
 bool application::process_cmdline(int argc, char* argv[])
 {
-    if( argc < 0 || argv == nullptr )
+    if(argc < 0 || argv == nullptr)
     {
         return false;
     }
 
     // skip the first argument, since it only contains the program's name
-    cmd_args = { argv+1, argv+argc };
+    cmd_args = {argv + 1, argv + argc};
 
     return true;
 }
-
 
 } /* namespace swr_app */

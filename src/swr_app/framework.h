@@ -237,25 +237,24 @@ public:
 
     /** return the value of a parameter-value pair of the form 'name=value'. if there are multiply instances of 'name=', returns the last value. */
     template<typename T>
-    bool get_argument( const std::string& name, T& value ) const
+    bool get_argument(const std::string& name, T& value) const
     {
         std::string opt = fmt::format("{}=", name);
         auto it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
-            [opt](const std::string& p) { return p.substr(0,opt.length()) == opt; }
-        );
+                               [opt](const std::string& p) { return p.substr(0, opt.length()) == opt; });
 
-        if( it == cmd_args.rend() )
+        if(it == cmd_args.rend())
         {
             return false;
         }
 
-        value = boost::lexical_cast<T>( it->substr(opt.length(), std::string::npos ) );
+        value = boost::lexical_cast<T>(it->substr(opt.length(), std::string::npos));
         return true;
     }
 
     /** return the values of all parameter-value pairs of the form 'name=value'. */
     template<typename T>
-    std::size_t get_arguments( const std::string& name, std::vector<T>& values )
+    std::size_t get_arguments(const std::string& name, std::vector<T>& values)
     {
         values.clear();
 
@@ -264,16 +263,15 @@ public:
         while(true)
         {
             auto it = std::find_if(it, cmd_args.end(),
-                [opt](const std::string& p) { return p.substr(0,opt.length()) == opt; }
-            );
+                                   [opt](const std::string& p) { return p.substr(0, opt.length()) == opt; });
 
-            if( it == cmd_args.end() )
+            if(it == cmd_args.end())
             {
                 break;
             }
 
             // convert type and add to vector.
-            values.push_back( boost::lexical_cast<T>( it->substr(opt.length(), std::string::npos) ) );
+            values.push_back(boost::lexical_cast<T>(it->substr(opt.length(), std::string::npos)));
             ++it;
         }
 
