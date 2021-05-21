@@ -16,7 +16,7 @@ The project directory layout consists of:
  6. a texture in `textures/crate1/`.
 
 For understanding the graphics pipeline code, you should probably start with the function `Present` in `src/library/pipeline.cpp`.
-The primitive rasterization takes places in `src/library/rasterizer/point_st.cpp`, `src/library/rasterizer/line_st.cpp` and `src/library/rasterizer/triangle.cpp`.
+The primitive rasterization takes places in `src/library/rasterizer/point_st.cpp`, `src/library/rasterizer/line_st.cpp` and `src/library/rasterizer/triangle_st.cpp`.
 
 ## Dependencies
 
@@ -28,6 +28,7 @@ For the other dependencies:
 - put [fmt](https://github.com/fmtlib/fmt), release 7.1.3, into `deps/3rd-party/fmt`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
 - clone [ml](https://github.com/flubbe/ml) into `deps/ml`
+- clone [concurrency_utils](https://github.com/flubbe/concurrency_utils) into `deps/concurrency_utils`
 
 As a build system, the project uses [CMake](https://cmake.org/).
 
@@ -47,7 +48,7 @@ Alternatively, you can use the included build scripts:
 
 If everything succeeded, you should find the demo files in the `bin`-directory.
 
-Building was tested on Linux, GCC 10.2 (with C++-17 enabled), CMake 3.19.7 and [Ninja](https://ninja-build.org/) 1.10.2.
+Building was tested on Linux, GCC 11.1 (with C++-17 enabled), CMake 3.20.2 and [Ninja](https://ninja-build.org/) 1.10.2.
 
 ## Limitations
 
@@ -61,5 +62,4 @@ throw std::runtime_error, while others may just set an error flag.
 ## Licenses
 
 The project itself is licensed according to the MIT License.
-
-The textures are licensed under the terms found in the NOTICE files in the respective directories.
+- The textures are public domain (CC-0) and can be obtained [here](https://opengameart.org/content/3-crate-textures-w-bump-normal).
