@@ -237,7 +237,7 @@ public:
 
     /** return the value of a parameter-value pair of the form 'name=value'. if there are multiply instances of 'name=', returns the last value. */
     template<typename T>
-    bool get_argument(const std::string& name, T& value) const
+    const T get_argument(const std::string& name, const T& default_value) const
     {
         std::string opt = fmt::format("{}=", name);
         auto it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
@@ -245,11 +245,27 @@ public:
 
         if(it == cmd_args.rend())
         {
-            return false;
+            // argument not found
+            return default_value;
         }
 
-        value = boost::lexical_cast<T>(it->substr(opt.length(), std::string::npos));
-        return true;
+        std::string val = it->substr(opt.length(), std::string::npos);
+        if(val.length() == 0)
+        {
+            // no value was supplied.
+            return default_value;
+        }
+
+        try
+        {
+            return boost::lexical_cast<T>(val);
+        }
+        catch(const boost::bad_lexical_cast&)
+        {
+            // lexical cast failed. fall through to return default value.
+        }
+
+        return default_value;
     }
 
     /** return the values of all parameter-value pairs of the form 'name=value'. */
@@ -270,8 +286,23 @@ public:
                 break;
             }
 
-            // convert type and add to vector.
-            values.push_back(boost::lexical_cast<T>(it->substr(opt.length(), std::string::npos)));
+            std::string val = it->substr(opt.length(), std::string::npos);
+            if(val.length() == 0)
+            {
+                // no value was supplied.
+                return false;
+            }
+
+            try
+            {
+                // convert type and add to vector.
+                values.push_back(boost::lexical_cast<T>(val));
+            }
+            catch(const boost::bad_lexical_cast&)
+            {
+                // lexical cast failed. we just ignore it here and continue.
+            }
+
             ++it;
         }
 

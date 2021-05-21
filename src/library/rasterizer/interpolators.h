@@ -264,7 +264,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         assert(v0.varyings.size() == v1.varyings.size());
         assert(v1.varyings.size() == v2.varyings.size());
 
-        assert(iqs.size() == v0.coords.size());
+        assert(iqs.size() == v0.varyings.size());
         const auto varying_count = iqs.size();
 
         varyings.resize(varying_count);

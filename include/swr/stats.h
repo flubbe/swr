@@ -59,6 +59,28 @@ struct fragment_data
 /** read fragment benchmark data. */
 void get_fragment_data(fragment_data& data);
 
+/** rasterizer statistics. */
+struct rasterizer_data
+{
+    /** number of available threads in thread pool. */
+    uint32_t available_threads{0};
+
+    /** jobs (per frame). */
+    uint32_t jobs{0};
+
+    /** default constructor. */
+    rasterizer_data() = default;
+
+    /** reset counters. */
+    void reset_counters()
+    {
+        jobs = 0;
+    }
+};
+
+/** read rasterizer data. */
+void get_rasterizer_data(rasterizer_data& data);
+
 } /* namespace stats */
 
 } /* namespace swr */

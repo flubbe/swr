@@ -180,10 +180,16 @@ void sdl_render_context::Initialize(SDL_Window* InWindow, SDL_Renderer* InRender
     // create default shader.
     create_default_shader(this);
 
-    // create triangle rasterizer.
+    // create triangle rasterizer using rasterizer_thread_pool_size threads. we don't use more threads than reported by std::thread::hardware_concurrency
+    // and default to half of it.
+    if(rasterizer_thread_pool_size == 0 || rasterizer_thread_pool_size > std::thread::hardware_concurrency())
+    {
+        rasterizer_thread_pool_size = (std::thread::hardware_concurrency() > 1) ? (std::thread::hardware_concurrency() / 2) : 1;
+    }
+
     try
     {
-        Rasterizer = std::unique_ptr<rast::sweep_rasterizer_single_threaded>(new rast::sweep_rasterizer_single_threaded(&ColorBuffer, &DepthBuffer));
+        Rasterizer = std::unique_ptr<rast::sweep_rasterizer_single_threaded>(new rast::sweep_rasterizer_single_threaded(rasterizer_thread_pool_size, &ColorBuffer, &DepthBuffer));
     }
     catch(std::bad_alloc& e)
     {
@@ -325,11 +331,11 @@ void sdl_render_context::DisplayDepthBuffer()
  * context interface.
  */
 
-context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer)
+context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, uint32_t thread_hint)
 {
     int Width = 0, Height = 0;
     SDL_GetWindowSize(Window, &Width, &Height);
-    impl::sdl_render_context* InternalContext = new impl::sdl_render_context();
+    impl::sdl_render_context* InternalContext = new impl::sdl_render_context(thread_hint);
     InternalContext->Initialize(Window, Renderer, Width, Height);
     return InternalContext;
 }

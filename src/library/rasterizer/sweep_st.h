@@ -89,7 +89,7 @@ class sweep_rasterizer_single_threaded : public rasterizer
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** worker threads. */
-    utils::thread_pool rasterizer_threads;
+    concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_queue<std::function<void()>>> rasterizer_threads;
 #endif
 
     /**
@@ -161,9 +161,20 @@ class sweep_rasterizer_single_threaded : public rasterizer
 
 public:
     /** Constructor. */
-    sweep_rasterizer_single_threaded(swr::impl::color_buffer* in_color_buffer, swr::impl::depth_buffer* in_depth_buffer)
+    sweep_rasterizer_single_threaded(std::size_t in_thread_count, swr::impl::color_buffer* in_color_buffer, swr::impl::depth_buffer* in_depth_buffer)
     : rasterizer(in_color_buffer, in_depth_buffer)
+#ifdef SWR_ENABLE_MULTI_THREADING
+    , rasterizer_threads
     {
+        in_thread_count
+    }
+#endif
+    {
+#ifdef SWR_ENABLE_MULTI_THREADING
+        stats_rast.available_threads = rasterizer_threads.get_thread_count();
+#else
+        stats_rast.available_threads = 1;
+#endif
     }
 
     /*

@@ -27,8 +27,8 @@ constexpr int default_tex_id = 0;
 void texture_storage::allocate(size_t width, size_t height, bool mipmapping)
 {
     // check that width and height are a power of two (this is probably not strictly necessary, but the other texture code has that restriction).
-    assert(width & (width - 1) == 0);
-    assert(height & (height - 1) == 0);
+    assert((width & (width - 1)) == 0);
+    assert((height & (height - 1)) == 0);
 
     if(!mipmapping)
     {
@@ -109,9 +109,9 @@ void texture_2d::set_wrap_t(wrap_mode t)
     }
 }
 
+//!!fixme: set appropriate error codes (note: this function is called before impl::global_context is set).
 void texture_2d::set_data(int level, int in_width, int in_height, pixel_format format, wrap_mode wrap_s, wrap_mode wrap_t, const std::vector<uint8_t>& in_data)
 {
-    ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(uint32_t);
 
     if(in_width == 0 || in_height == 0 || in_data.size() == 0)
@@ -124,7 +124,6 @@ void texture_2d::set_data(int level, int in_width, int in_height, pixel_format f
     // bound, since we may need to allocate the texture in the first place.
     if(level < 0)
     {
-        impl::global_context->last_error = error::invalid_value;
         return;
     }
 
@@ -145,7 +144,6 @@ void texture_2d::set_data(int level, int in_width, int in_height, pixel_format f
         if(in_width != width >> uLevel
            || in_height != height >> uLevel)
         {
-            impl::global_context->last_error = error::invalid_value;
             return;
         }
     }
@@ -153,7 +151,6 @@ void texture_2d::set_data(int level, int in_width, int in_height, pixel_format f
     // check the upper bound for the mipmap level.
     if(static_cast<std::size_t>(level) >= data.data_ptrs.size())
     {
-        impl::global_context->last_error = error::invalid_value;
         return;
     }
 
@@ -184,7 +181,7 @@ void texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int i
     {
         return;
     }
-    assert(in_width * in_height * 4 == in_data.size());
+    assert(static_cast<std::size_t>(in_width * in_height * 4) == in_data.size());
 
     if(level < 0 || static_cast<std::size_t>(level) >= data.data_ptrs.size())
     {

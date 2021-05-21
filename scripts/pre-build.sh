@@ -4,6 +4,10 @@
 # Dependencies.
 #
 
+#
+# --- 3rd party ---
+#
+
 # Create folder structure
 mkdir -p deps/3rd-party
 cd deps/3rd-party
@@ -23,14 +27,25 @@ mv cpu_features-0.6.0 cpu_features
 # Download lodepng
 git clone https://github.com/lvandeve/lodepng.git
 
-# mathematics library
+#
+# --- 1st party ---
+#
 cd ..
+
+# concurrency utility library
+git clone https://github.com/flubbe/concurrency_utils.git
+
+# mathematics library
 git clone https://github.com/flubbe/ml.git
 cd ml
 chmod +x ./scripts/*
 ./scripts/pre-build.sh
+cd ..
 
-cd ../..
+#
+# change directory to project root.
+#
+cd ..
 
 #
 # Set up folder structure for build.

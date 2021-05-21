@@ -9,7 +9,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 project(swr_root)
 
-set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,10 +23,18 @@ endif()
 #
 # Set compiler specific options.
 #
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -O3 -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -O2 -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+	endif()
+else()
+	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -O3 -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+	endif()
 endif()
 
 #
@@ -43,6 +52,13 @@ endif()
 message(STATUS ${EXTRA_LIBS})
 
 #
+# Thread library.
+#
+set(CMAKE_THREAD_PREFER_PTHREAD ON)                                                                                                                                                                                                           
+set(THREADS_PREFER_PTHREAD_FLAG ON)                                                                                                                                                                                                           
+find_package(Threads REQUIRED)    
+
+#
 # Set up output directories
 #
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin )
@@ -54,6 +70,7 @@ include_directories(
 	./ 
 	src 
 	include
+	deps/concurrency_utils/include
 	deps/ml/include
 	deps/3rd-party/lodepng 
 	deps/3rd-party/cpu_features/include 

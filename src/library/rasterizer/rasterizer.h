@@ -39,6 +39,9 @@ struct rasterizer
     /** fragment processing stage statistics. */
     swr::stats::fragment_data stats_frag;
 
+    /** rasterizer. */
+    swr::stats::rasterizer_data stats_rast;
+
     /*
      * interface.
      */
@@ -53,8 +56,8 @@ struct rasterizer
     {
         assert(in_color_buffer);
         assert(in_depth_buffer);
-        assert(in_color_buffer->Width == in_depth_buffer->width);
-        assert(in_color_buffer->Height == in_depth_buffer->height);
+        assert(in_color_buffer->width == in_depth_buffer->width);
+        assert(in_color_buffer->height == in_depth_buffer->height);
 
         raster_width = in_color_buffer->width;
         raster_height = in_color_buffer->height;

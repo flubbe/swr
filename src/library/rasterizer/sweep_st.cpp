@@ -54,6 +54,7 @@ void sweep_rasterizer_single_threaded::add_triangle(const swr::impl::render_stat
 void sweep_rasterizer_single_threaded::draw_primitives()
 {
     stats_frag.reset_counters();
+    stats_rast.reset_counters();
 
     for(auto& it: draw_list)
     {

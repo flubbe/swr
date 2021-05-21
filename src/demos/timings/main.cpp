@@ -20,6 +20,7 @@
 /* software rasterizer headers. */
 #include "swr/swr.h"
 #include "swr/shaders.h"
+#include "swr/stats.h"
 
 /* shaders for this demo. */
 #include "shader.h"
@@ -171,7 +172,13 @@ public:
             return false;
         }
 
-        context = swr::CreateSDLContext(sdl_window, sdl_renderer);
+        int thread_hint = swr_app::application::get_instance().get_argument("--threads", 0);
+        if(thread_hint > 0)
+        {
+            platform::logf("suggesting rasterizer to use {} thread{}", thread_hint, ((thread_hint > 1) ? "s" : ""));
+        }
+
+        context = swr::CreateSDLContext(sdl_window, sdl_renderer, thread_hint);
         if(!swr::MakeContextCurrent(context))
         {
             throw std::runtime_error("MakeContextCurrent failed");
@@ -400,12 +407,30 @@ public:
         swr::BindUniform(0, ml::matrices::orthographic_projection(0, width, height, 0, -1000, 1000));
         swr::BindUniform(1, ml::mat4x4::identity());
 
-        std::string msec_str = fmt::format("msec: {: #6.2f}", display_msec);
-        font_rend.draw_string(font::renderer::string_alignment::right | font::renderer::string_alignment::top, msec_str);
+        std::string str = fmt::format("msec: {: #6.2f}", display_msec);
+        font_rend.draw_string(font::renderer::string_alignment::right | font::renderer::string_alignment::top, str);
 
         uint32_t w{0}, h{0};
-        font.get_string_dimensions(msec_str, w, h);
-        font_rend.draw_string(font::renderer::string_alignment::right, fmt::format(" fps: {: #5.1f}", 1000.0f / display_msec), 0 /* ignored */, h);
+        font.get_string_dimensions(str, w, h);
+        str = fmt::format(" fps: {: #5.1f}", 1000.0f / display_msec);
+        font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
+
+        /*
+         * rasterizer stats.
+         */
+        swr::stats::rasterizer_data rast_data;
+        swr::stats::get_rasterizer_data(rast_data);
+
+        uint32_t temp = h + 10;
+        font.get_string_dimensions(str, w, h);
+        h += temp;
+        str = fmt::format("threads:    {:2}", rast_data.available_threads);
+        font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
+
+        font.get_string_dimensions(str, w, temp);
+        h += temp;
+        str = fmt::format("jobs:  {:4}", rast_data.jobs);
+        font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
     }
 
     int get_frame_count() const
@@ -454,7 +479,7 @@ public:
             run_time += SDL_GetTicks();
             float run_time_in_s = static_cast<float>(run_time) / 1000.f;
             float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;
-            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}", w->get_frame_count(), run_time_in_s, fps);
+            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), run_time_in_s, fps, 1000.f / fps);
 
             window->destroy();
 

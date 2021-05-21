@@ -22,5 +22,11 @@ void get_fragment_data(fragment_data& data)
     data = impl::global_context->stats_frag;
 }
 
+void get_rasterizer_data(rasterizer_data& data)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    data = impl::global_context->stats_rast;
+}
+
 }    // namespace stats
 }    // namespace swr

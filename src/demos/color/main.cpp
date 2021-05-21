@@ -88,7 +88,13 @@ public:
             return false;
         }
 
-        context = swr::CreateSDLContext(sdl_window, sdl_renderer);
+        int thread_hint = swr_app::application::get_instance().get_argument("--threads", 0);
+        if(thread_hint > 0)
+        {
+            platform::logf("suggesting rasterizer to use {} thread{}", thread_hint, ((thread_hint > 1) ? "s" : ""));
+        }
+
+        context = swr::CreateSDLContext(sdl_window, sdl_renderer, thread_hint);
         if(!swr::MakeContextCurrent(context))
         {
             throw std::runtime_error("MakeContextCurrent failed");
@@ -288,7 +294,7 @@ public:
             run_time += SDL_GetTicks();
             float run_time_in_s = static_cast<float>(run_time) / 1000.f;
             float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;
-            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}", w->get_frame_count(), run_time_in_s, fps);
+            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), run_time_in_s, fps, 1000.f / fps);
 
             window->destroy();
 

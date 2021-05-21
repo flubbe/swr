@@ -11,6 +11,7 @@ then
     cd ../..
 fi
 if [ -d "./deps/ml" ]; then rm -Rf "./deps/ml"; fi 
+if [ -d "./deps/concurrency_utils" ]; then rm -Rf "./deps/concurrency_utils"; fi 
 
 if [ -d "./deps/3rd-party/cpu_features" ]; then rm -Rf "./deps/3rd-party/cpu_features"; fi
 if [ -d "./deps/3rd-party/fmt" ]; then rm -Rf "./deps/3rd-party/fmt"; fi

@@ -414,7 +414,8 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
             {
                 // the block is completely covered.
 #ifdef SWR_ENABLE_MULTI_THREADING
-                rasterizer_threads.submit(thread_process_block, this, states, attributes, x, y, is_front_facing);
+                //                rasterizer_threads.submit(thread_process_block, this, states, attributes, x, y, is_front_facing);
+                rasterizer_threads.push_task(thread_process_block, this, states, attributes, x, y, is_front_facing);
 #else
                 process_block(states, attributes, x, y, is_front_facing);
 #endif
@@ -430,16 +431,17 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
                 lambdas_box.top_left[2].setup_block_processing();
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-                rasterizer_threads.submit(thread_process_block_checked, this, states, attributes, lambdas_box.top_left, x, y, is_front_facing);
+                rasterizer_threads.push_task(thread_process_block_checked, this, states, attributes, lambdas_box.top_left, x, y, is_front_facing);
 #else
                 process_block_checked(states, attributes, lambdas_box.top_left, x, y, is_front_facing);
 #endif
+                ++stats_rast.jobs;
             }
         }
     }
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    rasterizer_threads.wait_for_tasks();
+    rasterizer_threads.run_tasks_and_wait();
 #endif
 }
 

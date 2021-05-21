@@ -248,7 +248,7 @@ void render_device_context::AssemblePrimitives(const render_states* States, vert
         else
         {
             // this intentionally breaks the debugger.
-            assert(States->PolygonMode == Poly_Line || States->PolygonMode == Poly_Fill);
+            assert(States->poly_mode == polygon_mode::line || States->poly_mode == polygon_mode::fill);
         }
     }
 }

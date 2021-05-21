@@ -207,6 +207,9 @@ public:
      * rasterization.
      */
 
+    /** rasterization threads. */
+    uint32_t rasterizer_thread_pool_size{0};
+
     /** rasterizes points, lines and triangles. */
     std::unique_ptr<rast::rasterizer> Rasterizer;
 
@@ -216,6 +219,9 @@ public:
 
     /** statistics collected during fragment processing. */
     stats::fragment_data stats_frag;
+
+    /** rasterizer info and collected data. */
+    stats::rasterizer_data stats_rast;
 
     /*
      * render_device_context implementation.
@@ -341,7 +347,13 @@ protected:
 
 public:
     /** default constructor. */
-    sdl_render_context() = default;
+    sdl_render_context(uint32_t thread_hint)
+    {
+        if(thread_hint > 0)
+        {
+            rasterizer_thread_pool_size = thread_hint;
+        }
+    }
 
     /** destructor. */
     ~sdl_render_context()

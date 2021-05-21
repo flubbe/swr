@@ -44,6 +44,11 @@ log_device& log_device::get()
     return *singleton;
 }
 
+bool log_device::is_initialized()
+{
+    return singleton != nullptr;
+}
+
 void log_device::cleanup()
 {
     singleton = &null_log;

@@ -563,9 +563,10 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height);
  *
  * \param Window A valid SDL window.
  * \param Renderer A valid SDL renderer.
+ * \param thread_hint A hint to the rasterizer how many threads to use.
  * \return A rendering context that may be used for software rasterization.
  */
-context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer);
+context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, uint32_t thread_hint = 0);
 
 /**
  * Destroy a context created with CreateSDLContext. Frees all memory associated to the context

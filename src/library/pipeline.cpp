@@ -138,8 +138,8 @@ void Present()
         }
 
         // check we have valid drawing and polygon modes.
-        assert(it->Mode == vertex_buffer_mode::points || it->Mode == vertex_buffer_mode::lines || it->Mode == vertex_buffer_mode::triangles);
-        assert(it->RenderStates.PolygonMode == polygon_mode::point || it->RenderStates.PolygonMode == polygon_mode::line || it->RenderStates.PolygonMode == polygon_mode::fill);
+        assert(it->mode == vertex_buffer_mode::points || it->mode == vertex_buffer_mode::lines || it->mode == vertex_buffer_mode::triangles);
+        assert(it->states.poly_mode == polygon_mode::point || it->states.poly_mode == polygon_mode::line || it->states.poly_mode == polygon_mode::fill);
 
         /*
          * clip the vertex buffer.
@@ -194,6 +194,7 @@ void Present()
 
     // store statistical data.
     context->stats_frag = context->Rasterizer->stats_frag;
+    context->stats_rast = context->Rasterizer->stats_rast;
 
     // flush drawing lists.
     context->DrawList.resize(0);
