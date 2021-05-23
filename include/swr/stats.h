@@ -10,6 +10,20 @@
 
 #pragma once
 
+/** update counters/cycles if statistics are enabled. we intentionally use macros, so that the compiler doesn't generate an error when they is defined as empty and the argument do not exist. */
+#ifdef SWR_ENABLE_STATS
+#    define SWR_STATS_INCREMENT(ctr) \
+        {                            \
+            ++ctr;                   \
+        }
+#    define SWR_STATS_CLOCK(cycles)   utils::clock(cycles)
+#    define SWR_STATS_UNCLOCK(cycles) utils::unclock(cycles)
+#else
+#    define SWR_STATS_INCREMENT(ctr)
+#    define SWR_STATS_CLOCK(cycles)
+#    define SWR_STATS_UNCLOCK(cycles)
+#endif
+
 namespace swr
 {
 

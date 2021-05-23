@@ -211,17 +211,18 @@ public:
     uint32_t rasterizer_thread_pool_size{0};
 
     /** rasterizes points, lines and triangles. */
-    std::unique_ptr<rast::rasterizer> Rasterizer;
+    std::unique_ptr<rast::rasterizer> rasterizer;
 
     /*
      * statistics and benchmarking.
      */
-
+#ifdef SWR_ENABLE_STATS
     /** statistics collected during fragment processing. */
     stats::fragment_data stats_frag;
 
     /** rasterizer info and collected data. */
     stats::rasterizer_data stats_rast;
+#endif
 
     /*
      * render_device_context implementation.

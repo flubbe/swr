@@ -1,6 +1,5 @@
 /* C++ headers. */
 #include <mutex>
-#include <iostream>
 
 /* other library headers */
 #ifndef __linux__

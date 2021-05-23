@@ -8,7 +8,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-#include <iostream>
 #include <mutex>
 #include <thread>
 

@@ -25,9 +25,9 @@ namespace rast
 #define FILL_RULE_EDGE_BIAS 1
 
 /** Single-threaded sweep rasterizer. */
-class sweep_rasterizer_single_threaded : public rasterizer
+class sweep_rasterizer : public rasterizer
 {
-    /** a geometric primitive understood by sweep_rasterizer_single_threaded */
+    /** a geometric primitive understood by sweep_rasterizer */
     struct primitive
     {
         enum primitive_type
@@ -131,10 +131,10 @@ class sweep_rasterizer_single_threaded : public rasterizer
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** static block drawing functions. callable by threads. */
-    static void thread_process_block(sweep_rasterizer_single_threaded* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, int x, int y, bool front_facing);
+    static void thread_process_block(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, int x, int y, bool front_facing);
 
     /** static block drawing functions. callable by threads. */
-    static void thread_process_block_checked(sweep_rasterizer_single_threaded* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], int x, int y, bool front_facing);
+    static void thread_process_block_checked(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], int x, int y, bool front_facing);
 #endif
 
     /**
@@ -159,22 +159,29 @@ class sweep_rasterizer_single_threaded : public rasterizer
      */
     void draw_point(const swr::impl::render_states& states, const geom::vertex& v);
 
+    /** draw the primitives in the list sequentially. */
+    void draw_primitives_sequentially();
+
+#ifdef SWR_ENABLE_MULTI_THREADING
+    /** draw the primitives in the list in parallel. */
+    void draw_primitives_parallel();
+#endif
+
 public:
     /** Constructor. */
-    sweep_rasterizer_single_threaded(std::size_t in_thread_count, swr::impl::color_buffer* in_color_buffer, swr::impl::depth_buffer* in_depth_buffer)
+    sweep_rasterizer(std::size_t in_thread_count, swr::impl::color_buffer* in_color_buffer, swr::impl::depth_buffer* in_depth_buffer)
     : rasterizer(in_color_buffer, in_depth_buffer)
 #ifdef SWR_ENABLE_MULTI_THREADING
-    , rasterizer_threads
-    {
-        in_thread_count
-    }
+    , rasterizer_threads(in_thread_count)
 #endif
     {
-#ifdef SWR_ENABLE_MULTI_THREADING
+#ifdef SWR_ENABLE_STATS
+#    ifdef SWR_ENABLE_MULTI_THREADING
         stats_rast.available_threads = rasterizer_threads.get_thread_count();
-#else
+#    else
         stats_rast.available_threads = 1;
-#endif
+#    endif /* SWR_ENABLE_MULTI_THREADING */
+#endif     /* SWR_ENABLE_STATS */
     }
 
     /*

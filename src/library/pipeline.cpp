@@ -190,11 +190,13 @@ void Present()
     }
 
     // invoke triangle rasterizer.
-    context->Rasterizer->draw_primitives();
+    context->rasterizer->draw_primitives();
 
+#ifdef SWR_ENABLE_STATS
     // store statistical data.
-    context->stats_frag = context->Rasterizer->stats_frag;
-    context->stats_rast = context->Rasterizer->stats_rast;
+    context->stats_frag = context->rasterizer->stats_frag;
+    context->stats_rast = context->rasterizer->stats_rast;
+#endif
 
     // flush drawing lists.
     context->DrawList.resize(0);

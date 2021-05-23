@@ -36,11 +36,13 @@ struct rasterizer
      * statistics and benchmarking.
      */
 
+#ifdef SWR_ENABLE_STATS
     /** fragment processing stage statistics. */
     swr::stats::fragment_data stats_frag;
 
     /** rasterizer. */
     swr::stats::rasterizer_data stats_rast;
+#endif
 
     /*
      * interface.

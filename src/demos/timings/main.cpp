@@ -9,7 +9,6 @@
  */
 
 /* C++ headers */
-#include <iostream>
 #include <chrono>
 
 /* boost */
@@ -415,6 +414,7 @@ public:
         str = fmt::format(" fps: {: #5.1f}", 1000.0f / display_msec);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
 
+#ifdef SWR_ENABLE_STATS
         /*
          * rasterizer stats.
          */
@@ -431,6 +431,7 @@ public:
         h += temp;
         str = fmt::format("jobs:  {:4}", rast_data.jobs);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
+#endif /* SWR_ENABLE_STATS */
     }
 
     int get_frame_count() const
@@ -439,23 +440,20 @@ public:
     }
 };
 
-/** Logging to stdout using C++ iostream. */
-class log_iostream : public platform::log_device
+/** Logging to stdout using fmt::print. */
+class log_fmt : public platform::log_device
 {
-    std::mutex mtx;
-
 protected:
     void log_n(const std::string& message)
     {
-        const std::scoped_lock lock{mtx}; /* prevent unpredictable output interleaving */
-        std::cout << message << std::endl;
+        fmt::print("{}\n", message);
     }
 };
 
 /** demo application class. */
 class demo_app : public swr_app::application
 {
-    log_iostream log;
+    log_fmt log;
     Uint32 run_time{0};
 
 public:

@@ -352,7 +352,7 @@ void line_info::setup()
     }
 }
 
-void sweep_rasterizer_single_threaded::draw_line(const swr::impl::render_states& States, bool InDrawEndPoint, const geom::vertex& V1, const geom::vertex& V2)
+void sweep_rasterizer::draw_line(const swr::impl::render_states& States, bool InDrawEndPoint, const geom::vertex& V1, const geom::vertex& V2)
 {
     line_info info{V1, V2};
 

@@ -270,7 +270,7 @@ public:
 
     /** return the values of all parameter-value pairs of the form 'name=value'. */
     template<typename T>
-    std::size_t get_arguments(const std::string& name, std::vector<T>& values)
+    std::size_t get_arguments(const std::string& name, std::vector<T>& values) const
     {
         values.clear();
 

@@ -189,11 +189,11 @@ void sdl_render_context::Initialize(SDL_Window* InWindow, SDL_Renderer* InRender
 
     try
     {
-        Rasterizer = std::unique_ptr<rast::sweep_rasterizer_single_threaded>(new rast::sweep_rasterizer_single_threaded(rasterizer_thread_pool_size, &ColorBuffer, &DepthBuffer));
+        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, &ColorBuffer, &DepthBuffer));
     }
     catch(std::bad_alloc& e)
     {
-        throw std::runtime_error(fmt::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer_single_threaded: {}", e.what()));
+        throw std::runtime_error(fmt::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
     }
 }
 

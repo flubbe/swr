@@ -51,6 +51,9 @@ struct render_states
     /* shaders */
     struct program_info* shader_info{nullptr};
     boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations> uniforms;
+
+    /** default constructor. */
+    render_states() = default;
 };
 
 } /* namespace impl */

@@ -45,9 +45,9 @@ namespace rast
  *  5) Calculate the color in the output buffer's pixel format.
  *  6) Apply color blending.
  */
-bool sweep_rasterizer_single_threaded::process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& FragInfo)
+bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& FragInfo)
 {
-    ++stats_frag.count;
+    SWR_STATS_INCREMENT(stats_frag.count);
 
     /*
      * Scissor test.
@@ -57,7 +57,7 @@ bool sweep_rasterizer_single_threaded::process_fragment(int x, int y, const swr:
         if(x < states.scissor_box.x_min || x >= states.scissor_box.x_max
            || y < (raster_height - states.scissor_box.y_max) || y >= (raster_height - states.scissor_box.y_min))
         {
-            ++stats_frag.discard_scissor;
+            SWR_STATS_INCREMENT(stats_frag.discard_scissor);
             return false;
         }
     }
@@ -98,13 +98,13 @@ bool sweep_rasterizer_single_threaded::process_fragment(int x, int y, const swr:
       FragInfo.depth_value,
       z};
 
-    utils::clock(stats_frag.cycles);
+    SWR_STATS_CLOCK(stats_frag.cycles);
     auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, FragInfo.front_facing, {0, 0}, *FragInfo.Varyings, FragInfo.depth_value, color_attachments);
-    utils::unclock(stats_frag.cycles);
+    SWR_STATS_UNCLOCK(stats_frag.cycles);
 
     if(accept_fragment == swr::discard)
     {
-        ++stats_frag.discard_shader;
+        SWR_STATS_INCREMENT(stats_frag.discard_shader);
         return false;
     }
 
@@ -116,7 +116,7 @@ bool sweep_rasterizer_single_threaded::process_fragment(int x, int y, const swr:
         // discard fragment if depth testing is always failing.
         if(states.depth_func == swr::comparison_func::fail)
         {
-            ++stats_frag.discard_depth;
+            SWR_STATS_INCREMENT(stats_frag.discard_depth);
             return false;
         }
 
@@ -125,19 +125,13 @@ bool sweep_rasterizer_single_threaded::process_fragment(int x, int y, const swr:
         ml::fixed_32_t* depth_buffer_ptr = reinterpret_cast<ml::fixed_32_t*>(reinterpret_cast<uint8_t*>(depth_buffer->data_ptr) + depth_buffer_offset);
         ml::fixed_32_t depth_value{FragInfo.depth_value};
 
-        if(states.depth_func == swr::comparison_func::fail)
-        {
-            // early-out for depth fail.
-            ++stats_frag.discard_depth;
-            return false;
-        }
-        else if(states.depth_func == swr::comparison_func::pass
-                || (states.depth_func == swr::comparison_func::equal && depth_value == *depth_buffer_ptr)
-                || (states.depth_func == swr::comparison_func::not_equal && depth_value != *depth_buffer_ptr)
-                || (states.depth_func == swr::comparison_func::less && depth_value < *depth_buffer_ptr)
-                || (states.depth_func == swr::comparison_func::less_equal && depth_value <= *depth_buffer_ptr)
-                || (states.depth_func == swr::comparison_func::greater && depth_value > *depth_buffer_ptr)
-                || (states.depth_func == swr::comparison_func::greater_equal && depth_value >= *depth_buffer_ptr))
+        if(states.depth_func == swr::comparison_func::pass
+           || (states.depth_func == swr::comparison_func::equal && depth_value == *depth_buffer_ptr)
+           || (states.depth_func == swr::comparison_func::not_equal && depth_value != *depth_buffer_ptr)
+           || (states.depth_func == swr::comparison_func::less && depth_value < *depth_buffer_ptr)
+           || (states.depth_func == swr::comparison_func::less_equal && depth_value <= *depth_buffer_ptr)
+           || (states.depth_func == swr::comparison_func::greater && depth_value > *depth_buffer_ptr)
+           || (states.depth_func == swr::comparison_func::greater_equal && depth_value >= *depth_buffer_ptr))
         {
             // accept and possibly write depth for the fragment.
             if(states.write_depth)
@@ -148,7 +142,7 @@ bool sweep_rasterizer_single_threaded::process_fragment(int x, int y, const swr:
         else
         {
             // discard fragment.
-            ++stats_frag.discard_depth;
+            SWR_STATS_INCREMENT(stats_frag.discard_depth);
             return false;
         }
     }
@@ -171,7 +165,7 @@ bool sweep_rasterizer_single_threaded::process_fragment(int x, int y, const swr:
      */
     if(states.blending_enabled)
     {
-        ++stats_frag.blending;
+        SWR_STATS_INCREMENT(stats_frag.blending);
         out_color = swr::output_merger::blend(color_buffer->pf_conv, states, *color_buffer_ptr, out_color);
     }
 

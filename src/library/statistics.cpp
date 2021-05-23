@@ -19,13 +19,17 @@ namespace stats
 void get_fragment_data(fragment_data& data)
 {
     ASSERT_INTERNAL_CONTEXT;
+#ifdef SWR_ENABLE_STATS
     data = impl::global_context->stats_frag;
+#endif
 }
 
 void get_rasterizer_data(rasterizer_data& data)
 {
     ASSERT_INTERNAL_CONTEXT;
+#ifdef SWR_ENABLE_STATS
     data = impl::global_context->stats_rast;
+#endif
 }
 
 }    // namespace stats

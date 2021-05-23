@@ -30,7 +30,7 @@ namespace rast
  * !!todo: Look up which values to put in dFdx, dFdy.
  */
 
-void sweep_rasterizer_single_threaded::draw_point(const swr::impl::render_states& states, const geom::vertex& v)
+void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const geom::vertex& v)
 {
     /*
      * a note on the pixel center adjustment:

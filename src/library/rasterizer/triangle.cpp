@@ -33,7 +33,7 @@
 namespace rast
 {
 
-void sweep_rasterizer_single_threaded::process_block(const swr::impl::render_states& States, triangle_interpolator& AttrInt, int start_x, int y, bool front_facing)
+void sweep_rasterizer::process_block(const swr::impl::render_states& States, triangle_interpolator& AttrInt, int start_x, int y, bool front_facing)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
 
@@ -59,7 +59,7 @@ void sweep_rasterizer_single_threaded::process_block(const swr::impl::render_sta
     }
 }
 
-void sweep_rasterizer_single_threaded::process_block_checked(const swr::impl::render_states& States, triangle_interpolator& AttrInt, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3], int start_x, int y, bool front_facing)
+void sweep_rasterizer::process_block_checked(const swr::impl::render_states& States, triangle_interpolator& AttrInt, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3], int start_x, int y, bool front_facing)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
 
@@ -99,13 +99,13 @@ void sweep_rasterizer_single_threaded::process_block_checked(const swr::impl::re
 #ifdef SWR_ENABLE_MULTI_THREADING
 
 /** static block drawing function. callable by threads. */
-void sweep_rasterizer_single_threaded::thread_process_block(sweep_rasterizer_single_threaded* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, int x, int y, bool front_facing)
+void sweep_rasterizer::thread_process_block(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, int x, int y, bool front_facing)
 {
     rasterizer->process_block(states, attr, x, y, front_facing);
 }
 
 /** static block drawing function. callable by threads. */
-void sweep_rasterizer_single_threaded::thread_process_block_checked(sweep_rasterizer_single_threaded* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3], int x, int y, bool front_facing)
+void sweep_rasterizer::thread_process_block_checked(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3], int x, int y, bool front_facing)
 {
     rasterizer->process_block_checked(states, attr, lambdas, x, y, front_facing);
 }
@@ -216,7 +216,7 @@ struct barycentric_coordinate_stepper
     }
 };
 
-void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3)
+void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3)
 {
     // calculate the (signed) parallelogram area spanned by the difference vectors.
     auto v1_xy = v1.coords.xy();
@@ -435,14 +435,10 @@ void sweep_rasterizer_single_threaded::draw_filled_triangle(const swr::impl::ren
 #else
                 process_block_checked(states, attributes, lambdas_box.top_left, x, y, is_front_facing);
 #endif
-                ++stats_rast.jobs;
+                SWR_STATS_INCREMENT(stats_rast.jobs);
             }
         }
     }
-
-#ifdef SWR_ENABLE_MULTI_THREADING
-    rasterizer_threads.run_tasks_and_wait();
-#endif
 }
 
 } /* namespace rast */

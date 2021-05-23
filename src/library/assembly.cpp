@@ -151,7 +151,7 @@ void render_device_context::AssemblePrimitives(const render_states* States, vert
         /* draw a list of points */
         for(auto& vertex_it: Buffer)
         {
-            Rasterizer->add_point(States, &vertex_it);
+            rasterizer->add_point(States, &vertex_it);
         }
     }
     else if(Mode == vertex_buffer_mode::lines)
@@ -160,7 +160,7 @@ void render_device_context::AssemblePrimitives(const render_states* States, vert
         int size = Buffer.size() & ~1;
         for(int i = 0; i < size; i += 2)
         {
-            Rasterizer->add_line(States, &Buffer[i], &Buffer[i + 1]);
+            rasterizer->add_line(States, &Buffer[i], &Buffer[i + 1]);
         }
     }
     else if(Mode == vertex_buffer_mode::triangles)
@@ -209,12 +209,12 @@ void render_device_context::AssemblePrimitives(const render_states* States, vert
                     const auto* CurrentVertex = &Buffer[i];
 
                     // Add the current line to the rasterizer.
-                    Rasterizer->add_line(States, PreviousVertex, CurrentVertex);
+                    rasterizer->add_line(States, PreviousVertex, CurrentVertex);
 
                     PreviousVertex = CurrentVertex;
                 }
                 // close the strip.
-                Rasterizer->add_line(States, PreviousVertex, FirstVertex);
+                rasterizer->add_line(States, PreviousVertex, FirstVertex);
             }
         }
         else if(States->poly_mode == polygon_mode::fill)
@@ -242,7 +242,7 @@ void render_device_context::AssemblePrimitives(const render_states* States, vert
                     continue;
                 }
 
-                Rasterizer->add_triangle(States, is_front_facing, &V1, &V2, &V3);
+                rasterizer->add_triangle(States, is_front_facing, &V1, &V2, &V3);
             }
         }
         else
