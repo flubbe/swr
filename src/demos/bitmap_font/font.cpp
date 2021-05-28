@@ -105,7 +105,7 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
 
     // render string.
     swr::BindShader(shader_id);
-    swr::BindUniform(2, static_cast<int>(font.tex_id));
+    swr::BindTexture(swr::texture_target::texture_2d, font.tex_id);
     uint32_t cur_x = x;
 
     for(auto& it: s)

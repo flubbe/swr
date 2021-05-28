@@ -145,9 +145,7 @@ class program
 
 protected:
     const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
-
-    /** get texture sampler. temporary. */
-    swr::sampler_2d* get_sampler_2d(uint32_t id);
+    boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> samplers;
 
 public:
     virtual ~program()
@@ -157,6 +155,16 @@ public:
     void update_uniforms(const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* in_uniforms)
     {
         uniforms = in_uniforms;
+    }
+
+    void update_samplers(const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* in_samplers)
+    {
+        // we copy the samplers (instead of using the pointer).
+        samplers.resize(in_samplers->size());
+        for(std::size_t i = 0; i < in_samplers->size(); ++i)
+        {
+            samplers[i] = (*in_samplers)[i];
+        }
     }
 
     bool bind(context_handle in_context);

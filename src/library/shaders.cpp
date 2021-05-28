@@ -81,24 +81,6 @@ bool program::bind(context_handle InContext)
     return true;
 }
 
-swr::sampler_2d* program::get_sampler_2d(uint32_t id)
-{
-    impl::render_device_context* ctx = static_cast<impl::render_device_context*>(Context);
-
-    if(id == 0) /* impl::default_texture_id */
-    {
-        return ctx->DefaultTexture2d->sampler;
-    }
-
-    if(id < ctx->Texture2dHash.size())
-    {
-        impl::texture_2d* tex = ctx->Texture2dHash[id];
-        return (tex ? tex->sampler : nullptr);
-    }
-
-    return nullptr;
-}
-
 /*
  * Public Interface
  */

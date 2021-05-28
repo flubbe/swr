@@ -45,8 +45,10 @@ struct render_states
     blend_func blend_src{blend_func::one};
     blend_func blend_dst{blend_func::zero};
 
-    /* textures */
-    struct texture_2d* tex_2d{nullptr};
+    /* texture units. */
+    boost::container::static_vector<struct texture_2d*, geom::limits::max::texture_units> texture_2d_units;
+    std::uint32_t texture_2d_active_unit{0};
+    boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> texture_2d_samplers;
 
     /* shaders */
     struct program_info* shader_info{nullptr};

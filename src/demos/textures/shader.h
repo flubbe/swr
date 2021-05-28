@@ -13,7 +13,9 @@
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
- *   location 2: texture id                     [int]
+ * 
+ * samplers:
+ *   location 0: diffuse texture
  * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
@@ -64,10 +66,8 @@ public:
         // texture coordinates.
         const ml::vec4 tex_coords = varyings[0];
 
-        // get texture from uniform.
-        uint32_t tex_id = (*uniforms)[2].i;
-        swr::sampler_2d* sampler = get_sampler_2d(tex_id);
-        ml::vec4 color = sampler->sample_at(tex_coords.xy());
+        // sample texture.
+        ml::vec4 color = samplers[0]->sample_at(tex_coords.xy());
 
         // write fragment color.
         color_attachments[0] = color;

@@ -28,6 +28,9 @@ constexpr int varyings = 32;
 /** Maximal count of uniform locations per program. */
 constexpr int uniform_locations = 1024;
 
+/** texture units. */
+constexpr int texture_units = 80;
+
 } /* namespace max */
 
 } /* namespace limits */

@@ -48,7 +48,7 @@ void texture_storage::allocate(size_t width, size_t height, bool mipmapping)
      * 
      * in general, the n-th mipmap level of size (width/2^n)x(height/2^n) starts at coordinate (width,(1-1/2^(n-1))*height) with pitch 1.5*width.
      */
-    buffer.resize(width * height + (width * height >> 1));
+    buffer.resize(width * height + ((width * height) >> 1));
 
     // base image.
     data_ptrs.push_back(buffer.data());
@@ -234,28 +234,61 @@ void texture_2d::clear()
  * \param id the id of the texture to be bound to the 2d texture pointer
  * \return true if the bind was successful and false otherwise. In the latter case, global_context->last_error is set.
  */
-bool bind_texture_pointer(uint32_t id)
+bool bind_texture_pointer(texture_target target, uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
+    if(target != texture_target::texture_2d)
+    {
+        global_context->last_error = error::unimplemented;
+        return false;
+    }
+
+    // if needed, increase unit array size.
+    auto unit = global_context->RenderStates.texture_2d_active_unit;
+    if(unit >= global_context->RenderStates.texture_2d_units.size())
+    {
+        if(unit > geom::limits::max::texture_units)
+        {
+            global_context->last_error = error::invalid_value;
+            return false;
+        }
+
+        global_context->RenderStates.texture_2d_units.resize(unit + 1);
+    }
+    if(unit >= global_context->RenderStates.texture_2d_samplers.size())
+    {
+        if(unit > geom::limits::max::texture_units)
+        {
+            global_context->last_error = error::invalid_value;
+            return false;
+        }
+
+        global_context->RenderStates.texture_2d_samplers.resize(unit + 1);
+    }
+
+    auto texture_2d = &global_context->RenderStates.texture_2d_units[unit];
+    auto sampler_2d = &global_context->RenderStates.texture_2d_samplers[unit];
+
     if(id == default_tex_id)
     {
-        global_context->RenderStates.tex_2d = global_context->DefaultTexture2d;
-        if(!global_context->RenderStates.tex_2d)
+        *texture_2d = global_context->DefaultTexture2d;
+        if(!(*texture_2d))
         {
             // this can only happen if the context was in an invalid state in the first place.
             global_context->last_error = error::invalid_operation;
             return false;
         }
 
+        *sampler_2d = (*texture_2d)->sampler;
         return true;
     }
 
-    if(global_context->RenderStates.tex_2d == nullptr || global_context->RenderStates.tex_2d->id != id)
+    if(*texture_2d == nullptr || (*texture_2d)->id != id)
     {
         if(id < global_context->Texture2dHash.size())
         {
-            global_context->RenderStates.tex_2d = global_context->Texture2dHash[id];
+            *texture_2d = global_context->Texture2dHash[id];
         }
         else
         {
@@ -263,13 +296,14 @@ bool bind_texture_pointer(uint32_t id)
             return false;
         }
 
-        if(!global_context->RenderStates.tex_2d || global_context->RenderStates.tex_2d->id != id)
+        if(!(*texture_2d) || (*texture_2d)->id != id)
         {
             // this can only happen if the context was in an invalid state in the first place.
             global_context->last_error = error::invalid_operation;
             return false;
         }
 
+        *sampler_2d = (*texture_2d)->sampler;
         return true;
     }
 
@@ -348,49 +382,88 @@ uint32_t CreateTexture(size_t Width, size_t Height, pixel_format Format, wrap_mo
     return Id;
 }
 
-void ReleaseTexture(uint32_t TextureId)
+void ReleaseTexture(uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
 
-    if(TextureId < Context->Texture2dHash.size())
+    if(id < context->Texture2dHash.size())
     {
+        auto texture_2d = &context->RenderStates.texture_2d_units[context->RenderStates.texture_2d_active_unit];
+        auto sampler_2d = &context->RenderStates.texture_2d_samplers[context->RenderStates.texture_2d_active_unit];
+
         // see if this was the last texture used.
-        if(Context->RenderStates.tex_2d && Context->RenderStates.tex_2d->id == Context->Texture2dHash[TextureId]->id)
+        if((*texture_2d) && (*texture_2d)->id == context->Texture2dHash[id]->id)
         {
             // reset to the default texture.
-            Context->RenderStates.tex_2d = Context->DefaultTexture2d;
+            *texture_2d = context->DefaultTexture2d;
+            if(*texture_2d)
+            {
+                *sampler_2d = (*texture_2d)->sampler;
+            }
         }
 
         // free texture memory.
-        delete Context->Texture2dHash[TextureId];
-        Context->Texture2dHash[TextureId] = nullptr;
+        delete context->Texture2dHash[id];
+        context->Texture2dHash[id] = nullptr;
 
-        Context->Texture2dHash.free(TextureId);
+        context->Texture2dHash.free(id);
     }
 }
 
-void BindTexture(uint32_t TextureId)
+void ActiveTexture(uint32_t unit)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
+
+    if(unit >= geom::limits::max::texture_units)
+    {
+        context->last_error = error::invalid_value;
+        return;
+    }
+
+    context->RenderStates.texture_2d_active_unit = unit;
+
+    // we need to copy over the texture parameters for the Get* and Set* functions to work.
+    if(context->RenderStates.texture_2d_samplers[unit])
+    {
+        auto sampler = static_cast<impl::sampler_2d_impl*>(context->RenderStates.texture_2d_samplers[unit]);
+
+        sampler->get_texture_filters(context->TextureFilterMag, context->TextureFilterMin);
+        context->TextureWrapS = sampler->get_wrap_s();
+        context->TextureWrapT = sampler->get_wrap_t();
+    }
+}
+
+void BindTexture(texture_target target, uint32_t id)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    impl::render_device_context* context = impl::global_context;
+
+    if(target != texture_target::texture_2d)
+    {
+        context->last_error = error::unimplemented;
+        return;
+    }
 
     /*
      * bind_texture_pointer only looks up the texture and (if successful) assigns it
      * to impl::global_context->RenderStates.tex_2d. We also need to copy over the
      * texture's parameters for the Get* and Set* functions to work.
      */
-    if(impl::bind_texture_pointer(TextureId))
+    if(impl::bind_texture_pointer(target, id))
     {
-        Context->RenderStates.tex_2d->sampler->get_texture_filters(Context->TextureFilterMag, Context->TextureFilterMin);
-        Context->TextureWrapS = Context->RenderStates.tex_2d->sampler->get_wrap_s();
-        Context->TextureWrapT = Context->RenderStates.tex_2d->sampler->get_wrap_t();
+        auto sampler = static_cast<impl::sampler_2d_impl*>(context->RenderStates.texture_2d_samplers[context->RenderStates.texture_2d_active_unit]);
+
+        sampler->get_texture_filters(context->TextureFilterMag, context->TextureFilterMin);
+        context->TextureWrapS = sampler->get_wrap_s();
+        context->TextureWrapT = sampler->get_wrap_t();
     }
 }
 
 void SetTextureWrapMode(uint32_t id, wrap_mode s, wrap_mode t)
 {
-    if(impl::bind_texture_pointer(id))
+    if(impl::bind_texture_pointer(texture_target::texture_2d, id))
     {
         ASSERT_INTERNAL_CONTEXT;
         impl::render_device_context* context = impl::global_context;
@@ -402,70 +475,78 @@ void SetTextureWrapMode(uint32_t id, wrap_mode s, wrap_mode t)
             return;
         }
 
-        context->RenderStates.tex_2d->sampler->set_wrap_s(s);
-        context->RenderStates.tex_2d->sampler->set_wrap_t(t);
+        auto sampler = static_cast<impl::sampler_2d_impl*>(context->RenderStates.texture_2d_samplers[context->RenderStates.texture_2d_active_unit]);
+        sampler->set_wrap_s(s);
+        sampler->set_wrap_t(t);
     }
 }
 
 void GetTextureWrapMode(uint32_t id, wrap_mode* s, wrap_mode* t)
 {
-    if(impl::bind_texture_pointer(id))
+    if(impl::bind_texture_pointer(texture_target::texture_2d, id))
     {
         ASSERT_INTERNAL_CONTEXT;
         impl::render_device_context* context = impl::global_context;
 
+        auto sampler = static_cast<impl::sampler_2d_impl*>(context->RenderStates.texture_2d_samplers[context->RenderStates.texture_2d_active_unit]);
         if(s)
         {
-            *s = context->RenderStates.tex_2d->sampler->get_wrap_s();
+            *s = sampler->get_wrap_s();
         }
         if(t)
         {
-            *t = context->RenderStates.tex_2d->sampler->get_wrap_t();
+            *t = sampler->get_wrap_t();
         }
     }
 }
 
-void SetTextureMinificationFilter(texture_filter Filter)
+void SetTextureMinificationFilter(texture_filter filter)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
-    if(Context->RenderStates.tex_2d)
+    impl::render_device_context* context = impl::global_context;
+    auto texture_2d = context->RenderStates.texture_2d_units[context->RenderStates.texture_2d_active_unit];
+
+    if(texture_2d)
     {
-        Context->RenderStates.tex_2d->set_filter_min(Filter);
+        texture_2d->set_filter_min(filter);
     }
     else
     {
-        Context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_operation;
     }
 }
 
-void SetTextureMagnificationFilter(texture_filter Filter)
+void SetTextureMagnificationFilter(texture_filter filter)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
-    if(Context->RenderStates.tex_2d)
+    impl::render_device_context* context = impl::global_context;
+    auto texture_2d = context->RenderStates.texture_2d_units[context->RenderStates.texture_2d_active_unit];
+
+    if(texture_2d)
     {
-        Context->RenderStates.tex_2d->set_filter_mag(Filter);
+        texture_2d->set_filter_mag(filter);
     }
     else
     {
-        Context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_operation;
     }
 }
 
 texture_filter GetTextureMinificationFilter()
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
-    if(Context->RenderStates.tex_2d)
+    impl::render_device_context* context = impl::global_context;
+    auto sampler = static_cast<impl::sampler_2d_impl*>(context->RenderStates.texture_2d_samplers[context->RenderStates.texture_2d_active_unit]);
+
+    if(sampler)
     {
         texture_filter min, mag /* unused */;
-        Context->RenderStates.tex_2d->sampler->get_texture_filters(mag, min);
+        sampler->get_texture_filters(mag, min);
         return min;
     }
     else
     {
-        Context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_operation;
     }
     return texture_filter::nearest;
 }
@@ -473,16 +554,18 @@ texture_filter GetTextureMinificationFilter()
 texture_filter GetTextureMagnificationFilter()
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
-    if(Context->RenderStates.tex_2d)
+    impl::render_device_context* context = impl::global_context;
+    auto sampler = static_cast<impl::sampler_2d_impl*>(context->RenderStates.texture_2d_samplers[context->RenderStates.texture_2d_active_unit]);
+
+    if(sampler)
     {
         texture_filter min /* unused */, mag;
-        Context->RenderStates.tex_2d->sampler->get_texture_filters(mag, min);
+        sampler->get_texture_filters(mag, min);
         return mag;
     }
     else
     {
-        Context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_operation;
     }
     return texture_filter::nearest;
 }

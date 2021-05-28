@@ -275,7 +275,8 @@ public:
         swr::BindUniform(0, proj);
         swr::BindUniform(1, view);
         swr::BindUniform(2, light_position);
-        swr::BindUniform(3, static_cast<int>(cube_tex));
+
+        swr::BindTexture(swr::texture_target::texture_2d, cube_tex);
 
         // draw the buffer.
         swr::DrawIndexedElements(cube_indices, swr::vertex_buffer_mode::triangles);

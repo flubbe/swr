@@ -238,7 +238,7 @@ public:
         }
         font_tex_id = load_texture(font_tex_width, font_tex_height, image_data);
 
-        swr::BindTexture(font_tex_id);
+        swr::BindTexture(swr::texture_target::texture_2d, font_tex_id);
         swr::SetTextureMagnificationFilter(swr::texture_filter::nearest);
         swr::SetTextureMinificationFilter(swr::texture_filter::nearest);
 

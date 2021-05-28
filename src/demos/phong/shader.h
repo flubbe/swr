@@ -19,7 +19,9 @@
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
  *   location 2: light position in camera space [vec4]
- *   location 3: diffuse texture id             [int]
+ * 
+ * samplers:
+ *   location 0: diffuse texture
  * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
@@ -100,10 +102,8 @@ public:
 
         ml::vec4 light_position = (*uniforms)[2].v4;
 
-        // material properties.
-        uint32_t diffuse_tex_id = (*uniforms)[3].i;
-        swr::sampler_2d* diffuse_sampler = get_sampler_2d(diffuse_tex_id);
-        ml::vec4 material_diffuse_color = diffuse_sampler->sample_at({tex_coords.x, tex_coords.y});
+        // sample diffuse texture.
+        ml::vec4 material_diffuse_color = samplers[0]->sample_at({tex_coords.x, tex_coords.y});
 
         // distance to light.
         float distance_squared = (light_position - position).xyz().length_squared();

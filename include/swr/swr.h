@@ -390,11 +390,45 @@ uint32_t CreateTexture(size_t Width, size_t Height, pixel_format Format, wrap_mo
  */
 void ReleaseTexture(uint32_t TextureId);
 
+/** texture targets. */
+enum class texture_target
+{
+    texture_2d, /** 2d texture target. */
+};
+
+/** texture unit. */
+enum texture_unit
+{
+    texture_0 = 0,   /** texture unit 0 */
+    texture_1 = 1,   /** texture unit 1 */
+    texture_2 = 2,   /** texture unit 2 */
+    texture_3 = 3,   /** texture unit 3 */
+    texture_4 = 4,   /** texture unit 4 */
+    texture_5 = 5,   /** texture unit 5 */
+    texture_6 = 6,   /** texture unit 6 */
+    texture_7 = 7,   /** texture unit 7 */
+    texture_8 = 8,   /** texture unit 8 */
+    texture_9 = 9,   /** texture unit 9 */
+    texture_10 = 10, /** texture unit 10 */
+    texture_11 = 11, /** texture unit 11 */
+    texture_12 = 12, /** texture unit 12 */
+    texture_13 = 13, /** texture unit 13 */
+    texture_14 = 14, /** texture unit 14 */
+    texture_15 = 15, /** texture unit 15 */
+};
+
+/**
+ * Select active texture unit.
+ * \param unit specifies which texture unit to activate.
+ */
+void ActiveTexture(uint32_t unit);
+
 /**
  * Make the specified texture the active one. This also makes the texture parameters available for request.
- * \param TextureId The id of the texture that should be bound to the texture unit.
+ * \param target The texture target to bind the texture to.
+ * \param id The id of the texture that should be bound to the texture unit.
  */
-void BindTexture(uint32_t TextureId);
+void BindTexture(texture_target target, uint32_t id);
 
 /**
  * Specify the texture wrapping mode with respect to a direction.

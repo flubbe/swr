@@ -78,6 +78,7 @@ void sweep_rasterizer::draw_primitives_sequentially()
     {
         // let the (fragment-)shader know the active render states.
         it.states->shader_info->shader->update_uniforms(&it.states->uniforms);
+        it.states->shader_info->shader->update_samplers(&it.states->texture_2d_samplers);
 
         // draw the primitive.
         if(it.type == primitive::point)
@@ -110,6 +111,7 @@ void sweep_rasterizer::draw_primitives_parallel()
     {
         // let the (fragment-)shader know the active render states.
         it.states->shader_info->shader->update_uniforms(&it.states->uniforms);
+        it.states->shader_info->shader->update_samplers(&it.states->texture_2d_samplers);
 
         /*
          * check if we need to draw the triangles in the queue. this is the case if:
