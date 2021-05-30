@@ -240,8 +240,9 @@ public:
     const T get_argument(const std::string& name, const T& default_value) const
     {
         std::string opt = fmt::format("{}=", name);
-        auto it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
-                               [opt](const std::string& p) { return p.substr(0, opt.length()) == opt; });
+        std::vector<std::string>::const_reverse_iterator it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
+                                                                           [opt](const std::string& p)
+                                                                           { return p.substr(0, opt.length()) == opt; });
 
         if(it == cmd_args.rend())
         {
@@ -275,11 +276,12 @@ public:
         values.clear();
 
         std::string opt = fmt::format("{}=", name);
-        auto it = cmd_args.begin();
+        std::vector<std::string>::const_iterator it = cmd_args.begin();
         while(true)
         {
-            auto it = std::find_if(it, cmd_args.end(),
-                                   [opt](const std::string& p) { return p.substr(0, opt.length()) == opt; });
+            it = std::find_if(it, cmd_args.end(),
+                              [opt](const std::string& p)
+                              { return p.substr(0, opt.length()) == opt; });
 
             if(it == cmd_args.end())
             {
