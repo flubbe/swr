@@ -43,6 +43,13 @@ add_executable(demo_color
 )
 target_link_libraries(demo_color swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
+add_executable(demo_normal_map
+	${COMMON_SOURCES}
+	../../deps/3rd-party/lodepng/lodepng.cpp
+	normal_map/main.cpp
+)
+target_link_libraries(demo_normal_map swrast cpu_features fmt swr_app ${EXTRA_LIBS})
+
 add_executable(demo_phong
 	${COMMON_SOURCES}
 	../../deps/3rd-party/lodepng/lodepng.cpp

@@ -422,6 +422,16 @@ void ActiveTexture(uint32_t unit)
         return;
     }
 
+    if(unit >= context->RenderStates.texture_2d_samplers.size())
+    {
+        if(unit > geom::limits::max::texture_units)
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+
+        context->RenderStates.texture_2d_samplers.resize(unit + 1);
+    }
     context->RenderStates.texture_2d_active_unit = unit;
 
     // we need to copy over the texture parameters for the Get* and Set* functions to work.
