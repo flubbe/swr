@@ -15,7 +15,7 @@ The project directory layout consists of:
  3. the demo applications in `src/demos/`,
  4. a support framework for quickly generating applications in `src/swr_app/`,
  5. some common files in `src/common/`,
- 6. a texture in `textures/crate1/`.
+ 6. some textures in `textures/`.
 
 For understanding the graphics pipeline code, you should probably start with the function `Present` in `src/library/pipeline.cpp`.
 The primitive rasterization takes places in `src/library/rasterizer/point_st.cpp`, `src/library/rasterizer/line_st.cpp` and `src/library/rasterizer/triangle_st.cpp`.
