@@ -1,8 +1,9 @@
 # Software Rasterizer
 
+[![License](https://img.shields.io/github/license/flubbe/swr)](https://github.com/flubbe/swr/blob/main/LICENSE.txt)
 [![Build Status](https://travis-ci.com/flubbe/swr.svg?branch=main)](https://travis-ci.com/flubbe/swr)
 
-![Rasterizer Demos](https://github.com/flubbe/swr/raw/main/screenshots/screenshots_combined.png)
+![Rasterizer Demos](screenshots/screenshots_combined.png)
 
 ## Introduction
 
