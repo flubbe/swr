@@ -2,6 +2,10 @@
 
 [![Build Status](https://travis-ci.com/flubbe/swr.svg?branch=main)](https://travis-ci.com/flubbe/swr)
 
+<img src="https://github.com/flubbe/swr/raw/main/screenshots/normal_map.png" title="Normal Mapping Demo" width="300px"/>
+<img src="https://github.com/flubbe/swr/raw/main/screenshots/alpha_blend.png" title="Alpha Blending Demo" width="300px"/>
+<img src="https://github.com/flubbe/swr/raw/main/screenshots/blinn_phong.png" title="Blinn-Phong Lighting Demo" width="300px"/>
+
 ## Introduction
 
 This project is for learning how software rasterization (or rasterization in general) works. It mimics part of the
