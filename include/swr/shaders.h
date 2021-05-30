@@ -140,9 +140,6 @@ enum fragment_shader_result
  */
 class program
 {
-    /** the context this shader is bound to. this is here e.g. for texture access. */
-    context_handle Context{nullptr};
-
 protected:
     const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
     boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> samplers;

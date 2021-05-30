@@ -241,8 +241,7 @@ public:
     {
         std::string opt = fmt::format("{}=", name);
         std::vector<std::string>::const_reverse_iterator it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
-                                                                           [opt](const std::string& p)
-                                                                           { return p.substr(0, opt.length()) == opt; });
+                                                                           [opt](const std::string& p) { return p.substr(0, opt.length()) == opt; });
 
         if(it == cmd_args.rend())
         {
@@ -280,8 +279,7 @@ public:
         while(true)
         {
             it = std::find_if(it, cmd_args.end(),
-                              [opt](const std::string& p)
-                              { return p.substr(0, opt.length()) == opt; });
+                              [opt](const std::string& p) { return p.substr(0, opt.length()) == opt; });
 
             if(it == cmd_args.end())
             {

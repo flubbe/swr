@@ -27,8 +27,6 @@ void create_default_shader(render_device_context* Context)
 
     // create default shader.
     program* NewShader = new program();
-    NewShader->bind(Context);
-
     swr::impl::program_info pi(NewShader);
 
     // pre-link the shader and initialize varying count.
@@ -56,32 +54,6 @@ void create_default_shader(render_device_context* Context)
 } /* namespace impl */
 
 /*
- * shader/context registration.
- */
-
-bool program::bind(context_handle InContext)
-{
-    if(InContext == nullptr && Context)
-    {
-        // If InContext is invalid, we mark the shader as unregistered by
-        // invalidating the stored context.
-        Context = nullptr;
-    }
-    else if(InContext && Context == nullptr)
-    {
-        // Mark the shader as registered.
-        Context = InContext;
-    }
-    else
-    {
-        // re-registering a shader to a different context is not possible.
-        return false;
-    }
-
-    return true;
-}
-
-/*
  * Public Interface
  */
 
@@ -90,13 +62,6 @@ uint32_t RegisterShader(program* InShader)
     ASSERT_INTERNAL_CONTEXT;
 
     if(!InShader)
-    {
-        return 0;
-    }
-
-    // Bind context to shader. If the shader was already registered to the context,
-    // the binding will fail.
-    if(!InShader->bind(impl::global_context))
     {
         return 0;
     }
