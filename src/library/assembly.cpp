@@ -14,34 +14,36 @@
 
 namespace swr
 {
+
 namespace impl
 {
 
-enum EPolyOrientation
+/** polygon orientation used for culling. */
+enum class polygon_orientation
 {
-    PO_NotConvex,
-    PO_Degenerate,
-    PO_Clockwise,
-    PO_CounterClockwise
+    not_convex, /** the polygon was not convex. */
+    degenerate, /** the polygon is degenerate. */
+    cw,         /** clockwise orientation. */
+    ccw         /** counter-clockwise orientation. */
 };
 
 /**
  * Extract the polygon information out of a line loop, which in turn consists of vertices.
  * Some vertices have markers to indicate where a polygon ends (and thus, where the next starts).
  *
- * \param InBuffer The vertex buffer holding the vertex list.
- * \param InStartVertex The starting vertex of the polygon.
- * \param OutEndVertex The end vertex.
- * \return If a valid polygon is extracted (i.e. if an end vertex found before the buffer is empty), the function returns true.
+ * \param vb The vertex buffer holding the vertex list.
+ * \param start_index The starting vertex of the polygon.
+ * \param end_index If and ending marker is detected, this holds the index of the first vertex greater or equal to start_index having an ending marker.
+ * \return If an end marker is found, the function returns true.
  */
-static bool GetNextPolygon(const vertex_buffer& InBuffer, size_t InStartVertex, size_t& OutEndVertex)
+static bool next_polygon(const vertex_buffer& vb, std::size_t start_index, std::size_t& end_index)
 {
-    for(size_t i = InStartVertex; i < InBuffer.size(); ++i)
+    for(std::size_t i = start_index; i < vb.size(); ++i)
     {
         // check for end vertex.
-        if(InBuffer[i].flags & geom::vf_line_strip_end)
+        if(vb[i].flags & geom::vf_line_strip_end)
         {
-            OutEndVertex = i;
+            end_index = i;
             return true;
         }
     }
@@ -50,150 +52,164 @@ static bool GetNextPolygon(const vertex_buffer& InBuffer, size_t InStartVertex, 
     return false;
 }
 
-static int GetAreaSign(const ml::vec2 V1, const ml::vec2 V2, const ml::vec2 V3)
+/** calculate the signed area of the triangle (v1,v2,v3). */
+static int triangle_area_sign(const ml::vec2 v1, const ml::vec2 v2, const ml::vec2 v3)
 {
-    // Edge1 = V2-V1, Edge2 = V3-V1.
-    return (V2 - V1).area_sign(V3 - V1);
+    // edge1 = v2-v1, edge2 = v3-v1.
+    return (v2 - v1).area_sign(v3 - v1);
 }
 
 /**
  * Calculate the orientation of a convex 2d polygon given by the raster coordinates of the vertices.
  *
- * \param InBuffer The vertex buffer holding the vertex list.
- * \param InStartVertex The index of the first vertex of the polygon
- * \param InEndVertex The index of the last vertex of the polygon.
+ * \param vb The vertex buffer holding the vertex list.
+ * \param start_vertex The index of the first vertex of the polygon
+ * \param end_vertex The index of the last vertex of the polygon.
  * \return Returns if the polygon is oriented clockwise, counter-clockwise, or if it is degenerate.
- *         Additionally, if the function detects non-convexity, it returns PO_NotConvex.
+ *         Additionally, if the function detects non-convexity, it returns polygon_orientation::not_convex.
  */
-static EPolyOrientation GetConvexPolygonOrientation(const vertex_buffer& InBuffer, size_t InStartVertex, size_t InEndVertex)
+static polygon_orientation get_polygon_orientation(const vertex_buffer& vb, const std::size_t start_vertex, const std::size_t end_vertex)
 {
-    assert(InEndVertex < InBuffer.size());
+    assert(end_vertex < vb.size());
 
     // a non-negenerate convex polygon needs to have at least 3 vertices.
-    if(InStartVertex + 2 > InEndVertex)
+    if(start_vertex + 2 > end_vertex)
     {
-        return PO_Degenerate;
+        return polygon_orientation::degenerate;
     }
 
-    int PositiveCorners = 0;
-    int NegativeCorners = 0;
+    // count the local orientation at each corner.
+    int positive_corners = 0;
+    int negative_corners = 0;
 
     // loop through the vertex list and calculate the orientation at each corner.
-    for(size_t i = InStartVertex; i <= InEndVertex - 2; ++i)
+    auto v1 = vb[start_vertex].coords.xy();
+    auto v2 = vb[start_vertex + 1].coords.xy();
+    ml::vec2 v3;
+    for(size_t i = start_vertex + 2; i <= end_vertex; ++i)
     {
-        int Sign = GetAreaSign(InBuffer[i].coords.xy(), InBuffer[i + 1].coords.xy(), InBuffer[i + 2].coords.xy());
+        v3 = vb[i].coords.xy();
+        int sign = triangle_area_sign(v1, v2, v3);
 
-        PositiveCorners += (Sign > 0);
-        NegativeCorners += (Sign < 0);
+        v1 = v2;
+        v2 = v3;
+
+        positive_corners += (sign > 0);
+        negative_corners += (sign < 0);
     }
 
     // the above loop misses two corners, which we check here separately.
-    int Sign1 = GetAreaSign(InBuffer[InEndVertex - 1].coords.xy(), InBuffer[InEndVertex].coords.xy(), InBuffer[InStartVertex].coords.xy());
-    int Sign2 = GetAreaSign(InBuffer[InEndVertex].coords.xy(), InBuffer[InStartVertex].coords.xy(), InBuffer[InStartVertex + 1].coords.xy());
+    int sign1 = triangle_area_sign(v2, v3, vb[start_vertex].coords.xy());
+    int sign2 = triangle_area_sign(v3, vb[start_vertex].coords.xy(), vb[start_vertex + 1].coords.xy());
 
-    PositiveCorners += (Sign1 > 0) + (Sign2 > 0);
-    NegativeCorners += (Sign1 < 0) + (Sign2 < 0);
+    positive_corners += (sign1 > 0) + (sign2 > 0);
+    negative_corners += (sign1 < 0) + (sign2 < 0);
 
-    if(PositiveCorners > 0 && NegativeCorners == 0)
+    if(positive_corners > 0 && negative_corners == 0)
     {
-        return PO_Clockwise;
+        return polygon_orientation::cw;
     }
-    else if(PositiveCorners == 0 && NegativeCorners > 0)
+    else if(positive_corners == 0 && negative_corners > 0)
     {
-        return PO_CounterClockwise;
+        return polygon_orientation::ccw;
     }
-    else if(PositiveCorners > 0 && NegativeCorners > 0)
+    else if(positive_corners > 0 && negative_corners > 0)
     {
-        return PO_NotConvex;
+        return polygon_orientation::not_convex;
     }
 
-    return PO_Degenerate;
+    return polygon_orientation::degenerate;
 }
 
 /**
  * Decide if we should face-cull a polygon with a known orientation.
  *
- * \param States Active render states, includeing the cull mode and front-face mode.
- * \param Orientation The polygon's orientation inside the viewport.
- * \return Returns true if the polygon should be culled based on the render states and the polygon's orientation.
+ * \param cull_mode current cull mode.
+ * \param front_face  current front-face mode.
+ * \param orientation the polygon's orientation inside the viewport.
+ * \return returns true if the polygon should be culled based on the render states and the polygon's orientation.
  */
-static bool FaceCullPolygon(const render_states* States, EPolyOrientation Orientation)
+static bool face_cull_polygon(swr::cull_face_direction cull_mode, swr::front_face_orientation front_face, polygon_orientation orientation)
 {
-    if(States->cull_mode == cull_face_direction::front_and_back)
+    if(cull_mode == cull_face_direction::front_and_back)
     {
         // reject all polygons.
         return true;
     }
 
-    if(States->cull_mode == cull_face_direction::front)
+    if(cull_mode == cull_face_direction::front)
     {
         // reject front-facing polygons.
-        return (States->front_face == front_face_orientation::cw && Orientation == PO_Clockwise)
-               || (States->front_face == front_face_orientation::ccw && Orientation == PO_CounterClockwise);
+        return (front_face == front_face_orientation::cw && orientation == polygon_orientation::cw)
+               || (front_face == front_face_orientation::ccw && orientation == polygon_orientation::ccw);
     }
-    else if(States->cull_mode == cull_face_direction::back)
+    else if(cull_mode == cull_face_direction::back)
     {
         // reject back-facing polygons.
-        return (States->front_face == front_face_orientation::cw && Orientation == PO_CounterClockwise)
-               || (States->front_face == front_face_orientation::ccw && Orientation == PO_Clockwise);
+        return (front_face == front_face_orientation::cw && orientation == polygon_orientation::ccw)
+               || (front_face == front_face_orientation::ccw && orientation == polygon_orientation::cw);
     }
 
     // accept.
     return false;
 }
 
-void render_device_context::AssemblePrimitives(const render_states* States, vertex_buffer_mode Mode, const vertex_buffer& Buffer)
+void render_device_context::AssemblePrimitives(const render_states* states, vertex_buffer_mode mode, const vertex_buffer& vb)
 {
     // choose drawing mode.
-    if(Mode == vertex_buffer_mode::points
-       || States->poly_mode == polygon_mode::point)
+    if(mode == vertex_buffer_mode::points
+       || states->poly_mode == polygon_mode::point)
     {
         /* draw a list of points */
-        for(auto& vertex_it: Buffer)
+        for(auto& vertex_it: vb)
         {
-            rasterizer->add_point(States, &vertex_it);
+            rasterizer->add_point(states, &vertex_it);
         }
     }
-    else if(Mode == vertex_buffer_mode::lines)
+    else if(mode == vertex_buffer_mode::lines)
     {
         /* draw a list of lines */
-        int size = Buffer.size() & ~1;
+        const int size = vb.size() & ~1;
         for(int i = 0; i < size; i += 2)
         {
-            rasterizer->add_line(States, &Buffer[i], &Buffer[i + 1]);
+            rasterizer->add_line(states, &vb[i], &vb[i + 1]);
         }
     }
-    else if(Mode == vertex_buffer_mode::triangles)
+    else if(mode == vertex_buffer_mode::triangles)
     {
-        if(Buffer.size() < 3)
+        if(vb.size() < 3)
         {
             return;
         }
 
         // depending on the polygon mode, the vertex buffer either holds a list of triangles or a list of points.
-        if(States->poly_mode == polygon_mode::line)
+        if(states->poly_mode == polygon_mode::line)
         {
-            size_t LastIndex = 0;
-            for(size_t FirstIndex = 0; FirstIndex < Buffer.size(); FirstIndex = LastIndex + 1)
+            auto culling_enabled = states->culling_enabled;
+            auto cull_mode = states->cull_mode;
+            auto front_face = states->front_face;
+
+            size_t last_index = 0;
+            for(size_t first_index = 0; first_index < vb.size(); first_index = last_index + 1)
             {
                 // note that LastIndex gets updated here.
-                if(!GetNextPolygon(Buffer, FirstIndex, LastIndex))
+                if(!next_polygon(vb, first_index, last_index))
                 {
                     // no polygon found.
                     break;
                 }
 
                 // culling.
-                if(States->culling_enabled)
+                if(culling_enabled)
                 {
-                    EPolyOrientation Orientation = GetConvexPolygonOrientation(Buffer, FirstIndex, LastIndex);
-                    if(Orientation == PO_NotConvex || Orientation == PO_Degenerate)
+                    auto orientation = get_polygon_orientation(vb, first_index, last_index);
+                    if(orientation == polygon_orientation::not_convex || orientation == polygon_orientation::degenerate)
                     {
                         // do not consider degenerate polygons or non-convex ones.
                         continue;
                     }
 
-                    if(FaceCullPolygon(States, Orientation))
+                    if(face_cull_polygon(cull_mode, front_face, orientation))
                     {
                         // don't draw.
                         continue;
@@ -201,54 +217,49 @@ void render_device_context::AssemblePrimitives(const render_states* States, vert
                 }
 
                 // add the lines to the rasterizer.
-                const auto* FirstVertex = &Buffer[FirstIndex];
-                const auto* PreviousVertex = FirstVertex;
+                const auto* first_vertex = &vb[first_index];
+                const auto* prev_vertex = first_vertex;
 
-                for(size_t i = FirstIndex + 1; i <= LastIndex; ++i)
+                for(size_t i = first_index + 1; i <= last_index; ++i)
                 {
-                    const auto* CurrentVertex = &Buffer[i];
+                    const auto* cur_vertex = &vb[i];
 
                     // Add the current line to the rasterizer.
-                    rasterizer->add_line(States, PreviousVertex, CurrentVertex);
+                    rasterizer->add_line(states, prev_vertex, cur_vertex);
 
-                    PreviousVertex = CurrentVertex;
+                    prev_vertex = cur_vertex;
                 }
                 // close the strip.
-                rasterizer->add_line(States, PreviousVertex, FirstVertex);
+                rasterizer->add_line(states, prev_vertex, first_vertex);
             }
         }
-        else if(States->poly_mode == polygon_mode::fill)
+        else if(states->poly_mode == polygon_mode::fill)
         {
-            // Pre-calculate triangle count. Note that always 3*TriangeCount <= Buffer.Vertices.size().
-            const size_t TriangleCount = Buffer.size() / 3;
-            const auto* BufferData = Buffer.data();
-
             /* draw a list of triangles */
-            for(size_t i = 0; i < TriangleCount; ++i)
+            for(size_t i = 0; i < vb.size(); i += 3)
             {
-                const auto& V1 = BufferData[0];
-                const auto& V2 = BufferData[1];
-                const auto& V3 = BufferData[2];
-                BufferData += 3;
+                const auto& v1 = vb[i];
+                const auto& v2 = vb[i + 1];
+                const auto& v3 = vb[i + 2];
 
                 // determine if triangle is front facing.
-                cull_face_direction orient = get_face_orientation(States->front_face, V1.coords.xy(), V2.coords.xy(), V3.coords.xy());
+                cull_face_direction orient = get_face_orientation(states->front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
                 bool is_front_facing = (orient == cull_face_direction::front);
 
                 // check for face culling
-                if(States->culling_enabled && cull_reject(States->cull_mode, orient))
+                if(states->culling_enabled && cull_reject(states->cull_mode, orient))
                 {
                     // reject
                     continue;
                 }
 
-                rasterizer->add_triangle(States, is_front_facing, &V1, &V2, &V3);
+                rasterizer->add_triangle(states, is_front_facing, &v1, &v2, &v3);
             }
         }
         else
         {
             // this intentionally breaks the debugger.
-            assert(States->poly_mode == polygon_mode::line || States->poly_mode == polygon_mode::fill);
+            assert(states->poly_mode == polygon_mode::line || states->poly_mode == polygon_mode::fill);
         }
     }
 }

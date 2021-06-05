@@ -33,7 +33,7 @@
 namespace rast
 {
 
-void sweep_rasterizer::process_block(const swr::impl::render_states& States, triangle_interpolator& AttrInt, int start_x, int y, bool front_facing)
+void sweep_rasterizer::process_block(const swr::impl::render_states& States, triangle_interpolator& AttrInt, unsigned int start_x, unsigned int y, bool front_facing)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
 
@@ -43,7 +43,7 @@ void sweep_rasterizer::process_block(const swr::impl::render_states& States, tri
     // process block.
     for(; y < end_y; ++y)
     {
-        for(int x = start_x; x < end_x; ++x)
+        for(unsigned int x = start_x; x < end_x; ++x)
         {
             for(size_t i = 0; i < AttrInt.varyings.size(); ++i)
             {
@@ -59,7 +59,7 @@ void sweep_rasterizer::process_block(const swr::impl::render_states& States, tri
     }
 }
 
-void sweep_rasterizer::process_block_checked(const swr::impl::render_states& States, triangle_interpolator& AttrInt, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3], int start_x, int y, bool front_facing)
+void sweep_rasterizer::process_block_checked(const swr::impl::render_states& States, triangle_interpolator& AttrInt, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3], unsigned int start_x, unsigned int y, bool front_facing)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
 
@@ -70,7 +70,7 @@ void sweep_rasterizer::process_block_checked(const swr::impl::render_states& Sta
     // process block.
     for(; y < end_y; ++y)
     {
-        for(int x = start_x; x < end_x; ++x)
+        for(unsigned int x = start_x; x < end_x; ++x)
         {
             if(lambdas[0].value > 0 && lambdas[1].value > 0 && lambdas[2].value > 0)
             {

@@ -114,7 +114,7 @@ class sweep_rasterizer : public rasterizer
      * \param y Top left y coordinate
      * \param front_facing Whether the fragments come from a front facing triangle. Passed to the fragment shader.
      */
-    void process_block(const swr::impl::render_states& states, triangle_interpolator& attr, int x, int y, bool front_facing);
+    void process_block(const swr::impl::render_states& states, triangle_interpolator& attr, unsigned int x, unsigned int y, bool front_facing);
 
     /**
      * Rasterize block of dimension (rasterizer_block_size, rasterizer_block_size) and check for each fragment, if it is inside the triangle
@@ -127,7 +127,7 @@ class sweep_rasterizer : public rasterizer
      * \param y Top left y coordinate
      * \param front_facing Whether the fragments come from a front facing triangle. Passed to the fragment shader.
      */
-    void process_block_checked(const swr::impl::render_states& states, triangle_interpolator& attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], int x, int y, bool front_facing);
+    void process_block_checked(const swr::impl::render_states& states, triangle_interpolator& attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], unsigned int x, unsigned int y, bool front_facing);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** static block drawing functions. callable by threads. */

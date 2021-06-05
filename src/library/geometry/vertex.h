@@ -79,8 +79,9 @@ inline const vertex lerp(float t, const vertex& v1, const vertex& v2)
     r.coords = ml::lerp(t, v1.coords, v2.coords);
 
     // interpolate varyings
-    r.varyings.resize(v1.varyings.size());
-    for(size_t i = 0; i < v1.varyings.size(); ++i)
+    const auto varying_count = v1.varyings.size();
+    r.varyings.resize(varying_count);
+    for(size_t i = 0; i < varying_count; ++i)
     {
         // Depending on the interpolation type, Value stores either a the value of the attribute
         // itself or a weighted value, so that the equation does the correct interpolation.

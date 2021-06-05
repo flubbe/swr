@@ -39,13 +39,18 @@ static bool invoke_vertex_shader_and_clip_preprocess(impl::program_info* shader_
           gl_PointSize, nullptr /* gl_ClipDistance */,
           vertex_it.varyings);
 
-        // Set clipping markers for this vertex. A visible vertex has to satisfy the relations
-        //
-        //    -w <= x <= w
-        //    -w <= y <= w
-        //    -w <= z <= w
-        //      0 < w.
-        if(vertex_it.coords.x < -vertex_it.coords.w || vertex_it.coords.x > vertex_it.coords.w || vertex_it.coords.y < -vertex_it.coords.w || vertex_it.coords.y > vertex_it.coords.w || vertex_it.coords.z < -vertex_it.coords.w || vertex_it.coords.z > vertex_it.coords.w || vertex_it.coords.w <= 0)
+        /*
+         * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
+         *
+         *    -w <= x <= w
+         *    -w <= y <= w
+         *    -w <= z <= w
+         *      0 < w.
+         */
+        if(vertex_it.coords.x < -vertex_it.coords.w || vertex_it.coords.x > vertex_it.coords.w
+           || vertex_it.coords.y < -vertex_it.coords.w || vertex_it.coords.y > vertex_it.coords.w
+           || vertex_it.coords.z < -vertex_it.coords.w || vertex_it.coords.z > vertex_it.coords.w
+           || vertex_it.coords.w <= 0)
         {
             vertex_it.flags |= geom::vf_clip_discard;
         }

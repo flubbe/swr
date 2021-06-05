@@ -21,54 +21,54 @@ namespace swr
 void SetState(state s, bool enable)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
 
     if(s == state::blend)
     {
-        Context->RenderStates.blending_enabled = enable;
+        context->RenderStates.blending_enabled = enable;
     }
     else if(s == state::cull_face)
     {
-        Context->RenderStates.culling_enabled = enable;
+        context->RenderStates.culling_enabled = enable;
     }
     else if(s == state::depth_test)
     {
-        Context->RenderStates.depth_test_enabled = enable;
+        context->RenderStates.depth_test_enabled = enable;
     }
     else if(s == state::depth_write)
     {
-        Context->RenderStates.write_depth = enable;
+        context->RenderStates.write_depth = enable;
     }
     else if(s == state::scissor_test)
     {
-        Context->RenderStates.scissor_test_enabled = enable;
+        context->RenderStates.scissor_test_enabled = enable;
     }
 }
 
 bool GetState(state s)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
 
     if(s == state::blend)
     {
-        return Context->RenderStates.blending_enabled;
+        return context->RenderStates.blending_enabled;
     }
     else if(s == state::cull_face)
     {
-        return Context->RenderStates.culling_enabled;
+        return context->RenderStates.culling_enabled;
     }
     else if(s == state::depth_test)
     {
-        return Context->RenderStates.depth_test_enabled;
+        return context->RenderStates.depth_test_enabled;
     }
     else if(s == state::depth_write)
     {
-        return Context->RenderStates.write_depth;
+        return context->RenderStates.write_depth;
     }
     else if(s == state::scissor_test)
     {
-        return Context->RenderStates.scissor_test_enabled;
+        return context->RenderStates.scissor_test_enabled;
     }
 
     return false;
@@ -81,16 +81,16 @@ bool GetState(state s)
 void SetBlendFunc(blend_func sfactor, blend_func dfactor)
 {
     ASSERT_INTERNAL_CONTEXT;
-    auto* Context = impl::global_context;
+    auto* context = impl::global_context;
 
-    if(Context->im_declaring_primitives)
+    if(context->im_declaring_primitives)
     {
-        Context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_operation;
         return;
     }
 
-    Context->RenderStates.blend_src = sfactor;
-    Context->RenderStates.blend_dst = dfactor;
+    context->RenderStates.blend_src = sfactor;
+    context->RenderStates.blend_dst = dfactor;
 }
 
 blend_func GetSourceBlendFunc()
@@ -112,8 +112,7 @@ blend_func GetDestinationBlendFunc()
 void SetDepthTest(comparison_func func)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
-    Context->RenderStates.depth_func = func;
+    impl::global_context->RenderStates.depth_func = func;
 }
 
 comparison_func GetDepthTest()
@@ -170,25 +169,25 @@ polygon_mode GetPolygonMode()
  * debugging. 
  */
 
-void SetDebugState(debug_state State, bool Enable)
+void SetDebugState(debug_state state, bool enable)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
 
-    if(State == debug_state::show_depth_buffer)
+    if(state == debug_state::show_depth_buffer)
     {
-        Context->CopyDepthToColor = Enable;
+        context->CopyDepthToColor = enable;
     }
 }
 
-bool GetDebugState(debug_state State)
+bool GetDebugState(debug_state state)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
 
-    if(State == debug_state::show_depth_buffer)
+    if(state == debug_state::show_depth_buffer)
     {
-        return Context->CopyDepthToColor;
+        return context->CopyDepthToColor;
     }
 
     return false;
