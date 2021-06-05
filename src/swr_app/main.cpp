@@ -8,9 +8,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* C++ headers. */
-#include <mutex>
-
 /* platform code. */
 #include "../common/platform/platform.h"
 
