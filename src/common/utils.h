@@ -15,15 +15,6 @@
 #include <algorithm> /* std::find */
 #include <cassert>   /* assert */
 
-#include <atomic>
-#include <thread>
-#include <future>
-#include <mutex>
-#include <queue>
-#include <functional>
-#include <type_traits>
-#include <utility>
-
 /*
  * thread pool support.
  */
