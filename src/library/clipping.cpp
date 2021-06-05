@@ -15,16 +15,12 @@
 #include "swr_internal.h"
 #include "clipping.h"
 
+#include "fmt/format.h"
+
 namespace swr
 {
 namespace impl
 {
-
-/**    
- * sort the vertices when clipping to have consistent intersection points for
- * triangles sharing an edge.
- */
-#define CLIP_SORT_VERTICES
 
 /**
  * clip against all planes (including the w-plane!)
@@ -35,17 +31,21 @@ namespace impl
 #define CLIP_ALL_PLANES
 
 /*
- * If we compile via Visual Studio, check that the compiler supports constexpr's.
- * Support has been added in Visual Studio 2015 [1], which corresponds to the
- * compiler version being 1900 [2].
+ * 1) A technical note: If we compile via Visual Studio, check that the compiler 
+ *    supports constexpr's. Support has been added in Visual Studio 2015 [1], which 
+ *    corresponds to the compiler version being 1900 [2].
  *
- * [1] https://msdn.microsoft.com/de-de/library/hh567368.aspx
- * [2] https://sourceforge.net/p/predef/wiki/Compilers/#microsoft-visual-c
+ *     [1] https://msdn.microsoft.com/de-de/library/hh567368.aspx
+ *     [2] https://sourceforge.net/p/predef/wiki/Compilers/#microsoft-visual-c
+ * 
+ * 2) From https://fabiensanglard.net/polygon_codec/:
+ *    The clipping actually produces vertices with a W=0 component. That would cause a 
+ *    divide by zero. A way to solve this is to clip against the W=0.00001 plane.
  */
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
-constexpr float W_CLIPPING_PLANE = 1.0f;
+constexpr float W_CLIPPING_PLANE = 1e-5f;
 #else
-#    define W_CLIPPING_PLANE (1.0f)
+#    define W_CLIPPING_PLANE (1e-5f)
 #endif
 
 /**
@@ -60,31 +60,27 @@ constexpr float W_CLIPPING_PLANE = 1.0f;
  *
  * in_vb and out_vb are not allowed to refer to the same buffer.
  * 
- * if in_vb does not contain 3 indices, we empty the output buffer and return.
- * 
- * for indexed polygons, add an index_buffer input in_ib, set prev_vert=&in_vb[in_ib.back()] and
- * replace the for loop header by "for( auto i : in_ib )".
+ * if in_vb does not contain a triangle (i.e., 3 vertices), we empty the output buffer and return.
  */
-static void clip_triangle_on_w_plane(const vertex_buffer& in_vb, vertex_buffer& out_vb)
+static void clip_triangle_on_w_plane(const vertex_buffer& in_triangle, vertex_buffer& out_vb)
 {
     // ensure the output buffer is empty.
-    out_vb.resize(0);
+    out_vb.clear();
 
     // check that in_vb contains a triangle.
-    if(in_vb.size() != 3)
+    if(in_triangle.size() != 3)
     {
         return;
     }
 
-    auto* prev_vert = &in_vb[2]; /* last triangle vertex */
+    auto* prev_vert = &in_triangle[2]; /* last triangle vertex */
     int prev_dot = (prev_vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
 
     for(int i = 0; i < 3; ++i)
     {
-        auto* vert = &in_vb[i];
+        auto* vert = &in_triangle[i];
         int dot = (vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
 
-#ifdef CLIP_SORT_VERTICES
         // do consistent clipping.
         if(prev_dot * dot < 0)
         {
@@ -99,24 +95,8 @@ static void clip_triangle_on_w_plane(const vertex_buffer& in_vb, vertex_buffer& 
             float t = (inside_vert->coords.w - W_CLIPPING_PLANE) / (inside_vert->coords.w - outside_vert->coords.w);
             assert(t >= 0 && t <= 1);
 
-            geom::vertex new_vert = lerp(t, *inside_vert, *outside_vert);
-            out_vb.push_back(new_vert);
+            out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
         }
-#else
-        if(prev_dot * dot < 0)
-        {
-            // Need to clip against plane w=0.
-            //
-            // to avoid dividing by zero when converting to NDC, we clip
-            // against w=W_CLIPPING_PLANE.
-
-            float t = (prev_vert->coords.w - W_CLIPPING_PLANE) / (prev_vert->coords.w - vert->coords.w);
-            assert(t >= 0 && t <= 1);
-
-            geom::vertex new_vert = lerp(t, *prev_vert, *vert);
-            out_vb.push_back(new_vert);
-        }
-#endif
 
         if(dot > 0)
         {
@@ -145,8 +125,8 @@ enum clip_axis
  * The indices in in_vb have to be in ascending order, i.e. the polygon has the vertices
  * in_vb.Vertices[0], in_vb.Vertices[1], etc.
  *
- * Internally, the polygon is first clipped/copied into a buffer, so that in_vb and out_vb
- * are allowed to refer to the same veriable.
+ * Internally, the polygon is first clipped/copied into a temporary buffer, so that in_vb and out_vb
+ * are allowed to refer to the same buffer.
  */
 static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_axis axis, vertex_buffer& out_vb)
 {
@@ -154,13 +134,13 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
     if(in_vb.size() == 0)
     {
         // empty the output buffer.
-        out_vb.resize(0);
+        out_vb.clear();
         return;
     }
 
     // use static temporary vertex buffer to remove the need for permanent reallocation.
     static vertex_buffer temp;
-    temp.resize(0);
+    temp.clear();
 
     auto* prev_vert = &in_vb.back();
     int prev_dot = (prev_vert->coords[axis] <= prev_vert->coords.w) ? 1 : -1;
@@ -168,16 +148,12 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
     for(size_t i = 0; i < in_vb.size(); ++i)
     {
         auto* vert = &in_vb[i];
-        auto dot = (vert->coords[axis] <= vert->coords.w) ? 1 : -1;
+        int dot = (vert->coords[axis] <= vert->coords.w) ? 1 : -1;
 
-#ifdef CLIP_SORT_VERTICES
         // do consistent clipping.
         if(prev_dot * dot < 0)
         {
-            // Need to clip against plane w=0.
-            //
-            // to avoid dividing by zero when converting to NDC, we clip
-            // against w=W_CLIPPING_PLANE.
+            // Need to clip against plane x/y/z = w, as specified by axis.
 
             auto* inside_vert = (prev_dot < 0) ? vert : prev_vert;
             auto* outside_vert = (prev_dot < 0) ? prev_vert : vert;
@@ -185,21 +161,8 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
             float t = (inside_vert->coords.w - inside_vert->coords[axis]) / ((inside_vert->coords.w - inside_vert->coords[axis]) - (outside_vert->coords.w - outside_vert->coords[axis]));
             assert(t >= 0 && t <= 1);
 
-            geom::vertex new_vert = lerp(t, *inside_vert, *outside_vert);
-            temp.push_back(new_vert);
+            temp.emplace_back(lerp(t, *inside_vert, *outside_vert));
         }
-#else
-        if(prev_dot * dot < 0)
-        {
-            // Need to clip against plane x/y/z = w, as specified by axis.
-
-            float t = (prev_vert->coords.w - prev_vert->coords[axis]) / ((prev_vert->coords.w - prev_vert->coords[axis]) - (vert->coords.w - vert->coords[axis]));
-            assert(t >= 0 && t <= 1);
-
-            geom::vertex new_vert = lerp(t, *prev_vert, *vert);
-            temp.push_back(new_vert);
-        }
-#endif
 
         if(dot > 0)
         {
@@ -208,13 +171,11 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
         prev_vert = vert;
         prev_dot = dot;
-
-        ++vert;
     }
 
     // clear the output buffer. the clearing cannot be done in advance, since out_vb and in_vb
     // may refer to the same object. Here, all 'active' vertices have beed copied into temp.
-    out_vb.resize(0);
+    out_vb.clear();
 
     // early-out for empty polygons.
     if(temp.size() == 0)
@@ -228,16 +189,12 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
     for(size_t i = 0; i < temp.size(); ++i)
     {
         auto* vert = &temp[i];
-        auto dot = (-vert->coords[axis] <= vert->coords.w) ? 1 : -1;
+        int dot = (-vert->coords[axis] <= vert->coords.w) ? 1 : -1;
 
-#ifdef CLIP_SORT_VERTICES
         // do consistent clipping.
         if(prev_dot * dot < 0)
         {
-            // Need to clip against plane w=0.
-            //
-            // to avoid dividing by zero when converting to NDC, we clip
-            // against w=W_CLIPPING_PLANE.
+            // Need to clip against plane x/y/z = -w, as specified by axis.
 
             auto* inside_vert = (prev_dot < 0) ? vert : prev_vert;
             auto* outside_vert = (prev_dot < 0) ? prev_vert : vert;
@@ -245,20 +202,8 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
             float t = -(inside_vert->coords.w + inside_vert->coords[axis]) / ((-inside_vert->coords.w - inside_vert->coords[axis]) + (outside_vert->coords.w + outside_vert->coords[axis]));
             assert(t >= 0 && t <= 1);
 
-            geom::vertex new_vert = lerp(t, *inside_vert, *outside_vert);
-            out_vb.push_back(new_vert);
+            out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
         }
-#else
-        if(prev_dot * dot < 0)
-        {
-            // Need to clip against plane x/y/z = -w, as specified by axis.
-            float t = -(prev_vert->coords.w + prev_vert->coords[axis]) / ((-prev_vert->coords.w - prev_vert->coords[axis]) + (vert->coords.w + vert->coords[axis]));
-            assert(t >= 0 && t <= 1);
-
-            geom::vertex new_vert = lerp(t, *prev_vert, *vert);
-            out_vb.push_back(new_vert);
-        }
-#endif
 
         if(dot > 0)
         {
@@ -267,8 +212,6 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
         prev_vert = vert;
         prev_dot = dot;
-
-        ++vert;
     }
 }
 
@@ -287,8 +230,8 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
      * the cube and the triangle is "flat enough", two additional vertices appear, so 8 seems
      * to be a good guess as an initial buffer size for a clipped triangle.
      */
-    static vertex_buffer clipped_triangle(8);
-    static vertex_buffer temp_triangle(3);
+    static vertex_buffer clipped_triangle{8};
+    static vertex_buffer temp_triangle{3};
 
     /*
      * Algorithm:
@@ -298,7 +241,7 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
      *  iii) Copy all triangles to the output vertex buffer.
      */
 
-    out_vb.resize(0);
+    out_vb.clear();
     out_vb.reserve(in_vb.size());
 
     for(size_t index_it = 0; index_it < in_ib.size(); index_it += 3)
@@ -317,13 +260,13 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
            || (v3.flags & geom::vf_clip_discard))
         {
             // fill temporary vertex buffer.
-            temp_triangle.resize(0);
+            temp_triangle.clear();
             temp_triangle.push_back(v1);
             temp_triangle.push_back(v2);
             temp_triangle.push_back(v3);
 
             // perform clipping.
-            clipped_triangle.resize(0);
+            clipped_triangle.clear();
             clip_triangle_on_w_plane(temp_triangle, clipped_triangle);
 #ifdef CLIP_ALL_PLANES
             clip_vertex_buffer_on_plane(clipped_triangle, x_axis, clipped_triangle);
@@ -347,21 +290,21 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
             }
             else if(output_type == triangle_list && clipped_triangle.size() >= 3)
             {
-                // Note, that by construction a clipped triangle forms a convex polygon.
+                // By construction a clipped triangle forms a convex polygon.
                 // Thus, we can construct it as a triangle fan by selecting an arbitrary vertex as its center.
 
-                const auto& CenterVertex = clipped_triangle.front();
-                const auto* PreviousVertex = &clipped_triangle[1];
+                const auto& center = clipped_triangle.front();
+                const auto* previous = &clipped_triangle[1];
 
-                for(size_t i = 1; i < clipped_triangle.size(); ++i)
+                for(size_t i = 2; i < clipped_triangle.size(); ++i)
                 {
-                    const auto* CurrentVertex = &clipped_triangle[i];
+                    const auto* current = &clipped_triangle[i];
 
-                    out_vb.push_back(CenterVertex);
-                    out_vb.push_back(*PreviousVertex);
-                    out_vb.push_back(*CurrentVertex);
+                    out_vb.push_back(center);
+                    out_vb.push_back(*previous);
+                    out_vb.push_back(*current);
 
-                    PreviousVertex = CurrentVertex;
+                    previous = current;
                 }
             }
         }

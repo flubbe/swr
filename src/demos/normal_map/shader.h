@@ -46,7 +46,7 @@ class normal_mapping : public swr::program
     const float ambient_diffuse_factor{0.05f};
 
 public:
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
+    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
     {
         // set varying count and interpolation qualifiers.
         iqs.resize(7);
@@ -66,7 +66,7 @@ public:
       ml::vec4& gl_Position,
       float& gl_PointSize,
       float* gl_ClipDistance,
-      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) override
+      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const override
     {
         const ml::mat4x4 proj = (*uniforms)[0].m4;
         const ml::mat4x4 view = (*uniforms)[1].m4;
@@ -107,7 +107,7 @@ public:
       const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
       float& gl_FragDepth,
-      boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) override
+      boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) const override
     {
         const ml::vec4 tex_coords = varyings[0];
         const ml::vec4 position = varyings[1];
@@ -117,26 +117,25 @@ public:
         const ml::vec4 eye_direction = varyings[5];
         const ml::vec4 light_direction = varyings[6];
 
-        const ml::mat4x4 tbn = ml::mat4x4{tangent, bitangent, normal, {0, 0, 0, 0}}.transposed();
-
         const ml::vec4 light_position = (*uniforms)[2].v4;
-
-        // sample diffuse texture.
-        const ml::vec4 material_diffuse_color = samplers[0]->sample_at({tex_coords.x, tex_coords.y});
-
-        // sample normal map.
-        const ml::vec3 material_normal = (samplers[1]->sample_at({tex_coords.x, tex_coords.y}) * 2 - 1).xyz().normalized();
 
         // distance to light.
         float distance_squared = (light_position - position).xyz().length_squared();
         float falloff = light_power / distance_squared;
 
+        // sample normal map.
+        const ml::vec3 material_normal = (samplers[1]->sample_at({tex_coords.x, tex_coords.y}) * 2 - 1).xyz().normalized();
+
         // normal of the computed fragment, in camera space.
+        auto tbn = ml::mat4x4{tangent, bitangent, normal, {0, 0, 0, 0}}.transposed();
         const ml::vec3 n = (tbn * ml::vec4{material_normal, 0.0}).xyz().normalized();
         // Direction of the light (from the fragment to the light)
         const ml::vec3 l = light_direction.xyz().normalized();
 
         float lambertian = boost::algorithm::clamp(n * l, 0.f, 1.f);
+
+        // sample diffuse texture.
+        auto material_diffuse_color = samplers[0]->sample_at({tex_coords.x, tex_coords.y});
 
         // calculate diffuse color.
         ml::vec4 diffuse_color = light_color * material_diffuse_color * lambertian;

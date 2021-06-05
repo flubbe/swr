@@ -24,7 +24,7 @@ target_link_libraries(demo_alpha_blend swrast cpu_features fmt swr_app ${EXTRA_L
 add_executable(demo_bitmap_font
 	${COMMON_SOURCES}
 	../../deps/3rd-party/lodepng/lodepng.cpp
-	bitmap_font/font.cpp
+	common/font.cpp
 	bitmap_font/main.cpp
 )
 target_link_libraries(demo_bitmap_font swrast cpu_features fmt swr_app ${EXTRA_LIBS})
@@ -42,6 +42,14 @@ add_executable(demo_color
 	color/main.cpp
 )
 target_link_libraries(demo_color swrast cpu_features fmt swr_app ${EXTRA_LIBS})
+
+add_executable(demo_fill_test
+	${COMMON_SOURCES}
+	../../deps/3rd-party/lodepng/lodepng.cpp
+	common/mesh.cpp
+	fill_test/main.cpp
+)
+target_link_libraries(demo_fill_test swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
 add_executable(demo_normal_map
 	${COMMON_SOURCES}
@@ -74,8 +82,8 @@ target_link_libraries(demo_texture swrast cpu_features fmt swr_app ${EXTRA_LIBS}
 add_executable(demo_timings
 	${COMMON_SOURCES}
 	../../deps/3rd-party/lodepng/lodepng.cpp
+	common/font.cpp
 	timings/main.cpp
-	timings/font.cpp
 	timings/main.cpp
 )
 target_link_libraries(demo_timings swrast cpu_features fmt swr_app ${EXTRA_LIBS})

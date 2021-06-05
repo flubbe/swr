@@ -39,9 +39,7 @@ uint32_t CreateIndexBuffer(const std::vector<uint32_t>& ib)
 uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
 {
     ASSERT_INTERNAL_CONTEXT;
-    int i = impl::global_context->vertex_attribute_buffers.push({});
-    impl::global_context->vertex_attribute_buffers[i].data = attribs;
-    return i;
+    return impl::global_context->vertex_attribute_buffers.push(attribs);
 }
 
 void DeleteVertexBuffer(uint32_t id)
@@ -92,47 +90,45 @@ void DeleteAttributeBuffer(uint32_t id)
 void EnableAttributeBuffer(uint32_t id, uint32_t slot)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
 
     // check if id and slot are valid.
-    if(id < Context->vertex_attribute_buffers.size() && slot < Context->active_vabs.max_size())
+    if(id < context->vertex_attribute_buffers.size() && slot < context->active_vabs.max_size())
     {
-        auto& Buf = Context->vertex_attribute_buffers[id];
-
         // check if we need to allocate a new slot.
-        if(Context->active_vabs.size() <= slot)
+        if(slot >= context->active_vabs.size())
         {
-            Context->active_vabs.resize(slot + 1, static_cast<int>(impl::vertex_attribute_index::invalid));
+            context->active_vabs.resize(slot + 1, static_cast<int>(impl::vertex_attribute_index::invalid));
         }
 
-        Context->active_vabs[slot] = id;
-        Buf.slot = slot;
+        context->active_vabs[slot] = id;
+        context->vertex_attribute_buffers[id].slot = slot;
     }
     else
     {
-        Context->last_error = error::invalid_value;
+        context->last_error = error::invalid_value;
     }
 }
 
 void DisableAttributeBuffer(uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* Context = impl::global_context;
+    impl::render_device_context* context = impl::global_context;
 
     // check that BufferId is valid.
-    if(id < Context->vertex_attribute_buffers.size())
+    if(id < context->vertex_attribute_buffers.size())
     {
-        auto& Buf = Context->vertex_attribute_buffers[id];
-        if(Buf.slot >= 0 && static_cast<size_t>(Buf.slot) < Context->active_vabs.size())
+        auto& buf = context->vertex_attribute_buffers[id];
+        if(buf.slot >= 0 && static_cast<size_t>(buf.slot) < context->active_vabs.size())
         {
-            Context->active_vabs[Buf.slot] = -1;
-            Buf.slot = impl::vertex_attribute_buffer::no_slot_associated;
+            context->active_vabs[buf.slot] = -1;
+            buf.slot = impl::vertex_attribute_buffer::no_slot_associated;
 
             return;
         }
     }
 
-    Context->last_error = error::invalid_value;
+    context->last_error = error::invalid_value;
 }
 
 } /* namespace swr */

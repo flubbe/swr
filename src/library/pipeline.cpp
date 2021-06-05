@@ -149,7 +149,7 @@ void Present()
          *
          * Clipping pre-assembles the primitives, i.e. it creates triangles.
          */
-        it->clipped_vertices.resize(0);
+        it->clipped_vertices.clear();
         if(it->mode == vertex_buffer_mode::points || it->states.poly_mode == polygon_mode::point)
         {
             // copy the correct points.

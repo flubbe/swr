@@ -21,7 +21,7 @@
 #include "shader.h"
 
 /* bitmap font support. */
-#include "font.h"
+#include "../common/font.h"
 
 /* application framework. */
 #include "swr_app/framework.h"

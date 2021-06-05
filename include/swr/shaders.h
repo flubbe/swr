@@ -164,10 +164,8 @@ public:
         }
     }
 
-    bool bind(context_handle in_context);
-
     /** pre-link the program. */
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs)
+    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const
     {
         // from https://www.khronos.org/opengl/wiki/Fragment_Shader:
         //
@@ -193,7 +191,7 @@ public:
       ml::vec4& gl_Position,
       float& gl_PointSize,
       float* gl_ClipDistance,
-      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings)
+      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const
     {
     }
 
@@ -206,7 +204,7 @@ public:
       const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
       float& gl_FragDepth,
-      boost::container::static_vector<ml::vec4, max_color_attachments>& color_attachments)
+      boost::container::static_vector<ml::vec4, max_color_attachments>& color_attachments) const
     {
         return accept;
     }

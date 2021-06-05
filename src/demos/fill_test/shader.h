@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
  * 
- * color shader and texture shader.
- *
+ * color and mesh shader.
+ * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -11,7 +11,7 @@
 namespace shader
 {
 
-/**
+/** 
  * A shader that applies coloring.
  *
  * vertex shader input:
@@ -66,7 +66,7 @@ public:
         const ml::vec4 color = varyings[0];
 
         // write color.
-        color_attachments[0] = {color.rgb(), 0.5f};
+        color_attachments[0] = color;
 
         // accept fragment.
         return swr::accept;
@@ -74,30 +74,36 @@ public:
 };
 
 /** 
- * A shader that applies the diffuse texture.
- * 
+ * A shader that applies coloring to meshes.
+ *
  * vertex shader input:
- *   attribute 0: vertex position
- *   attribute 1: texture coordinates
+ *   attribute 0: position
+ *   attribute 1: normal [unused]
+ *   attribute 2: tangent [unused]
+ *   attribute 3: bitangent [unused]
+ *   attribute 4: color
+ *   attribute 5: texture coordinate [unused]
  * 
  * varyings:
- *   location 0: texture coordinates
+ *   location 0: color
  * 
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
- * 
- * samplers:
- *   location 0: diffuse texture
  */
-class texture : public swr::program
+class mesh_color : public swr::program
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
     {
         // set varying count and interpolation qualifiers.
-        iqs.resize(1);
+        iqs.resize(6);
         iqs[0] = swr::interpolation_qualifier::smooth;
+        iqs[1] = swr::interpolation_qualifier::smooth;
+        iqs[2] = swr::interpolation_qualifier::smooth;
+        iqs[3] = swr::interpolation_qualifier::smooth;
+        iqs[4] = swr::interpolation_qualifier::smooth;
+        iqs[5] = swr::interpolation_qualifier::smooth;
     }
 
     void vertex_shader(
@@ -115,8 +121,8 @@ public:
         // transform vertex.
         gl_Position = proj * (view * attribs[0]);
 
-        // pass texture coordinates to fragment shader.
-        varyings[0] = attribs[1];
+        // pass color to fragment shader.
+        varyings[0] = attribs[4];
     }
 
     swr::fragment_shader_result fragment_shader(
@@ -127,13 +133,10 @@ public:
       float& gl_FragDepth,
       boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) const override
     {
-        // texture coordinates.
-        const ml::vec4 tex_coords = varyings[0];
+        // get color.
+        const ml::vec4 color = varyings[0];
 
-        // sample texture.
-        ml::vec4 color = samplers[0]->sample_at(tex_coords.xy());
-
-        // write fragment color.
+        // write color.
         color_attachments[0] = color;
 
         // accept fragment.

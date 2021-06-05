@@ -26,7 +26,7 @@ namespace shader
 class color : public swr::program
 {
 public:
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) override
+    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
     {
         // set varying count and interpolation qualifiers.
         iqs.resize(1);
@@ -40,7 +40,7 @@ public:
       ml::vec4& gl_Position,
       float& gl_PointSize,
       float* gl_ClipDistance,
-      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) override
+      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const override
     {
         ml::mat4x4 proj = (*uniforms)[0].m4;
         ml::mat4x4 view = (*uniforms)[1].m4;
@@ -58,7 +58,7 @@ public:
       const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
       float& gl_FragDepth,
-      boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) override
+      boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) const override
     {
         // get color.
         const ml::vec4 color = varyings[0];
