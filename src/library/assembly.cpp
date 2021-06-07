@@ -185,9 +185,9 @@ void render_device_context::AssemblePrimitives(const render_states* states, vert
         // depending on the polygon mode, the vertex buffer either holds a list of triangles or a list of points.
         if(states->poly_mode == polygon_mode::line)
         {
-            auto culling_enabled = states->culling_enabled;
-            auto cull_mode = states->cull_mode;
-            auto front_face = states->front_face;
+            const auto culling_enabled = states->culling_enabled;
+            const auto cull_mode = states->cull_mode;
+            const auto front_face = states->front_face;
 
             size_t last_index = 0;
             for(size_t first_index = 0; first_index < vb.size(); first_index = last_index + 1)
@@ -235,6 +235,10 @@ void render_device_context::AssemblePrimitives(const render_states* states, vert
         }
         else if(states->poly_mode == polygon_mode::fill)
         {
+            const auto culling_enabled = states->culling_enabled;
+            const auto cull_mode = states->cull_mode;
+            const auto front_face = states->front_face;
+
             /* draw a list of triangles */
             for(size_t i = 0; i < vb.size(); i += 3)
             {
@@ -243,11 +247,11 @@ void render_device_context::AssemblePrimitives(const render_states* states, vert
                 const auto& v3 = vb[i + 2];
 
                 // determine if triangle is front facing.
-                cull_face_direction orient = get_face_orientation(states->front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
+                cull_face_direction orient = get_face_orientation(front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
                 bool is_front_facing = (orient == cull_face_direction::front);
 
                 // check for face culling
-                if(states->culling_enabled && cull_reject(states->cull_mode, orient))
+                if(culling_enabled && cull_reject(cull_mode, orient))
                 {
                     // reject
                     continue;

@@ -8,14 +8,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* C++ headers */
-#include <vector>
-#include <list>
-#include <unordered_map>
-#include <cstring>
-
-#include "boost/algorithm/clamp.hpp"
-
 /* user headers. */
 #include "../swr_internal.h"
 

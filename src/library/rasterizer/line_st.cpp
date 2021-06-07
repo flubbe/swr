@@ -17,15 +17,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* C++ headers */
-#include <vector>
-#include <list>
-#include <unordered_map>
-#include <cstring>
-
-#include <boost/math/special_functions/sign.hpp>
-#include <boost/algorithm/clamp.hpp>
-
 /* user headers. */
 #include "../swr_internal.h"
 
@@ -82,7 +73,7 @@ static float fracf(float f)
 /*
  * 1) a note on the coordinate system used:
  * 
- *    line_info contains information used by sweep_rasterizer_st::draw_line, which in turn calls
+ *    line_info contains information used by sweep_rasterizer::draw_line, which in turn calls
  *    sweep_rasterizer::process_fragment to write the fragment. this last function takes (x,y)
  *    coordinates with respect to screen space; in particular, the x-axis extends to the right
  *    and the y-axis extends downwards.
@@ -352,9 +343,9 @@ void line_info::setup()
     }
 }
 
-void sweep_rasterizer::draw_line(const swr::impl::render_states& States, bool InDrawEndPoint, const geom::vertex& V1, const geom::vertex& V2)
+void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in_draw_endpoint, const geom::vertex& v1, const geom::vertex& v2)
 {
-    line_info info{V1, V2};
+    line_info info{v1, v2};
 
     // early-out for lines of zero length.
     if(info.max_absolute_delta == 0)
@@ -404,7 +395,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& States, bool In
     ml::fixed_t start_y = info.v1->coords.y + info.offset_v1.y;
 
     // initialize gradients along the line.
-    rast::line_interpolator attr(*info.v1, *info.v2, States.shader_info->iqs, 1.0f / info.max_absolute_delta);
+    rast::line_interpolator attr(*info.v1, *info.v2, states.shader_info->iqs, 1.0f / info.max_absolute_delta);
     attr.setup(0.f);
 
     // advance to pixel center and initialize end coordinate.
@@ -469,10 +460,10 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& States, bool In
             }
 
             // only draw the fragment if it is inside the viewport.
-            if(v >= 0 && v < raster_height)
+            if(p >= 0 && v >= 0 && v < raster_height)
             {
                 rast::fragment_info info(attr.depth_value.value, true, &temp_varyings);
-                process_fragment(ml::integral_part(p), ml::integral_part(v), States, attr.one_over_viewport_z.value, info);
+                process_fragment(ml::integral_part(p), ml::integral_part(v), states, attr.one_over_viewport_z.value, info);
             }
 
             // update error variable.
@@ -500,10 +491,10 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& States, bool In
             }
 
             // only draw the fragment if it is inside the viewport.
-            if(v >= 0 && v < raster_width)
+            if(p >= 0 && v >= 0 && v < raster_width)
             {
                 rast::fragment_info info(attr.depth_value.value, true, &temp_varyings);
-                process_fragment(ml::integral_part(v), ml::integral_part(p), States, attr.one_over_viewport_z.value, info);
+                process_fragment(ml::integral_part(v), ml::integral_part(p), states, attr.one_over_viewport_z.value, info);
             }
 
             // update error variable.

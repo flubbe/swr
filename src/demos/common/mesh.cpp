@@ -118,9 +118,12 @@ mesh generate_random_tiling_mesh(float xmin, float xmax, float ymin, float ymax,
     std::uniform_real_distribution<float> ydist{-ystep / 5, ystep / 5};
     std::uniform_real_distribution<float> zdist{-zrange, zrange};
 
-    auto xgen = [&xdist, &mersenne_engine]() { return xdist(mersenne_engine); };
-    auto ygen = [&ydist, &mersenne_engine]() { return ydist(mersenne_engine); };
-    auto zgen = [&zdist, &mersenne_engine]() { return zdist(mersenne_engine); };
+    auto xgen = [&xdist, &mersenne_engine]()
+    { return xdist(mersenne_engine); };
+    auto ygen = [&ydist, &mersenne_engine]()
+    { return ydist(mersenne_engine); };
+    auto zgen = [&zdist, &mersenne_engine]()
+    { return zdist(mersenne_engine); };
 
     // generate per-vertex mesh data.
     mesh m;

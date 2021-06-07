@@ -8,14 +8,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* C++ headers */
-#include <vector>
-#include <list>
-#include <unordered_map>
-
-#include <boost/math/special_functions/sign.hpp>
-#include <boost/algorithm/clamp.hpp>
-
 /* user headers. */
 #include "../swr_internal.h"
 
@@ -32,6 +24,7 @@ namespace rast
  * Process fragments and merge outputs.
  * 
  * We perform the following operations, in order:
+ * 
  *  1) Scissor test.
  * 
  * If it succeeds, we calculate all interpolated values for the varyings.
@@ -45,7 +38,7 @@ namespace rast
  *  5) Calculate the color in the output buffer's pixel format.
  *  6) Apply color blending.
  */
-bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& FragInfo)
+bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& frag_info)
 {
     SWR_STATS_INCREMENT(stats_frag.count);
 
@@ -61,11 +54,12 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
             return false;
         }
     }
+
     /*
      * Compute z and interpolated values.
      */
     float z = 1.0f / one_over_viewport_z;
-    for(auto& it: *FragInfo.Varyings)
+    for(auto& it: *frag_info.varyings)
     {
         if(it.iq == swr::interpolation_qualifier::smooth)
         {
@@ -95,11 +89,11 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
     const ml::vec4 frag_coord = {
       static_cast<float>(x) - pixel_center.x,
       raster_height - (static_cast<float>(y) - pixel_center.y),
-      FragInfo.depth_value,
+      frag_info.depth_value,
       z};
 
     SWR_STATS_CLOCK(stats_frag.cycles);
-    auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, FragInfo.front_facing, {0, 0}, *FragInfo.Varyings, FragInfo.depth_value, color_attachments);
+    auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, *frag_info.varyings, frag_info.depth_value, color_attachments);
     SWR_STATS_UNCLOCK(stats_frag.cycles);
 
     if(accept_fragment == swr::discard)
@@ -120,23 +114,24 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
             return false;
         }
 
-        // calculate depth buffer offset and ptr.
-        const auto depth_buffer_offset = y * depth_buffer->pitch + x * sizeof(ml::fixed_32_t);
-        ml::fixed_32_t* depth_buffer_ptr = reinterpret_cast<ml::fixed_32_t*>(reinterpret_cast<uint8_t*>(depth_buffer->data_ptr) + depth_buffer_offset);
-        ml::fixed_32_t depth_value{FragInfo.depth_value};
+        // read and compare depth buffer.
+        ml::fixed_32_t* depth_buffer_ptr = depth_buffer->at(x, y);
+
+        ml::fixed_32_t old_depth_value = *depth_buffer_ptr;
+        ml::fixed_32_t new_depth_value{frag_info.depth_value};
 
         if(states.depth_func == swr::comparison_func::pass
-           || (states.depth_func == swr::comparison_func::equal && depth_value == *depth_buffer_ptr)
-           || (states.depth_func == swr::comparison_func::not_equal && depth_value != *depth_buffer_ptr)
-           || (states.depth_func == swr::comparison_func::less && depth_value < *depth_buffer_ptr)
-           || (states.depth_func == swr::comparison_func::less_equal && depth_value <= *depth_buffer_ptr)
-           || (states.depth_func == swr::comparison_func::greater && depth_value > *depth_buffer_ptr)
-           || (states.depth_func == swr::comparison_func::greater_equal && depth_value >= *depth_buffer_ptr))
+           || (states.depth_func == swr::comparison_func::equal && new_depth_value == old_depth_value)
+           || (states.depth_func == swr::comparison_func::not_equal && new_depth_value != old_depth_value)
+           || (states.depth_func == swr::comparison_func::less && new_depth_value < old_depth_value)
+           || (states.depth_func == swr::comparison_func::less_equal && new_depth_value <= old_depth_value)
+           || (states.depth_func == swr::comparison_func::greater && new_depth_value > old_depth_value)
+           || (states.depth_func == swr::comparison_func::greater_equal && new_depth_value >= old_depth_value))
         {
             // accept and possibly write depth for the fragment.
             if(states.write_depth)
             {
-                *depth_buffer_ptr = FragInfo.depth_value;
+                *depth_buffer_ptr = frag_info.depth_value;
             }
         }
         else

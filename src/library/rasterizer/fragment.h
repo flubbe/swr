@@ -22,8 +22,8 @@ struct fragment_info
     /** whether this fragment comes from a front-facing triangle. */
     bool front_facing;
 
-    /** Veryings. */
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings>* Varyings = nullptr;
+    /** varyings. */
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings>* varyings = nullptr;
 
     /** no default constructor. */
     fragment_info() = delete;
@@ -32,10 +32,10 @@ struct fragment_info
     fragment_info(
       float depth,
       bool in_front_facing,
-      boost::container::static_vector<swr::varying, geom::limits::max::varyings>* InVaryings)
+      boost::container::static_vector<swr::varying, geom::limits::max::varyings>* in_varyings)
     : depth_value(depth)
     , front_facing(in_front_facing)
-    , Varyings(InVaryings)
+    , varyings(in_varyings)
     {
     }
 };

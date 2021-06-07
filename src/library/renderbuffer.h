@@ -52,6 +52,24 @@ struct depth_buffer : public render_buffer<ml::fixed_32_t>
 {
     /** The depth buffer data. */
     std::vector<ml::fixed_32_t> data;
+
+    /** allocate the buffer. */
+    void allocate(int in_width, int in_height)
+    {
+        assert(in_width > 0 && in_height > 0);
+
+        width = in_width;
+        pitch = in_width * sizeof(ml::fixed_32_t);
+        height = in_height;
+
+        data_ptr = utils::align_vector(utils::alignment::sse, in_width * in_height, data);
+    }
+
+    /** get pointer to the depth-buffer at coordinate (x,y). */
+    ml::fixed_32_t* at(int x, int y) const
+    {
+        return &data_ptr[y * width + x];
+    }
 };
 
 /* Specialized buffer clearing function. */

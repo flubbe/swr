@@ -32,14 +32,7 @@ thread_local render_device_context* global_context = nullptr;
 
 void render_device_context::AllocateDepthBuffer()
 {
-    // allocate depth buffer.
-    DepthBuffer.data.resize(ColorBuffer.width * ColorBuffer.height);
-    DepthBuffer.data_ptr = &DepthBuffer.data[0];
-
-    // set dimensions.
-    DepthBuffer.width = ColorBuffer.width;
-    DepthBuffer.height = ColorBuffer.height;
-    DepthBuffer.pitch = DepthBuffer.width * sizeof(ml::fixed_32_t);
+    DepthBuffer.allocate(ColorBuffer.width, ColorBuffer.height);
 }
 
 void render_device_context::Shutdown()

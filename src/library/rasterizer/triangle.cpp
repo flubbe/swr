@@ -15,14 +15,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* C++ headers */
-#include <vector>
-#include <list>
-#include <unordered_map>
-
-#include <boost/math/special_functions/sign.hpp>
-#include <boost/algorithm/clamp.hpp>
-
 /* user headers. */
 #include "../swr_internal.h"
 
@@ -414,7 +406,6 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             {
                 // the block is completely covered.
 #ifdef SWR_ENABLE_MULTI_THREADING
-                //                rasterizer_threads.submit(thread_process_block, this, states, attributes, x, y, is_front_facing);
                 rasterizer_threads.push_task(thread_process_block, this, states, attributes, x, y, is_front_facing);
 #else
                 process_block(states, attributes, x, y, is_front_facing);
@@ -435,8 +426,9 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
 #else
                 process_block_checked(states, attributes, lambdas_box.top_left, x, y, is_front_facing);
 #endif
-                SWR_STATS_INCREMENT(stats_rast.jobs);
             }
+
+            SWR_STATS_INCREMENT(stats_rast.jobs);
         }
     }
 }
