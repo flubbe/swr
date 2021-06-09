@@ -150,10 +150,9 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
     uint32_t out_color = color_buffer->pf_conv.to_pixel(ml::clamp_to_unit_interval(color_attachments[0]));
 
     /*
-     * calculate color buffer offset for blending and writing.
+     * get color buffer pointer.
      */
-    const uint32_t color_buffer_offset = y * color_buffer->pitch + x * sizeof(uint32_t);
-    uint32_t* color_buffer_ptr = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(color_buffer->data_ptr) + color_buffer_offset);
+    uint32_t* color_buffer_ptr = color_buffer->at(x, y);
 
     /*
      * Alpha blending.

@@ -105,14 +105,14 @@ void Present()
 {
     auto context = static_cast<impl::render_device_context*>(impl::global_context);
 
-    // return if there is nothing to draw.
-    if(context->DrawList.size() == 0)
+    // immediately return if there is nothing to do.
+    if(context->render_command_list.size() == 0)
     {
         return;
     }
 
-    // Raster vertices in draw lists.
-    for(auto& it: context->DrawList)
+    // process render commands.
+    for(auto& it: context->render_command_list)
     {
         // a draw list entry may be null.
         if(!it)
@@ -203,15 +203,9 @@ void Present()
     context->stats_rast = context->rasterizer->stats_rast;
 #endif
 
-    // flush drawing lists.
-    context->DrawList.resize(0);
-    context->ReleaseRenderObjects();
-
-    // debugging.
-    if(context->CopyDepthToColor)
-    {
-        context->DisplayDepthBuffer();
-    }
+    // flush all lists.
+    context->render_command_list.clear();
+    context->objects.clear();
 }
 
 /*
@@ -275,7 +269,7 @@ void SetScissorBox(int x, int y, int width, int height)
         return;
     }
 
-    Context->RenderStates.scissor_box = {x, x + width, y, y + height};
+    Context->states.scissor_box = {x, x + width, y, y + height};
 }
 
 /*
@@ -300,10 +294,10 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height)
         return;
     }
 
-    Context->RenderStates.x = x;
-    Context->RenderStates.y = y;
-    Context->RenderStates.width = width;
-    Context->RenderStates.height = height;
+    Context->states.x = x;
+    Context->states.y = y;
+    Context->states.width = width;
+    Context->states.height = height;
 }
 
 void DepthRange(float zNear, float zFar)
@@ -318,8 +312,8 @@ void DepthRange(float zNear, float zFar)
         return;
     }
 
-    Context->RenderStates.z_near = boost::algorithm::clamp(zNear, 0.f, 1.f);
-    Context->RenderStates.z_far = boost::algorithm::clamp(zFar, 0.f, 1.f);
+    Context->states.z_near = boost::algorithm::clamp(zNear, 0.f, 1.f);
+    Context->states.z_far = boost::algorithm::clamp(zFar, 0.f, 1.f);
 }
 
 } /* namespace swr */

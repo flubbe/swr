@@ -19,7 +19,11 @@ namespace impl
 /** States that are set on a per-primitive basis. */
 struct render_states
 {
-    /** viewport transform. */
+    /* buffers. */
+    uint32_t clear_color{0}; /* in color buffer pixel format */
+    ml::fixed_32_t clear_depth{1};
+
+    /* viewport transform. */
     int x{0}, y{0};
     unsigned int width{0}, height{0};
     float z_near{0}, z_far{1};

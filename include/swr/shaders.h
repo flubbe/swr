@@ -79,7 +79,7 @@ union uniform
 enum class interpolation_qualifier
 {
     flat,           /** Constant, i.e. no interpolation. */
-    no_perspective, /** Linear interpolaiton in window space. */
+    no_perspective, /** Linear interpolation in window space. */
     smooth          /** Perspective interpolation. */
 };
 

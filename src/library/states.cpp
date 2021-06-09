@@ -25,23 +25,23 @@ void SetState(state s, bool enable)
 
     if(s == state::blend)
     {
-        context->RenderStates.blending_enabled = enable;
+        context->states.blending_enabled = enable;
     }
     else if(s == state::cull_face)
     {
-        context->RenderStates.culling_enabled = enable;
+        context->states.culling_enabled = enable;
     }
     else if(s == state::depth_test)
     {
-        context->RenderStates.depth_test_enabled = enable;
+        context->states.depth_test_enabled = enable;
     }
     else if(s == state::depth_write)
     {
-        context->RenderStates.write_depth = enable;
+        context->states.write_depth = enable;
     }
     else if(s == state::scissor_test)
     {
-        context->RenderStates.scissor_test_enabled = enable;
+        context->states.scissor_test_enabled = enable;
     }
 }
 
@@ -52,23 +52,23 @@ bool GetState(state s)
 
     if(s == state::blend)
     {
-        return context->RenderStates.blending_enabled;
+        return context->states.blending_enabled;
     }
     else if(s == state::cull_face)
     {
-        return context->RenderStates.culling_enabled;
+        return context->states.culling_enabled;
     }
     else if(s == state::depth_test)
     {
-        return context->RenderStates.depth_test_enabled;
+        return context->states.depth_test_enabled;
     }
     else if(s == state::depth_write)
     {
-        return context->RenderStates.write_depth;
+        return context->states.write_depth;
     }
     else if(s == state::scissor_test)
     {
-        return context->RenderStates.scissor_test_enabled;
+        return context->states.scissor_test_enabled;
     }
 
     return false;
@@ -89,20 +89,20 @@ void SetBlendFunc(blend_func sfactor, blend_func dfactor)
         return;
     }
 
-    context->RenderStates.blend_src = sfactor;
-    context->RenderStates.blend_dst = dfactor;
+    context->states.blend_src = sfactor;
+    context->states.blend_dst = dfactor;
 }
 
 blend_func GetSourceBlendFunc()
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->RenderStates.blend_src;
+    return impl::global_context->states.blend_src;
 }
 
 blend_func GetDestinationBlendFunc()
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->RenderStates.blend_dst;
+    return impl::global_context->states.blend_dst;
 }
 
 /*
@@ -112,13 +112,13 @@ blend_func GetDestinationBlendFunc()
 void SetDepthTest(comparison_func func)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->RenderStates.depth_func = func;
+    impl::global_context->states.depth_func = func;
 }
 
 comparison_func GetDepthTest()
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->RenderStates.depth_func;
+    return impl::global_context->states.depth_func;
 }
 
 /*
@@ -128,25 +128,25 @@ comparison_func GetDepthTest()
 void SetFrontFace(front_face_orientation ffo)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->RenderStates.front_face = ffo;
+    impl::global_context->states.front_face = ffo;
 }
 
 front_face_orientation GetFrontFace()
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->RenderStates.front_face;
+    return impl::global_context->states.front_face;
 }
 
 void SetCullMode(cull_face_direction cfd)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->RenderStates.cull_mode = cfd;
+    impl::global_context->states.cull_mode = cfd;
 }
 
 cull_face_direction GetCullMode()
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->RenderStates.cull_mode;
+    return impl::global_context->states.cull_mode;
 }
 
 /*
@@ -156,41 +156,13 @@ cull_face_direction GetCullMode()
 void SetPolygonMode(polygon_mode Mode)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->RenderStates.poly_mode = Mode;
+    impl::global_context->states.poly_mode = Mode;
 }
 
 polygon_mode GetPolygonMode()
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->RenderStates.poly_mode;
-}
-
-/*
- * debugging. 
- */
-
-void SetDebugState(debug_state state, bool enable)
-{
-    ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
-
-    if(state == debug_state::show_depth_buffer)
-    {
-        context->CopyDepthToColor = enable;
-    }
-}
-
-bool GetDebugState(debug_state state)
-{
-    ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
-
-    if(state == debug_state::show_depth_buffer)
-    {
-        return context->CopyDepthToColor;
-    }
-
-    return false;
+    return impl::global_context->states.poly_mode;
 }
 
 } /* namespace swr */

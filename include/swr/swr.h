@@ -559,25 +559,6 @@ void SetState(state s, bool new_state);
  */
 bool GetState(state s);
 
-/** Debug states. */
-enum class debug_state
-{
-    show_depth_buffer, /** Copy depth buffer to color buffer for visualization. */
-};
-
-/**
- * Enable or disable a specific debug state.
- * \param State The state to modify.
- * \param Enable _true_ enables the state, _false_ disables it.
- */
-void SetDebugState(debug_state State, bool Enable);
-
-/**
- * Return the value of a given debug state.
- * \param State A debug state.
- */
-bool GetDebugState(debug_state State);
-
 /*
  * Render contexts.
  */

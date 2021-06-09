@@ -30,15 +30,10 @@ thread_local render_device_context* global_context = nullptr;
  * render context implementation.
  */
 
-void render_device_context::AllocateDepthBuffer()
-{
-    DepthBuffer.allocate(ColorBuffer.width, ColorBuffer.height);
-}
-
 void render_device_context::Shutdown()
 {
-    // empty draw list.
-    DrawList.clear();
+    // empty command list.
+    render_command_list.clear();
 
     /*
      * Clean up all slot maps.
@@ -50,73 +45,63 @@ void render_device_context::Shutdown()
     index_buffers.clear();
 
     // delete shaders.
-    ShaderObjectHash.clear();
+    programs.clear();
 
     // free texture memory.
-    for(auto it: Texture2dHash.data)
+    for(auto it: texture_2d_storage.data)
     {
         delete it;
     }
-    Texture2dHash.clear();
+    texture_2d_storage.clear();
+}
+
+template<typename T>
+static void scissor_clear_buffer(T clear_value, render_buffer<T>& buffer, const utils::rect& scissor_box)
+{
+    static_assert(sizeof(T) == sizeof(uint32_t), "Types sizes must match for utils::memset32 to work correctly.");
+
+    int x_min = std::min(std::max(0, scissor_box.x_min), buffer.width);
+    int x_max = std::max(0, std::min(scissor_box.x_max, buffer.width));
+    int y_min = std::min(std::max(buffer.height - scissor_box.y_max, 0), buffer.height);
+    int y_max = std::max(0, std::min(buffer.height - scissor_box.y_min, buffer.height));
+
+    const auto row_size = (x_max - x_min) * sizeof(T);
+
+    auto ptr = reinterpret_cast<uint8_t*>(buffer.data_ptr) + y_min * buffer.pitch + x_min * sizeof(T);
+    for(int y = y_min; y < y_max; ++y)
+    {
+        utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_value));
+        ptr += buffer.pitch;
+    }
 }
 
 void render_device_context::ClearColorBuffer()
 {
     // buffer clearing respects scissoring.
-    if(RenderStates.scissor_test_enabled
-       && (RenderStates.scissor_box.x_min != 0 || RenderStates.scissor_box.x_max != ColorBuffer.width
-           || RenderStates.scissor_box.y_min != 0 || RenderStates.scissor_box.y_max != ColorBuffer.height))
+    if(states.scissor_test_enabled
+       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != ColorBuffer.width
+           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != ColorBuffer.height))
     {
-        int x_min = std::min(std::max(0, RenderStates.scissor_box.x_min), ColorBuffer.width);
-        int x_max = std::max(0, std::min(RenderStates.scissor_box.x_max, ColorBuffer.width));
-        int y_min = std::min(std::max(ColorBuffer.height - RenderStates.scissor_box.y_max, 0), ColorBuffer.height);
-        int y_max = std::max(0, std::min(ColorBuffer.height - RenderStates.scissor_box.y_min, ColorBuffer.height));
-
-        const auto row_size = (x_max - x_min) * sizeof(uint32_t);
-
-        if(ColorBuffer.data_ptr)
-        {
-            auto ptr = reinterpret_cast<uint8_t*>(ColorBuffer.data_ptr) + y_min * ColorBuffer.pitch + x_min * sizeof(uint32_t);
-            for(int y = y_min; y < y_max; ++y)
-            {
-                utils::memset32(ptr, row_size, ClearColor);
-                ptr += ColorBuffer.pitch;
-            }
-        }
+        scissor_clear_buffer(states.clear_color, ColorBuffer, states.scissor_box);
     }
     else
     {
-        ColorBuffer.clear(ClearColor);
+        ColorBuffer.clear(states.clear_color);
     }
 }
 
 void render_device_context::ClearDepthBuffer()
 {
     // buffer clearing respects scissoring.
-    if(RenderStates.scissor_test_enabled
-       && (RenderStates.scissor_box.x_min != 0 || RenderStates.scissor_box.x_max != DepthBuffer.width
-           || RenderStates.scissor_box.y_min != 0 || RenderStates.scissor_box.y_max != DepthBuffer.height))
+    if(states.scissor_test_enabled
+       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != DepthBuffer.width
+           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != DepthBuffer.height))
     {
-        int x_min = std::min(std::max(0, RenderStates.scissor_box.x_min), DepthBuffer.width);
-        int x_max = std::max(0, std::min(RenderStates.scissor_box.x_max, DepthBuffer.width));
-        int y_min = std::min(std::max(DepthBuffer.height - RenderStates.scissor_box.y_max, 0), DepthBuffer.height);
-        int y_max = std::max(0, std::min(DepthBuffer.height - RenderStates.scissor_box.y_min, DepthBuffer.height));
-
-        const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
-
-        if(DepthBuffer.data_ptr)
-        {
-            auto ptr = reinterpret_cast<uint8_t*>(DepthBuffer.data_ptr) + y_min * DepthBuffer.pitch + x_min * sizeof(ml::fixed_32_t);
-            for(int y = y_min; y < y_max; ++y)
-            {
-                utils::memset32(ptr, row_size, ml::unwrap(ClearDepth));
-                ptr += DepthBuffer.pitch;
-            }
-        }
+        scissor_clear_buffer(states.clear_depth, DepthBuffer, states.scissor_box);
     }
     else
     {
-        DepthBuffer.clear(ClearDepth);
+        DepthBuffer.clear(states.clear_depth);
     }
 }
 
@@ -124,37 +109,34 @@ void render_device_context::ClearDepthBuffer()
  * SDL render context implementation.
  */
 
-void sdl_render_context::Initialize(SDL_Window* InWindow, SDL_Renderer* InRenderer, int width, int height)
+void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height)
 {
-    if(InWindow == nullptr || InRenderer == nullptr || width <= 0 || height <= 0)
+    if(window == nullptr || renderer == nullptr || width <= 0 || height <= 0)
     {
         return;
     }
 
-    Window = InWindow;
-    Renderer = InRenderer;
+    sdl_window = window;
+    sdl_renderer = renderer;
 
     // initialize viewport transform.
-    RenderStates.x = 0;
-    RenderStates.y = 0;
-    RenderStates.width = width;
-    RenderStates.height = height;
-    RenderStates.z_near = 0.f;
-    RenderStates.z_far = 1.f;
+    states.x = 0;
+    states.y = 0;
+    states.width = width;
+    states.height = height;
+    states.z_near = 0.f;
+    states.z_far = 1.f;
 
     // initialze scissor box.
-    RenderStates.scissor_box.x_min = 0;
-    RenderStates.scissor_box.x_max = width;
-    RenderStates.scissor_box.y_min = 0;
-    RenderStates.scissor_box.y_max = height;
+    states.scissor_box = utils::rect{0, width, 0, height};
 
     // set depth func.
-    RenderStates.depth_test_enabled = false;
-    RenderStates.depth_func = comparison_func::less;
+    states.depth_test_enabled = false;
+    states.depth_func = comparison_func::less;
 
     // set blend func.
-    RenderStates.blend_src = blend_func::one;
-    RenderStates.blend_dst = blend_func::zero;
+    states.blend_src = blend_func::one;
+    states.blend_dst = blend_func::zero;
 
     // set color buffer width, height, and update the buffer.
     ColorBuffer.width = upper_align_on_block_size(width);
@@ -162,10 +144,7 @@ void sdl_render_context::Initialize(SDL_Window* InWindow, SDL_Renderer* InRender
     UpdateBuffers();
 
     // write dimensions for the blitting rectangle.
-    ContextDimensions.x = 0;
-    ContextDimensions.y = 0;
-    ContextDimensions.w = width;
-    ContextDimensions.h = height;
+    sdl_viewport_dimensions = {0, 0, width, height};
 
     // create default texture.
     create_default_texture(this);
@@ -199,10 +178,10 @@ void sdl_render_context::Shutdown()
         assert(ColorBuffer.data_ptr == nullptr);
     }
 
-    if(Buffer)
+    if(sdl_color_buffer)
     {
-        SDL_DestroyTexture(Buffer);
-        Buffer = nullptr;
+        SDL_DestroyTexture(sdl_color_buffer);
+        sdl_color_buffer = nullptr;
     }
 
     DepthBuffer.data.clear();
@@ -210,8 +189,8 @@ void sdl_render_context::Shutdown()
 
     ColorBuffer.width = ColorBuffer.height = ColorBuffer.pitch = 0;
 
-    Renderer = nullptr;
-    Window = nullptr;
+    sdl_renderer = nullptr;
+    sdl_window = nullptr;
 
     render_device_context::Shutdown();
 }
@@ -219,7 +198,7 @@ void sdl_render_context::Shutdown()
 void sdl_render_context::UpdateBuffers()
 {
     // set the (global) pixel format.
-    Uint32 WindowPixelFormat = SDL_GetWindowPixelFormat(Window);
+    Uint32 WindowPixelFormat = SDL_GetWindowPixelFormat(sdl_window);
 
     Uint32 NativePixelFormat = 0;
     switch(WindowPixelFormat)
@@ -248,27 +227,27 @@ void sdl_render_context::UpdateBuffers()
         ColorBuffer.pf_conv.set_pixel_format(pixel_format_descriptor::named_format(pixel_format::argb8888));
     }
 
-    if(Buffer)
+    if(sdl_color_buffer)
     {
-        SDL_DestroyTexture(Buffer);
-        Buffer = nullptr;
+        SDL_DestroyTexture(sdl_color_buffer);
+        sdl_color_buffer = nullptr;
     }
-    Buffer = SDL_CreateTexture(Renderer, NativePixelFormat, SDL_TEXTUREACCESS_STREAMING, ColorBuffer.width, ColorBuffer.height);
-    if(Buffer == nullptr)
+    sdl_color_buffer = SDL_CreateTexture(sdl_renderer, NativePixelFormat, SDL_TEXTUREACCESS_STREAMING, ColorBuffer.width, ColorBuffer.height);
+    if(sdl_color_buffer == nullptr)
     {
         return;
     }
 
-    AllocateDepthBuffer();
+    DepthBuffer.allocate(ColorBuffer.width, ColorBuffer.height);
 }
 
 void sdl_render_context::CopyDefaultColorBuffer()
 {
-    if(Buffer != nullptr && Renderer != nullptr && Window != nullptr)
+    if(sdl_color_buffer != nullptr && sdl_renderer != nullptr && sdl_window != nullptr)
     {
-        SDL_RenderCopy(Renderer, Buffer, &ContextDimensions, nullptr);
-        SDL_RenderPresent(Renderer);
-        SDL_UpdateWindowSurface(Window);
+        SDL_RenderCopy(sdl_renderer, sdl_color_buffer, &sdl_viewport_dimensions, nullptr);
+        SDL_RenderPresent(sdl_renderer);
+        SDL_UpdateWindowSurface(sdl_window);
     }
 }
 
@@ -280,7 +259,7 @@ bool sdl_render_context::Lock()
         return false;
     }
 
-    if(SDL_LockTexture(Buffer, nullptr, reinterpret_cast<void**>(&ColorBuffer.data_ptr), &ColorBuffer.pitch) != 0)
+    if(SDL_LockTexture(sdl_color_buffer, nullptr, reinterpret_cast<void**>(&ColorBuffer.data_ptr), &ColorBuffer.pitch) != 0)
     {
         return false;
     }
@@ -292,29 +271,9 @@ void sdl_render_context::Unlock()
 {
     if(ColorBuffer.data_ptr != nullptr)
     {
-        SDL_UnlockTexture(Buffer);
+        SDL_UnlockTexture(sdl_color_buffer);
         ColorBuffer.data_ptr = nullptr;
         ColorBuffer.pitch = 0;
-    }
-}
-
-void sdl_render_context::DisplayDepthBuffer()
-{
-    if(ColorBuffer.data_ptr != nullptr)
-    {
-        for(int x = 0; x < ColorBuffer.width; ++x)
-        {
-            for(int y = 0; y < ColorBuffer.height; ++y)
-            {
-                const auto Depth = DepthBuffer.data_ptr[y * DepthBuffer.width + x];
-                const ml::vec4 c = ml::vec4(1.f, 1.f, 1.f, 1.f) * ml::to_float(Depth);
-
-                uint8_t* ColorBufferBytePtr = reinterpret_cast<uint8_t*>(ColorBuffer.data_ptr);
-                ColorBufferBytePtr += y * ColorBuffer.pitch + x * sizeof(uint32_t);
-
-                *reinterpret_cast<uint32_t*>(ColorBufferBytePtr) = ColorBuffer.pf_conv.to_pixel(c);
-            }
-        }
     }
 }
 

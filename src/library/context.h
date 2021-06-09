@@ -92,12 +92,6 @@ public:
      * context states.
      */
 
-    /** clear color for color buffer, stored in the internal pixel format. */
-    uint32_t ClearColor{0};
-
-    /** clear value for depth buffer. */
-    ml::fixed_32_t ClearDepth{1};
-
     /** Color buffer. */
     color_buffer ColorBuffer;
 
@@ -105,19 +99,7 @@ public:
     depth_buffer DepthBuffer;
 
     /** The current render states. These are copied on each draw call and stored in a draw list. */
-    render_states RenderStates;
-
-    /** texture magnification filter. */
-    texture_filter TextureFilterMag{texture_filter::nearest};
-
-    /** texture minification filter. */
-    texture_filter TextureFilterMin{texture_filter::nearest};
-
-    /** texture wrapping mode (s-direction). */
-    wrap_mode TextureWrapS = wrap_mode::repeat;
-
-    /** texture wrapping mode (t-direction). */
-    wrap_mode TextureWrapT = wrap_mode::repeat;
+    render_states states;
 
     /*
      * error handling.
@@ -127,21 +109,14 @@ public:
     error last_error;
 
     /*
-     * debug states. 
-     */
-
-    /** if this is set, a grayscale depth buffer representation is copied to the color buffer at the end of Present. */
-    bool CopyDepthToColor{false};
-
-    /*
      * buffers and lists.
      */
 
     /** list of objects which may be sent to the rasterizer. */
     std::list<render_object> objects; /* note on container: iterators have to stay valid after insertions */
 
-    /** list of object which are sent to the rasterizer. */
-    std::list<render_object*> DrawList;
+    /** list of render commands to be processed. */
+    std::list<render_object*> render_command_list;
 
     /** vertex buffers. */
     utils::slot_map<vertex_buffer> vertex_buffers;
@@ -160,7 +135,7 @@ public:
      */
 
     /** the registered shaders, together with their program information. */
-    utils::slot_map<program_info> ShaderObjectHash;
+    utils::slot_map<program_info> programs;
 
     /*
      * immediate mode support.
@@ -198,10 +173,10 @@ public:
      */
 
     /** texture storage. */
-    utils::slot_map<texture_2d*> Texture2dHash;
+    utils::slot_map<texture_2d*> texture_2d_storage;
 
     /** a default texture. */
-    texture_2d* DefaultTexture2d{nullptr};
+    texture_2d* default_texture_2d{nullptr};
 
     /*
      * rasterization.
@@ -257,19 +232,9 @@ public:
      */
     render_object* CreateIndexedRenderObject(const index_buffer& ib, vertex_buffer_mode mode);
 
-    /**
-     * Release all render objects.
-     *
-     * This is usually done after rasterization.
-     */
-    void ReleaseRenderObjects();
-
     /*
      * buffer management.
      */
-
-    /** allocate depth buffer matching the color buffer's dimensions. */
-    void AllocateDepthBuffer();
 
     /** clear the color buffer while respecting active render states. */
     void ClearColorBuffer();
@@ -280,13 +245,13 @@ public:
     /** set the current clear color. */
     void SetClearColor(float r, float g, float b, float a)
     {
-        ClearColor = ColorBuffer.pf_conv.to_pixel({r, g, b, a});
+        states.clear_color = ColorBuffer.pf_conv.to_pixel({r, g, b, a});
     }
 
     /** set the current clear depth. */
     void SetClearDepth(float z)
     {
-        ClearDepth = boost::algorithm::clamp(z, 0.f, 1.f);
+        states.clear_depth = boost::algorithm::clamp(z, 0.f, 1.f);
     }
 
     /*
@@ -323,11 +288,6 @@ public:
     virtual void CopyDefaultColorBuffer()
     {
     }
-
-    /** debugging: copy the depth buffer into the frame buffer. */
-    virtual void DisplayDepthBuffer()
-    {
-    }
 };
 
 /** a render device context for an SDL window. */
@@ -335,16 +295,16 @@ class sdl_render_context : public render_device_context
 {
 protected:
     /** context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
-    SDL_Rect ContextDimensions;
+    SDL_Rect sdl_viewport_dimensions;
 
     /** color buffer. */
-    SDL_Texture* Buffer{nullptr};
+    SDL_Texture* sdl_color_buffer{nullptr};
 
     /** SDL renderer. */
-    SDL_Renderer* Renderer{nullptr};
+    SDL_Renderer* sdl_renderer{nullptr};
 
     /** associated SDL window. */
-    SDL_Window* Window{nullptr};
+    SDL_Window* sdl_window{nullptr};
 
 public:
     /** default constructor. */
@@ -376,13 +336,10 @@ public:
      */
 
     /** initialize the context with the supplied SDL data and create the buffers. */
-    void Initialize(SDL_Window* InWindow, SDL_Renderer* InRenderer, int InWidth, int InHeight);
+    void Initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height);
 
     /** (re-)create depth- and color buffers. */
     void UpdateBuffers();
-
-    /* copy the depth buffer into the frame buffer. */
-    void DisplayDepthBuffer() override;
 };
 
 /*

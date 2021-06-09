@@ -35,20 +35,20 @@ void create_default_shader(render_device_context* context)
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // the default shader needs to be at position 0.
-    if(context->ShaderObjectHash.size() > 0)
+    if(context->programs.size() > 0)
     {
         throw std::runtime_error("unable to create default shader: memory already allocated.");
     }
 
     // Register shader.
-    auto index = context->ShaderObjectHash.push(pi);
+    auto index = context->programs.push(pi);
     if(index != 0)
     {
         throw std::runtime_error("unable to create default shader: wrong shader location.");
     }
 
     // activate the default shader.
-    context->RenderStates.shader_info = &context->ShaderObjectHash[0];
+    context->states.shader_info = &context->programs[0];
 }
 
 } /* namespace impl */
@@ -78,7 +78,7 @@ uint32_t RegisterShader(program* in_shader)
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // Register shader.
-    return impl::global_context->ShaderObjectHash.push(pi);
+    return impl::global_context->programs.push(pi);
 }
 
 void UnregisterShader(uint32_t id)
@@ -92,9 +92,9 @@ void UnregisterShader(uint32_t id)
         return;
     }
 
-    if(id < impl::global_context->ShaderObjectHash.size())
+    if(id < impl::global_context->programs.size())
     {
-        impl::global_context->ShaderObjectHash.free(id);
+        impl::global_context->programs.free(id);
     }
 }
 
@@ -102,10 +102,10 @@ bool BindShader(uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(id < impl::global_context->ShaderObjectHash.size())
+    if(id < impl::global_context->programs.size())
     {
         // Bind the shader.
-        impl::global_context->RenderStates.shader_info = &impl::global_context->ShaderObjectHash[id];
+        impl::global_context->states.shader_info = &impl::global_context->programs[id];
         return true;
     }
 
@@ -125,12 +125,12 @@ void BindUniform(uint32_t id, int value)
     {
         auto* context = impl::global_context;
 
-        if(id >= context->RenderStates.uniforms.size())
+        if(id >= context->states.uniforms.size())
         {
-            context->RenderStates.uniforms.resize(id + 1);
+            context->states.uniforms.resize(id + 1);
         }
 
-        context->RenderStates.uniforms[id].i = value;
+        context->states.uniforms[id].i = value;
     }
 }
 
@@ -142,12 +142,12 @@ void BindUniform(uint32_t id, float value)
     {
         auto* context = impl::global_context;
 
-        if(id >= context->RenderStates.uniforms.size())
+        if(id >= context->states.uniforms.size())
         {
-            context->RenderStates.uniforms.resize(id + 1);
+            context->states.uniforms.resize(id + 1);
         }
 
-        context->RenderStates.uniforms[id].f = value;
+        context->states.uniforms[id].f = value;
     }
 }
 
@@ -159,12 +159,12 @@ void BindUniform(uint32_t id, ml::mat4x4 value)
     {
         auto* context = impl::global_context;
 
-        if(id >= context->RenderStates.uniforms.size())
+        if(id >= context->states.uniforms.size())
         {
-            context->RenderStates.uniforms.resize(id + 1);
+            context->states.uniforms.resize(id + 1);
         }
 
-        context->RenderStates.uniforms[id].m4 = value;
+        context->states.uniforms[id].m4 = value;
     }
 }
 
@@ -176,12 +176,12 @@ void BindUniform(uint32_t id, ml::vec4 value)
     {
         auto* context = impl::global_context;
 
-        if(id >= context->RenderStates.uniforms.size())
+        if(id >= context->states.uniforms.size())
         {
-            context->RenderStates.uniforms.resize(id + 1);
+            context->states.uniforms.resize(id + 1);
         }
 
-        context->RenderStates.uniforms[id].v4 = value;
+        context->states.uniforms[id].v4 = value;
     }
 }
 

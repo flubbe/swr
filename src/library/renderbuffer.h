@@ -21,10 +21,10 @@ struct render_buffer
     // this is here because of the pixel format conversion.
     static_assert(sizeof(T) == sizeof(uint32_t), "Type size does not match size needed for pixel format conversion");
 
-    /** Width of the allocated color- and depth buffers. Has to be aligned on RASTERIZE_BLOCK_SIZE.  */
+    /** Width of the allocated color- and depth buffers. Has to be aligned on rasterizer_block_size.  */
     int width = 0;
 
-    /** Height of the allocated color- and depth buffers. Has to be aligned on RASTERIZE_BLOCK_SIZE. */
+    /** Height of the allocated color- and depth buffers. Has to be aligned on rasterizer_block_size. */
     int height = 0;
 
     /** Buffer width, in bytes. */
@@ -34,7 +34,13 @@ struct render_buffer
     T* data_ptr = nullptr;
 
     /** Clear the buffer. */
-    void clear(const T& Value);
+    void clear(const T& v);
+
+    /** get pointer to the buffer at coordinate (x,y). */
+    T* at(int x, int y) const
+    {
+        return &data_ptr[y * width + x];
+    }
 };
 
 /* Generic buffer clearing function. */
@@ -63,12 +69,6 @@ struct depth_buffer : public render_buffer<ml::fixed_32_t>
         height = in_height;
 
         data_ptr = utils::align_vector(utils::alignment::sse, in_width * in_height, data);
-    }
-
-    /** get pointer to the depth-buffer at coordinate (x,y). */
-    ml::fixed_32_t* at(int x, int y) const
-    {
-        return &data_ptr[y * width + x];
     }
 };
 

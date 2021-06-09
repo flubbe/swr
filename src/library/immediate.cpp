@@ -108,11 +108,11 @@ void EndPrimitives()
         EnableAttributeBuffer(tex_coord_id, default_index::tex_coord);
         EnableAttributeBuffer(normal_id, default_index::normal);
 
-        // add the object to the draw list.
+        // add draw command to the command list.
         auto* NewObject = context->CreateRenderObject(context->im_vertex_buf.size(), mode);
         if(NewObject != nullptr)
         {
-            context->DrawList.push_back(NewObject);
+            context->render_command_list.push_back(NewObject);
         }
 
         // disable attribute buffers.

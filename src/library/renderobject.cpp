@@ -86,7 +86,7 @@ static void copy_indexed_attributes(render_object& obj, const index_buffer& inde
 render_object* render_device_context::CreateRenderObject(std::size_t vertex_count, vertex_buffer_mode mode)
 {
     // create and initialize new object.
-    objects.emplace_back(vertex_count, mode, RenderStates);
+    objects.emplace_back(vertex_count, mode, states);
     auto& new_object = objects.back();
 
     copy_attributes(new_object, active_vabs, vertex_attribute_buffers);
@@ -97,17 +97,12 @@ render_object* render_device_context::CreateRenderObject(std::size_t vertex_coun
 render_object* render_device_context::CreateIndexedRenderObject(const index_buffer& index_buffer, vertex_buffer_mode mode)
 {
     // create and initialize new object.
-    objects.emplace_back(index_buffer.size(), mode, RenderStates);
+    objects.emplace_back(index_buffer.size(), mode, states);
     auto& new_object = objects.back();
 
     copy_indexed_attributes(new_object, index_buffer, active_vabs, vertex_attribute_buffers);
 
     return &new_object;
-}
-
-void render_device_context::ReleaseRenderObjects()
-{
-    objects.clear();
 }
 
 } /* namespace impl */
