@@ -330,7 +330,6 @@ void create_default_texture(render_device_context* context)
     // the memory allocated here is freed in render_device_context::Shutdown.
     context->texture_2d_storage.push(std::make_unique<texture_2d>(default_tex_id));
     context->default_texture_2d = context->texture_2d_storage[default_tex_id].get();
-    ;
     assert(context->default_texture_2d->id == default_tex_id);
 
     context->default_texture_2d->set_data(0, 2, 2, pixel_format::rgba8888, wrap_mode::repeat, wrap_mode::repeat, DefaultTexture);
