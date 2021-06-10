@@ -20,7 +20,7 @@
 
 #include "interpolators.h"
 #include "fragment.h"
-#include "sweep_st.h"
+#include "sweep.h"
 
 namespace rast
 {

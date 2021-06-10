@@ -103,7 +103,8 @@ static void transform_to_viewport_coords(impl::vertex_buffer& vb, float x, float
  */
 void Present()
 {
-    auto context = static_cast<impl::render_device_context*>(impl::global_context);
+    ASSERT_INTERNAL_CONTEXT;
+    auto context = impl::global_context;
 
     // immediately return if there is nothing to do.
     if(context->render_command_list.size() == 0)
@@ -254,22 +255,21 @@ void SetClearColor(float r, float g, float b, float a)
 void SetScissorBox(int x, int y, int width, int height)
 {
     ASSERT_INTERNAL_CONTEXT;
-    auto* Context = impl::global_context;
-    assert(Context);
+    auto context = impl::global_context;
 
     if(width < 0 || height < 0)
     {
-        Context->last_error = error::invalid_value;
+        context->last_error = error::invalid_value;
         return;
     }
 
-    if(Context->im_declaring_primitives)
+    if(context->im_declaring_primitives)
     {
-        Context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_operation;
         return;
     }
 
-    Context->states.scissor_box = {x, x + width, y, y + height};
+    context->states.scissor_box = {x, x + width, y, y + height};
 }
 
 /*
@@ -279,41 +279,33 @@ void SetScissorBox(int x, int y, int width, int height)
 void SetViewport(int x, int y, unsigned int width, unsigned int height)
 {
     ASSERT_INTERNAL_CONTEXT;
-    auto* Context = impl::global_context;
-    assert(Context);
+    auto context = impl::global_context;
 
-    if(width < 0 || height < 0)
+    if(context->im_declaring_primitives)
     {
-        Context->last_error = error::invalid_value;
+        context->last_error = error::invalid_operation;
         return;
     }
 
-    if(Context->im_declaring_primitives)
-    {
-        Context->last_error = error::invalid_operation;
-        return;
-    }
-
-    Context->states.x = x;
-    Context->states.y = y;
-    Context->states.width = width;
-    Context->states.height = height;
+    context->states.x = x;
+    context->states.y = y;
+    context->states.width = width;
+    context->states.height = height;
 }
 
 void DepthRange(float zNear, float zFar)
 {
     ASSERT_INTERNAL_CONTEXT;
-    auto* Context = impl::global_context;
-    assert(Context);
+    auto context = impl::global_context;
 
-    if(Context->im_declaring_primitives)
+    if(context->im_declaring_primitives)
     {
-        Context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_operation;
         return;
     }
 
-    Context->states.z_near = boost::algorithm::clamp(zNear, 0.f, 1.f);
-    Context->states.z_far = boost::algorithm::clamp(zFar, 0.f, 1.f);
+    context->states.z_near = boost::algorithm::clamp(zNear, 0.f, 1.f);
+    context->states.z_far = boost::algorithm::clamp(zFar, 0.f, 1.f);
 }
 
 } /* namespace swr */

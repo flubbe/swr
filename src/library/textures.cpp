@@ -79,9 +79,9 @@ void texture_2d::set_filter_min(texture_filter filter_min)
 
 void texture_2d::initialize_sampler()
 {
-    if(sampler == nullptr)
+    if(!sampler)
     {
-        sampler = new sampler_2d_impl(this);
+        sampler = std::make_unique<sampler_2d_impl>(this);
     }
 }
 
@@ -280,7 +280,7 @@ bool bind_texture_pointer(texture_target target, uint32_t id)
             return false;
         }
 
-        *sampler_2d = (*texture_2d)->sampler;
+        *sampler_2d = (*texture_2d)->sampler.get();
         return true;
     }
 
@@ -288,7 +288,7 @@ bool bind_texture_pointer(texture_target target, uint32_t id)
     {
         if(id < global_context->texture_2d_storage.size())
         {
-            *texture_2d = global_context->texture_2d_storage[id];
+            *texture_2d = global_context->texture_2d_storage[id].get();
         }
         else
         {
@@ -303,7 +303,7 @@ bool bind_texture_pointer(texture_target target, uint32_t id)
             return false;
         }
 
-        *sampler_2d = (*texture_2d)->sampler;
+        *sampler_2d = (*texture_2d)->sampler.get();
         return true;
     }
 
@@ -328,14 +328,15 @@ void create_default_texture(render_device_context* context)
     };
 
     // the memory allocated here is freed in render_device_context::Shutdown.
-    context->default_texture_2d = new texture_2d(default_tex_id);
+    context->texture_2d_storage.push(std::make_unique<texture_2d>(default_tex_id));
+    context->default_texture_2d = context->texture_2d_storage[default_tex_id].get();
+    ;
+    assert(context->default_texture_2d->id == default_tex_id);
 
     context->default_texture_2d->set_data(0, 2, 2, pixel_format::rgba8888, wrap_mode::repeat, wrap_mode::repeat, DefaultTexture);
     context->default_texture_2d->set_filter_mag(texture_filter::nearest);
     context->default_texture_2d->set_filter_min(texture_filter::nearest);
     context->default_texture_2d->initialize_sampler();
-
-    context->texture_2d_storage.push(context->default_texture_2d);
 }
 
 } /* namespace impl */
@@ -369,17 +370,15 @@ uint32_t CreateTexture(size_t Width, size_t Height, pixel_format Format, wrap_mo
     }
 
     // set up and upload new texture.
-    impl::texture_2d* NewTexture = new impl::texture_2d();
+    auto slot = impl::global_context->texture_2d_storage.push(std::make_unique<impl::texture_2d>());
+
+    impl::texture_2d* NewTexture = impl::global_context->texture_2d_storage[slot].get();
     NewTexture->set_filter_mag(texture_filter::nearest);
     NewTexture->set_filter_min(texture_filter::nearest);
-
     NewTexture->set_data(0, Width, Height, Format, WrapS, WrapT, Data);
+    NewTexture->id = slot;
 
-    // the returned slot id is always positive, since there is at least the default
-    // texture stored in the hash.
-    int Id = impl::global_context->texture_2d_storage.push(NewTexture);
-    NewTexture->id = Id;
-    return Id;
+    return slot;
 }
 
 void ReleaseTexture(uint32_t id)
@@ -399,14 +398,12 @@ void ReleaseTexture(uint32_t id)
             *texture_2d = context->default_texture_2d;
             if(*texture_2d)
             {
-                *sampler_2d = (*texture_2d)->sampler;
+                *sampler_2d = (*texture_2d)->sampler.get();
             }
         }
 
         // free texture memory.
-        delete context->texture_2d_storage[id];
-        context->texture_2d_storage[id] = nullptr;
-
+        context->texture_2d_storage[id].reset();
         context->texture_2d_storage.free(id);
     }
 }

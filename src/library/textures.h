@@ -54,7 +54,7 @@ struct texture_2d
     texture_storage data;
 
     /** texture sampler. */
-    class sampler_2d_impl* sampler{nullptr};
+    std::unique_ptr<class sampler_2d_impl> sampler;
 
     /** constructor. */
     texture_2d()
@@ -67,9 +67,6 @@ struct texture_2d
                int in_width = 0, int in_height = 0,
                wrap_mode wrap_s = wrap_mode::repeat, wrap_mode wrap_t = wrap_mode::repeat,
                texture_filter filter_mag = texture_filter::nearest, texture_filter filter_min = texture_filter::nearest);
-
-    /** destructor. */
-    ~texture_2d();
 
     /** Set magnification texture filter. */
     void set_filter_mag(texture_filter filter_mag);
@@ -355,17 +352,6 @@ inline texture_2d::texture_2d(
     sampler->set_texture_filters(filter_mag, filter_min);
     sampler->set_wrap_s(wrap_s);
     sampler->set_wrap_t(wrap_t);
-}
-
-/*
- * texture_2d destructor.
- * 
- * Not inside the class definition, since the delete operator likes to know the implementation
- * of the texture sampler.
- */
-inline texture_2d::~texture_2d()
-{
-    delete sampler;
 }
 
 } /* namespace impl */

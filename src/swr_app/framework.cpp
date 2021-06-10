@@ -85,7 +85,7 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) co
     }
 
     auto surface = SDL_GetWindowSurface(sdl_window);
-    contents.resize(0);
+    contents.clear();
     contents.reserve(surface->w * surface->h * 4); /* 4 bytes per pixel; RGBA */
 
     if(surface->format->BytesPerPixel < 1 || surface->format->BytesPerPixel > 4)

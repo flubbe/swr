@@ -18,6 +18,17 @@ namespace swr
  * immediate mode implementation.
  */
 
+/** clear the buffers used to declare primitives in immediate mode. */
+static void clear_immediate_mode_buffers(impl::render_device_context* context)
+{
+    assert(context);
+
+    context->im_vertex_buf.clear();
+    context->im_color_buf.clear();
+    context->im_tex_coord_buf.clear();
+    context->im_normal_buf.clear();
+}
+
 void BeginPrimitives(vertex_buffer_mode mode)
 {
     ASSERT_INTERNAL_CONTEXT;
@@ -31,13 +42,9 @@ void BeginPrimitives(vertex_buffer_mode mode)
     }
 
     // make sure all buffers are empty and set up mode.
-    context->im_vertex_buf.resize(0);
-    context->im_color_buf.resize(0);
-    context->im_tex_coord_buf.resize(0);
-    context->im_normal_buf.resize(0);
+    clear_immediate_mode_buffers(context);
 
     context->im_mode = mode;
-
     context->im_declaring_primitives = true;
 }
 
@@ -49,10 +56,7 @@ void EndPrimitives()
     if(!context->im_declaring_primitives)
     {
         // we did not declare any primitive.
-        context->im_vertex_buf.resize(0);
-        context->im_color_buf.resize(0);
-        context->im_tex_coord_buf.resize(0);
-        context->im_normal_buf.resize(0);
+        clear_immediate_mode_buffers(context);
 
         context->last_error = error::invalid_operation;
 
@@ -66,11 +70,7 @@ void EndPrimitives()
        || ref_size != context->im_normal_buf.size())
     {
         // inconsistent declaration.
-        context->im_vertex_buf.resize(0);
-        context->im_color_buf.resize(0);
-        context->im_tex_coord_buf.resize(0);
-        context->im_normal_buf.resize(0);
-
+        clear_immediate_mode_buffers(context);
         context->im_declaring_primitives = false;
 
         context->last_error = error::invalid_value;
@@ -94,7 +94,7 @@ void EndPrimitives()
         }
 
         // make sure attribute buffers are disabled.
-        context->active_vabs.resize(0);
+        context->active_vabs.clear();
 
         // create temporary buffers.
         auto vertex_buffer_id = CreateAttributeBuffer(context->im_vertex_buf);
@@ -109,10 +109,10 @@ void EndPrimitives()
         EnableAttributeBuffer(normal_id, default_index::normal);
 
         // add draw command to the command list.
-        auto* NewObject = context->CreateRenderObject(context->im_vertex_buf.size(), mode);
-        if(NewObject != nullptr)
+        auto* new_obj = context->CreateRenderObject(context->im_vertex_buf.size(), mode);
+        if(new_obj != nullptr)
         {
-            context->render_command_list.push_back(NewObject);
+            context->render_command_list.push_back(new_obj);
         }
 
         // disable attribute buffers.
@@ -129,11 +129,7 @@ void EndPrimitives()
     }
 
     // empty the buffer.
-    context->im_vertex_buf.resize(0);
-    context->im_color_buf.resize(0);
-    context->im_tex_coord_buf.resize(0);
-    context->im_normal_buf.resize(0);
-
+    clear_immediate_mode_buffers(context);
     context->im_declaring_primitives = false;
 }
 

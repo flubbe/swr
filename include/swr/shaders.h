@@ -176,7 +176,7 @@ public:
         //
         // That is, interpolation qualifiers should be set here.
 
-        iqs.resize(0);
+        iqs.clear();
 
         // !!todo: Also see https://www.khronos.org/opengl/wiki/Shader_Compilation for pre-linking setup.
     }

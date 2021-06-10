@@ -16,7 +16,7 @@
 
 #include "rasterizer/interpolators.h"
 #include "rasterizer/fragment.h"
-#include "rasterizer/sweep_st.h"
+#include "rasterizer/sweep.h"
 
 namespace swr
 {
@@ -48,10 +48,6 @@ void render_device_context::Shutdown()
     programs.clear();
 
     // free texture memory.
-    for(auto it: texture_2d_storage.data)
-    {
-        delete it;
-    }
     texture_2d_storage.clear();
 }
 

@@ -21,12 +21,20 @@ namespace swr
 namespace impl
 {
 
+/** default shader index. */
+constexpr int default_shader_index = 0;
+static_assert(default_shader_index == 0, "The default shader must be at index 0.");
+
 void create_default_shader(render_device_context* context)
 {
     assert(context);
 
     // create default shader.
-    program* default_shader = new program();
+    if(!context->default_shader)
+    {
+        context->default_shader = std::make_unique<program>();
+    }
+    program* default_shader = context->default_shader.get();
     swr::impl::program_info pi(default_shader);
 
     // pre-link the shader and initialize varying count.
@@ -35,20 +43,20 @@ void create_default_shader(render_device_context* context)
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // the default shader needs to be at position 0.
-    if(context->programs.size() > 0)
+    if(context->programs.size() > default_shader_index)
     {
         throw std::runtime_error("unable to create default shader: memory already allocated.");
     }
 
     // Register shader.
     auto index = context->programs.push(pi);
-    if(index != 0)
+    if(index != default_shader_index)
     {
         throw std::runtime_error("unable to create default shader: wrong shader location.");
     }
 
     // activate the default shader.
-    context->states.shader_info = &context->programs[0];
+    context->states.shader_info = &context->programs[default_shader_index];
 }
 
 } /* namespace impl */
@@ -85,8 +93,8 @@ void UnregisterShader(uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    // check for invalid values. 0 is the default shader, which should not be unregistered.
-    if(id == 0)
+    // check for invalid values. the default shader cannot be unregistered.
+    if(id == impl::default_shader_index)
     {
         impl::global_context->last_error = error::invalid_value;
         return;

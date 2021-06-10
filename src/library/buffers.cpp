@@ -42,34 +42,30 @@ uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
     return impl::global_context->vertex_attribute_buffers.push(attribs);
 }
 
-void DeleteVertexBuffer(uint32_t id)
+template<typename T>
+static void delete_buffer(uint32_t id, utils::slot_map<T>& buffers, error& last_error)
 {
-    ASSERT_INTERNAL_CONTEXT;
-
-    if(id < impl::global_context->vertex_buffers.size())
+    if(id < buffers.size())
     {
-        impl::global_context->vertex_buffers[id].resize(0);
-        impl::global_context->vertex_buffers.free(id);
+        buffers[id].clear();
+        buffers.free(id);
     }
     else
     {
-        impl::global_context->last_error = error::invalid_value;
+        last_error = error::invalid_value;
     }
+}
+
+void DeleteVertexBuffer(uint32_t id)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    delete_buffer(id, impl::global_context->vertex_buffers, impl::global_context->last_error);
 }
 
 void DeleteIndexBuffer(uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-
-    if(id < impl::global_context->index_buffers.size())
-    {
-        impl::global_context->index_buffers[id].resize(0);
-        impl::global_context->index_buffers.free(id);
-    }
-    else
-    {
-        impl::global_context->last_error = error::invalid_value;
-    }
+    delete_buffer(id, impl::global_context->index_buffers, impl::global_context->last_error);
 }
 
 void DeleteAttributeBuffer(uint32_t id)
@@ -78,7 +74,7 @@ void DeleteAttributeBuffer(uint32_t id)
 
     if(id < impl::global_context->vertex_attribute_buffers.size())
     {
-        impl::global_context->vertex_attribute_buffers[id].data.resize(0);
+        impl::global_context->vertex_attribute_buffers[id].data.clear(); /* the .data member access here prevents more unification with the delete_buffer function above? */
         impl::global_context->vertex_attribute_buffers.free(id);
     }
     else

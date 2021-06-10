@@ -115,7 +115,7 @@ public:
     /** list of objects which may be sent to the rasterizer. */
     std::list<render_object> objects; /* note on container: iterators have to stay valid after insertions */
 
-    /** list of render commands to be processed. */
+    /** list of render commands to be processed. points into objects. */
     std::list<render_object*> render_command_list;
 
     /** vertex buffers. */
@@ -136,6 +136,9 @@ public:
 
     /** the registered shaders, together with their program information. */
     utils::slot_map<program_info> programs;
+
+    /** default shader. */
+    std::unique_ptr<program> default_shader;
 
     /*
      * immediate mode support.
@@ -173,9 +176,9 @@ public:
      */
 
     /** texture storage. */
-    utils::slot_map<texture_2d*> texture_2d_storage;
+    utils::slot_map<std::unique_ptr<texture_2d>> texture_2d_storage;
 
-    /** a default texture. */
+    /** a default texture. this needs to be allocated in texture_2d_storage at index 0. */
     texture_2d* default_texture_2d{nullptr};
 
     /*

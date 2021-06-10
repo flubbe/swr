@@ -10,15 +10,14 @@ include_directories(. ../../inc)
 #
 set(SOURCES
 	rasterizer/fragment.cpp
-	rasterizer/line_st.cpp
-	rasterizer/point_st.cpp
-	rasterizer/sweep_st.cpp
+	rasterizer/line.cpp
+	rasterizer/point.cpp
+	rasterizer/sweep.cpp
 	rasterizer/triangle.cpp
 	assembly.cpp
 	buffers.cpp
 	context.cpp
 	clipping.cpp
-	culling.cpp
 	draw.cpp
 	immediate.cpp
 	misc.cpp

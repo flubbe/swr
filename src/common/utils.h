@@ -133,6 +133,23 @@ struct slot_map
         return data.size() - 1;
     }
 
+    /** insert a new item.. */
+    size_t push(T&& item)
+    {
+        // first fill empty slots.
+        if(free_slots.size())
+        {
+            auto i = free_slots.back();
+            free_slots.pop_back();
+
+            data[i] = std::move(item);
+            return i;
+        }
+
+        data.emplace_back(std::move(item));
+        return data.size() - 1;
+    }
+
     /** mark a slot as free. */
     void free(size_t i)
     {

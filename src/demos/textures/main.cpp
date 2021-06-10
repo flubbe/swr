@@ -294,7 +294,7 @@ public:
 
         run_time -= SDL_GetTicks();
 
-        window = new demo_cube();
+        window = std::make_unique<demo_cube>();
         window->create();
     }
 
@@ -303,16 +303,14 @@ public:
     {
         if(window)
         {
-            auto* w = static_cast<demo_cube*>(window);
+            auto* w = static_cast<demo_cube*>(window.get());
             run_time += SDL_GetTicks();
             float run_time_in_s = static_cast<float>(run_time) / 1000.f;
             float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;
             platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), run_time_in_s, fps, 1000.f / fps);
 
             window->destroy();
-
-            delete window;
-            window = nullptr;
+            window.reset();
         }
 
         platform::set_log(nullptr);

@@ -15,7 +15,7 @@
 
 #include "interpolators.h"
 #include "fragment.h"
-#include "sweep_st.h"
+#include "sweep.h"
 
 namespace rast
 {
@@ -120,13 +120,25 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
         ml::fixed_32_t old_depth_value = *depth_buffer_ptr;
         ml::fixed_32_t new_depth_value{frag_info.depth_value};
 
-        if(states.depth_func == swr::comparison_func::pass
-           || (states.depth_func == swr::comparison_func::equal && new_depth_value == old_depth_value)
-           || (states.depth_func == swr::comparison_func::not_equal && new_depth_value != old_depth_value)
-           || (states.depth_func == swr::comparison_func::less && new_depth_value < old_depth_value)
-           || (states.depth_func == swr::comparison_func::less_equal && new_depth_value <= old_depth_value)
-           || (states.depth_func == swr::comparison_func::greater && new_depth_value > old_depth_value)
-           || (states.depth_func == swr::comparison_func::greater_equal && new_depth_value >= old_depth_value))
+        // basic comparisons for depth test.
+        bool depth_compare[] = {
+          true,                               /* pass */
+          false,                              /* fail */
+          new_depth_value == old_depth_value, /* equal */
+          false,                              /* not_equal */
+          new_depth_value < old_depth_value,  /* less */
+          false,                              /* less_equal */
+          false,                              /* greater */
+          false                               /* greater_equal */
+        };
+
+        // compound comparisons for depth test.
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
+
+        if(depth_compare[static_cast<std::uint32_t>(states.depth_func)])
         {
             // accept and possibly write depth for the fragment.
             if(states.write_depth)

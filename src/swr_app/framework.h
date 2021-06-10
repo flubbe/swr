@@ -141,7 +141,7 @@ class application
 
 protected:
     /** the renderer. */
-    renderwindow* window{nullptr};
+    std::unique_ptr<renderwindow> window;
 
     /** An indicator showing whether we want to run or exit the program. */
     bool quit_program{false};
@@ -314,7 +314,7 @@ public:
     /** get application window. */
     renderwindow* get_window() const
     {
-        return window;
+        return window.get();
     }
 };
 

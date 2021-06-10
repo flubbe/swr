@@ -50,12 +50,12 @@ struct render_states
     blend_func blend_dst{blend_func::zero};
 
     /* texture units. */
-    boost::container::static_vector<struct texture_2d*, geom::limits::max::texture_units> texture_2d_units;
+    boost::container::static_vector<struct texture_2d*, geom::limits::max::texture_units> texture_2d_units; /* the context owns the textures. */
     std::uint32_t texture_2d_active_unit{0};
-    boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> texture_2d_samplers;
+    boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> texture_2d_samplers; /* the textures own their samplers. */
 
     /* shaders */
-    struct program_info* shader_info{nullptr};
+    struct program_info* shader_info{nullptr}; /* the context owns the shader info */
     boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations> uniforms;
 
     /** default constructor. */
