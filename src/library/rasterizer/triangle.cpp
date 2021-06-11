@@ -58,10 +58,7 @@ void sweep_rasterizer::process_block(unsigned int tile_index)
               {frag_depth[2], front_facing, temp_varyings[2]},
               {frag_depth[3], front_facing, temp_varyings[3]}};
 
-            process_fragment(x, tile.y, *tile.states, one_over_viewport_z[0], frag_info[0]);
-            process_fragment(x + 1, tile.y, *tile.states, one_over_viewport_z[1], frag_info[1]);
-            process_fragment(x, tile.y + 1, *tile.states, one_over_viewport_z[2], frag_info[2]);
-            process_fragment(x + 1, tile.y + 1, *tile.states, one_over_viewport_z[3], frag_info[3]);
+            process_fragment_2x2(x, tile.y, *tile.states, one_over_viewport_z, frag_info);
 
             tile.attributes.advance_x(2);
         }

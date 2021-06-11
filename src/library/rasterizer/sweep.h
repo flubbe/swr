@@ -175,6 +175,9 @@ class sweep_rasterizer : public rasterizer
      */
     bool process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& info);
 
+    /** process a 2x2 tile of fragments. */
+    void process_fragment_2x2(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z[4], fragment_info info[4]);
+
     /**
      * Rasterize a complete block of dimension (rasterizer_block_size, rasterizer_block_size), i.e. do not perform additional edge checks.
      * 
