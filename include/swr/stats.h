@@ -16,10 +16,15 @@
         {                            \
             ++ctr;                   \
         }
+#    define SWR_STATS_INCREMENT2(ctr, incr) \
+        {                                   \
+            ctr += incr;                    \
+        }
 #    define SWR_STATS_CLOCK(cycles)   utils::clock(cycles)
 #    define SWR_STATS_UNCLOCK(cycles) utils::unclock(cycles)
 #else
 #    define SWR_STATS_INCREMENT(ctr)
+#    define SWR_STATS_INCREMENT2(ctr, incr)
 #    define SWR_STATS_CLOCK(cycles)
 #    define SWR_STATS_UNCLOCK(cycles)
 #endif
