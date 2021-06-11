@@ -109,15 +109,112 @@ struct basic_interpolation_data
     }
 
     /** get the varying's values. */
+    template<int offs_x, int offs_y>
     void get_varyings(boost::container::static_vector<swr::varying, geom::limits::max::varyings>& out_varyings) const
     {
         out_varyings.resize(varyings.size());
 
         auto it = varyings.begin();
         auto out_it = out_varyings.begin();
-        for(; it != varyings.end(); ++it, ++out_it)
+
+        if(offs_x == 0 && offs_y == 0)
         {
-            *out_it = *it;
+            for(; it != varyings.end(); ++it, ++out_it)
+            {
+                *out_it = *it;
+            }
+        }
+        else if(offs_x == 0)
+        {
+            for(; it != varyings.end(); ++it, ++out_it)
+            {
+                auto v = *it;
+                v.setup_block_processing();
+                v.advance_y(offs_y);
+                *out_it = v;
+            }
+        }
+        else if(offs_y == 0)
+        {
+            for(; it != varyings.end(); ++it, ++out_it)
+            {
+                auto v = *it;
+                v.advance_x(offs_x);
+                *out_it = v;
+            }
+        }
+        else
+        {
+            for(; it != varyings.end(); ++it, ++out_it)
+            {
+                auto v = *it;
+                v.setup_block_processing();
+                v.advance_y(offs_y);
+                v.advance_x(offs_x);
+                *out_it = v;
+            }
+        }
+    }
+
+    /** get the depth value. */
+    template<int offs_x = 0, int offs_y = 0>
+    void get_depth(float& out_depth) const
+    {
+        if(offs_x == 0 && offs_y == 0)
+        {
+            out_depth = depth_value.value;
+        }
+        else if(offs_x == 0)
+        {
+            auto depth = depth_value;
+            depth.setup_block_processing();
+            depth.advance_y(offs_y);
+            out_depth = depth.value;
+        }
+        else if(offs_y == 0)
+        {
+            auto depth = depth_value;
+            depth.advance_x(offs_x);
+            out_depth = depth.value;
+        }
+        else
+        {
+            auto depth = depth_value;
+            depth.setup_block_processing();
+            depth.advance_y(offs_y);
+            depth.advance_x(offs_x);
+            out_depth = depth.value;
+        }
+    }
+
+    /** get one over viewport z. */
+    template<int offs_x = 0, int offs_y = 0>
+    void get_one_over_viewport_z(float& out_one_over_viewport_z) const
+    {
+        if(offs_x == 0 && offs_y == 0)
+        {
+            out_one_over_viewport_z = one_over_viewport_z.value;
+        }
+        else if(offs_x == 0)
+        {
+            auto one_over_z = one_over_viewport_z;
+            one_over_z.setup_block_processing();
+            one_over_z.advance_y(offs_y);
+            out_one_over_viewport_z = one_over_z.value;
+        }
+        else if(offs_y == 0)
+        {
+            auto one_over_z = one_over_viewport_z;
+            one_over_z.advance_x(offs_x);
+            out_one_over_viewport_z = one_over_z.value;
+        }
+        else
+        {
+            auto one_over_z = one_over_viewport_z;
+            one_over_z.setup_block_processing();
+            one_over_z.advance_y(offs_y);
+            one_over_z.advance_x(offs_x);
+            out_one_over_viewport_z = one_over_z.value;
         }
     }
 

@@ -28,59 +28,134 @@ namespace rast
 void sweep_rasterizer::process_block(unsigned int tile_index)
 {
     auto tile = tile_cache[tile_index];
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings(tile.attributes.varyings.size());
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
+    temp_varyings[0].resize(tile.attributes.varyings.size());
+    temp_varyings[1].resize(tile.attributes.varyings.size());
+    temp_varyings[2].resize(tile.attributes.varyings.size());
+    temp_varyings[3].resize(tile.attributes.varyings.size());
 
     const auto end_x = tile.x + swr::impl::rasterizer_block_size;
     const auto end_y = tile.y + swr::impl::rasterizer_block_size;
 
+    const bool front_facing = tile.front_facing;
+
     // process block.
-    for(; tile.y < end_y; ++tile.y)
+    for(; tile.y < end_y; tile.y += 2)
     {
-        for(unsigned int x = tile.x; x < end_x; ++x)
+        for(unsigned int x = tile.x; x < end_x; x += 2)
         {
-            tile.attributes.get_varyings(temp_varyings);
+            tile.attributes.get_varyings<0, 0>(temp_varyings[0]);
+            tile.attributes.get_varyings<1, 0>(temp_varyings[1]);
+            tile.attributes.get_varyings<0, 1>(temp_varyings[2]);
+            tile.attributes.get_varyings<1, 1>(temp_varyings[3]);
 
-            rast::fragment_info frag_info(tile.attributes.depth_value.value, tile.front_facing, temp_varyings);
-            process_fragment(x, tile.y, *tile.states, tile.attributes.one_over_viewport_z.value, frag_info);
+            float frag_depth[4];
+            tile.attributes.get_depth<0, 0>(frag_depth[0]);
+            tile.attributes.get_depth<1, 0>(frag_depth[1]);
+            tile.attributes.get_depth<0, 1>(frag_depth[2]);
+            tile.attributes.get_depth<1, 1>(frag_depth[3]);
 
-            tile.attributes.advance_x();
+            float one_over_viewport_z[4];
+            tile.attributes.get_one_over_viewport_z<0, 0>(one_over_viewport_z[0]);
+            tile.attributes.get_one_over_viewport_z<1, 0>(one_over_viewport_z[1]);
+            tile.attributes.get_one_over_viewport_z<0, 1>(one_over_viewport_z[2]);
+            tile.attributes.get_one_over_viewport_z<1, 1>(one_over_viewport_z[3]);
+
+            rast::fragment_info frag_info[4] = {
+              {frag_depth[0], front_facing, temp_varyings[0]},
+              {frag_depth[1], front_facing, temp_varyings[1]},
+              {frag_depth[2], front_facing, temp_varyings[2]},
+              {frag_depth[3], front_facing, temp_varyings[3]}};
+
+            process_fragment(x, tile.y, *tile.states, one_over_viewport_z[0], frag_info[0]);
+            process_fragment(x + 1, tile.y, *tile.states, one_over_viewport_z[1], frag_info[1]);
+            process_fragment(x, tile.y + 1, *tile.states, one_over_viewport_z[2], frag_info[2]);
+            process_fragment(x + 1, tile.y + 1, *tile.states, one_over_viewport_z[3], frag_info[3]);
+
+            tile.attributes.advance_x(2);
         }
-        tile.attributes.advance_y();
+        tile.attributes.advance_y(2);
     }
 }
 
 void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3])
 {
     auto tile = tile_cache[tile_index];
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings(tile.attributes.varyings.size());
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings;
+    temp_varyings.resize(tile.attributes.varyings.size());
 
     const auto end_x = tile.x + swr::impl::rasterizer_block_size;
     const auto end_y = tile.y + swr::impl::rasterizer_block_size;
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3] = {lambdas_top_left[0], lambdas_top_left[1], lambdas_top_left[2]};
 
+    const bool front_facing = tile.front_facing;
+
     // process block.
-    for(; tile.y < end_y; ++tile.y)
+    for(; tile.y < end_y; tile.y += 2)
     {
-        for(unsigned int x = tile.x; x < end_x; ++x)
+        for(unsigned int x = tile.x; x < end_x; x += 2)
         {
-            if(lambdas[0].value > 0 && lambdas[1].value > 0 && lambdas[2].value > 0)
-            {
-                tile.attributes.get_varyings(temp_varyings);
+            geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_x[3] = {lambdas[0], lambdas[1], lambdas[2]};
+            geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_y[3] = {lambdas[0], lambdas[1], lambdas[2]};
 
-                rast::fragment_info frag_info(tile.attributes.depth_value.value, tile.front_facing, temp_varyings);
-                process_fragment(x, tile.y, *tile.states, tile.attributes.one_over_viewport_z.value, frag_info);
-            }
+            lambdas_x[0].advance_x();
+            lambdas_x[1].advance_x();
+            lambdas_x[2].advance_x();
 
-            lambdas[0].advance_x();
-            lambdas[1].advance_x();
-            lambdas[2].advance_x();
-            tile.attributes.advance_x();
+            lambdas_y[0].setup_block_processing();
+            lambdas_y[1].setup_block_processing();
+            lambdas_y[2].setup_block_processing();
+
+            lambdas_y[0].advance_y();
+            lambdas_y[1].advance_y();
+            lambdas_y[2].advance_y();
+
+            geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_xy[3] = {lambdas_y[0], lambdas_y[1], lambdas_y[2]};
+
+            lambdas_xy[0].advance_x();
+            lambdas_xy[1].advance_x();
+            lambdas_xy[2].advance_x();
+
+            const bool mask[4] = {
+              lambdas[0].value > 0 && lambdas[1].value > 0 && lambdas[2].value > 0,
+              lambdas_x[0].value > 0 && lambdas_x[1].value > 0 && lambdas_x[2].value > 0,
+              lambdas_y[0].value > 0 && lambdas_y[1].value > 0 && lambdas_y[2].value > 0,
+              lambdas_xy[0].value > 0 && lambdas_xy[1].value > 0 && lambdas_xy[2].value > 0};
+
+            float frag_depth;
+            float one_over_viewport_z;
+
+#define PROCESS_FRAGMENT_CHECKED(k)                                                                  \
+    if(mask[k])                                                                                      \
+    {                                                                                                \
+        const auto offs_x = k & 1;                                                                   \
+        const auto offs_y = (k & 2) >> 1;                                                            \
+                                                                                                     \
+        tile.attributes.get_varyings<offs_x, offs_y>(temp_varyings);                                 \
+        tile.attributes.get_depth<offs_x, offs_y>(frag_depth);                                       \
+        tile.attributes.get_one_over_viewport_z<offs_x, offs_y>(one_over_viewport_z);                \
+                                                                                                     \
+        rast::fragment_info frag_info{frag_depth, front_facing, temp_varyings};                      \
+        process_fragment(x + offs_x, tile.y + offs_y, *tile.states, one_over_viewport_z, frag_info); \
+    }
+
+            PROCESS_FRAGMENT_CHECKED(0);
+            PROCESS_FRAGMENT_CHECKED(1);
+            PROCESS_FRAGMENT_CHECKED(2);
+            PROCESS_FRAGMENT_CHECKED(3);
+
+#undef PROCESS_FRAGMENT_CHECKED
+
+            lambdas[0].advance_x(2);
+            lambdas[1].advance_x(2);
+            lambdas[2].advance_x(2);
+            tile.attributes.advance_x(2);
         }
 
-        lambdas[0].advance_y();
-        lambdas[1].advance_y();
-        lambdas[2].advance_y();
-        tile.attributes.advance_y();
+        lambdas[0].advance_y(2);
+        lambdas[1].advance_y(2);
+        lambdas[2].advance_y(2);
+        tile.attributes.advance_y(2);
     }
 }
 

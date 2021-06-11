@@ -451,7 +451,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
     {
         while(p < end_p)
         {
-            attr.get_varyings(temp_varyings);
+            attr.get_varyings<0, 0>(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < raster_height)
@@ -476,7 +476,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
     {
         while(p < end_p)
         {
-            attr.get_varyings(temp_varyings);
+            attr.get_varyings<0, 0>(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < raster_width)
