@@ -108,8 +108,8 @@ struct basic_interpolation_data
     {
     }
 
-    /** get the varying's values. */
-    template<int offs_x, int offs_y>
+    /** get the varyings' values. */
+    template<int offs_x = 0, int offs_y = 0>
     void get_varyings(boost::container::static_vector<swr::varying, geom::limits::max::varyings>& out_varyings) const
     {
         out_varyings.resize(varyings.size());
@@ -156,6 +156,41 @@ struct basic_interpolation_data
         }
     }
 
+    /** get all varyings' values for a 2x2 block. */
+    void get_varyings_2x2(boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4]) const
+    {
+        out_varyings[0].resize(varyings.size());
+        out_varyings[1].resize(varyings.size());
+        out_varyings[2].resize(varyings.size());
+        out_varyings[3].resize(varyings.size());
+
+        boost::container::static_vector<swr::varying, geom::limits::max::varyings>::iterator out_it[4] = {
+          out_varyings[0].begin(), out_varyings[1].begin(), out_varyings[2].begin(), out_varyings[3].begin()};
+        auto it = varyings.begin();
+
+        for(; it != varyings.end(); ++it)
+        {
+            auto v = *it;
+            v.setup_block_processing();
+
+            *(out_it[0]) = v;
+
+            v.advance_x();
+            *(out_it[1]) = v;
+
+            v.advance_y();
+            *(out_it[2]) = v;
+
+            v.advance_x();
+            *(out_it[3]) = v;
+
+            ++out_it[0];
+            ++out_it[1];
+            ++out_it[2];
+            ++out_it[3];
+        }
+    }
+
     /** get the depth value. */
     template<int offs_x = 0, int offs_y = 0>
     void get_depth(float& out_depth) const
@@ -187,6 +222,24 @@ struct basic_interpolation_data
         }
     }
 
+    /** get all depth values for a 2x2 block. */
+    void get_depth_2x2(float out_depth[4]) const
+    {
+        out_depth[0] = depth_value.value;
+
+        auto depth = depth_value;
+        depth.setup_block_processing();
+
+        depth.advance_x();
+        out_depth[1] = depth.value;
+
+        depth.advance_y();
+        out_depth[2] = depth.value;
+
+        depth.advance_x();
+        out_depth[3] = depth.value;
+    }
+
     /** get one over viewport z. */
     template<int offs_x = 0, int offs_y = 0>
     void get_one_over_viewport_z(float& out_one_over_viewport_z) const
@@ -216,6 +269,24 @@ struct basic_interpolation_data
             one_over_z.advance_x(offs_x);
             out_one_over_viewport_z = one_over_z.value;
         }
+    }
+
+    /** get all one over viewport z values for a 2x2 block. */
+    void get_one_over_viewport_z_2x2(float out_one_over_viewport_z[4]) const
+    {
+        out_one_over_viewport_z[0] = one_over_viewport_z.value;
+
+        auto one_over_z = one_over_viewport_z;
+        one_over_z.setup_block_processing();
+
+        one_over_z.advance_x();
+        out_one_over_viewport_z[1] = one_over_z.value;
+
+        one_over_z.advance_y();
+        out_one_over_viewport_z[2] = one_over_z.value;
+
+        one_over_z.advance_x();
+        out_one_over_viewport_z[3] = one_over_z.value;
     }
 
     /** assignment. */

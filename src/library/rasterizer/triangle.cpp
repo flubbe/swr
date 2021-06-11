@@ -44,22 +44,13 @@ void sweep_rasterizer::process_block(unsigned int tile_index)
     {
         for(unsigned int x = tile.x; x < end_x; x += 2)
         {
-            tile.attributes.get_varyings<0, 0>(temp_varyings[0]);
-            tile.attributes.get_varyings<1, 0>(temp_varyings[1]);
-            tile.attributes.get_varyings<0, 1>(temp_varyings[2]);
-            tile.attributes.get_varyings<1, 1>(temp_varyings[3]);
+            tile.attributes.get_varyings_2x2(temp_varyings);
 
             float frag_depth[4];
-            tile.attributes.get_depth<0, 0>(frag_depth[0]);
-            tile.attributes.get_depth<1, 0>(frag_depth[1]);
-            tile.attributes.get_depth<0, 1>(frag_depth[2]);
-            tile.attributes.get_depth<1, 1>(frag_depth[3]);
+            tile.attributes.get_depth_2x2(frag_depth);
 
             float one_over_viewport_z[4];
-            tile.attributes.get_one_over_viewport_z<0, 0>(one_over_viewport_z[0]);
-            tile.attributes.get_one_over_viewport_z<1, 0>(one_over_viewport_z[1]);
-            tile.attributes.get_one_over_viewport_z<0, 1>(one_over_viewport_z[2]);
-            tile.attributes.get_one_over_viewport_z<1, 1>(one_over_viewport_z[3]);
+            tile.attributes.get_one_over_viewport_z_2x2(one_over_viewport_z);
 
             rast::fragment_info frag_info[4] = {
               {frag_depth[0], front_facing, temp_varyings[0]},
