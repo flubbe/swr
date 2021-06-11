@@ -86,8 +86,8 @@ struct varying_interpolator : public swr::varying
 template<typename T>
 struct basic_interpolation_data
 {
-    const float reference_depth_value;
-    const float reference_one_over_viewport_z;
+    const float reference_depth_value{1};
+    const float reference_one_over_viewport_z{1};
 
     /** interpolated depth value for the depth buffer */
     T depth_value{};
@@ -97,6 +97,9 @@ struct basic_interpolation_data
 
     /** varyings from the shader. */
     boost::container::static_vector<varying_interpolator, geom::limits::max::varyings> varyings;
+
+    /** default constructor. */
+    basic_interpolation_data() = default;
 
     /** initialize constant data. */
     basic_interpolation_data(float ref_depth, float ref_one_over_viewport_z)
@@ -249,10 +252,13 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
 struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolator_2d<float>>
 {
     /** inverse triangle area, needed for normalization. */
-    const float inv_area;
+    const float inv_area{1};
 
     /** the two triangle edge functions used for interpolation. */
     const geom::edge_function edge_v0v1, edge_v0v2;
+
+    /** default constructor. */
+    triangle_interpolator() = default;
 
     /**
      * Initialize the interpolator along the x-direction and along the y-direction with respect to the triangle edges.

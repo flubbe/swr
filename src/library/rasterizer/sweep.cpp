@@ -92,7 +92,10 @@ void sweep_rasterizer::draw_primitives_sequentially()
     }
 
     draw_list.clear();
+
+#ifdef SWR_ENABLE_MULTI_THREADING
     tile_cache.clear();
+#endif
 }
 
 #ifdef SWR_ENABLE_MULTI_THREADING

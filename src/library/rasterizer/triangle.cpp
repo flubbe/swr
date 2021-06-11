@@ -403,8 +403,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             attributes_temp.setup_block_processing();
 
             // add this block to the tile cache.
-            std::size_t tile_index = tile_cache.size();
-            tile_cache.emplace_back(&states, attributes_temp, x, y, is_front_facing);
+            std::size_t tile_index = allocate_tile(&states, attributes_temp, x, y, is_front_facing);
 
             if(sign > 0)
             {

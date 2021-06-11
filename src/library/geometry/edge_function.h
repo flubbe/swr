@@ -28,6 +28,9 @@ struct edge_function
     float c = 0;
     ml::vec2 v_diff;
 
+    /** default constructor. */
+    edge_function() = default;
+
     /** Construct the edge function from two vectors. */
     edge_function(const ml::vec2& in_v0, const ml::vec2& in_v1)
     : v_diff(in_v1 - in_v0)
