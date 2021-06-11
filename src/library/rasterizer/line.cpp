@@ -451,18 +451,12 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
     {
         while(p < end_p)
         {
-            for(size_t i = 0; i < attr.varyings.size(); ++i)
-            {
-                temp_varyings[i].value = attr.varyings[i].value;
-                temp_varyings[i].dFdx = attr.varyings[i].dFdx;
-                temp_varyings[i].dFdy = attr.varyings[i].dFdy;
-                temp_varyings[i].iq = attr.varyings[i].iq;
-            }
+            attr.get_varyings(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < raster_height)
             {
-                rast::fragment_info info(attr.depth_value.value, true, &temp_varyings);
+                rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
                 process_fragment(ml::integral_part(p), ml::integral_part(v), states, attr.one_over_viewport_z.value, info);
             }
 
@@ -482,18 +476,12 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
     {
         while(p < end_p)
         {
-            for(size_t i = 0; i < attr.varyings.size(); ++i)
-            {
-                temp_varyings[i].value = attr.varyings[i].value;
-                temp_varyings[i].dFdx = attr.varyings[i].dFdx;
-                temp_varyings[i].dFdy = attr.varyings[i].dFdy;
-                temp_varyings[i].iq = attr.varyings[i].iq;
-            }
+            attr.get_varyings(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < raster_width)
             {
-                rast::fragment_info info(attr.depth_value.value, true, &temp_varyings);
+                rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
                 process_fragment(ml::integral_part(v), ml::integral_part(p), states, attr.one_over_viewport_z.value, info);
             }
 

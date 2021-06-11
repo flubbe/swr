@@ -59,7 +59,7 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
         }
 
         // draw the point.
-        rast::fragment_info info(v.coords.w, true, &temp);
+        rast::fragment_info info(v.coords.w, true, temp);
         process_fragment(x, y, states, v.coords.z, info);
     }
 }

@@ -25,81 +25,77 @@
 namespace rast
 {
 
-void sweep_rasterizer::process_block(const swr::impl::render_states& States, triangle_interpolator& AttrInt, unsigned int start_x, unsigned int y, bool front_facing)
+void sweep_rasterizer::process_block(unsigned int tile_index)
 {
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
+    auto tile = tile_cache[tile_index];
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings(tile.attributes.varyings.size());
 
-    const auto end_x = start_x + swr::impl::rasterizer_block_size;
-    const auto end_y = y + swr::impl::rasterizer_block_size;
+    const auto end_x = tile.x + swr::impl::rasterizer_block_size;
+    const auto end_y = tile.y + swr::impl::rasterizer_block_size;
 
     // process block.
-    for(; y < end_y; ++y)
+    for(; tile.y < end_y; ++tile.y)
     {
-        for(unsigned int x = start_x; x < end_x; ++x)
+        for(unsigned int x = tile.x; x < end_x; ++x)
         {
-            for(size_t i = 0; i < AttrInt.varyings.size(); ++i)
-            {
-                TempVaryings[i] = AttrInt.varyings[i];
-            }
+            tile.attributes.get_varyings(temp_varyings);
 
-            rast::fragment_info FragInfo(AttrInt.depth_value.value, front_facing, &TempVaryings);
-            process_fragment(x, y, States, AttrInt.one_over_viewport_z.value, FragInfo);
+            rast::fragment_info frag_info(tile.attributes.depth_value.value, tile.front_facing, temp_varyings);
+            process_fragment(x, tile.y, *tile.states, tile.attributes.one_over_viewport_z.value, frag_info);
 
-            AttrInt.advance_x();
+            tile.attributes.advance_x();
         }
-        AttrInt.advance_y();
+        tile.attributes.advance_y();
     }
 }
 
-void sweep_rasterizer::process_block_checked(const swr::impl::render_states& States, triangle_interpolator& AttrInt, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3], unsigned int start_x, unsigned int y, bool front_facing)
+void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3])
 {
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> TempVaryings(AttrInt.varyings.size());
+    auto tile = tile_cache[tile_index];
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings(tile.attributes.varyings.size());
 
-    const auto end_x = start_x + swr::impl::rasterizer_block_size;
-    const auto end_y = y + swr::impl::rasterizer_block_size;
+    const auto end_x = tile.x + swr::impl::rasterizer_block_size;
+    const auto end_y = tile.y + swr::impl::rasterizer_block_size;
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3] = {lambdas_top_left[0], lambdas_top_left[1], lambdas_top_left[2]};
 
     // process block.
-    for(; y < end_y; ++y)
+    for(; tile.y < end_y; ++tile.y)
     {
-        for(unsigned int x = start_x; x < end_x; ++x)
+        for(unsigned int x = tile.x; x < end_x; ++x)
         {
             if(lambdas[0].value > 0 && lambdas[1].value > 0 && lambdas[2].value > 0)
             {
-                for(size_t i = 0; i < AttrInt.varyings.size(); ++i)
-                {
-                    TempVaryings[i] = AttrInt.varyings[i];
-                }
+                tile.attributes.get_varyings(temp_varyings);
 
-                rast::fragment_info FragInfo(AttrInt.depth_value.value, front_facing, &TempVaryings);
-                process_fragment(x, y, States, AttrInt.one_over_viewport_z.value, FragInfo);
+                rast::fragment_info frag_info(tile.attributes.depth_value.value, tile.front_facing, temp_varyings);
+                process_fragment(x, tile.y, *tile.states, tile.attributes.one_over_viewport_z.value, frag_info);
             }
 
             lambdas[0].advance_x();
             lambdas[1].advance_x();
             lambdas[2].advance_x();
-            AttrInt.advance_x();
+            tile.attributes.advance_x();
         }
 
         lambdas[0].advance_y();
         lambdas[1].advance_y();
         lambdas[2].advance_y();
-        AttrInt.advance_y();
+        tile.attributes.advance_y();
     }
 }
 
 #ifdef SWR_ENABLE_MULTI_THREADING
 
 /** static block drawing function. callable by threads. */
-void sweep_rasterizer::thread_process_block(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, int x, int y, bool front_facing)
+void sweep_rasterizer::thread_process_block(sweep_rasterizer* rasterizer, unsigned int tile_index)
 {
-    rasterizer->process_block(states, attr, x, y, front_facing);
+    rasterizer->process_block(tile_index);
 }
 
 /** static block drawing function. callable by threads. */
-void sweep_rasterizer::thread_process_block_checked(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3], int x, int y, bool front_facing)
+void sweep_rasterizer::thread_process_block_checked(sweep_rasterizer* rasterizer, unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3])
 {
-    rasterizer->process_block_checked(states, attr, lambdas, x, y, front_facing);
+    rasterizer->process_block_checked(tile_index, lambdas);
 }
 
 #endif /* SWR_ENABLE_MULTI_THREADING */
@@ -372,8 +368,9 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
      */
     rast::triangle_interpolator attributes{*v1_cw, *v2_cw, v3, states.shader_info->iqs, 1.0f / area};
+    attributes.setup_from_screen_coords({static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f});
 
-    for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
+    for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size, attributes.advance_y(swr::impl::rasterizer_block_size))
     {
         // set up next lambdas for the "bottom part" of the block.
         lambda_row_top_left[0] = lambda_row_top_left_next[0];
@@ -387,7 +384,8 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
         barycentric_coordinate_stepper lambdas_box_next{lambda_row_top_left, lambda_row_top_left_next};
         barycentric_coordinate_stepper lambdas_box;
 
-        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size)
+        rast::triangle_interpolator attributes_row = attributes;
+        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size, attributes_row.advance_x(swr::impl::rasterizer_block_size))
         {
             // set up lambdas for the current row.
             lambdas_box_next.advance_right_x(swr::impl::rasterizer_block_size);
@@ -397,18 +395,24 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             int sign = lambdas_box.sign();
             if(sign < 0)
             {
-                // the block is outisde the triangle.
+                // the block is outside the triangle.
                 continue;
             }
 
-            attributes.setup_from_screen_coords({static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f});
+            rast::triangle_interpolator attributes_temp = attributes_row;
+            attributes_temp.setup_block_processing();
+
+            // add this block to the tile cache.
+            std::size_t tile_index = tile_cache.size();
+            tile_cache.emplace_back(&states, attributes_temp, x, y, is_front_facing);
+
             if(sign > 0)
             {
                 // the block is completely covered.
 #ifdef SWR_ENABLE_MULTI_THREADING
-                rasterizer_threads.push_task(thread_process_block, this, states, attributes, x, y, is_front_facing);
+                rasterizer_threads.push_task(thread_process_block, this, tile_index);
 #else
-                process_block(states, attributes, x, y, is_front_facing);
+                process_block(tile_index);
 #endif
             }
             else
@@ -422,9 +426,9 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
                 lambdas_box.top_left[2].setup_block_processing();
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-                rasterizer_threads.push_task(thread_process_block_checked, this, states, attributes, lambdas_box.top_left, x, y, is_front_facing);
+                rasterizer_threads.push_task(thread_process_block_checked, this, tile_index, lambdas_box.top_left);
 #else
-                process_block_checked(states, attributes, lambdas_box.top_left, x, y, is_front_facing);
+                process_block_checked(tile_index, lambdas_box.top_left);
 #endif
             }
 

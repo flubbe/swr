@@ -59,7 +59,7 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
      * Compute z and interpolated values.
      */
     float z = 1.0f / one_over_viewport_z;
-    for(auto& it: *frag_info.varyings)
+    for(auto& it: frag_info.varyings)
     {
         if(it.iq == swr::interpolation_qualifier::smooth)
         {
@@ -93,7 +93,7 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
       z};
 
     SWR_STATS_CLOCK(stats_frag.cycles);
-    auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, *frag_info.varyings, frag_info.depth_value, color_attachments);
+    auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, frag_info.depth_value, color_attachments);
     SWR_STATS_UNCLOCK(stats_frag.cycles);
 
     if(accept_fragment == swr::discard)

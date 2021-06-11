@@ -24,7 +24,7 @@ namespace rast
  */
 #define FILL_RULE_EDGE_BIAS 1
 
-/** Single-threaded sweep rasterizer. */
+/** Sweep rasterizer. */
 class sweep_rasterizer : public rasterizer
 {
     /** a geometric primitive understood by sweep_rasterizer */
@@ -87,6 +87,41 @@ class sweep_rasterizer : public rasterizer
     /** list containing all primitives which are to be rasterized. */
     std::vector<primitive> draw_list;
 
+    /** a tile waiting to be processed. currently only used for triangles. */
+    struct tile
+    {
+        /** render states. points to an entry in the context's draw list. */
+        const swr::impl::render_states* states{nullptr};
+
+        /** attribute interpolators for this block. */
+        triangle_interpolator attributes;
+
+        /** viewport x coordinate of the upper-left corner. */
+        unsigned int x{0};
+
+        /** viewport y coordinate of the upper-left corner. */
+        unsigned int y{0};
+
+        /** whether this corresponding triangle is front-facing. */
+        bool front_facing{true};
+
+        /** default constructor. */
+        tile() = default;
+
+        /** initializing constructor. */
+        tile(const swr::impl::render_states* in_states, triangle_interpolator in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+        : states{in_states}
+        , attributes{in_attributes}
+        , x{in_x}
+        , y{in_y}
+        , front_facing{in_front_facing}
+        {
+        }
+    };
+
+    /** list containing all tiles. */
+    std::vector<tile> tile_cache;
+
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** worker threads. */
     concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_queue<std::function<void()>>> rasterizer_threads;
@@ -107,34 +142,26 @@ class sweep_rasterizer : public rasterizer
 
     /**
      * Rasterize a complete block of dimension (rasterizer_block_size, rasterizer_block_size), i.e. do not perform additional edge checks.
-     *
-     * \param states Active render states
-     * \param attr A vertex attribute interpolator which holds pre-computed attributes. Note that its values are not preserved.
-     * \param x Top left x coordinate
-     * \param y Top left y coordinate
-     * \param front_facing Whether the fragments come from a front facing triangle. Passed to the fragment shader.
+     * 
+     * \param tile_index index of the block/tile in the tile cache
      */
-    void process_block(const swr::impl::render_states& states, triangle_interpolator& attr, unsigned int x, unsigned int y, bool front_facing);
+    void process_block(unsigned int tile_index);
 
     /**
      * Rasterize block of dimension (rasterizer_block_size, rasterizer_block_size) and check for each fragment, if it is inside the triangle
      * described by the vertex attributes.
-     *
-     * \param states Active render states.
-     * \param attr A vertex attribute interpolator which holds pre-computed attributes. Note that its values are not preserved.
-     * \param lambda_fixed Unnormalized barycentric coordinates for the triangle in fixed-point format. Used for point-in-triangle detection.
-     * \param x Top left x coordinate
-     * \param y Top left y coordinate
-     * \param front_facing Whether the fragments come from a front facing triangle. Passed to the fragment shader.
+     * 
+     * \param tile_index index of the block/tile in the tile cache
+     * \param lambda_fixed fixed-point lambdas for the top-left corner of this block
      */
-    void process_block_checked(const swr::impl::render_states& states, triangle_interpolator& attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], unsigned int x, unsigned int y, bool front_facing);
+    void process_block_checked(unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3]);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** static block drawing functions. callable by threads. */
-    static void thread_process_block(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, int x, int y, bool front_facing);
+    static void thread_process_block(sweep_rasterizer* rasterizer, unsigned int tile_index);
 
     /** static block drawing functions. callable by threads. */
-    static void thread_process_block_checked(sweep_rasterizer* rasterizer, const swr::impl::render_states& states, triangle_interpolator attr, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3], int x, int y, bool front_facing);
+    static void thread_process_block_checked(sweep_rasterizer* rasterizer, unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3]);
 #endif
 
     /**

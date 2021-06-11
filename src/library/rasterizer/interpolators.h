@@ -49,16 +49,35 @@ struct varying_interpolator : public swr::varying
         row_start = value;
     }
 
+    /** store current value as row start. */
+    void setup_block_processing()
+    {
+        row_start = value;
+    }
+
     /** Step along the x-direction. */
     void advance_x()
     {
         value += step.x;
     }
 
+    /** Advance multiple steps along the x-direction. */
+    void advance_x(int i)
+    {
+        value += step.x * i;
+    }
+
     /** Step along y-direction and reset x-direction. */
     void advance_y()
     {
         row_start += step.y;
+        value = row_start;
+    }
+
+    /** Advance multiple steps along the y-direction. */
+    void advance_y(int i)
+    {
+        row_start += step.y * i;
         value = row_start;
     }
 };
@@ -84,6 +103,32 @@ struct basic_interpolation_data
     : reference_depth_value(ref_depth)
     , reference_one_over_viewport_z(ref_one_over_viewport_z)
     {
+    }
+
+    /** get the varying's values. */
+    void get_varyings(boost::container::static_vector<swr::varying, geom::limits::max::varyings>& out_varyings) const
+    {
+        out_varyings.resize(varyings.size());
+
+        auto it = varyings.begin();
+        auto out_it = out_varyings.begin();
+        for(; it != varyings.end(); ++it, ++out_it)
+        {
+            *out_it = *it;
+        }
+    }
+
+    /** assignment. */
+    basic_interpolation_data<T>& operator=(const basic_interpolation_data<T>& other)
+    {
+        assert(reference_depth_value == other.reference_depth_value);
+        assert(reference_one_over_viewport_z == other.reference_one_over_viewport_z);
+
+        depth_value = other.depth_value;
+        one_over_viewport_z = other.one_over_viewport_z;
+        varyings = other.varyings;
+
+        return *this;
     }
 };
 
@@ -323,6 +368,18 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         }
     }
 
+    /** advance multiple steps in x direction. */
+    void advance_x(int i)
+    {
+        depth_value.advance_x(i);
+        one_over_viewport_z.advance_x(i);
+
+        for(auto& it: varyings)
+        {
+            it.advance_x(i);
+        }
+    }
+
     /** Increment values in y direction. resets the x direction. */
     void advance_y()
     {
@@ -333,6 +390,42 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         {
             it.advance_y();
         }
+    }
+
+    /** Advance multiple steps in y direction. resets the x direction. */
+    void advance_y(int i)
+    {
+        depth_value.advance_y(i);
+        one_over_viewport_z.advance_y(i);
+
+        for(auto& it: varyings)
+        {
+            it.advance_y(i);
+        }
+    }
+
+    /** set row start to current value. */
+    void setup_block_processing()
+    {
+        depth_value.setup_block_processing();
+        one_over_viewport_z.setup_block_processing();
+
+        for(auto& it: varyings)
+        {
+            it.setup_block_processing();
+        }
+    }
+
+    /** assignment. */
+    triangle_interpolator& operator=(const triangle_interpolator& other)
+    {
+        assert(inv_area == other.inv_area);
+        assert(edge_v0v1 == other.edge_v0v1);
+        assert(edge_v0v2 == other.edge_v0v2);
+
+        static_cast<basic_interpolation_data<geom::linear_interpolator_2d<float>>>(*this) = basic_interpolation_data<geom::linear_interpolator_2d<float>>(other);
+
+        return *this;
     }
 };
 
