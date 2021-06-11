@@ -121,7 +121,7 @@ class sweep_rasterizer : public rasterizer
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** maximum number of cached tiles. */
-    constexpr static int max_cached_tiles=1024;
+    constexpr static int max_cached_tiles = 1024;
 
     /** list containing all tiles. */
     boost::container::static_vector<tile, max_cached_tiles> tile_cache;
@@ -129,7 +129,7 @@ class sweep_rasterizer : public rasterizer
     /** allocate a new tile. if the cache is full, it is rasterized and then emptied. */
     size_t allocate_tile(const swr::impl::render_states* in_states, triangle_interpolator in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
     {
-        if(tile_cache.size()==tile_cache.max_size())
+        if(tile_cache.size() == tile_cache.max_size())
         {
             rasterizer_threads.run_tasks_and_wait();
 
@@ -144,7 +144,7 @@ class sweep_rasterizer : public rasterizer
     }
 #else
     /** for the single-threaded rasterizer, there only ever is a single tile active. */
-    constexpr static int max_cached_tiles=1;
+    constexpr static int max_cached_tiles = 1;
 
     /** single tile cache. */
     tile tile_cache[max_cached_tiles];
@@ -155,7 +155,6 @@ class sweep_rasterizer : public rasterizer
         new(tile_cache) tile(in_states, in_attributes, in_x, in_y, in_front_facing);
         return 0;
     }
-
 #endif
 
 #ifdef SWR_ENABLE_MULTI_THREADING
