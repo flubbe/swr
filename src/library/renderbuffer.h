@@ -41,6 +41,15 @@ struct render_buffer
     {
         return &data_ptr[y * width + x];
     }
+
+    /** get four pointers to a 2x2 block with upper-left corner (x,y). */
+    void at(int x, int y, T* ptr[4]) const
+    {
+        ptr[0] = &data_ptr[y * width + x];
+        ptr[1] = ptr[0] + 1;
+        ptr[2] = ptr[0] + width;
+        ptr[3] = ptr[2] + 1;
+    }
 };
 
 /* Generic buffer clearing function. */

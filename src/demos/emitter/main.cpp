@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  * 
- * software renderer demonstration (normal mapping).
+ * software renderer demonstration (simple particle system).
  * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
@@ -29,11 +29,17 @@
 /* png loading. */
 #include "lodepng.h"
 
+/* simple particle system. */
+#include "particles.h"
+
 /** demo title. */
-const auto demo_title = "Normal Mapping";
+const auto demo_title = "Particle Emitter";
+
+/** maximum number of particles. */
+constexpr int max_particles = 256;
 
 /** demo window. */
-class demo_cube : public swr_app::renderwindow
+class demo_emitter : public swr_app::renderwindow
 {
     /** normal mapping shader */
     shader::normal_mapping shader;
@@ -68,11 +74,11 @@ class demo_cube : public swr_app::renderwindow
     /** normal map. */
     uint32_t cube_normal_map{0};
 
-    /** a rotation offset for the cube. */
-    float cube_rotation{0};
+    /** particle system. */
+    particles::particle_system particle_system;
 
     /** light position. */
-    ml::vec4 light_position{0, 0, 0, 1};
+    ml::vec4 light_position{0, 3, -3, 1};
 
     /** reference time to provide animation. */
     Uint32 reference_time{0};
@@ -88,8 +94,9 @@ class demo_cube : public swr_app::renderwindow
 
 public:
     /** constructor. */
-    demo_cube()
+    demo_emitter()
     : swr_app::renderwindow(demo_title, width, height)
+    , particle_system{{0, -8, -5}, 30, 0.2, 9, 2}
     {
     }
 
@@ -201,6 +208,9 @@ public:
         // set reference time for statistics and animation.
         reference_time = -SDL_GetTicks();
 
+        // create particles.
+        particle_system.delay_add(0.1f, max_particles);
+
         return true;
     }
 
@@ -263,17 +273,32 @@ public:
         reference_time = -ticks;
 
         /*
-         * update animation.
+         * update particles.
          */
-        cube_rotation += 0.1f * delta_time;
-        if(cube_rotation > 2 * M_PI)
-        {
-            cube_rotation -= 2 * M_PI;
-        }
-        light_position = ml::vec4{4 * cos(4 * cube_rotation), 4 * sin(4 * cube_rotation), -1};
+        particle_system.update(delta_time);
 
+        /*
+         * every second, print some statistics.
+         */
+        static float print_active_particle_time = 0;
+        print_active_particle_time += delta_time;
+        if(print_active_particle_time > 1.f)
+        {
+            platform::logf("{} particles active, {} total particles (frame time: {} ms)", particle_system.get_active_particle_count(), particle_system.get_particle_count(), delta_time * 1000.f);
+            print_active_particle_time = 0;
+        }
+
+        /*
+         * render particles.
+         */
         begin_render();
-        draw_cube(ml::vec3{0, 0, -6}, cube_rotation);
+        for(auto it: particle_system.get_particles())
+        {
+            if(it.is_active)
+            {
+                draw_cube(it.position.xyz(), it.rotation_axis.xyz(), it.rotation_offset, it.scale);
+            }
+        }
         end_render();
 
         ++frame_count;
@@ -291,13 +316,14 @@ public:
         swr::CopyDefaultColorBuffer(context);
     }
 
-    void draw_cube(ml::vec3 pos, float angle)
+    void draw_cube(ml::vec3 pos, ml::vec3 axis, float angle, float scale)
     {
-        ml::mat4x4 view = ml::matrices::translation(pos.x, pos.y, pos.z);
-        view *= ml::matrices::scaling(2.0f);
-        view *= ml::matrices::rotation_y(angle);
-        view *= ml::matrices::rotation_z(2 * angle);
-        view *= ml::matrices::rotation_x(3 * angle);
+        ml::mat4x4 view = ml::mat4x4::identity();
+        view *= ml::matrices::rotation_x(M_PI_2);
+        view *= ml::matrices::rotation_y(M_PI);
+        view *= ml::matrices::translation(pos.x, pos.y, pos.z);
+        view *= ml::matrices::scaling(scale);
+        view *= ml::matrices::rotation(axis, angle);
 
         swr::BindShader(shader_id);
 
@@ -359,7 +385,7 @@ public:
 
         run_time -= SDL_GetTicks();
 
-        window = std::make_unique<demo_cube>();
+        window = std::make_unique<demo_emitter>();
         window->create();
     }
 
@@ -368,7 +394,7 @@ public:
     {
         if(window)
         {
-            auto* w = static_cast<demo_cube*>(window.get());
+            auto* w = static_cast<demo_emitter*>(window.get());
             run_time += SDL_GetTicks();
             float run_time_in_s = static_cast<float>(run_time) / 1000.f;
             float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;

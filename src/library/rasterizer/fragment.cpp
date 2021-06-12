@@ -183,6 +183,25 @@ bool sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
     return true;
 }
 
+#define BOOL_TO_MASK(b) (~(static_cast<std::uint32_t>(b) - 1))
+
+#define APPLY_MASK(mask, additional_bool_mask)        \
+    mask[0] &= BOOL_TO_MASK(additional_bool_mask[0]); \
+    mask[1] &= BOOL_TO_MASK(additional_bool_mask[1]); \
+    mask[2] &= BOOL_TO_MASK(additional_bool_mask[2]); \
+    mask[3] &= BOOL_TO_MASK(additional_bool_mask[3]);
+
+#define APPLY_AND_STORE_MASK(mask, additional_bool_mask, out_mask) \
+    uint32_t out_mask[4] = {                                       \
+      BOOL_TO_MASK(additional_bool_mask[0]),                       \
+      BOOL_TO_MASK(additional_bool_mask[1]),                       \
+      BOOL_TO_MASK(additional_bool_mask[2]),                       \
+      BOOL_TO_MASK(additional_bool_mask[3])};                      \
+    mask[0] &= out_mask[0];                                        \
+    mask[1] &= out_mask[1];                                        \
+    mask[2] &= out_mask[2];                                        \
+    mask[3] &= out_mask[3];
+
 /** the same as above, but operates on 2x2 tiles. does not return any value. */
 void sweep_rasterizer::process_fragment_2x2(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z[4], fragment_info frag_info[4])
 {
@@ -210,24 +229,18 @@ void sweep_rasterizer::process_fragment_2x2(int x, int y, const swr::impl::rende
             return;
         }
 
-        uint32_t scissor_write_mask[4] = {
-          ~(static_cast<uint32_t>(scissor_mask[0]) - 1),
-          ~(static_cast<uint32_t>(scissor_mask[1]) - 1),
-          ~(static_cast<uint32_t>(scissor_mask[2]) - 1),
-          ~(static_cast<uint32_t>(scissor_mask[3]) - 1)};
-
-        write_mask[0] &= scissor_write_mask[0];
-        write_mask[1] &= scissor_write_mask[1];
-        write_mask[2] &= scissor_write_mask[2];
-        write_mask[3] &= scissor_write_mask[3];
+        APPLY_MASK(write_mask, scissor_mask);
     }
 
     /*
      * Compute z and interpolated values.
      */
-    __m128 sse_z = _mm_div_ps(_mm_set_ps1(1.0f), _mm_set_ps(one_over_viewport_z[0], one_over_viewport_z[1], one_over_viewport_z[2], one_over_viewport_z[3]));
-    float z[4] __attribute__((aligned(16)));    //!!fixme: GNU
-    _mm_store_ps(z, sse_z);
+#ifdef SWR_USE_SIMD
+    DECLARE_ALIGNED_FLOAT4(z);
+    _mm_store_ps(z, _mm_div_ps(_mm_set_ps1(1.0f), _mm_set_ps(one_over_viewport_z[0], one_over_viewport_z[1], one_over_viewport_z[2], one_over_viewport_z[3])));
+#else
+    const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
+#endif
 
     for(int k = 0; k < 4; ++k)
     {
@@ -283,16 +296,7 @@ void sweep_rasterizer::process_fragment_2x2(int x, int y, const swr::impl::rende
         return;
     }
 
-    uint32_t accept_write_mask[4] = {
-      ~(static_cast<uint32_t>(accept_mask[0]) - 1),
-      ~(static_cast<uint32_t>(accept_mask[1]) - 1),
-      ~(static_cast<uint32_t>(accept_mask[2]) - 1),
-      ~(static_cast<uint32_t>(accept_mask[3]) - 1)};
-
-    write_mask[0] &= accept_write_mask[0];
-    write_mask[1] &= accept_write_mask[1];
-    write_mask[2] &= accept_write_mask[2];
-    write_mask[3] &= accept_write_mask[3];
+    APPLY_MASK(write_mask, accept_mask);
 
     /*
      * Depth test.
@@ -307,7 +311,8 @@ void sweep_rasterizer::process_fragment_2x2(int x, int y, const swr::impl::rende
         }
 
         // read and compare depth buffer.
-        ml::fixed_32_t* depth_buffer_ptr[4] = {depth_buffer->at(x, y), depth_buffer->at(xx, y), depth_buffer->at(x, yy), depth_buffer->at(xx, yy)};
+        ml::fixed_32_t* depth_buffer_ptr[4];
+        depth_buffer->at(x, y, depth_buffer_ptr);
 
         ml::fixed_32_t old_depth_value[4] = {*depth_buffer_ptr[0], *depth_buffer_ptr[1], *depth_buffer_ptr[2], *depth_buffer_ptr[3]};
         ml::fixed_32_t new_depth_value[4] = {frag_info[0].depth_value, frag_info[1].depth_value, frag_info[2].depth_value, frag_info[3].depth_value};
@@ -336,16 +341,7 @@ void sweep_rasterizer::process_fragment_2x2(int x, int y, const swr::impl::rende
         bool depth_mask[4] = {
           depth_compare[static_cast<std::uint32_t>(states.depth_func)][0], depth_compare[static_cast<std::uint32_t>(states.depth_func)][1], depth_compare[static_cast<std::uint32_t>(states.depth_func)][2], depth_compare[static_cast<std::uint32_t>(states.depth_func)][3]};
 
-        uint32_t depth_write_mask[4] = {
-          ~(static_cast<uint32_t>(depth_mask[0]) - 1),
-          ~(static_cast<uint32_t>(depth_mask[1]) - 1),
-          ~(static_cast<uint32_t>(depth_mask[2]) - 1),
-          ~(static_cast<uint32_t>(depth_mask[3]) - 1)};
-
-        write_mask[0] &= depth_write_mask[0];
-        write_mask[1] &= depth_write_mask[1];
-        write_mask[2] &= depth_write_mask[2];
-        write_mask[3] &= depth_write_mask[3];
+        APPLY_AND_STORE_MASK(write_mask, depth_mask, depth_write_mask);
 
         if(states.write_depth)
         {
@@ -378,7 +374,8 @@ void sweep_rasterizer::process_fragment_2x2(int x, int y, const swr::impl::rende
     /*
      * get color buffer pointer.
      */
-    uint32_t* color_buffer_ptr[4] = {color_buffer->at(x, y), color_buffer->at(xx, y), color_buffer->at(x, yy), color_buffer->at(xx, yy)};
+    uint32_t* color_buffer_ptr[4];
+    color_buffer->at(x, y, color_buffer_ptr);
 
     /*
      * Alpha blending.

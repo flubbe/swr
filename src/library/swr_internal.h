@@ -29,6 +29,22 @@
 #include "textures.h"
 #include "context.h"
 
+/*
+ * use SIMD code by default.
+ */
+#define SWR_USE_SIMD
+
+/*
+ * alignment helpers.
+ */
+#if defined(__GNUC__)
+#    define DECLARE_ALIGNED_FLOAT4(name) float name[4] __attribute__((aligned(16)))
+#elif defined(__MSVC__)
+#    define DECLARE_ALIGNED_FLOAT4(name) __declspec(align(16)) float name[4]
+#else
+#    error DECLARE_ALIGNED_FLOAT4 not defined for this compiler
+#endif
+
 /* definitions internal to the renderer. */
 namespace swr
 {

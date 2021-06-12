@@ -43,6 +43,13 @@ add_executable(demo_color
 )
 target_link_libraries(demo_color swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
+add_executable(demo_emitter
+	${COMMON_SOURCES}
+	../../deps/3rd-party/lodepng/lodepng.cpp
+	emitter/main.cpp
+)
+target_link_libraries(demo_emitter swrast cpu_features fmt swr_app ${EXTRA_LIBS})
+
 add_executable(demo_fill_test
 	${COMMON_SOURCES}
 	../../deps/3rd-party/lodepng/lodepng.cpp
