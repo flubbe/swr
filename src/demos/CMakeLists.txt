@@ -58,6 +58,14 @@ add_executable(demo_fill_test
 )
 target_link_libraries(demo_fill_test swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
+add_executable(demo_motion_blur
+	${COMMON_SOURCES}
+	../../deps/3rd-party/lodepng/lodepng.cpp
+	common/mesh.cpp
+	motion_blur/main.cpp
+)
+target_link_libraries(demo_motion_blur swrast cpu_features fmt swr_app ${EXTRA_LIBS})
+
 add_executable(demo_normal_map
 	${COMMON_SOURCES}
 	../../deps/3rd-party/lodepng/lodepng.cpp
