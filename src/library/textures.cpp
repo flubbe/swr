@@ -181,7 +181,7 @@ void texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int i
     {
         return;
     }
-    assert(static_cast<std::size_t>(in_width * in_height * 4) == in_data.size());
+    assert(static_cast<std::size_t>(in_width * in_height * component_size) == in_data.size());
 
     if(level < 0 || static_cast<std::size_t>(level) >= data.data_ptrs.size())
     {
@@ -443,6 +443,27 @@ void BindTexture(texture_target target, uint32_t id)
     }
 
     impl::bind_texture_pointer(target, id);
+}
+
+void SetSubImage(uint32_t texture_id, uint32_t level, size_t offset_x, size_t offset_y, size_t width, size_t height, pixel_format format, const std::vector<uint8_t>& data)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    impl::render_device_context* context = impl::global_context;
+
+    if(texture_id == impl::default_tex_id)
+    {
+        context->last_error = error::invalid_value;
+        return;
+    }
+
+    if(texture_id >= context->texture_2d_storage.size())
+    {
+        context->last_error = error::invalid_value;
+        return;
+    }
+
+    impl::texture_2d* texture_2d = context->texture_2d_storage[texture_id].get();
+    texture_2d->set_sub_data(level, offset_x, offset_y, width, height, format, data);
 }
 
 void SetTextureWrapMode(uint32_t id, wrap_mode s, wrap_mode t)

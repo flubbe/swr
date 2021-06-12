@@ -431,6 +431,19 @@ void ActiveTexture(uint32_t unit);
 void BindTexture(texture_target target, uint32_t id);
 
 /**
+ * Update part of a texture.
+ * \param texture_id id of the texture to be updated.
+ * \param level mipmap level.
+ * \param offset_x x-offset
+ * \param offset_y y-offset
+ * \param width width of the data
+ * \param height height of the data
+ * \param format pixel format of the data
+ * \param data image data
+ */
+void SetSubImage(uint32_t texture_id, uint32_t level, size_t offset_x, size_t offset_y, size_t width, size_t height, pixel_format format, const std::vector<uint8_t>& data);
+
+/**
  * Specify the texture wrapping mode with respect to a direction.
  *
  * \param id The unique texture id, as returned by CreateTexture.
