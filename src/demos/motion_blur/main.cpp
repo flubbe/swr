@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  * 
- * software renderer demonstration (simple particle system).
+ * software renderer demonstration (simple particle system with motion blur).
  * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
