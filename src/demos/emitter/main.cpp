@@ -187,7 +187,7 @@ public:
         // cube texture.
         std::vector<uint8_t> img_data;
         uint32_t w = 0, h = 0;
-        uint32_t ret = lodepng::decode(img_data, w, h, "../textures/stone/256/ft_stone01_c.png");
+        uint32_t ret = lodepng::decode(img_data, w, h, "../textures/stone/32/ft_stone01_c.png");
         if(ret != 0)
         {
             platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));
@@ -197,7 +197,7 @@ public:
 
         // cube normal map.
         img_data.clear();
-        ret = lodepng::decode(img_data, w, h, "../textures/stone/256/ft_stone01_n.png");
+        ret = lodepng::decode(img_data, w, h, "../textures/stone/32/ft_stone01_n.png");
         if(ret != 0)
         {
             platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));
