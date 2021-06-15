@@ -373,16 +373,10 @@ enum class pixel_format
  */
 
 /**
- * Create a texture from a given set of image data.
- * \param Width Width of the texture, in pixels.
- * \param Height Height of the texture, in pixels.
- * \param Format Format of the texture. The supported formats currently are rgba8888, argb8888 and bgra8888, as listed in pixel_format.
- * \param WrapS Texture wrapping mode in S direction.
- * \param WrapT Texture wrapping mode in T direction.
- * \param Data Raw image data in the format specified by Format.
+ * Allocate a texture and return its id.
  * \return If successful, a positive texture id of the newly created texture. Zero if an error occured.
  */
-uint32_t CreateTexture(size_t Width, size_t Height, pixel_format Format, wrap_mode WrapS, wrap_mode WrapT, const std::vector<uint8_t>& Data);
+uint32_t CreateTexture();
 
 /**
  * Free texture memory. If the texture is currently bound, it is unbound and then freed.
@@ -429,6 +423,17 @@ void ActiveTexture(uint32_t unit);
  * \param id The id of the texture that should be bound to the texture unit.
  */
 void BindTexture(texture_target target, uint32_t id);
+
+/**
+ * Allocate texture storage and, if data is non-empty, set the image data of a texture.
+ * \param texture_id id of the texture
+ * \param level the mipmap level of data
+ * \param width the width of the texture
+ * \param height the height of the texture
+ * \param format the pixel format of the pixel data
+ * \param data if non-empty, this contains the pixel data.
+ */
+void SetImage(uint32_t texture_id, uint32_t level, size_t width, size_t height, pixel_format format, const std::vector<uint8_t>& data);
 
 /**
  * Update part of a texture.

@@ -87,7 +87,7 @@ struct texture_2d
      * Set the texture data using the specified pixel format. the base texture level needs to be set up first through this call, since
      * it allocates the storage. the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    void set_data(int level, int width, int height, pixel_format format, wrap_mode wrap_s, wrap_mode wrap_t, const std::vector<uint8_t>& data);
+    void set_data(int level, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
 
     /** 
      * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up. 

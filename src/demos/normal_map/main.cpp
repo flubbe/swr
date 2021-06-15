@@ -186,7 +186,9 @@ public:
             platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));
             return false;
         }
-        cube_tex = swr::CreateTexture(w, h, swr::pixel_format::rgba8888, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat, img_data);
+        cube_tex = swr::CreateTexture();
+        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::rgba8888, img_data);
+        swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         // cube normal map.
         img_data.clear();
@@ -196,7 +198,9 @@ public:
             platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));
             return false;
         }
-        cube_normal_map = swr::CreateTexture(w, h, swr::pixel_format::rgba8888, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat, img_data);
+        cube_normal_map = swr::CreateTexture();
+        swr::SetImage(cube_normal_map, 0, w, h, swr::pixel_format::rgba8888, img_data);
+        swr::SetTextureWrapMode(cube_normal_map, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         // set reference time for statistics and animation.
         reference_time = -SDL_GetTicks();

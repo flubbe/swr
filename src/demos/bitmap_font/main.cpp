@@ -72,7 +72,9 @@ static uint32_t load_texture(uint32_t w, uint32_t h, const std::vector<uint8_t>&
         }
     }
 
-    auto tex_id = swr::CreateTexture(adjusted_w, adjusted_h, swr::pixel_format::rgba8888, swr::wrap_mode::repeat, swr::wrap_mode::repeat, resized_tex);
+    auto tex_id = swr::CreateTexture();
+    swr::SetImage(tex_id, 0, adjusted_w, adjusted_h, swr::pixel_format::rgba8888, resized_tex);
+    swr::SetTextureWrapMode(tex_id, swr::wrap_mode::repeat, swr::wrap_mode::repeat);
     if(tex_id)
     {
         if(max_u)

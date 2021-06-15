@@ -10,7 +10,7 @@
 
 namespace shader
 {
-  
+
 /** 
  * A shader that applies coloring to meshes.
  *

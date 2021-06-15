@@ -93,7 +93,7 @@ class particle_system
 
         float velocity = min_velocity + static_cast<float>(std::rand() & 0xff) / 255.f * var_velocity;
         phi = static_cast<float>(std::rand() & 0xff) / 255.f * 2 * M_PI;
-        theta = (static_cast<float>(std::rand() & 0xff) / 255.f - 1.f) * M_PI_4/2;
+        theta = (static_cast<float>(std::rand() & 0xff) / 255.f - 1.f) * M_PI_4 / 2;
 
         new_particle.velocity = ml::vec4{std::sin(phi) * std::sin(theta), std::cos(phi) * std::sin(theta), std::cos(theta)} * velocity;
 
