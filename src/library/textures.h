@@ -78,22 +78,25 @@ struct texture_2d
     void initialize_sampler();
 
     /** Set texture wrapping mode in s-direction. */
-    void set_wrap_s(wrap_mode s);
+    swr::error set_wrap_s(wrap_mode s);
 
     /** Set texture wrapping mode in t-direction. */
-    void set_wrap_t(wrap_mode t);
+    swr::error set_wrap_t(wrap_mode t);
+
+    /** allocate texture data initialized to zero. */
+    swr::error allocate(int level, int width, int height);
 
     /** 
      * Set the texture data using the specified pixel format. the base texture level needs to be set up first through this call, since
      * it allocates the storage. the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    void set_data(int level, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
+    swr::error set_data(int level, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
 
     /** 
      * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up. 
      * the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    void set_sub_data(int level, int x, int y, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
+    swr::error set_sub_data(int level, int x, int y, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
 
     /** clear all texture data. */
     void clear();
