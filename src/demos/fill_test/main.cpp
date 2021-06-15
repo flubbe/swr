@@ -32,14 +32,8 @@ const auto demo_title = "Fill Test";
 /** demo window. */
 class demo_fill : public swr_app::renderwindow
 {
-    /** color shader */
-    shader::color shader;
-
     /** mesh shader */
     shader::mesh_color mesh_shader;
-
-    /** color shader id. */
-    uint32_t shader_id{0};
 
     /** mesh shader id. */
     uint32_t mesh_shader_id{0};
@@ -107,12 +101,6 @@ public:
         swr::SetState(swr::state::cull_face, true);
         swr::SetState(swr::state::depth_test, true);
 
-        shader_id = swr::RegisterShader(&shader);
-        if(!shader_id)
-        {
-            throw std::runtime_error("shader registration failed");
-        }
-
         mesh_shader_id = swr::RegisterShader(&mesh_shader);
         if(!mesh_shader_id)
         {
@@ -135,15 +123,6 @@ public:
     void destroy()
     {
         example_mesh.unload();
-
-        if(shader_id)
-        {
-            if(context)
-            {
-                swr::UnregisterShader(shader_id);
-            }
-            shader_id = 0;
-        }
 
         if(mesh_shader_id)
         {
