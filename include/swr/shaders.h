@@ -204,7 +204,7 @@ public:
       const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
       float& gl_FragDepth,
-      boost::container::static_vector<ml::vec4, max_color_attachments>& color_attachments) const
+      ml::vec4& gl_FragColor) const
     {
         return accept;
     }

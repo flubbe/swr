@@ -92,11 +92,8 @@ public:
      * context states.
      */
 
-    /** Color buffer. */
-    color_buffer ColorBuffer;
-
-    /** Depth buffer. */
-    depth_buffer DepthBuffer;
+    /** default frame buffer. */
+    default_framebuffer framebuffer;
 
     /** The current render states. These are copied on each draw call and stored in a draw list. */
     render_states states;
@@ -248,7 +245,7 @@ public:
     /** set the current clear color. */
     void SetClearColor(float r, float g, float b, float a)
     {
-        states.clear_color = ColorBuffer.pf_conv.to_pixel({r, g, b, a});
+        states.clear_color = ml::clamp_to_unit_interval({r, g, b, a});
     }
 
     /** set the current clear depth. */

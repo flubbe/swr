@@ -14,18 +14,24 @@ namespace swr
 namespace impl
 {
 
+/** default texture id. */
+constexpr int default_tex_id = 0;
+
 /*
  * texture storage.
  */
 
-/** Stores the texture data as 32-bit floating-points per channel. */
+/** Stores the texture data. */
+template<typename T>
 struct texture_storage
 {
+    using value_type = T;
+
     /** buffer holding the base texture and all mipmap levels. */
-    std::vector<ml::vec4> buffer;
+    std::vector<T> buffer;
 
     /** mipmap buffer entries. */
-    std::vector<ml::vec4*> data_ptrs;
+    std::vector<T*> data_ptrs;
 
     /** Allocate the texture data and set um the entries. */
     void allocate(size_t width, size_t height, bool mipmapping = true);
@@ -34,8 +40,48 @@ struct texture_storage
     void clear()
     {
         buffer.clear();
+        data_ptrs.clear();
     }
 };
+
+template<typename T>
+void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
+{
+    // check that width and height are a power of two (this is probably not strictly necessary, but the other texture code has that restriction).
+    assert(utils::is_power_of_two(width));
+    assert(utils::is_power_of_two(height));
+
+    if(!mipmapping)
+    {
+        // just allocate the base texture. in this case, data_ptrs only holds a single element.
+        data_ptrs.push_back(utils::align_vector(utils::alignment::sse, width * height, buffer));
+
+        return;
+    }
+
+    /*
+     * allocate a texture buffer of size 1.5*width*height. Seen as a rectangle, the left width*height part stores the
+     * base image. 
+     * 
+     *  *) the first mipmap level of size (width/2)x(height/2) starts at coordinate (width,0) with pitch 1.5*width.
+     *  *) the second mipmap level of size (width/4)x(height/4) starts at coordinate (width,height/2) with pitch 1.5*width
+     * 
+     * in general, the n-th mipmap level of size (width/2^n)x(height/2^n) starts at coordinate (width,(1-1/2^(n-1))*height) with pitch 1.5*width.
+     */
+
+    // base image.
+    data_ptrs.push_back(utils::align_vector(utils::alignment::sse, width * height + ((width * height) >> 1), buffer));
+    auto base_ptr = data_ptrs[0];
+
+    // mipmaps.
+    auto pitch = width + (width >> 1);
+    size_t h_offs = 0;
+    for(size_t h = height >> 1; h > 0; h >>= 1)
+    {
+        data_ptrs.push_back(base_ptr + h_offs * pitch + width);
+        h_offs += h;
+    }
+}
 
 /*
  * texture object.
@@ -51,7 +97,7 @@ struct texture_2d
     int width{0}, height{0};
 
     /** texture data. */
-    texture_storage data;
+    texture_storage<ml::vec4> data;
 
     /** texture sampler. */
     std::unique_ptr<class sampler_2d_impl> sampler;

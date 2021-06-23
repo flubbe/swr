@@ -162,21 +162,19 @@ class sweep_rasterizer : public rasterizer
     concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_queue<std::function<void()>>> rasterizer_threads;
 #endif
 
-    /**
-     * Process fragments and merge outputs.
-     *
-     * \param x x position of fragment
-     * \param y y position of fragment
-     * \param states Active render states
-     * \param one_over_viewport_z The fragment's viewport 1/z value.
-     * \param info Fragment information.
-     * 
-     * \return true if a fragment was written.
+    /*
+     * fragment processing.
      */
-    bool process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& info);
 
-    /** process a 2x2 tile of fragments. */
-    void process_fragment_2x2(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z[4], fragment_info info[4]);
+    /** generate a color value along with depth- and stencil flags for a single fragment. writes to the depth buffer. */
+    void process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& info, swr::impl::fragment_output& out);
+
+    /** generate color values along with depth- and stencil masks for a 2x2 block of fragments. writes to the depth buffer. */
+    void process_fragment_block(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z[4], fragment_info info[4], swr::impl::fragment_output_block& out);
+
+    /*
+     * fragment block processing.
+     */
 
     /**
      * Rasterize a complete block of dimension (rasterizer_block_size, rasterizer_block_size), i.e. do not perform additional edge checks.
@@ -202,6 +200,10 @@ class sweep_rasterizer : public rasterizer
     static void thread_process_block_checked(sweep_rasterizer* rasterizer, unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3]);
 #endif
 
+    /*
+     * drawing functions.
+     */
+
     /**
      * Draw the triangle (v1,v2,v3) using a sweep algorithm with blocks of size rasterizer_block_size.
      * The triangle is rasterized regardless of its orientation.
@@ -214,14 +216,10 @@ class sweep_rasterizer : public rasterizer
      */
     void draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3);
 
-    /**
-     * Draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false.
-     */
+    /** draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false. */
     void draw_line(const swr::impl::render_states& states, bool draw_end_point, const geom::vertex& v1, const geom::vertex& v2);
 
-    /**
-     * Draw a point.
-     */
+    /** draw a point. */
     void draw_point(const swr::impl::render_states& states, const geom::vertex& v);
 
     /** draw the primitives in the list sequentially. */
@@ -234,8 +232,8 @@ class sweep_rasterizer : public rasterizer
 
 public:
     /** Constructor. */
-    sweep_rasterizer(std::size_t in_thread_count, swr::impl::color_buffer* in_color_buffer, swr::impl::depth_buffer* in_depth_buffer)
-    : rasterizer(in_color_buffer, in_depth_buffer)
+    sweep_rasterizer(std::size_t in_thread_count, swr::impl::default_framebuffer* in_framebuffer)
+    : rasterizer(in_framebuffer)
 #ifdef SWR_ENABLE_MULTI_THREADING
     , rasterizer_threads(in_thread_count)
 #endif

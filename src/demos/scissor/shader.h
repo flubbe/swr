@@ -92,7 +92,7 @@ public:
       const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
       float& gl_FragDepth,
-      boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) const override
+      ml::vec4& gl_FragColor) const override
     {
         const ml::vec4 tex_coords = varyings[0];
         const ml::vec4 position = varyings[1];
@@ -132,7 +132,7 @@ public:
             specular = std::pow(boost::algorithm::clamp(specular_angle, 0.f, 1.f), shininess / 4.f);
         }
 
-        color_attachments[0] = ambient_color + (diffuse_color + light_specular_color * specular) * falloff;
+        gl_FragColor = ambient_color + (diffuse_color + light_specular_color * specular) * falloff;
 
         // accept fragment.
         return swr::accept;

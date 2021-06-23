@@ -27,52 +27,6 @@ namespace impl
         }                              \
     }
 
-/** default texture id. */
-constexpr int default_tex_id = 0;
-
-/*
- * texture storage.
- */
-
-void texture_storage::allocate(size_t width, size_t height, bool mipmapping)
-{
-    // check that width and height are a power of two (this is probably not strictly necessary, but the other texture code has that restriction).
-    assert((width & (width - 1)) == 0);
-    assert((height & (height - 1)) == 0);
-
-    if(!mipmapping)
-    {
-        // just allocate the base texture. in this case, data_ptrs only holds a single element.
-        buffer.resize(width * height);
-        data_ptrs.push_back(buffer.data());
-
-        return;
-    }
-
-    /*
-     * allocate a texture buffer of size 1.5*width*height. Seen as a rectangle, the left width*height part stores the
-     * base image. 
-     * 
-     *  *) the first mipmap level of size (width/2)x(height/2) starts at coordinate (width,0) with pitch 1.5*width.
-     *  *) the second mipmap level of size (width/4)x(height/4) starts at coordinate (width,height/2) with pitch 1.5*width
-     * 
-     * in general, the n-th mipmap level of size (width/2^n)x(height/2^n) starts at coordinate (width,(1-1/2^(n-1))*height) with pitch 1.5*width.
-     */
-    buffer.resize(width * height + ((width * height) >> 1));
-
-    // base image.
-    data_ptrs.push_back(buffer.data());
-
-    // mipmaps.
-    auto pitch = width + (width >> 1);
-    size_t h_offs = 0;
-    for(size_t h = height >> 1; h > 0; h >>= 1)
-    {
-        data_ptrs.push_back(buffer.data() + h_offs * pitch + width);
-        h_offs += h;
-    }
-}
-
 /*
  * texture objects.
  */

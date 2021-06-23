@@ -157,7 +157,7 @@ struct basic_interpolation_data
     }
 
     /** get all varyings' values for a 2x2 block. */
-    void get_varyings_2x2(boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4]) const
+    void get_varyings_block(boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4]) const
     {
         out_varyings[0].resize(varyings.size());
         out_varyings[1].resize(varyings.size());
@@ -223,7 +223,7 @@ struct basic_interpolation_data
     }
 
     /** get all depth values for a 2x2 block. */
-    void get_depth_2x2(float out_depth[4]) const
+    void get_depth_block(float out_depth[4]) const
     {
         out_depth[0] = depth_value.value;
 
@@ -272,7 +272,7 @@ struct basic_interpolation_data
     }
 
     /** get all one over viewport z values for a 2x2 block. */
-    void get_one_over_viewport_z_2x2(float out_one_over_viewport_z[4]) const
+    void get_one_over_viewport_z_block(float out_one_over_viewport_z[4]) const
     {
         out_one_over_viewport_z[0] = one_over_viewport_z.value;
 

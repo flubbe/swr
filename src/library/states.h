@@ -20,7 +20,7 @@ namespace impl
 struct render_states
 {
     /* buffers. */
-    uint32_t clear_color{0}; /* in color buffer pixel format */
+    ml::vec4 clear_color{ml::vec4::zero()};
     ml::fixed_32_t clear_depth{1};
 
     /* viewport transform. */

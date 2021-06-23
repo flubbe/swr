@@ -59,6 +59,11 @@ class demo_cube : public swr_app::renderwindow
     /** frame counter. */
     uint32_t frame_count{0};
 
+    /** if non-negative, indicates the maximal runtime */
+    float max_runtime{-1};
+
+    float run_time{0};
+
     /** viewport width. */
     static const int width = 640;
 
@@ -90,6 +95,8 @@ public:
         {
             platform::logf("suggesting rasterizer to use {} thread{}", thread_hint, ((thread_hint > 1) ? "s" : ""));
         }
+
+        max_runtime = swr_app::application::get_instance().get_argument<float>("--run_time", -1.0f);
 
         context = swr::CreateSDLContext(sdl_window, sdl_renderer, thread_hint);
         if(!swr::MakeContextCurrent(context))
@@ -190,6 +197,16 @@ public:
         reference_time = -ticks;
 
         /*
+         * check if we exceeded maximal existence time.
+         */
+        run_time += delta_time;
+        if(max_runtime > 0 && run_time > max_runtime)
+        {
+            swr_app::application::quit();
+            return;
+        }
+
+        /*
          * update animation.
          */
         cube_rotation += 0.2f * delta_time;
@@ -273,7 +290,7 @@ public:
     {
         platform::set_log(&log);
 
-        run_time -= SDL_GetTicks();
+        run_time = -SDL_GetTicks();
 
         window = std::make_unique<demo_cube>();
         window->create();

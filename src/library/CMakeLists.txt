@@ -23,6 +23,7 @@ set(SOURCES
 	misc.cpp
 	output_merger.cpp
 	pipeline.cpp
+	renderbuffer.cpp
 	renderobject.cpp
 	shaders.cpp
 	states.cpp

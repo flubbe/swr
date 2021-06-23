@@ -58,13 +58,13 @@ public:
       const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
       float& gl_FragDepth,
-      boost::container::static_vector<ml::vec4, swr::max_color_attachments>& color_attachments) const override
+      ml::vec4& gl_FragColor) const override
     {
         // get color.
         const ml::vec4 color = varyings[0];
 
         // write color.
-        color_attachments[0] = color;
+        gl_FragColor = color;
 
         // accept fragment.
         return swr::accept;

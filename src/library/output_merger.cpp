@@ -11,7 +11,6 @@
 
 /* user headers. */
 #include "swr_internal.h"
-#include "output_merger.h"
 
 namespace swr
 {

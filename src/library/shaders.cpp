@@ -13,8 +13,6 @@
 
 #include "rasterizer/interpolators.h"
 
-#include "output_merger.h"
-
 namespace swr
 {
 

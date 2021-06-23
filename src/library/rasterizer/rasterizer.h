@@ -26,11 +26,8 @@ struct rasterizer
     /** width and height of rasterized area. should equal the viewport's width and height. */
     int raster_width{0}, raster_height{0};
 
-    /** the color buffer to write to. */
-    swr::impl::color_buffer* color_buffer{nullptr};
-
-    /** the depth buffer to write to. */
-    swr::impl::depth_buffer* depth_buffer{nullptr};
+    /** pointer to the default framebuffer. */
+    swr::impl::default_framebuffer* framebuffer{nullptr};
 
     /*
      * statistics and benchmarking.
@@ -52,17 +49,16 @@ struct rasterizer
     rasterizer() = default;
 
     /** initializing constructor. */
-    rasterizer(swr::impl::color_buffer* in_color_buffer, swr::impl::depth_buffer* in_depth_buffer)
-    : color_buffer(in_color_buffer)
-    , depth_buffer(in_depth_buffer)
+    rasterizer(swr::impl::default_framebuffer* in_framebuffer)
+    : framebuffer(in_framebuffer)
     {
-        assert(in_color_buffer);
-        assert(in_depth_buffer);
-        assert(in_color_buffer->width == in_depth_buffer->width);
-        assert(in_color_buffer->height == in_depth_buffer->height);
+        assert(in_framebuffer);
 
-        raster_width = in_color_buffer->width;
-        raster_height = in_color_buffer->height;
+        assert(in_framebuffer->color_attachment.width == in_framebuffer->depth_attachment.width);
+        assert(in_framebuffer->color_attachment.height == in_framebuffer->depth_attachment.height);
+
+        raster_width = in_framebuffer->color_attachment.width;
+        raster_height = in_framebuffer->color_attachment.height;
     }
 
     /** virtual Destructor. */

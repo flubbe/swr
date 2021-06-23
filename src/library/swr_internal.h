@@ -21,12 +21,13 @@
 
 #include "states.h"
 #include "pixelformat.h"
+#include "output_merger.h"
+#include "textures.h"
 #include "renderbuffer.h"
 #include "rasterizer/rasterizer.h"
 
 #include "buffers.h"
 #include "renderobject.h"
-#include "textures.h"
 #include "context.h"
 
 /*
@@ -58,7 +59,7 @@ namespace impl
 
 /** Block size for triangle rasterization. The context buffer sizes have to be aligned on this value. */
 constexpr std::uint32_t rasterizer_block_size{1 << 5};
-static_assert((rasterizer_block_size & (rasterizer_block_size - 1)) == 0, "rasterizer_block_size has to be a power of 2");
+static_assert(utils::is_power_of_two(rasterizer_block_size), "rasterizer_block_size has to be a power of 2");
 
 /** round down to block size. */
 inline int lower_align_on_block_size(int v)

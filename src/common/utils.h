@@ -170,6 +170,12 @@ struct slot_map
         free_slots.clear();
     }
 
+    /** shrink to fit elements. */
+    void shrink_to_fit()
+    {
+        data.shrink_to_fit();
+    }
+
     /** query size. */
     size_t size() const
     {
@@ -307,5 +313,35 @@ struct rect
         assert(in_y_min <= in_y_max);
     }
 };
+
+/*
+ * powers of two.
+ */
+
+/** check if a given argument is a power of two. */
+constexpr bool is_power_of_two(std::size_t c)
+{
+    return (c & (c - 1)) == 0;
+}
+
+/** 
+ * get the next power of two of the argument. e.g. next_power_of_two(1)=2, next_power_of_two(2)=4. 
+ * 
+ * source: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+ */
+constexpr std::size_t round_to_next_power_of_two(std::size_t n)
+{
+    static_assert(sizeof(std::size_t) == 8, "Adjust this code for different sizes of std::size_t.");
+
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    n |= n >> 32;
+
+    return n + 1;
+}
 
 } /* namespace utils */

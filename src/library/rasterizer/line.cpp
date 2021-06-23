@@ -457,7 +457,10 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
             if(p >= 0 && v >= 0 && v < raster_height)
             {
                 rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
-                process_fragment(ml::integral_part(p), ml::integral_part(v), states, attr.one_over_viewport_z.value, info);
+                swr::impl::fragment_output out;
+
+                process_fragment(ml::integral_part(p), ml::integral_part(v), states, attr.one_over_viewport_z.value, info, out);
+                framebuffer->color_attachment.merge_fragment(ml::integral_part(p), ml::integral_part(v), states, out);
             }
 
             // update error variable.
@@ -482,7 +485,10 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
             if(p >= 0 && v >= 0 && v < raster_width)
             {
                 rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
-                process_fragment(ml::integral_part(v), ml::integral_part(p), states, attr.one_over_viewport_z.value, info);
+                swr::impl::fragment_output out;
+
+                process_fragment(ml::integral_part(v), ml::integral_part(p), states, attr.one_over_viewport_z.value, info, out);
+                framebuffer->color_attachment.merge_fragment(ml::integral_part(p), ml::integral_part(v), states, out);
             }
 
             // update error variable.

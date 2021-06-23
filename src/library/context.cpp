@@ -41,18 +41,30 @@ void render_device_context::Shutdown()
 
     // delete all geometry data.
     vertex_buffers.clear();
+    vertex_buffers.shrink_to_fit();
+
     vertex_attribute_buffers.clear();
+    vertex_attribute_buffers.shrink_to_fit();
+
     index_buffers.clear();
+    index_buffers.shrink_to_fit();
 
     // delete shaders.
     programs.clear();
+    programs.shrink_to_fit();
 
     // free texture memory.
     texture_2d_storage.clear();
+    texture_2d_storage.shrink_to_fit();
+
+    /*
+     * reset default framebuffer.
+     */
+    framebuffer.reset();
 }
 
 template<typename T>
-static void scissor_clear_buffer(T clear_value, render_buffer<T>& buffer, const utils::rect& scissor_box)
+static void scissor_clear_buffer(T clear_value, renderbuffer<T>& buffer, const utils::rect& scissor_box)
 {
     static_assert(sizeof(T) == sizeof(uint32_t), "Types sizes must match for utils::memset32 to work correctly.");
 
@@ -75,14 +87,14 @@ void render_device_context::ClearColorBuffer()
 {
     // buffer clearing respects scissoring.
     if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != ColorBuffer.width
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != ColorBuffer.height))
+       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.get_width()
+           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.get_height()))
     {
-        scissor_clear_buffer(states.clear_color, ColorBuffer, states.scissor_box);
+        scissor_clear_buffer(framebuffer.color_attachment.pf_conv.to_pixel(states.clear_color), framebuffer.color_attachment, states.scissor_box);
     }
     else
     {
-        ColorBuffer.clear(states.clear_color);
+        framebuffer.color_attachment.clear(framebuffer.color_attachment.pf_conv.to_pixel(states.clear_color));
     }
 }
 
@@ -90,14 +102,14 @@ void render_device_context::ClearDepthBuffer()
 {
     // buffer clearing respects scissoring.
     if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != DepthBuffer.width
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != DepthBuffer.height))
+       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.get_width()
+           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.get_height()))
     {
-        scissor_clear_buffer(states.clear_depth, DepthBuffer, states.scissor_box);
+        scissor_clear_buffer(states.clear_depth, framebuffer.depth_attachment, states.scissor_box);
     }
     else
     {
-        DepthBuffer.clear(states.clear_depth);
+        framebuffer.depth_attachment.clear(states.clear_depth);
     }
 }
 
@@ -135,8 +147,8 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
     states.blend_dst = blend_func::zero;
 
     // set color buffer width, height, and update the buffer.
-    ColorBuffer.width = upper_align_on_block_size(width);
-    ColorBuffer.height = upper_align_on_block_size(height);
+    framebuffer.color_attachment.width = upper_align_on_block_size(width);
+    framebuffer.color_attachment.height = upper_align_on_block_size(height);
     UpdateBuffers();
 
     // write dimensions for the blitting rectangle.
@@ -157,7 +169,7 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
 
     try
     {
-        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, &ColorBuffer, &DepthBuffer));
+        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, &framebuffer));
     }
     catch(std::bad_alloc& e)
     {
@@ -167,11 +179,10 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
 
 void sdl_render_context::Shutdown()
 {
-    if(ColorBuffer.data_ptr != nullptr)
+    if(framebuffer.is_color_weakly_attached())
     {
         // Unlock resets ColorBuffer.data_ptr.
         Unlock();
-        assert(ColorBuffer.data_ptr == nullptr);
     }
 
     if(sdl_color_buffer)
@@ -180,10 +191,7 @@ void sdl_render_context::Shutdown()
         sdl_color_buffer = nullptr;
     }
 
-    DepthBuffer.data.clear();
-    DepthBuffer.width = DepthBuffer.height = DepthBuffer.pitch = 0;
-
-    ColorBuffer.width = ColorBuffer.height = ColorBuffer.pitch = 0;
+    framebuffer.reset();
 
     sdl_renderer = nullptr;
     sdl_window = nullptr;
@@ -210,17 +218,17 @@ void sdl_render_context::UpdateBuffers()
 #endif
     case SDL_PIXELFORMAT_ARGB8888:
         NativePixelFormat = SDL_PIXELFORMAT_ARGB8888;
-        ColorBuffer.pf_conv.set_pixel_format(pixel_format_descriptor::named_format(pixel_format::argb8888));
+        framebuffer.set_color_pixel_format(pixel_format::argb8888);
         break;
 
     case SDL_PIXELFORMAT_RGBA8888:
         NativePixelFormat = SDL_PIXELFORMAT_RGBA8888;
-        ColorBuffer.pf_conv.set_pixel_format(pixel_format_descriptor::named_format(pixel_format::rgba8888));
+        framebuffer.set_color_pixel_format(pixel_format::rgba8888);
         break;
 
     default:
         NativePixelFormat = SDL_PIXELFORMAT_ARGB8888;
-        ColorBuffer.pf_conv.set_pixel_format(pixel_format_descriptor::named_format(pixel_format::argb8888));
+        framebuffer.set_color_pixel_format(pixel_format::argb8888);
     }
 
     if(sdl_color_buffer)
@@ -228,13 +236,13 @@ void sdl_render_context::UpdateBuffers()
         SDL_DestroyTexture(sdl_color_buffer);
         sdl_color_buffer = nullptr;
     }
-    sdl_color_buffer = SDL_CreateTexture(sdl_renderer, NativePixelFormat, SDL_TEXTUREACCESS_STREAMING, ColorBuffer.width, ColorBuffer.height);
+    sdl_color_buffer = SDL_CreateTexture(sdl_renderer, NativePixelFormat, SDL_TEXTUREACCESS_STREAMING, framebuffer.get_width(), framebuffer.get_height());
     if(sdl_color_buffer == nullptr)
     {
         return;
     }
 
-    DepthBuffer.allocate(ColorBuffer.width, ColorBuffer.height);
+    framebuffer.allocate_depth(framebuffer.get_width(), framebuffer.get_height());
 }
 
 void sdl_render_context::CopyDefaultColorBuffer()
@@ -249,31 +257,32 @@ void sdl_render_context::CopyDefaultColorBuffer()
 
 bool sdl_render_context::Lock()
 {
-    // lock texture.
-    if(ColorBuffer.data_ptr != nullptr)
+    if(!framebuffer.is_color_weakly_attached())
     {
-        return false;
+        uint32_t* data_ptr{nullptr};
+        int pitch{0};
+
+        if(SDL_LockTexture(sdl_color_buffer, nullptr, reinterpret_cast<void**>(&data_ptr), &pitch) != 0)
+        {
+            return false;
+        }
+
+        framebuffer.attach_color(pitch, data_ptr);
     }
 
-    if(SDL_LockTexture(sdl_color_buffer, nullptr, reinterpret_cast<void**>(&ColorBuffer.data_ptr), &ColorBuffer.pitch) != 0)
-    {
-        return false;
-    }
-
-    return ColorBuffer.data_ptr != nullptr;
+    return framebuffer.is_color_attached();
 }
 
 void sdl_render_context::Unlock()
 {
-    if(ColorBuffer.data_ptr != nullptr)
+    if(framebuffer.is_color_weakly_attached())
     {
         SDL_UnlockTexture(sdl_color_buffer);
-        ColorBuffer.data_ptr = nullptr;
-        ColorBuffer.pitch = 0;
+        framebuffer.detach_color();
     }
 }
 
-}    // namespace impl
+} /* namespace impl */
 
 /*
  * context interface.
