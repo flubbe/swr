@@ -16,7 +16,7 @@ namespace swr
 namespace stats
 {
 
-void get_fragment_data(fragment_data& data)
+void get_fragment_data([[maybe_unused]] fragment_data& data)
 {
     ASSERT_INTERNAL_CONTEXT;
 #ifdef SWR_ENABLE_STATS
@@ -24,7 +24,7 @@ void get_fragment_data(fragment_data& data)
 #endif
 }
 
-void get_rasterizer_data(rasterizer_data& data)
+void get_rasterizer_data([[maybe_unused]] rasterizer_data& data)
 {
     ASSERT_INTERNAL_CONTEXT;
 #ifdef SWR_ENABLE_STATS

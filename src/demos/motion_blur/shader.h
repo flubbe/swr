@@ -63,12 +63,12 @@ public:
     }
 
     void vertex_shader(
-      int gl_VertexID,
-      int gl_InstanceID,
+      [[maybe_unused]] int gl_VertexID,
+      [[maybe_unused]] int gl_InstanceID,
       const boost::container::static_vector<ml::vec4, geom::limits::max::attributes>& attribs,
       ml::vec4& gl_Position,
-      float& gl_PointSize,
-      float* gl_ClipDistance,
+      [[maybe_unused]] float& gl_PointSize,
+      [[maybe_unused]] float* gl_ClipDistance,
       boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const override
     {
         const ml::mat4x4 proj = (*uniforms)[0].m4;
@@ -105,11 +105,11 @@ public:
     }
 
     swr::fragment_shader_result fragment_shader(
-      const ml::vec4& gl_FragCoord,
-      bool gl_FrontFacing,
-      const ml::vec2& gl_PointCoord,
+      [[maybe_unused]] const ml::vec4& gl_FragCoord,
+      [[maybe_unused]] bool gl_FrontFacing,
+      [[maybe_unused]] const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
-      float& gl_FragDepth,
+      [[maybe_unused]] float& gl_FragDepth,
       ml::vec4& gl_FragColor) const override
     {
         const ml::vec4 tex_coords = varyings[0];
@@ -191,12 +191,12 @@ public:
     }
 
     void vertex_shader(
-      int gl_VertexID,
-      int gl_InstanceID,
+      [[maybe_unused]] int gl_VertexID,
+      [[maybe_unused]] int gl_InstanceID,
       const boost::container::static_vector<ml::vec4, geom::limits::max::attributes>& attribs,
       ml::vec4& gl_Position,
-      float& gl_PointSize,
-      float* gl_ClipDistance,
+      [[maybe_unused]] float& gl_PointSize,
+      [[maybe_unused]] float* gl_ClipDistance,
       boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const override
     {
         ml::mat4x4 proj = (*uniforms)[0].m4;
@@ -210,11 +210,11 @@ public:
     }
 
     swr::fragment_shader_result fragment_shader(
-      const ml::vec4& gl_FragCoord,
-      bool gl_FrontFacing,
-      const ml::vec2& gl_PointCoord,
+      [[maybe_unused]] const ml::vec4& gl_FragCoord,
+      [[maybe_unused]] bool gl_FrontFacing,
+      [[maybe_unused]] const ml::vec2& gl_PointCoord,
       const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
-      float& gl_FragDepth,
+      [[maybe_unused]] float& gl_FragDepth,
       ml::vec4& gl_FragColor) const override
     {
         // texture coordinates.

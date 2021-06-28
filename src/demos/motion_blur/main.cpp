@@ -92,8 +92,6 @@ class demo_emitter : public swr_app::renderwindow
     /** texture shader for blur. */
     uint32_t blend_shader_id{0};
 
-    uint32_t color_shader_id{0};
-
     /** light position. */
     ml::vec4 light_position{0, 3, -3, 1};
 
@@ -162,7 +160,7 @@ public:
         }
 
         // set projection matrix.
-        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI / 2.f), 1.f, 10.f);
+        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 2, 1.f, 10.f);
 
         // load cube.
         std::vector<uint32_t> indices = {

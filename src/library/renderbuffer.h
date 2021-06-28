@@ -264,6 +264,9 @@ public:
 /** framebuffer draw target interface. */
 struct framebuffer_draw_target
 {
+    /** virtual destructor. */
+    virtual ~framebuffer_draw_target() = default;
+
     /** clear a color attachment. fails silently if the attachment is not available. */
     virtual void clear_color(uint32_t attachment, ml::vec4 clear_color) = 0;
 
@@ -310,6 +313,9 @@ struct default_framebuffer : public framebuffer_properties
 
     /** default constructor. */
     default_framebuffer() = default;
+
+    /** virtual destructor. */
+    virtual ~default_framebuffer() = default;
 
     /*
      * framebuffer_draw_target interface.
@@ -421,6 +427,21 @@ public:
     /** default constructor. */
     framebuffer_object() = default;
 
+    /** disallow copying. */
+    framebuffer_object(const framebuffer_object&) = delete;
+
+    /** default move constructor. */
+    framebuffer_object(framebuffer_object&&) = default;
+
+    /** virtual destructor. */
+    virtual ~framebuffer_object() = default;
+
+    /** disallow copying. */
+    framebuffer_object& operator=(const framebuffer_object&) = delete;
+
+    /** move object. */
+    framebuffer_object& operator=(framebuffer_object&& other) = default;
+
     /*
      * framebuffer_draw_target interface.
      */
@@ -448,7 +469,7 @@ public:
         }
         color_attachment_count = 0;
 
-        // note: this deletes the object managed by the unique_ptr.
+        // the depth attachment is not managed by framebuffer_object.
         depth_attachment = nullptr;
 
         // set/reset id.
@@ -489,7 +510,7 @@ public:
     void detach_texture(framebuffer_attachment attachment)
     {
         auto index = static_cast<std::size_t>(attachment);
-        if(index >= 0 && index < max_color_attachments && color_attachments[index])
+        if(index < max_color_attachments && color_attachments[index])
         {
             color_attachments[index]->detach();
             color_attachments[index].reset();

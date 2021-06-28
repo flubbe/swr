@@ -31,7 +31,7 @@ namespace platform
 static SDL_LogOutputFunction default_sdl_log{nullptr};
 
 /** map SDL output to log device. */
-void sdl_log(void* userdata, int category, SDL_LogPriority priority, const char* message)
+void sdl_log([[maybe_unused]] void* userdata, [[maybe_unused]] int category, [[maybe_unused]] SDL_LogPriority priority, const char* message)
 {
     logf("{}", message);
 }

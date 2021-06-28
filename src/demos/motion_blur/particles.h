@@ -84,16 +84,16 @@ class particle_system
          * for now, the emission direction is hard-coded. we emit randomly within a small cone upwards.
          */
 
-        float phi = static_cast<float>(std::rand() & 0xff) / 255.f * 2 * M_PI;
-        float theta = static_cast<float>(std::rand() & 0xff) / 255.f * M_PI_2;
+        float phi = static_cast<float>(std::rand() & 0xff) / 255.f * 2 * static_cast<float>(M_PI);
+        float theta = static_cast<float>(std::rand() & 0xff) / 255.f * static_cast<float>(M_PI_2);
         new_particle.rotation_axis = ml::vec4{std::sin(phi) * std::sin(theta), std::cos(phi) * std::sin(theta), std::cos(theta)};
         new_particle.rotation_speed = static_cast<float>(std::rand() & 0xff) / 255.f * 5;
 
         new_particle.respawn_time = 0;
 
         float velocity = min_velocity + static_cast<float>(std::rand() & 0xff) / 255.f * var_velocity;
-        phi = static_cast<float>(std::rand() & 0xff) / 255.f * 2 * M_PI;
-        theta = (static_cast<float>(std::rand() & 0xff) / 255.f - 1.f) * M_PI_4 / 2;
+        phi = static_cast<float>(std::rand() & 0xff) / 255.f * 2 * static_cast<float>(M_PI);
+        theta = (static_cast<float>(std::rand() & 0xff) / 255.f - 1.f) * static_cast<float>(M_PI_4) / 2;
 
         new_particle.velocity = ml::vec4{std::sin(phi) * std::sin(theta), std::cos(phi) * std::sin(theta), std::cos(theta)} * velocity;
 
@@ -151,13 +151,13 @@ public:
 
             // update rotation.
             it.rotation_offset += it.rotation_speed * delta_time;
-            if(it.rotation_offset > 2 * M_PI)
+            if(it.rotation_offset > 2 * static_cast<float>(M_PI))
             {
-                it.rotation_offset -= 2 * M_PI;
+                it.rotation_offset -= 2 * static_cast<float>(M_PI);
             }
             else if(it.rotation_offset < 0)
             {
-                it.rotation_offset += 2 * M_PI;
+                it.rotation_offset += 2 * static_cast<float>(M_PI);
             }
 
             // if the particle is outside some radius, consider it inactive.
@@ -166,7 +166,7 @@ public:
                 it.is_active = false;
                 it.respawn_time = respawn_time;
 
-                respawn_time -= 0.1;
+                respawn_time -= 0.1f;
             }
         }
     }

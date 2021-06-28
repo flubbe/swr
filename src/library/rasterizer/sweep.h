@@ -105,8 +105,8 @@ class sweep_rasterizer : public rasterizer
         /** whether this corresponding triangle is front-facing. */
         bool front_facing{true};
 
-        /** default constructor. */
-        tile() = default;
+        /** delete constructor. note that triangle_interpolator cannot have a default constructor. */
+        tile() = delete;
 
         /** initializing constructor. */
         tile(const swr::impl::render_states* in_states, triangle_interpolator in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)

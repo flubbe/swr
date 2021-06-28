@@ -108,7 +108,7 @@ public:
         }
 
         // set projection matrix.
-        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI / 2.f), 1.f, 10.f);
+        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 2, 1.f, 10.f);
 
         // create a mesh.
         example_mesh = mesh::generate_random_tiling_mesh(-8, 8, -8, 8, 20, 20, 0, 0.3);
@@ -168,9 +168,9 @@ public:
         if(update_rotation)
         {
             mesh_rotation += 0.2f * delta_time;
-            if(mesh_rotation > 2 * M_PI)
+            if(mesh_rotation > 2 * static_cast<float>(M_PI))
             {
-                mesh_rotation -= 2 * M_PI;
+                mesh_rotation -= 2 * static_cast<float>(M_PI);
 
                 // generate new mesh.
                 example_mesh.unload();

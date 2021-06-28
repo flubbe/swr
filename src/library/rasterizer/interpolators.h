@@ -108,6 +108,12 @@ struct basic_interpolation_data
     {
     }
 
+    /** default copy constructor. */
+    basic_interpolation_data(const basic_interpolation_data&) = default;
+
+    /** default move constructor. */
+    basic_interpolation_data(basic_interpolation_data&&) = default;
+
     /** get the varyings' values. */
     template<int offs_x = 0, int offs_y = 0>
     void get_varyings(boost::container::static_vector<swr::varying, geom::limits::max::varyings>& out_varyings) const
@@ -427,8 +433,14 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     /** the two triangle edge functions used for interpolation. */
     const geom::edge_function edge_v0v1, edge_v0v2;
 
-    /** default constructor. */
-    triangle_interpolator() = default;
+    /** no default constructor (edge_v0v1 and edge_v0v2 need to be initialized). */
+    triangle_interpolator() = delete;
+
+    /** default copy constructor. */
+    triangle_interpolator(const triangle_interpolator&) = default;
+
+    /** default move constructor. */
+    triangle_interpolator(triangle_interpolator&&) = default;
 
     /**
      * Initialize the interpolator along the x-direction and along the y-direction with respect to the triangle edges.

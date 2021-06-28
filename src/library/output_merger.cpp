@@ -136,7 +136,7 @@ ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& dest,
     else if(blend_src == blend_func::zero
             && blend_dst == blend_func::zero)
     {
-        return 0;
+        return ml::vec4::zero();
     }
     else if(blend_src == blend_func::src_alpha
             && blend_dst == blend_func::one_minus_src_alpha)

@@ -40,14 +40,6 @@ static auto apply_mask = [](bool mask[4], const auto additional_mask[4])
     mask[3] &= static_cast<bool>(additional_mask[3]);
 };
 
-static auto copy_array4 = [](auto to[4], const auto from[4])
-{
-    to[0] = from[0];
-    to[1] = from[1];
-    to[2] = from[2];
-    to[3] = from[3];
-};
-
 /*
  * attachment_texture.
  */

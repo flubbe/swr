@@ -123,7 +123,7 @@ public:
         }
 
         // set projection matrix.
-        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI / 2.f), 1.f, 10.f);
+        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 2, 1.f, 10.f);
 
         // load cube.
         std::vector<uint32_t> indices = {
@@ -228,9 +228,9 @@ public:
          * update animation.
          */
         cube_rotation += 0.2f * delta_time;
-        if(cube_rotation > 2 * M_PI)
+        if(cube_rotation > 2 * static_cast<float>(M_PI))
         {
-            cube_rotation -= 2 * M_PI;
+            cube_rotation -= 2 * static_cast<float>(M_PI);
         }
 
         begin_render();

@@ -107,10 +107,10 @@ void line_info::setup()
         assert(dydx >= -1 && dydx <= 1);
 
         /* check if the end point lies vertically exactly between two pixels and the line is coming from above */
-        if(v2_diff.y == -0.5 && dy >= 0)
+        if(v2_diff.y == -0.5f && dy >= 0)
         {
             /* in this case, the pixel above should be considered as the ending pixel, so we need to adjust v2_diff.y. */
-            v2_diff.y = 0.5;
+            v2_diff.y = 0.5f;
         }
 
         /*
@@ -250,9 +250,9 @@ void line_info::setup()
         auto dxdy = dx / dy;
         assert(dxdy >= -1 && dxdy <= 1);
 
-        if(v2_diff.x == -0.5 && dx >= 0)
+        if(v2_diff.x == -0.5f && dx >= 0)
         {
-            v2_diff.x = 0.5;
+            v2_diff.x = 0.5f;
         }
 
         /*
@@ -343,7 +343,10 @@ void line_info::setup()
     }
 }
 
-void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in_draw_endpoint, const geom::vertex& v1, const geom::vertex& v2)
+/*
+ * note: in_draw_endpoint should be used for correctly drawing line-strips, but is currently unused.
+ */
+void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe_unused]] bool in_draw_endpoint, const geom::vertex& v1, const geom::vertex& v2)
 {
     line_info info{v1, v2};
 
