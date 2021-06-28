@@ -74,21 +74,21 @@ static uint32_t approx_zero_dstsrccolor(const uint32_t dest, const uint32_t src)
  * blending.
  */
 
-uint32_t blend(const pixel_format_converter& pf_conv, const impl::render_states& states, const uint32_t dest, const uint32_t src)
+uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const uint32_t dest, const uint32_t src)
 {
     // first check for blending modes that do not depend on the pixel format.
-    if(states.blend_src == blend_func::one
-       && states.blend_dst == blend_func::zero)
+    if(blend_src == blend_func::one
+       && blend_dst == blend_func::zero)
     {
         return dest;
     }
-    else if(states.blend_src == blend_func::zero
-            && states.blend_dst == blend_func::one)
+    else if(blend_src == blend_func::zero
+            && blend_dst == blend_func::one)
     {
         return src;
     }
-    else if(states.blend_src == blend_func::zero
-            && states.blend_dst == blend_func::zero)
+    else if(blend_src == blend_func::zero
+            && blend_dst == blend_func::zero)
     {
         return 0;
     }
@@ -96,13 +96,13 @@ uint32_t blend(const pixel_format_converter& pf_conv, const impl::render_states&
     // depending on the pixel format, perform the blending operation.
     if(pf_conv.get_name() == pixel_format::argb8888)
     {
-        if(states.blend_src == blend_func::src_alpha
-           && states.blend_dst == blend_func::one_minus_src_alpha)
+        if(blend_src == blend_func::src_alpha
+           && blend_dst == blend_func::one_minus_src_alpha)
         {
             return argb8888::approx_srcalpha_oneminussrcalpha(dest, src);
         }
-        else if(states.blend_src == blend_func::zero
-                && states.blend_dst == blend_func::src_color)
+        else if(blend_src == blend_func::zero
+                && blend_dst == blend_func::src_color)
         {
             return xxxx8888::approx_zero_dstsrccolor(dest, src);
         }
@@ -111,6 +111,42 @@ uint32_t blend(const pixel_format_converter& pf_conv, const impl::render_states&
             //!!todo: unimplemented.
             impl::global_context->last_error = error::unimplemented;
         }
+    }
+    else
+    {
+        //!!todo: unimplemented.
+        impl::global_context->last_error = error::unimplemented;
+    }
+
+    return src;
+}
+
+ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& dest, const ml::vec4& src)
+{
+    if(blend_src == blend_func::one
+       && blend_dst == blend_func::zero)
+    {
+        return dest;
+    }
+    else if(blend_src == blend_func::zero
+            && blend_dst == blend_func::one)
+    {
+        return src;
+    }
+    else if(blend_src == blend_func::zero
+            && blend_dst == blend_func::zero)
+    {
+        return 0;
+    }
+    else if(blend_src == blend_func::src_alpha
+            && blend_dst == blend_func::one_minus_src_alpha)
+    {
+        return ml::lerp(src.a, dest, src);
+    }
+    else if(blend_src == blend_func::zero
+            && blend_dst == blend_func::src_color)
+    {
+        return src * dest;
     }
     else
     {

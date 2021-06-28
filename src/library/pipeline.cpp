@@ -229,7 +229,7 @@ void ClearDepthBuffer()
 void SetClearDepth(float z)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->SetClearDepth(boost::algorithm::clamp(z, 0.f, 1.f));
+    impl::global_context->states.set_clear_depth(z);
 }
 
 /*
@@ -245,7 +245,7 @@ void ClearColorBuffer()
 void SetClearColor(float r, float g, float b, float a)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->SetClearColor(r, g, b, a);
+    impl::global_context->states.set_clear_color(r, g, b, a);
 }
 
 /*
@@ -269,7 +269,7 @@ void SetScissorBox(int x, int y, int width, int height)
         return;
     }
 
-    context->states.scissor_box = {x, x + width, y, y + height};
+    context->states.set_scissor_box(x, x + width, y, y + height);
 }
 
 /*
@@ -287,10 +287,7 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height)
         return;
     }
 
-    context->states.x = x;
-    context->states.y = y;
-    context->states.width = width;
-    context->states.height = height;
+    context->states.set_viewport(x, y, width, height);
 }
 
 void DepthRange(float zNear, float zFar)
@@ -304,8 +301,7 @@ void DepthRange(float zNear, float zFar)
         return;
     }
 
-    context->states.z_near = boost::algorithm::clamp(zNear, 0.f, 1.f);
-    context->states.z_far = boost::algorithm::clamp(zFar, 0.f, 1.f);
+    context->states.set_depth_range(zNear, zFar);
 }
 
 } /* namespace swr */

@@ -266,15 +266,6 @@ void SetClearDepth(float z);
  */
 void ClearDepthBuffer();
 
-/**
- * Specify mapping of depth values from normalized device coordinates to window coordinates.
- * See also https://www.opengl.org/sdk/docs/man2/xhtml/glDepthRange.xml
- *
- * \param zNear Specifies the mapping of the near clipping plane to window coordinates. The initial value is 0.
- * \param zFar Specifies the mapping of the far clipping plane to window coordinates. The initial value is 1.
- */
-void DepthRange(float zNear, float zFar);
-
 /*
  * Color buffer.
  */
@@ -543,7 +534,7 @@ blend_func GetSourceBlendFunc();
 blend_func GetDestinationBlendFunc();
 
 /*
- * Scissor Test .
+ * Scissor Test.
  */
 
 /**
@@ -586,7 +577,7 @@ void SetState(state s, bool new_state);
 bool GetState(state s);
 
 /*
- * Render contexts.
+ * Viewport transform.
  */
 
 /**
@@ -597,6 +588,95 @@ bool GetState(state s);
  * \param height Height of viewport rectangle.
  */
 void SetViewport(int x, int y, unsigned int width, unsigned int height);
+
+/**
+ * Specify mapping of depth values from normalized device coordinates to window coordinates.
+ * See also https://www.opengl.org/sdk/docs/man2/xhtml/glDepthRange.xml
+ *
+ * \param zNear Specifies the mapping of the near clipping plane to window coordinates. The initial value is 0.
+ * \param zFar Specifies the mapping of the far clipping plane to window coordinates. The initial value is 1.
+ */
+void DepthRange(float zNear, float zFar);
+
+/*
+ * Framebuffer objects.
+ */
+
+/**
+ * Create a framebuffer object.
+ * \return If successful, returns a positive id of the newly created framebuffer object. Returns zero if an error occured.
+ */
+uint32_t CreateFramebufferObject();
+
+/**
+ * Release a framebuffer object. 
+ * \param id The id of the framebuffer object to be freed.
+ */
+void ReleaseFramebufferObject(uint32_t id);
+
+/** targets for framebuffers. */
+enum class framebuffer_target
+{
+    draw,     /** target for rendering */
+    read,     /** target for readback operations */
+    draw_read /** target for both rendering and readback operations. */
+};
+
+/**
+ * Bind a framebuffer object to a target.
+ * \param target The target of the binding operation. Zero is reserved for the default framebuffer.
+ * \param id The id of the framebuffer to be bound.
+ */
+void BindFramebufferObject(framebuffer_target target, uint32_t id);
+
+/** fraembuffer attachment names. */
+enum class framebuffer_attachment
+{
+    color_attachment_0 = 0, /** color attachment 0 */
+    color_attachment_1 = 1, /** color attachment 1 */
+    color_attachment_2 = 2, /** color attachment 2 */
+    color_attachment_3 = 3, /** color attachment 3 */
+    color_attachment_4 = 4, /** color attachment 4 */
+    color_attachment_5 = 5, /** color attachment 5 */
+    color_attachment_6 = 6, /** color attachment 6 */
+    color_attachment_7 = 7, /** color attachment 7 */
+    depth_attachment = 8    /** depth attachment */
+};
+
+/**
+ * Attach a texture or a depth buffer to a framebuffer object.
+ * \param id The id of the framebuffer object.
+ * \param attachment The attachment name in the framebuffer object.
+ * \param attachment_id The id of the attached texture.
+ * \param level Mipmap level to be attached.
+ */
+void FramebufferTexture(uint32_t id, framebuffer_attachment attachment, uint32_t attachment_id, uint32_t level);
+
+/**
+ * Generate a depth render buffer of (at least) the requested size.
+ * \param width the width of the depth buffer.
+ * \param height the height of the depth buffer.
+ * \return Returns the id of the created depth buffer, and 0 on failure.
+ */
+uint32_t CreateDepthRenderbuffer(uint32_t width, uint32_t height);
+
+/**
+ * Release a depth renderbuffer.
+ * \param id the id of the depth renderbuffer to be released.
+ */
+void ReleaseDepthRenderbuffer(uint32_t id);
+
+/**
+ * Attach a texture or a depth buffer to a framebuffer object.
+ * \param id The id of the framebuffer object.
+ * \param attachment The attachment name in the framebuffer object. Currently only accepts framebuffer_attachment::depth_attachment.
+ * \param attachment_id The id of the attached texture.
+ */
+void FramebufferRenderbuffer(uint32_t id, framebuffer_attachment attachment, uint32_t attachment_id);
+
+/*
+ * Render contexts.
+ */
 
 /**
  * Create a rendering context from an SDL window and an SDL renderer. The context has the same

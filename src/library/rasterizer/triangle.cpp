@@ -60,7 +60,7 @@ void sweep_rasterizer::process_block(unsigned int tile_index)
             swr::impl::fragment_output_block out;
 
             process_fragment_block(x, tile.y, *tile.states, one_over_viewport_z, frag_info, out);
-            framebuffer->color_attachment.merge_fragment_block(x, tile.y, *tile.states, out);
+            tile.states->draw_target->merge_color_block(0, x, tile.y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst);
 
             tile.attributes.advance_x(2);
         }
@@ -73,6 +73,12 @@ void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom
     auto tile = tile_cache[tile_index];
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings;
     temp_varyings.resize(tile.attributes.varyings.size());
+
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
+    temp_varyings_block[0].resize(tile.attributes.varyings.size());
+    temp_varyings_block[1].resize(tile.attributes.varyings.size());
+    temp_varyings_block[2].resize(tile.attributes.varyings.size());
+    temp_varyings_block[3].resize(tile.attributes.varyings.size());
 
     const auto end_x = tile.x + swr::impl::rasterizer_block_size;
     const auto end_y = tile.y + swr::impl::rasterizer_block_size;
@@ -112,31 +118,54 @@ void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom
               lambdas_y[0].value > 0 && lambdas_y[1].value > 0 && lambdas_y[2].value > 0,
               lambdas_xy[0].value > 0 && lambdas_xy[1].value > 0 && lambdas_xy[2].value > 0};
 
-            float frag_depth;
-            float one_over_viewport_z;
+            if(mask[0] && mask[1] && mask[2] && mask[3])
+            {
+                tile.attributes.get_varyings_block(temp_varyings_block);
 
-#define PROCESS_FRAGMENT_CHECKED(k)                                                                       \
-    if(mask[k])                                                                                           \
-    {                                                                                                     \
-        const auto offs_x = k & 1;                                                                        \
-        const auto offs_y = (k & 2) >> 1;                                                                 \
-                                                                                                          \
-        tile.attributes.get_varyings<offs_x, offs_y>(temp_varyings);                                      \
-        tile.attributes.get_depth<offs_x, offs_y>(frag_depth);                                            \
-        tile.attributes.get_one_over_viewport_z<offs_x, offs_y>(one_over_viewport_z);                     \
-                                                                                                          \
-        rast::fragment_info frag_info{frag_depth, front_facing, temp_varyings};                           \
-        swr::impl::fragment_output out;                                                                   \
-        process_fragment(x + offs_x, tile.y + offs_y, *tile.states, one_over_viewport_z, frag_info, out); \
-        framebuffer->color_attachment.merge_fragment(x + offs_x, tile.y + offs_y, *tile.states, out);     \
+                float frag_depth_block[4];
+                tile.attributes.get_depth_block(frag_depth_block);
+
+                float one_over_viewport_z[4];
+                tile.attributes.get_one_over_viewport_z_block(one_over_viewport_z);
+
+                rast::fragment_info frag_info[4] = {
+                  {frag_depth_block[0], front_facing, temp_varyings_block[0]},
+                  {frag_depth_block[1], front_facing, temp_varyings_block[1]},
+                  {frag_depth_block[2], front_facing, temp_varyings_block[2]},
+                  {frag_depth_block[3], front_facing, temp_varyings_block[3]}};
+                swr::impl::fragment_output_block out;
+
+                process_fragment_block(x, tile.y, *tile.states, one_over_viewport_z, frag_info, out);
+                tile.states->draw_target->merge_color_block(0, x, tile.y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst);
+            }
+            else
+            {
+                float frag_depth;
+                float one_over_viewport_z;
+
+#define PROCESS_FRAGMENT_CHECKED(k)                                                                                                                                \
+    if(mask[k])                                                                                                                                                    \
+    {                                                                                                                                                              \
+        const auto offs_x = k & 1;                                                                                                                                 \
+        const auto offs_y = (k & 2) >> 1;                                                                                                                          \
+                                                                                                                                                                   \
+        tile.attributes.get_varyings<offs_x, offs_y>(temp_varyings);                                                                                               \
+        tile.attributes.get_depth<offs_x, offs_y>(frag_depth);                                                                                                     \
+        tile.attributes.get_one_over_viewport_z<offs_x, offs_y>(one_over_viewport_z);                                                                              \
+                                                                                                                                                                   \
+        rast::fragment_info frag_info{frag_depth, front_facing, temp_varyings};                                                                                    \
+        swr::impl::fragment_output out;                                                                                                                            \
+        process_fragment(x + offs_x, tile.y + offs_y, *tile.states, one_over_viewport_z, frag_info, out);                                                          \
+        tile.states->draw_target->merge_color(0, x + offs_x, tile.y + offs_y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst); \
     }
 
-            PROCESS_FRAGMENT_CHECKED(0);
-            PROCESS_FRAGMENT_CHECKED(1);
-            PROCESS_FRAGMENT_CHECKED(2);
-            PROCESS_FRAGMENT_CHECKED(3);
+                PROCESS_FRAGMENT_CHECKED(0); /* (x,   tile.y  ) */
+                PROCESS_FRAGMENT_CHECKED(1); /* (x+1, tile.y  ) */
+                PROCESS_FRAGMENT_CHECKED(2); /* (x,   tile.y+1) */
+                PROCESS_FRAGMENT_CHECKED(3); /* (x+1, tile.y+1) */
 
 #undef PROCESS_FRAGMENT_CHECKED
+            }
 
             lambdas[0].advance_x(2);
             lambdas[1].advance_x(2);

@@ -101,7 +101,8 @@ inline T* align_vector(std::size_t alignment, std::size_t size, std::vector<T>& 
  */
 
 /**
- * A container of objects that keeps track of empty slots. The free slot re-usage  pattern is LIFO.
+ * A container of objects that keeps track of empty slots. The free slot re-usage pattern is LIFO.
+ * The internal container needs to support the operations emplace_back, size, clear, shrink_to_fit, operator[].
  *
  * Some remarks:
  *  *) The data is not automatically compacted/freed.
@@ -110,10 +111,10 @@ inline T* align_vector(std::size_t alignment, std::size_t size, std::vector<T>& 
 template<typename T, typename container = std::vector<T>>
 struct slot_map
 {
-    /** Data. */
+    /** data. */
     container data;
 
-    /** List of free object slots. */
+    /** list of free object slots. */
     std::list<size_t> free_slots;
 
     /** insert a new item.. */

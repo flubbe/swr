@@ -18,33 +18,27 @@
 namespace rast
 {
 
+/*
+ * statically verify assumptions.
+ */
+static_assert(swr::fragment_shader_result::discard == 0, "swr::fragment_shader_result::discard needs to evaluate to the numerical value 0");
+static_assert(swr::fragment_shader_result::accept == 1, "swr::fragment_shader_result::accept needs to evaluate to the numerical value 1");
+
 /**
- * Process fragments and merge outputs.
+ * Generate fragment color values, generate color write mask, perform depth testing and depth writing.
+ * Everything is performed with respect to the currently active draw target.
  * 
- * We perform the following operations, in order:
+ * More precisely, we do the following operations, in order:
  * 
  *  1) Scissor test.
  * 
  * If it succeeds, we calculate all interpolated values for the varyings.
  * 
- *  2) Set the dither reference values which may be used for sampling from textures. (!!todo)
- *  3) Call the fragment shader.
- *  4) Depth test (called here, since the fragment shader may modify the depth value).
- * 
- * To merge the outputs, we do:
- * 
- *  5) Calculate the color in the output buffer's pixel format.
- *  6) Apply color blending.
+ *  2) Call the fragment shader.
+ *  3) Depth test (note that this cannot be done earlier, since the fragment shader may modify the depth value).
  */
 void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& frag_info, swr::impl::fragment_output& out)
 {
-    SWR_STATS_INCREMENT(stats_frag.count);
-
-    // initialize mask.
-    out.write_color = false;
-
-    /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
-
     /*
      * Scissor test.
      */
@@ -53,10 +47,15 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
         if(x < states.scissor_box.x_min || x >= states.scissor_box.x_max
            || y < (raster_height - states.scissor_box.y_max) || y >= (raster_height - states.scissor_box.y_min))
         {
-            SWR_STATS_INCREMENT(stats_frag.discard_scissor);
+            out.write_flags = 0;
             return;
         }
     }
+
+    // initialize write flags.
+    uint32_t write_flags = swr::impl::fragment_output::fof_write_color;
+
+    /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
     /*
      * Compute z and interpolated values.
@@ -81,109 +80,86 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
      * set up the output color attachments for the fragment shader. the default color is explicitly unspecified in OpenGL, and we
      * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color 
      */
-    out.color = {0, 0, 0, 1};
+    ml::vec4 color{0, 0, 0, 1};
     float depth_value = frag_info.depth_value;
 
     /*
      * set up the fragment coordinate. this should match (15.1) on p. 415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
-     * note that we need to reverse the y-axis.
+     * note that we need to reverse the y-axis for the default fraembuffer.
      */
-    const ml::vec4 frag_coord = {
-      static_cast<float>(x) - pixel_center.x,
-      raster_height - (static_cast<float>(y) - pixel_center.y),
-      z};
+    ml::vec4 frag_coord;
+    if(states.draw_target == framebuffer)
+    {
+        frag_coord = {
+          static_cast<float>(x) - pixel_center.x,
+          framebuffer->get_height() - (static_cast<float>(y) - pixel_center.y),
+          z};
+    }
+    else
+    {
+        frag_coord = {
+          static_cast<float>(x) - pixel_center.x,
+          static_cast<float>(y) - pixel_center.y,
+          z};
+    }
 
-    SWR_STATS_CLOCK(stats_frag.cycles);
-    auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, depth_value, out.color);
-    SWR_STATS_UNCLOCK(stats_frag.cycles);
-
+    auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, depth_value, color);
     if(accept_fragment == swr::discard)
     {
-        SWR_STATS_INCREMENT(stats_frag.discard_shader);
+        out.write_flags = 0;
         return;
     }
 
     /*
      * Depth test.
      */
+    bool depth_write_mask = true;
     if(states.depth_test_enabled)
     {
-        // discard fragment if depth testing is always failing.
-        if(states.depth_func == swr::comparison_func::fail)
-        {
-            SWR_STATS_INCREMENT(stats_frag.discard_depth);
-            return;
-        }
-
-        // read and compare depth buffer.
-        ml::fixed_32_t* depth_buffer_ptr = framebuffer->depth_attachment.at(x, y);
-
-        ml::fixed_32_t old_depth_value = *depth_buffer_ptr;
-        ml::fixed_32_t new_depth_value{depth_value};
-
-        // basic comparisons for depth test.
-        bool depth_compare[] = {
-          true,                               /* pass */
-          false,                              /* fail */
-          new_depth_value == old_depth_value, /* equal */
-          false,                              /* not_equal */
-          new_depth_value < old_depth_value,  /* less */
-          false,                              /* less_equal */
-          false,                              /* greater */
-          false                               /* greater_equal */
-        };
-
-        // compound comparisons for depth test.
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
-
-        if(depth_compare[static_cast<std::uint32_t>(states.depth_func)])
-        {
-            // accept and possibly write depth for the fragment.
-            if(states.write_depth)
-            {
-                *depth_buffer_ptr = new_depth_value;
-            }
-        }
-        else
-        {
-            // discard fragment.
-            SWR_STATS_INCREMENT(stats_frag.discard_depth);
-            return;
-        }
+        states.draw_target->depth_compare_write(x, y, depth_value, states.depth_func, states.write_depth, depth_write_mask);
     }
 
-    out.write_color = true;
+    auto to_mask = [](bool b) -> uint32_t
+    { return ~(static_cast<std::uint32_t>(b) - 1); };
+
+    out.color = color;
+    out.write_flags = write_flags & to_mask(depth_write_mask);
 }
-
-#define BOOL_TO_MASK(b) (~(static_cast<std::uint32_t>(b) - 1))
-
-#define SET_UNIFORM_BOOL_MASK(bool_mask, value) \
-    bool_mask[0] = value;                       \
-    bool_mask[1] = value;                       \
-    bool_mask[2] = value;                       \
-    bool_mask[3] = value;
-
-#define APPLY_BOOL_MASK(bool_mask, additional_bool_mask) \
-    bool_mask[0] &= additional_bool_mask[0];             \
-    bool_mask[1] &= additional_bool_mask[1];             \
-    bool_mask[2] &= additional_bool_mask[2];             \
-    bool_mask[3] &= additional_bool_mask[3];
 
 /** the same as above, but operates on 2x2 tiles. does not return any value. */
 void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z[4], fragment_info frag_info[4], swr::impl::fragment_output_block& out)
 {
-    SWR_STATS_INCREMENT2(stats_frag.count, 4);
+    /*
+     * helper lambdas.
+     */
+    auto set_uniform_mask = [](bool mask[4], bool v)
+    {
+        mask[0] = mask[1] = mask[2] = mask[3] = v;
+    };
+    auto apply_mask = [](bool mask[4], const auto additional_mask[4])
+    {
+        mask[0] &= static_cast<bool>(additional_mask[0]);
+        mask[1] &= static_cast<bool>(additional_mask[1]);
+        mask[2] &= static_cast<bool>(additional_mask[2]);
+        mask[3] &= static_cast<bool>(additional_mask[3]);
+    };
+    auto copy_array4 = [](auto to[4], const auto from[4])
+    {
+        to[0] = from[0];
+        to[1] = from[1];
+        to[2] = from[2];
+        to[3] = from[3];
+    };
 
     // initialize masks.
     bool depth_mask[4] = {states.write_depth, states.write_depth, states.write_depth, states.write_depth};
-    SET_UNIFORM_BOOL_MASK(out.write_color, true);
+    bool write_color[4] = {true, true, true, true};
+    bool write_stencil[4] = {false, false, false, false}; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
-    int xx = x + 1, yy = y + 1;
+    // block coordinates
+    const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
 
     /*
      * Scissor test.
@@ -193,21 +169,20 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
         auto scissor_check = [&states, this](int _x, int _y) -> bool
         { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= (raster_height - states.scissor_box.y_max) && _y < (raster_height - states.scissor_box.y_min); };
         bool scissor_mask[4] = {
-          scissor_check(x, y), scissor_check(xx, y), scissor_check(x, yy), scissor_check(xx, yy)};
-
-        SWR_STATS_INCREMENT2(stats_frag.discard_scissor, static_cast<uint64_t>(scissor_mask[0]) + static_cast<uint64_t>(scissor_mask[1]) + static_cast<uint64_t>(scissor_mask[2]) + static_cast<uint64_t>(scissor_mask[3]));
+          scissor_check(coords[0].x, coords[0].y), scissor_check(coords[1].x, coords[1].y), scissor_check(coords[2].x, coords[2].y), scissor_check(coords[3].x, coords[3].y)};
 
         if(!(scissor_mask[0] || scissor_mask[1] || scissor_mask[2] || scissor_mask[3]))
         {
             // the mask only contains 'false'.
-            SET_UNIFORM_BOOL_MASK(out.write_color, false);
-            SET_UNIFORM_BOOL_MASK(out.write_stencil, false);
+            set_uniform_mask(out.write_color, false);
+            set_uniform_mask(out.write_stencil, false);
+
             return;
         }
 
-        APPLY_BOOL_MASK(depth_mask, scissor_mask);
-        APPLY_BOOL_MASK(out.write_color, scissor_mask);
-        APPLY_BOOL_MASK(out.write_stencil, scissor_mask);
+        apply_mask(depth_mask, scissor_mask);
+        apply_mask(write_color, scissor_mask);
+        apply_mask(write_stencil, scissor_mask);
     }
 
     /*
@@ -215,7 +190,7 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
      */
 #if defined(SWR_USE_SIMD)
     DECLARE_ALIGNED_FLOAT4(z);
-    _mm_store_ps(z, _mm_div_ps(_mm_set_ps1(1.0f), _mm_set_ps(one_over_viewport_z[0], one_over_viewport_z[1], one_over_viewport_z[2], one_over_viewport_z[3])));
+    _mm_store_ps(z, _mm_div_ps(_mm_set_ps1(1.0f), _mm_set_ps(one_over_viewport_z[3], one_over_viewport_z[2], one_over_viewport_z[1], one_over_viewport_z[0])));
 #else
     const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
 #endif
@@ -242,7 +217,8 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
      * set up the output color attachments for the fragment shader. the default color is explicitly unspecified in OpenGL, and we
      * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color 
      */
-    std::fill_n(out.color, 4, ml::vec4{0, 0, 0, 1});
+
+    ml::vec4 color[4] = {ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}};
     float depth_value[4] = {
       frag_info[0].depth_value,
       frag_info[1].depth_value,
@@ -253,99 +229,52 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
      * set up the fragment coordinate. this should match (15.1) on p. 415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
      * note that we need to reverse the y-axis.
      */
-    const ml::vec4 frag_coord[4] = {
-      {static_cast<float>(x) - pixel_center.x, raster_height - (static_cast<float>(y) - pixel_center.y), depth_value[0], z[0]},
-      {static_cast<float>(xx) - pixel_center.x, raster_height - (static_cast<float>(y) - pixel_center.y), depth_value[1], z[1]},
-      {static_cast<float>(x) - pixel_center.x, raster_height - (static_cast<float>(yy) - pixel_center.y), depth_value[2], z[2]},
-      {static_cast<float>(xx) - pixel_center.x, raster_height - (static_cast<float>(yy) - pixel_center.y), depth_value[3], z[3]},
+    ml::vec4 frag_coord[4] = {
+      {static_cast<float>(coords[0].x) - pixel_center.x, static_cast<float>(coords[0].y) - pixel_center.y, depth_value[0], z[0]},
+      {static_cast<float>(coords[1].x) - pixel_center.x, static_cast<float>(coords[1].y) - pixel_center.y, depth_value[1], z[1]},
+      {static_cast<float>(coords[2].x) - pixel_center.x, static_cast<float>(coords[2].y) - pixel_center.y, depth_value[2], z[2]},
+      {static_cast<float>(coords[3].x) - pixel_center.x, static_cast<float>(coords[3].y) - pixel_center.y, depth_value[3], z[3]},
     };
 
-    SWR_STATS_CLOCK(stats_frag.cycles);
-    swr::fragment_shader_result accept_mask[4] = {
-      states.shader_info->shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], out.color[0]),
-      states.shader_info->shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], out.color[1]),
-      states.shader_info->shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], out.color[2]),
-      states.shader_info->shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], out.color[3])};
-    SWR_STATS_UNCLOCK(stats_frag.cycles);
+    if(states.draw_target == framebuffer)
+    {
+        frag_coord[0].y = framebuffer->get_height() - frag_coord[0].y;
+        frag_coord[1].y = framebuffer->get_height() - frag_coord[1].y;
+        frag_coord[2].y = framebuffer->get_height() - frag_coord[2].y;
+        frag_coord[3].y = framebuffer->get_height() - frag_coord[3].y;
+    }
 
-    static_assert(swr::fragment_shader_result::discard == 0, "swr::fragment_shader_result::discard needs to evaluate to the numerical value 0");
+    swr::fragment_shader_result accept_mask[4] = {
+      states.shader_info->shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]),
+      states.shader_info->shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]),
+      states.shader_info->shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]),
+      states.shader_info->shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3])};
+
     if(!(accept_mask[0] || accept_mask[1] || accept_mask[2] || accept_mask[3]))
     {
-        SWR_STATS_INCREMENT2(stats_frag.discard_shader, 4);
-        SET_UNIFORM_BOOL_MASK(out.write_color, false);
-        SET_UNIFORM_BOOL_MASK(out.write_stencil, false);
+        set_uniform_mask(out.write_color, false);
+        set_uniform_mask(out.write_stencil, false);
         return;
     }
 
-    static_assert(swr::fragment_shader_result::accept == 1, "swr::fragment_shader_result::accept needs to evaluate to the numerical value 1");
-    APPLY_BOOL_MASK(depth_mask, accept_mask);
-    APPLY_BOOL_MASK(out.write_color, accept_mask);
-    APPLY_BOOL_MASK(out.write_stencil, accept_mask);
+    apply_mask(depth_mask, accept_mask);
+    apply_mask(write_color, accept_mask);
+    apply_mask(write_stencil, accept_mask);
 
     /*
      * Depth test.
      */
     if(states.depth_test_enabled)
     {
-        // discard fragment if depth testing is always failing.
-        if(states.depth_func == swr::comparison_func::fail)
-        {
-            SWR_STATS_INCREMENT2(stats_frag.discard_depth, 4);
-            SET_UNIFORM_BOOL_MASK(out.write_color, false);
-            SET_UNIFORM_BOOL_MASK(out.write_stencil, false);
-            return;
-        }
-
-        // read and compare depth buffer.
-        ml::fixed_32_t* depth_buffer_ptr[4];
-        framebuffer->depth_attachment.at(x, y, depth_buffer_ptr);
-
-        ml::fixed_32_t old_depth_value[4] = {*depth_buffer_ptr[0], *depth_buffer_ptr[1], *depth_buffer_ptr[2], *depth_buffer_ptr[3]};
-        ml::fixed_32_t new_depth_value[4] = {frag_info[0].depth_value, frag_info[1].depth_value, frag_info[2].depth_value, frag_info[3].depth_value};
-
-        // basic comparisons for depth test.
-        bool depth_compare[][4] = {
-          {true, true, true, true},                                                                                                                                                 /* pass */
-          {false, false, false, false},                                                                                                                                             /* fail */
-          {new_depth_value[0] == old_depth_value[0], new_depth_value[1] == old_depth_value[1], new_depth_value[2] == old_depth_value[2], new_depth_value[3] == old_depth_value[3]}, /* equal */
-          {false, false, false, false},                                                                                                                                             /* not_equal */
-          {new_depth_value[0] < old_depth_value[0], new_depth_value[1] < old_depth_value[1], new_depth_value[2] < old_depth_value[2], new_depth_value[3] < old_depth_value[3]},     /* less */
-          {false, false, false, false},                                                                                                                                             /* less -<equal */
-          {false, false, false, false},                                                                                                                                             /* greater */
-          {false, false, false, false}                                                                                                                                              /* greater_equal */
-        };
-
-        // compound comparisons for depth test.
-        for(int k = 0; k < 4; ++k)
-        {
-            depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-            depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-            depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k];
-            depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-        }
-
-        bool depth_mask[4] = {
-          depth_compare[static_cast<std::uint32_t>(states.depth_func)][0], depth_compare[static_cast<std::uint32_t>(states.depth_func)][1], depth_compare[static_cast<std::uint32_t>(states.depth_func)][2], depth_compare[static_cast<std::uint32_t>(states.depth_func)][3]};
-
-        APPLY_BOOL_MASK(depth_mask, depth_mask);
-        APPLY_BOOL_MASK(out.write_color, depth_mask);
-        //!!fixme: set stencil mask?
-
-        // write depth.
-        if(depth_mask[0] || depth_mask[1] || depth_mask[2] || depth_mask[3])
-        {
-            uint32_t depth_write_mask[4] = {BOOL_TO_MASK(depth_mask[0]), BOOL_TO_MASK(depth_mask[1]), BOOL_TO_MASK(depth_mask[2]), BOOL_TO_MASK(depth_mask[3])};
-
-            // depth conversion.
-            ml::fixed_32_t write_depth[4] = {
-              depth_value[0], depth_value[1], depth_value[2], depth_value[3]};
-
-            *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(ml::fixed_32_t{write_depth[0]}) & depth_write_mask[0]));
-            *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(ml::fixed_32_t{write_depth[1]}) & depth_write_mask[1]));
-            *(depth_buffer_ptr[2]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[2])) & ~depth_write_mask[2]) | (ml::unwrap(ml::fixed_32_t{write_depth[2]}) & depth_write_mask[2]));
-            *(depth_buffer_ptr[3]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[3])) & ~depth_write_mask[3]) | (ml::unwrap(ml::fixed_32_t{write_depth[3]}) & depth_write_mask[3]));
-        }
+        states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
     }
+    apply_mask(write_color, depth_mask);
+    apply_mask(write_stencil, depth_mask);
+
+    // copy color and masks into output
+    copy_array4(out.color, color);
+    copy_array4(out.write_color, write_color);
+    copy_array4(out.write_stencil, write_stencil);
 }
 
 } /* namespace rast */

@@ -39,6 +39,13 @@ void render_device_context::Shutdown()
      * Clean up all slot maps.
      */
 
+    // framebuffers.
+    framebuffer_objects.clear();
+    framebuffer_objects.shrink_to_fit();
+
+    depth_attachments.clear();
+    depth_attachments.shrink_to_fit();
+
     // delete all geometry data.
     vertex_buffers.clear();
     vertex_buffers.shrink_to_fit();
@@ -63,38 +70,18 @@ void render_device_context::Shutdown()
     framebuffer.reset();
 }
 
-template<typename T>
-static void scissor_clear_buffer(T clear_value, renderbuffer<T>& buffer, const utils::rect& scissor_box)
-{
-    static_assert(sizeof(T) == sizeof(uint32_t), "Types sizes must match for utils::memset32 to work correctly.");
-
-    int x_min = std::min(std::max(0, scissor_box.x_min), buffer.width);
-    int x_max = std::max(0, std::min(scissor_box.x_max, buffer.width));
-    int y_min = std::min(std::max(buffer.height - scissor_box.y_max, 0), buffer.height);
-    int y_max = std::max(0, std::min(buffer.height - scissor_box.y_min, buffer.height));
-
-    const auto row_size = (x_max - x_min) * sizeof(T);
-
-    auto ptr = reinterpret_cast<uint8_t*>(buffer.data_ptr) + y_min * buffer.pitch + x_min * sizeof(T);
-    for(int y = y_min; y < y_max; ++y)
-    {
-        utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_value));
-        ptr += buffer.pitch;
-    }
-}
-
 void render_device_context::ClearColorBuffer()
 {
     // buffer clearing respects scissoring.
     if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.get_width()
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.get_height()))
+       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
+           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
     {
-        scissor_clear_buffer(framebuffer.color_attachment.pf_conv.to_pixel(states.clear_color), framebuffer.color_attachment, states.scissor_box);
+        states.draw_target->clear_color(0, states.clear_color, states.scissor_box);
     }
     else
     {
-        framebuffer.color_attachment.clear(framebuffer.color_attachment.pf_conv.to_pixel(states.clear_color));
+        states.draw_target->clear_color(0, states.clear_color);
     }
 }
 
@@ -102,20 +89,57 @@ void render_device_context::ClearDepthBuffer()
 {
     // buffer clearing respects scissoring.
     if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.get_width()
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.get_height()))
+       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
+           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
     {
-        scissor_clear_buffer(states.clear_depth, framebuffer.depth_attachment, states.scissor_box);
+        states.draw_target->clear_depth(states.clear_depth, states.scissor_box);
     }
     else
     {
-        framebuffer.depth_attachment.clear(states.clear_depth);
+        states.draw_target->clear_depth(states.clear_depth);
     }
 }
 
 /*
  * SDL render context implementation.
  */
+
+pixel_format sdl_render_context::get_window_pixel_format(Uint32* out_sdl_pixel_format) const
+{
+    switch(SDL_GetWindowPixelFormat(sdl_window))
+    {
+#if defined(_WIN32)
+    case SDL_PIXELFORMAT_RGB888:
+#elif defined(__linux__)
+    case SDL_PIXELFORMAT_RGB888:
+#elif defined(__APPLE__)
+    case SDL_PIXELFORMAT_RGB888:
+#else
+#    error Check the systems default pixel format.
+#endif
+    case SDL_PIXELFORMAT_ARGB8888:
+        if(out_sdl_pixel_format)
+        {
+            *out_sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;
+        }
+        return pixel_format::argb8888;
+
+    case SDL_PIXELFORMAT_RGBA8888:
+        if(out_sdl_pixel_format)
+        {
+            *out_sdl_pixel_format = SDL_PIXELFORMAT_RGBA8888;
+        }
+        return pixel_format::rgba8888;
+    }
+
+    // this is the default case, but it is a guess.
+    //!!fixme: log a warning?
+    if(out_sdl_pixel_format)
+    {
+        *out_sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;
+    }
+    return pixel_format::argb8888;
+}
 
 void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height)
 {
@@ -127,29 +151,17 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
     sdl_window = window;
     sdl_renderer = renderer;
 
-    // initialize viewport transform.
-    states.x = 0;
-    states.y = 0;
-    states.width = width;
-    states.height = height;
-    states.z_near = 0.f;
-    states.z_far = 1.f;
+    // reset states to default values.
+    states.reset(&framebuffer);
 
-    // initialze scissor box.
-    states.scissor_box = utils::rect{0, width, 0, height};
+    // set viewport dimensions.
+    states.set_viewport(0, 0, width, height);
 
-    // set depth func.
-    states.depth_test_enabled = false;
-    states.depth_func = comparison_func::less;
+    // set scissor box.
+    states.set_scissor_box(0, width, 0, height);
 
-    // set blend func.
-    states.blend_src = blend_func::one;
-    states.blend_dst = blend_func::zero;
-
-    // set color buffer width, height, and update the buffer.
-    framebuffer.color_attachment.width = upper_align_on_block_size(width);
-    framebuffer.color_attachment.height = upper_align_on_block_size(height);
-    UpdateBuffers();
+    // Update buffers with the given width and height.
+    UpdateBuffers(width, height);
 
     // write dimensions for the blitting rectangle.
     sdl_viewport_dimensions = {0, 0, width, height};
@@ -169,7 +181,7 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
 
     try
     {
-        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, &framebuffer));
+        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, width, height, &framebuffer));
     }
     catch(std::bad_alloc& e)
     {
@@ -199,36 +211,12 @@ void sdl_render_context::Shutdown()
     render_device_context::Shutdown();
 }
 
-void sdl_render_context::UpdateBuffers()
+void sdl_render_context::UpdateBuffers(int width, int height)
 {
-    // set the (global) pixel format.
-    Uint32 WindowPixelFormat = SDL_GetWindowPixelFormat(sdl_window);
-
-    Uint32 NativePixelFormat = 0;
-    switch(WindowPixelFormat)
+    if(width <= 0 || height <= 0)
     {
-#if defined(_WIN32)
-    case SDL_PIXELFORMAT_RGB888:
-#elif defined(__linux__)
-    case SDL_PIXELFORMAT_RGB888:
-#elif defined(__APPLE__)
-    case SDL_PIXELFORMAT_RGB888:
-#else
-#    error Check the systems default pixel format.
-#endif
-    case SDL_PIXELFORMAT_ARGB8888:
-        NativePixelFormat = SDL_PIXELFORMAT_ARGB8888;
-        framebuffer.set_color_pixel_format(pixel_format::argb8888);
-        break;
-
-    case SDL_PIXELFORMAT_RGBA8888:
-        NativePixelFormat = SDL_PIXELFORMAT_RGBA8888;
-        framebuffer.set_color_pixel_format(pixel_format::rgba8888);
-        break;
-
-    default:
-        NativePixelFormat = SDL_PIXELFORMAT_ARGB8888;
-        framebuffer.set_color_pixel_format(pixel_format::argb8888);
+        framebuffer.setup(0, 0, 0, pixel_format::unsupported, nullptr);
+        return;
     }
 
     if(sdl_color_buffer)
@@ -236,13 +224,19 @@ void sdl_render_context::UpdateBuffers()
         SDL_DestroyTexture(sdl_color_buffer);
         sdl_color_buffer = nullptr;
     }
-    sdl_color_buffer = SDL_CreateTexture(sdl_renderer, NativePixelFormat, SDL_TEXTUREACCESS_STREAMING, framebuffer.get_width(), framebuffer.get_height());
+
+    // get pixel format.
+    Uint32 native_pixel_format{0};
+    auto swr_pixel_format = get_window_pixel_format(&native_pixel_format);
+
+    // create SDL color buffer in native pixel format.
+    sdl_color_buffer = SDL_CreateTexture(sdl_renderer, native_pixel_format, SDL_TEXTUREACCESS_STREAMING, width, height);
     if(sdl_color_buffer == nullptr)
     {
         return;
     }
 
-    framebuffer.allocate_depth(framebuffer.get_width(), framebuffer.get_height());
+    framebuffer.setup(width, height, 0, swr_pixel_format, nullptr);
 }
 
 void sdl_render_context::CopyDefaultColorBuffer()
@@ -267,7 +261,7 @@ bool sdl_render_context::Lock()
             return false;
         }
 
-        framebuffer.attach_color(pitch, data_ptr);
+        framebuffer.color_buffer.attach(sdl_viewport_dimensions.w, sdl_viewport_dimensions.h, pitch, data_ptr);
     }
 
     return framebuffer.is_color_attached();
@@ -278,7 +272,7 @@ void sdl_render_context::Unlock()
     if(framebuffer.is_color_weakly_attached())
     {
         SDL_UnlockTexture(sdl_color_buffer);
-        framebuffer.detach_color();
+        framebuffer.color_buffer.detach();
     }
 }
 
@@ -288,20 +282,25 @@ void sdl_render_context::Unlock()
  * context interface.
  */
 
-context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, uint32_t thread_hint)
+context_handle CreateSDLContext(SDL_Window* window, SDL_Renderer* renderer, uint32_t thread_hint)
 {
-    int Width = 0, Height = 0;
-    SDL_GetWindowSize(Window, &Width, &Height);
-    impl::sdl_render_context* InternalContext = new impl::sdl_render_context(thread_hint);
-    InternalContext->Initialize(Window, Renderer, Width, Height);
-    return InternalContext;
+    if(!window || !renderer)
+    {
+        return nullptr;
+    }
+
+    int width = 0, height = 0;
+    SDL_GetWindowSize(window, &width, &height);
+    auto* context = new impl::sdl_render_context(thread_hint);
+    context->Initialize(window, renderer, width, height);
+    return context;
 }
 
-void DestroyContext(context_handle Context)
+void DestroyContext(context_handle context)
 {
-    if(Context)
+    if(context)
     {
-        auto ctx = static_cast<impl::render_device_context*>(Context);
+        auto ctx = static_cast<impl::render_device_context*>(context);
 
         if(impl::global_context == ctx)
         {
@@ -312,9 +311,9 @@ void DestroyContext(context_handle Context)
     }
 }
 
-bool MakeContextCurrent(context_handle Context)
+bool MakeContextCurrent(context_handle context)
 {
-    if(!Context)
+    if(!context)
     {
         // make no context the current one.
         if(impl::global_context)
@@ -325,29 +324,27 @@ bool MakeContextCurrent(context_handle Context)
 
         return true;
     }
-    else
-    {
-        assert(!impl::global_context);
-        impl::global_context = static_cast<impl::render_device_context*>(Context);
-        return impl::global_context->Lock();
-    }
+
+    assert(!impl::global_context);
+    impl::global_context = static_cast<impl::render_device_context*>(context);
+    return impl::global_context->Lock();
 }
 
-void CopyDefaultColorBuffer(context_handle Context)
+void CopyDefaultColorBuffer(context_handle context)
 {
-    assert(Context);
+    assert(context);
 
-    swr::impl::render_device_context* InternalContext = static_cast<swr::impl::render_device_context*>(Context);
+    swr::impl::render_device_context* internal_context = static_cast<swr::impl::render_device_context*>(context);
 
-    InternalContext->Unlock();
-    InternalContext->CopyDefaultColorBuffer();
+    internal_context->Unlock();
+    internal_context->CopyDefaultColorBuffer();
 
     // check results in debug builds.
 #ifdef DEBUG
-    bool LockSucceeded = InternalContext->Lock();
-    assert(LockSucceeded);
+    bool locked = internal_context->Lock();
+    assert(locked);
 #else
-    InternalContext->Lock();
+    internal_context->Lock();
 #endif
 }
 

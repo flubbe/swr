@@ -159,35 +159,29 @@ struct basic_interpolation_data
     /** get all varyings' values for a 2x2 block. */
     void get_varyings_block(boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4]) const
     {
-        out_varyings[0].resize(varyings.size());
-        out_varyings[1].resize(varyings.size());
-        out_varyings[2].resize(varyings.size());
-        out_varyings[3].resize(varyings.size());
+        out_varyings[0].clear();
+        out_varyings[1].clear();
+        out_varyings[2].clear();
+        out_varyings[3].clear();
 
-        boost::container::static_vector<swr::varying, geom::limits::max::varyings>::iterator out_it[4] = {
-          out_varyings[0].begin(), out_varyings[1].begin(), out_varyings[2].begin(), out_varyings[3].begin()};
-        auto it = varyings.begin();
-
-        for(; it != varyings.end(); ++it)
+        for(auto it: varyings)
         {
-            auto v = *it;
-            v.setup_block_processing();
+            it.setup_block_processing();
 
-            *(out_it[0]) = v;
+            // store value at (x,y)
+            out_varyings[0].push_back(it);
 
-            v.advance_x();
-            *(out_it[1]) = v;
+            // store value at (x+1,y)
+            it.advance_x();
+            out_varyings[1].push_back(it);
 
-            v.advance_y();
-            *(out_it[2]) = v;
+            // store value at (x,y+1)
+            it.advance_y();
+            out_varyings[2].push_back(it);
 
-            v.advance_x();
-            *(out_it[3]) = v;
-
-            ++out_it[0];
-            ++out_it[1];
-            ++out_it[2];
-            ++out_it[3];
+            // store value at (x+1,y+1)
+            it.advance_x();
+            out_varyings[3].push_back(it);
         }
     }
 
@@ -225,17 +219,21 @@ struct basic_interpolation_data
     /** get all depth values for a 2x2 block. */
     void get_depth_block(float out_depth[4]) const
     {
-        out_depth[0] = depth_value.value;
-
         auto depth = depth_value;
         depth.setup_block_processing();
 
+        // store value at (x,y)
+        out_depth[0] = depth.value;
+
+        // store value at (x+1,y)
         depth.advance_x();
         out_depth[1] = depth.value;
 
+        // store value at (x,y+1)
         depth.advance_y();
         out_depth[2] = depth.value;
 
+        // store value at (x+1,y+1)
         depth.advance_x();
         out_depth[3] = depth.value;
     }
@@ -274,17 +272,21 @@ struct basic_interpolation_data
     /** get all one over viewport z values for a 2x2 block. */
     void get_one_over_viewport_z_block(float out_one_over_viewport_z[4]) const
     {
-        out_one_over_viewport_z[0] = one_over_viewport_z.value;
-
         auto one_over_z = one_over_viewport_z;
         one_over_z.setup_block_processing();
 
+        // store value at (x,y)
+        out_one_over_viewport_z[0] = one_over_z.value;
+
+        // store value at (x+1,y)
         one_over_z.advance_x();
         out_one_over_viewport_z[1] = one_over_z.value;
 
+        // store value at (x,y+1)
         one_over_z.advance_y();
         out_one_over_viewport_z[2] = one_over_z.value;
 
+        // store value at (x+1,y+1)
         one_over_z.advance_x();
         out_one_over_viewport_z[3] = one_over_z.value;
     }
@@ -594,8 +596,10 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     triangle_interpolator& operator=(const triangle_interpolator& other)
     {
         assert(inv_area == other.inv_area);
-        assert(edge_v0v1 == other.edge_v0v1);
-        assert(edge_v0v2 == other.edge_v0v2);
+        assert(edge_v0v1.c == other.edge_v0v1.c);
+        assert(edge_v0v1.v_diff == other.edge_v0v1.v_diff);
+        assert(edge_v0v2.c == other.edge_v0v2.c);
+        assert(edge_v0v2.v_diff == other.edge_v0v2.v_diff);
 
         static_cast<basic_interpolation_data<geom::linear_interpolator_2d<float>>>(*this) = basic_interpolation_data<geom::linear_interpolator_2d<float>>(other);
 

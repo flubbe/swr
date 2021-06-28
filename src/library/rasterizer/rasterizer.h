@@ -23,7 +23,7 @@ struct rasterizer
     /** pixel center. */
     ml::vec2 pixel_center{0.5f, 0.5f};
 
-    /** width and height of rasterized area. should equal the viewport's width and height. */
+    /** width and height of rasterized area. */
     int raster_width{0}, raster_height{0};
 
     /** pointer to the default framebuffer. */
@@ -49,16 +49,12 @@ struct rasterizer
     rasterizer() = default;
 
     /** initializing constructor. */
-    rasterizer(swr::impl::default_framebuffer* in_framebuffer)
-    : framebuffer(in_framebuffer)
+    rasterizer(int width, int height, swr::impl::default_framebuffer* in_framebuffer)
+    : raster_width{width}
+    , raster_height{height}
+    , framebuffer{in_framebuffer}
     {
         assert(in_framebuffer);
-
-        assert(in_framebuffer->color_attachment.width == in_framebuffer->depth_attachment.width);
-        assert(in_framebuffer->color_attachment.height == in_framebuffer->depth_attachment.height);
-
-        raster_width = in_framebuffer->color_attachment.width;
-        raster_height = in_framebuffer->color_attachment.height;
     }
 
     /** virtual Destructor. */

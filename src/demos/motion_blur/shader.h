@@ -1,6 +1,17 @@
 /**
  * swr - a software rasterizer
  * 
+ * Shaders for the motion blur demo.
+ * 
+ * \author Felix Lubbe
+ * \copyright Copyright (c) 2021
+ * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
+ */
+
+namespace shader
+{
+
+/**
  * Normal mapping shader.
  *
  * vertex shader input:
@@ -27,15 +38,7 @@
  * samplers:
  *   location 0: diffuse texture
  *   location 1: normal map
- * 
- * \author Felix Lubbe
- * \copyright Copyright (c) 2021
- * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
-
-namespace shader
-{
-
 class normal_mapping : public swr::program
 {
     const ml::vec4 light_color{0.7, 1, 1, 1};
@@ -160,7 +163,24 @@ public:
     }
 };
 
-class im_texture : public swr::program
+/**
+ * An immediate-mode blending shader. Blends some percentage of a texture into the framebuffer.
+ *
+ * vertex shader input:
+ *   attribute 0: vertex position
+ *   attribute 2: texture coordinates
+ * 
+ * varyings:
+ *   location 0: texture coordinates
+ * 
+ * uniforms:
+ *   location 0: projection matrix              [mat4x4]
+ *   location 1: view matrix                    [mat4x4]
+ * 
+ * samplers:
+ *   location 0: diffuse texture
+ */
+class im_blend : public swr::program
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
@@ -204,7 +224,7 @@ public:
         ml::vec4 color = samplers[0]->sample_at(tex_coords.xy());
 
         // write fragment color.
-        gl_FragColor = {color.xyz(), 0.75f};
+        gl_FragColor = {color.xyz(), 0.16f};
 
         // accept fragment.
         return swr::accept;

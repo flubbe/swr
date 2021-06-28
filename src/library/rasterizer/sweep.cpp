@@ -15,6 +15,8 @@
 #include "fragment.h"
 #include "sweep.h"
 
+#include "fmt/format.h"
+
 namespace rast
 {
 

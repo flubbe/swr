@@ -33,7 +33,7 @@
 #include "particles.h"
 
 /** demo title. */
-const auto demo_title = "Motion Blur";
+const auto demo_title = "Accumulation Motion Blur";
 
 /** maximum number of particles. */
 constexpr int max_particles = 128;
@@ -45,7 +45,7 @@ class demo_emitter : public swr_app::renderwindow
     shader::normal_mapping shader;
 
     /** shader used for blurring. */
-    shader::im_texture blur_shader;
+    shader::im_blend blend_shader;
 
     /** normal mapping shader id. */
     uint32_t shader_id{0};
@@ -80,11 +80,19 @@ class demo_emitter : public swr_app::renderwindow
     /** particle system. */
     particles::particle_system particle_system;
 
-    /** blur texture. */
+    /** blur framebuffer object. */
+    uint32_t blur_fbo{0};
+
+    /** blur texture associated to the framebuffer object. */
     uint32_t blur_texture{0};
 
+    /** blur depth buffer associated to the framebuffer object. */
+    uint32_t blur_depth_id{0};
+
     /** texture shader for blur. */
-    uint32_t blur_shader_id{0};
+    uint32_t blend_shader_id{0};
+
+    uint32_t color_shader_id{0};
 
     /** light position. */
     ml::vec4 light_position{0, 3, -3, 1};
@@ -147,10 +155,10 @@ public:
             throw std::runtime_error("shader registration failed");
         }
 
-        blur_shader_id = swr::RegisterShader(&blur_shader);
-        if(!blur_shader_id)
+        blend_shader_id = swr::RegisterShader(&blend_shader);
+        if(!blend_shader_id)
         {
-            throw std::runtime_error("blur_shader registration failed");
+            throw std::runtime_error("blend_shader registration failed");
         }
 
         // set projection matrix.
@@ -224,14 +232,23 @@ public:
         swr::SetImage(cube_normal_map, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(cube_normal_map, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
-        // empty blur texture.
+        // create empty texture.
         img_data.clear();
         w = 1024;
         h = 1024;
         img_data.resize(w * h * sizeof(uint32_t));
+
         blur_texture = swr::CreateTexture();
         swr::SetImage(blur_texture, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(blur_texture, swr::wrap_mode::clamp_to_edge, swr::wrap_mode::clamp_to_edge);
+
+        // create framebuffer object and attach texture.
+        blur_fbo = swr::CreateFramebufferObject();
+        swr::FramebufferTexture(blur_fbo, swr::framebuffer_attachment::color_attachment_0, blur_texture, 0);
+
+        // create a depth renderbuffer and attach it to the fbo
+        blur_depth_id = swr::CreateDepthRenderbuffer(w, h);
+        swr::FramebufferRenderbuffer(blur_fbo, swr::framebuffer_attachment::depth_attachment, blur_depth_id);
 
         // set reference time for statistics and animation.
         reference_time = -SDL_GetTicks();
@@ -244,7 +261,9 @@ public:
 
     void destroy()
     {
+        swr::ReleaseFramebufferObject(blur_fbo);
         swr::ReleaseTexture(blur_texture);
+        swr::ReleaseDepthRenderbuffer(blur_depth_id);
 
         swr::ReleaseTexture(cube_normal_map);
         swr::ReleaseTexture(cube_tex);
@@ -322,6 +341,11 @@ public:
          * render particles.
          */
         begin_render();
+
+        // bind framebuffer object to draw target.
+        swr::BindFramebufferObject(swr::framebuffer_target::draw, blur_fbo);
+
+        // draw particles for the current frame.
         for(auto it: particle_system.get_particles())
         {
             if(it.is_active)
@@ -329,6 +353,10 @@ public:
                 draw_cube(it.position.xyz(), it.rotation_axis.xyz(), it.rotation_offset, it.scale);
             }
         }
+
+        // bind default framebuffer to draw target.
+        swr::BindFramebufferObject(swr::framebuffer_target::draw, 0);
+
         end_render();
 
         ++frame_count;
@@ -336,8 +364,14 @@ public:
 
     void begin_render()
     {
+        // clear FBO.
+        swr::BindFramebufferObject(swr::framebuffer_target::draw, blur_fbo);
+
         swr::ClearColorBuffer();
         swr::ClearDepthBuffer();
+
+        // write to default framebuffer.
+        swr::BindFramebufferObject(swr::framebuffer_target::draw, 0);
     }
 
     void end_render()
@@ -346,8 +380,6 @@ public:
 
         swr::Present();
         swr::CopyDefaultColorBuffer(context);
-
-        update_blur();
     }
 
     void draw_cube(ml::vec3 pos, ml::vec3 axis, float angle, float scale)
@@ -391,7 +423,9 @@ public:
 
     void post_process()
     {
-        swr::BindShader(blur_shader_id);
+        swr::SetState(swr::state::depth_test, false);
+
+        swr::BindShader(blend_shader_id);
 
         swr::ActiveTexture(swr::texture_0);
         swr::BindTexture(swr::texture_target::texture_2d, blur_texture);
@@ -421,27 +455,8 @@ public:
         swr::SetState(swr::state::blend, false);
 
         swr::BindShader(0);
-    }
 
-    void update_blur()
-    {
-        static std::vector<uint8_t> image;
-        static std::vector<uint32_t> surface;
-
-        //!!todo: we really should read the framebuffer here.
-        get_surface_buffer_rgba32(surface);
-        image.resize(width * height * sizeof(uint32_t));
-
-        for(int y = 0; y < height; ++y)
-        {
-            for(int x = 0; x < width; ++x)
-            {
-                auto pixel = surface[y * width + x];
-                *reinterpret_cast<uint32_t*>(&image[(y * width + x) * sizeof(uint32_t)]) = ((pixel & 0x000000ff) << 24) | ((pixel & 0x0000ff00) << 8) | ((pixel & 0x00ff0000) >> 8) | ((pixel & 0xff000000) >> 24);
-            }
-        }
-
-        swr::SetSubImage(blur_texture, 0, 0, 0, width, height, swr::pixel_format::rgba8888, image);
+        swr::SetState(swr::state::depth_test, true);
     }
 
     int get_frame_count() const

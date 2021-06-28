@@ -460,7 +460,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
                 swr::impl::fragment_output out;
 
                 process_fragment(ml::integral_part(p), ml::integral_part(v), states, attr.one_over_viewport_z.value, info, out);
-                framebuffer->color_attachment.merge_fragment(ml::integral_part(p), ml::integral_part(v), states, out);
+                states.draw_target->merge_color(0, ml::integral_part(p), ml::integral_part(v), out, states.blending_enabled, states.blend_src, states.blend_dst);
             }
 
             // update error variable.
@@ -488,7 +488,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, bool in
                 swr::impl::fragment_output out;
 
                 process_fragment(ml::integral_part(v), ml::integral_part(p), states, attr.one_over_viewport_z.value, info, out);
-                framebuffer->color_attachment.merge_fragment(ml::integral_part(p), ml::integral_part(v), states, out);
+                states.draw_target->merge_color(0, ml::integral_part(v), ml::integral_part(p), out, states.blending_enabled, states.blend_src, states.blend_dst);
             }
 
             // update error variable.

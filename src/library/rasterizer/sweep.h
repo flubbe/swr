@@ -232,8 +232,8 @@ class sweep_rasterizer : public rasterizer
 
 public:
     /** Constructor. */
-    sweep_rasterizer(std::size_t in_thread_count, swr::impl::default_framebuffer* in_framebuffer)
-    : rasterizer(in_framebuffer)
+    sweep_rasterizer(std::size_t in_thread_count, int width, int height, swr::impl::default_framebuffer* in_framebuffer)
+    : rasterizer(width, height, in_framebuffer)
 #ifdef SWR_ENABLE_MULTI_THREADING
     , rasterizer_threads(in_thread_count)
 #endif

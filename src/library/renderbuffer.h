@@ -17,18 +17,18 @@ namespace impl
 /** output after fragment processing, before merging. contains color and depth values, along with write flags. */
 struct fragment_output
 {
+    /*
+     * flag values.
+     */
+    static const uint32_t fof_write_color = 1;   /** write color value. */
+    static const uint32_t fof_write_depth = 2;   /** write depth value. */
+    static const uint32_t fof_write_stencil = 4; /** write stencil value. */
+
     /** color produced by the fragment shader. */
     ml::vec4 color;
 
-    /*
-      * flags.
-      */
-
-    /** whether the color value should be written to the color buffer. */
-    bool write_color{false};
-
-    /** whether the stencil value should be written to the stencil buffer (currently unused). */
-    bool write_stencil{false};
+    /** write flags. */
+    uint32_t write_flags{0};
 
     /** default constructor. */
     fragment_output() = default;
@@ -54,25 +54,30 @@ struct fragment_output_block
     fragment_output_block() = default;
 };
 
-/** Render buffers. */
+/** framebuffer attachment info. */
 template<typename T>
-struct renderbuffer
+struct attachment_info
 {
-    using value_type = T;
+    /** width of the attachment. Has to be aligned on rasterizer_block_size.  */
+    int width{0};
 
-    /** Width of the allocated color- and depth buffers. Has to be aligned on rasterizer_block_size.  */
-    int width = 0;
+    /** height of the attachment. Has to be aligned on rasterizer_block_size. */
+    int height{0};
 
-    /** Height of the allocated color- and depth buffers. Has to be aligned on rasterizer_block_size. */
-    int height = 0;
+    /** 
+     * attachment pitch. the interpretation depends on the buffer type:
+     * for uint32_t color buffers, this is the buffer width, in bytes.
+     * for ml::vec4 textures, this is the difference between two lines, measured in sizeof(ml::vec4).
+     */
+    int pitch{0};
 
-    /** Buffer width, in bytes. */
-    int pitch = 0;
+    /** pointer to the attachment's data. */
+    T* data_ptr{nullptr};
 
-    /** Pointer to the buffer data. */
-    T* data_ptr = nullptr;
+    /** default constructor. */
+    attachment_info() = default;
 
-    /** reset the renderbuffer, i.e., clear width, height, pitch and data_ptr. */
+    /** reset the attachment, i.e., clear width, height, pitch and data_ptr. */
     void reset()
     {
         width = 0;
@@ -81,45 +86,29 @@ struct renderbuffer
         data_ptr = nullptr;
     }
 
-    /** Clear the buffer. */
-    void clear(const T& v);
-
-    /** get pointer to the buffer at coordinate (x,y). */
-    T* at(int x, int y) const
+    /** set up all parameters. */
+    void setup(int in_width, int in_height, int in_pitch, T* in_data_ptr)
     {
-        return &data_ptr[y * width + x];
-    }
-
-    /** get four pointers to a 2x2 block with upper-left corner (x,y). */
-    void at(int x, int y, T* ptr[4]) const
-    {
-        ptr[0] = &data_ptr[y * width + x];
-        ptr[1] = ptr[0] + 1;
-        ptr[2] = ptr[0] + width;
-        ptr[3] = ptr[2] + 1;
+        width = in_width;
+        height = in_height;
+        pitch = in_pitch;
+        data_ptr = in_data_ptr;
     }
 };
 
-/* Generic buffer clearing function. */
-template<typename T>
-inline void renderbuffer<T>::clear(const T& v)
+/** A fixed-point depth buffer attachment. */
+struct attachment_depth
 {
-    if(data_ptr)
-    {
-        std::fill_n(data_ptr, pitch * height, v);
-    }
-}
+    /** attachment info. */
+    attachment_info<ml::fixed_32_t> info;
 
-/** A fixed-point depth buffer. */
-struct depth_buffer : public renderbuffer<ml::fixed_32_t>
-{
     /** The depth buffer data. */
     std::vector<ml::fixed_32_t> data;
 
     /** free resources. */
     void reset()
     {
-        renderbuffer<ml::fixed_32_t>::reset();
+        info.reset();
 
         data.clear();
         data.shrink_to_fit();
@@ -129,129 +118,95 @@ struct depth_buffer : public renderbuffer<ml::fixed_32_t>
     void allocate(int in_width, int in_height)
     {
         assert(in_width > 0 && in_height > 0);
-
-        width = in_width;
-        height = in_height;
-        pitch = in_width * sizeof(ml::fixed_32_t);
-
-        data_ptr = utils::align_vector(utils::alignment::sse, in_width * in_height, data);
+        info.setup(in_width, in_height, in_width * sizeof(ml::fixed_32_t), utils::align_vector(utils::alignment::sse, in_width * in_height, data));
     }
 };
-
-/* Specialized buffer clearing function. */
-template<>
-inline void renderbuffer<ml::fixed_32_t>::clear(const ml::fixed_32_t& v)
-{
-    if(data_ptr)
-    {
-        utils::memset32(reinterpret_cast<uint32_t*>(data_ptr), pitch * height, ml::unwrap(v));
-    }
-}
 
 /** A 32-bit color buffer. */
-struct color_buffer : public renderbuffer<uint32_t>
+struct attachment_color_buffer
 {
+    /** attachment info. */
+    attachment_info<std::uint32_t> info;
+
     /** pixel format converter. needs explicit initialization. */
-    pixel_format_converter pf_conv;
+    pixel_format_converter converter;
 
-    /** merge fragment. */
-    void merge_fragment(int x, int y, const render_states& states, const fragment_output& in)
+    /** reset buffer. */
+    void reset()
     {
-        if(in.write_color)
+        info.reset();
+        converter.set_pixel_format(pixel_format_descriptor::named_format(pixel_format::unsupported));
+    }
+
+    /** attach externally managed buffer. */
+    void attach(int width, int height, int pitch, std::uint32_t* ptr)
+    {
+        info.setup(width, height, pitch, ptr);
+
+        if(width <= 0 || height <= 0 || pitch <= 0 || !ptr)
         {
-            // convert color to output format.
-            uint32_t write_color = pf_conv.to_pixel(ml::clamp_to_unit_interval(in.color));
-
-            // alpha blending.
-            uint32_t* color_buffer_ptr = at(x, y);
-            if(states.blending_enabled)
-            {
-                write_color = swr::output_merger::blend(pf_conv, states, *color_buffer_ptr, write_color);
-            }
-
-            // write color.
-            *color_buffer_ptr = write_color;
+            info.reset();
         }
     }
 
-    void merge_fragment_block(int x, int y, const render_states& states, const fragment_output_block& in)
+    /** detach external buffer. */
+    void detach()
     {
-        // generate write mask.
-        auto to_mask = [](bool mask) -> uint32_t
-        { return ~(static_cast<uint32_t>(mask) - 1); };
-        uint32_t color_write_mask[4] = {to_mask(in.write_color[0]), to_mask(in.write_color[1]), to_mask(in.write_color[2]), to_mask(in.write_color[3])};
+        attach(0, 0, 0, nullptr);
+    }
 
-        if(in.write_color[0] || in.write_color[1] || in.write_color[2] || in.write_color[3])
-        {
-            // convert color to output format.
-            uint32_t write_color[4] = {
-              pf_conv.to_pixel(ml::clamp_to_unit_interval(in.color[0])),
-              pf_conv.to_pixel(ml::clamp_to_unit_interval(in.color[1])),
-              pf_conv.to_pixel(ml::clamp_to_unit_interval(in.color[2])),
-              pf_conv.to_pixel(ml::clamp_to_unit_interval(in.color[3]))};
-
-            // alpha blending.
-            uint32_t* color_buffer_ptr[4];
-            at(x, y, color_buffer_ptr);
-
-            if(states.blending_enabled)
-            {
-                write_color[0] = swr::output_merger::blend(pf_conv, states, *color_buffer_ptr[0], write_color[0]);
-                write_color[1] = swr::output_merger::blend(pf_conv, states, *color_buffer_ptr[1], write_color[1]);
-                write_color[2] = swr::output_merger::blend(pf_conv, states, *color_buffer_ptr[2], write_color[2]);
-                write_color[3] = swr::output_merger::blend(pf_conv, states, *color_buffer_ptr[3], write_color[3]);
-            }
-
-            // write color.
-            *(color_buffer_ptr[0]) = (*(color_buffer_ptr[0]) & ~color_write_mask[0]) | (write_color[0] & color_write_mask[0]);
-            *(color_buffer_ptr[1]) = (*(color_buffer_ptr[1]) & ~color_write_mask[1]) | (write_color[1] & color_write_mask[1]);
-            *(color_buffer_ptr[2]) = (*(color_buffer_ptr[2]) & ~color_write_mask[2]) | (write_color[2] & color_write_mask[2]);
-            *(color_buffer_ptr[3]) = (*(color_buffer_ptr[3]) & ~color_write_mask[3]) | (write_color[3] & color_write_mask[3]);
-        }
+    /** validate. */
+    bool is_valid() const
+    {
+        return info.data_ptr && info.pitch > 0;
     }
 };
 
-/* Specialized buffer clearing function. */
-template<>
-inline void renderbuffer<uint32_t>::clear(const uint32_t& v)
+/** texture attachment. */
+struct attachment_texture
 {
-    if(data_ptr)
-    {
-        utils::memset32(static_cast<uint32_t*>(data_ptr), pitch * height, v);
-    }
-}
+    /** attachment info. */
+    attachment_info<ml::vec4> info;
 
-/** render to texture. */
-struct texture_renderbuffer : public renderbuffer<ml::vec4>
-{
     /** attached texture id. */
     uint32_t tex_id{default_tex_id};
 
     /** attached texture pointer. */
     texture_2d* tex{nullptr};
 
-    /** texture data. */
-    texture_storage<ml::vec4>* data{nullptr};
+    /** the mipmap level we are writing to. */
+    uint32_t level{0};
 
     /** free resources. */
     void reset()
     {
         detach();
-        renderbuffer<ml::vec4>::reset();
+        info.reset();
     }
 
     /** attach texture. */
-    void attach(texture_2d* in_tex)
+    void attach(texture_2d* in_tex, std::uint32_t in_level = 0)
     {
         tex_id = default_tex_id;
         tex = nullptr;
-        data = nullptr;
+        level = 0;
 
-        if(in_tex)
+        info.reset();
+
+        if(in_tex && in_level < in_tex->data.data_ptrs.size())
         {
             tex_id = in_tex->id;
             tex = in_tex;
-            data = &in_tex->data;
+            level = in_level;
+
+            // if we have mipmaps for this texture, the pitch is 1.5*in_tex->width.
+            auto pitch = in_tex->width;
+            if(in_tex->data.data_ptrs.size() > 1)
+            {
+                pitch += in_tex->width >> 1;
+            }
+
+            info.setup(in_tex->width >> in_level, in_tex->height >> in_level, pitch, in_tex->data.data_ptrs[in_level]);
         }
     }
 
@@ -262,151 +217,336 @@ struct texture_renderbuffer : public renderbuffer<ml::vec4>
     }
 
     /** check if a non-default texture was attached, and if it is still valid. */
-    bool has_valid_attachment() const;
+    bool is_valid() const;
+};
 
-    /** allocate the buffer. */
-    void allocate(int in_width, int in_height)
+/** framebuffer properties. */
+class framebuffer_properties
+{
+protected:
+    /** (effective) width of the framebuffer target. */
+    int width{0};
+
+    /** (effective) height of the framebuffer target. */
+    int height{0};
+
+public:
+    /** default constructor. */
+    framebuffer_properties() = default;
+
+    /** constructor. */
+    framebuffer_properties(int in_width, int in_height)
+    : width{in_width}
+    , height{in_height}
     {
-        assert(in_width > 0 && in_height > 0);
+    }
 
-        // textures only support power-of-two dimensions, so we round in_width and in_height to the next power of two.
-        // we also store the original values as width/height, and the rounded width in "pitch" for use in access functions.
-
+    /** reset width and height. */
+    void reset_dimensions(int in_width = 0, int in_height = 0)
+    {
         width = in_width;
         height = in_height;
-        pitch = utils::round_to_next_power_of_two(in_width) * sizeof(value_type);
+    }
 
-        data->allocate(utils::round_to_next_power_of_two(in_width), utils::round_to_next_power_of_two(in_height), false);
-        data_ptr = data->data_ptrs[0];
+    /** get the target's width. */
+    int get_width() const
+    {
+        return width;
+    }
+
+    /** get the target's height. */
+    int get_height() const
+    {
+        return height;
     }
 };
 
+/** framebuffer draw target interface. */
+struct framebuffer_draw_target
+{
+    /** clear a color attachment. fails silently if the attachment is not available. */
+    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color) = 0;
+
+    /** clear part of a color attachment. fails silently if the attachment is not available or if the supplied rectangle was invalid. */
+    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) = 0;
+
+    /** clear the depth attachment. fails silently if the attachment is not available. */
+    virtual void clear_depth(ml::fixed_32_t clear_depth) = 0;
+
+    /** clear the depth attachment. fails silently if the attachment is not available of if the supplied rectangle was invalid. */
+    virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) = 0;
+
+    /** merge a color value while respecting blend modes, if requested. silently fails for invalid attachments. */
+    virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) = 0;
+
+    /** merge a 2x2 block of color values while respecting blend modes, if requested. silently fails for invalid attachments. */
+    virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) = 0;
+
+    /** 
+     * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write a new value to the depth buffer. 
+     * if the depth test failed, write_mask is set to false, and true otherwise. sets write_mask to true if no depth buffer was available.
+     */
+    virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) = 0;
+
+    /** 
+     * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write new values to the depth buffer. 
+     * if a depth test failed, correpsonding entry in write_mask is set to false, and true otherwise. sets all write_mask entries
+     * to true if no depth buffer was available.
+     */
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4]) = 0;
+};
+
 /** default framebuffer. */
-struct default_framebuffer
+struct default_framebuffer : public framebuffer_properties
+, public framebuffer_draw_target
 {
     /** default color buffer. */
-    color_buffer color_attachment;
+    attachment_color_buffer color_buffer;
 
     /** default depth attachment. */
-    depth_buffer depth_attachment;
+    attachment_depth depth_buffer;
 
     //!!todo: add stencil attachment.
 
     /** default constructor. */
     default_framebuffer() = default;
 
+    /*
+     * framebuffer_draw_target interface.
+     */
+
+    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color) override;
+    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
+    virtual void clear_depth(ml::fixed_32_t clear_depth) override;
+    virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) override;
+    virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4]) override;
+
+    /*
+     * default_framebuffer interface.
+     */
+
     /** reset to default state. */
     void reset()
     {
-        color_attachment.reset();
-        depth_attachment.reset();
+        reset_dimensions();
+        color_buffer.reset();
+        depth_buffer.reset();
     }
 
-    /** update color attachment. */
-    void attach_color(int in_pitch, color_buffer::value_type* in_data_ptr)
+    /** set up the default framebuffer. */
+    void setup(int width, int height, int pitch, pixel_format pixel_format, std::uint32_t* data)
     {
-        color_attachment.pitch = in_pitch;
-        color_attachment.data_ptr = in_data_ptr;
-    }
-
-    /** detach. same as attach_color(0,nullptr) */
-    void detach_color()
-    {
-        attach_color(0, nullptr);
+        reset();
+        color_buffer.attach(width, height, pitch, data);
+        color_buffer.converter.set_pixel_format(pixel_format_descriptor::named_format(pixel_format));
+        depth_buffer.allocate(width, height);
+        reset_dimensions(width, height);
     }
 
     /** update the color attachment's format. */
-    void set_color_pixel_format(swr::pixel_format name)
+    void set_color_pixel_format(pixel_format name)
     {
-        color_attachment.pf_conv.set_pixel_format(pixel_format_descriptor::named_format(name));
-    }
-
-    /** allocate depth buffer. */
-    void allocate_depth(int width, int height)
-    {
-        depth_attachment.allocate(width, height);
-    }
-
-    /** free depth buffer. */
-    void reset_depth()
-    {
-        depth_attachment.reset();
+        color_buffer.converter.set_pixel_format(pixel_format_descriptor::named_format(name));
     }
 
     /** check if the color attachment currently is attached to the externally supplied memory. */
     bool is_color_attached() const
     {
-        return color_attachment.pitch != 0 && color_attachment.data_ptr != nullptr;
+        return color_buffer.is_valid();
     }
 
     /** weakly check if the color attachment currently is attached to the externally supplied memory, i.e., only check data pointer. */
     bool is_color_weakly_attached() const
     {
-        return color_attachment.data_ptr != nullptr;
-    }
-
-    /** get the default framebuffer's width. this matches the color attachment's width. */
-    int get_width() const
-    {
-        return color_attachment.width;
-    }
-
-    /** get the default framebuffer's height. this matches the color attachment's height. */
-    int get_height() const
-    {
-        return color_attachment.height;
+        return color_buffer.info.data_ptr != nullptr;
     }
 };
 
 /** maximum number of color attachments. !!fixme: this should probably be put somewhere else? */
+// this must be compatible with the values in framebuffer_attachment.
 constexpr int max_color_attachments = 8;
 
 /** framebuffer objects. */
-struct framebuffer_object
+class framebuffer_object : public framebuffer_properties
+, public framebuffer_draw_target
 {
+    /** id of this object. */
+    uint32_t id{0};
+
     /** color attachments. */
-    std::array<std::unique_ptr<texture_renderbuffer>, max_color_attachments> color_attachments;
+    std::array<std::unique_ptr<attachment_texture>, max_color_attachments> color_attachments;
+
+    /** current color attachment count. */
+    uint32_t color_attachment_count{0};
 
     /** depth attachment. */
-    std::unique_ptr<depth_buffer> depth_attachment;
+    attachment_depth* depth_attachment{nullptr};
 
     //!!todo: add stencil attachment.
 
+    /** calculate effective width and height. */
+    void calculate_effective_dimensions()
+    {
+        int min_color_width = -1;
+        int min_color_height = -1;
+
+        if(color_attachment_count)
+        {
+            for(const auto& it: color_attachments)
+            {
+                if(it)
+                {
+                    min_color_width = (min_color_width < 0) ? it->info.width : std::min(min_color_width, it->info.width);
+                    min_color_height = (min_color_height < 0) ? it->info.height : std::min(min_color_height, it->info.height);
+                }
+            }
+        }
+
+        int depth_width = (depth_attachment == nullptr) ? -1 : depth_attachment->info.width;
+        int depth_height = (depth_attachment == nullptr) ? -1 : depth_attachment->info.height;
+
+        // set the effective width and height. we handle all cases except both widths/heights from above being negative.
+        width = (min_color_width > 0 && depth_width > 0) ? std::min(min_color_width, depth_width) : std::max(min_color_width, depth_width);
+        height = (min_color_height > 0 && depth_height > 0) ? std::min(min_color_height, depth_height) : std::max(min_color_height, depth_height);
+
+        // if the widths/heights from above were negative, then the respective effective size is zero.
+        width = std::max(width, 0);
+        height = std::max(height, 0);
+    }
+
+public:
     /** default constructor. */
     framebuffer_object() = default;
 
+    /*
+     * framebuffer_draw_target interface.
+     */
+
+    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color) override;
+    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
+    virtual void clear_depth(ml::fixed_32_t clear_depth) override;
+    virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) override;
+    virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4]) override;
+
+    /*
+     * framebuffer_object interface.
+     */
+
     /** reset. */
-    void reset()
+    void reset(int in_id = 0)
     {
-        for(auto& it : color_attachments)
+        for(auto& it: color_attachments)
         {
             // note: this deletes the object managed by the unique_ptr.
             it.reset();
         }
+        color_attachment_count = 0;
 
         // note: this deletes the object managed by the unique_ptr.
-        depth_attachment.reset();
+        depth_attachment = nullptr;
+
+        // set/reset id.
+        id = in_id;
+    }
+
+    /** attach at texture. */
+    void attach_texture(framebuffer_attachment attachment, texture_2d* tex, int level)
+    {
+        auto index = static_cast<int>(attachment);
+        if(index >= 0 && index < max_color_attachments)
+        {
+            if(!color_attachments[index])
+            {
+                color_attachments[index] = std::make_unique<attachment_texture>();
+                color_attachments[index]->attach(tex, level);
+
+                ++color_attachment_count;
+
+                // if this is the first attachment, we need to set the effective width and height.
+                if(!depth_attachment)
+                {
+                    reset_dimensions(color_attachments[index]->info.width, color_attachments[index]->info.height);
+                }
+            }
+            else
+            {
+                color_attachments[index]->attach(tex, level);
+
+                // update effective dimensions.
+                width = std::min(width, color_attachments[index]->info.width);
+                height = std::min(height, color_attachments[index]->info.height);
+            }
+        }
+    }
+
+    /** detach a texture. */
+    void detach_texture(framebuffer_attachment attachment)
+    {
+        auto index = static_cast<std::size_t>(attachment);
+        if(index >= 0 && index < max_color_attachments && color_attachments[index])
+        {
+            color_attachments[index]->detach();
+            color_attachments[index].reset();
+            --color_attachment_count;
+
+            calculate_effective_dimensions();
+        }
+    }
+
+    /** attach a depth buffer. */
+    void attach_depth(attachment_depth* attachment)
+    {
+        depth_attachment = attachment;
+
+        // if there were no color attachments, set effective width and height. otherwise, update it.
+        if(!std::count_if(color_attachments.begin(), color_attachments.end(), [](const auto& c) -> bool
+                          { return static_cast<bool>(c); }))
+        {
+            width = depth_attachment->info.width;
+            height = depth_attachment->info.height;
+        }
+        else
+        {
+            // update effective dimensions.
+            width = std::min(width, depth_attachment->info.width);
+            height = std::min(width, depth_attachment->info.height);
+        }
+    }
+
+    /** detach a depth buffer. */
+    void detach_depth()
+    {
+        attach_depth(nullptr);
+        calculate_effective_dimensions();
     }
 
     /** check completeness. */
     bool is_complete() const
     {
+        if(color_attachments.size() == 0)
+        {
+            return false;
+        }
+
         // attachment completeness.
         for(auto& it: color_attachments)
         {
-            if(it && (it->width == 0 || it->height == 0 || !it->has_valid_attachment()))
+            if(it && (it->info.width == 0 || it->info.height == 0 || !it->is_valid()))
             {
                 return false;
             }
         }
 
-        if(depth_attachment && (depth_attachment->width == 0 || depth_attachment->height == 0))
+        if(depth_attachment && (depth_attachment->info.width == 0 || depth_attachment->info.height == 0))
         {
             return false;
         }
-
-        //!!todo.
-        assert(0 && "implement framebuffer_object::is_complete");
 
         return false;
     }

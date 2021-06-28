@@ -15,8 +15,11 @@ namespace swr
 namespace output_merger
 {
 
-/** apply blending. */
-uint32_t blend(const pixel_format_converter& pf_conv, const swr::impl::render_states& states, const uint32_t dest, const uint32_t src);
+/** apply blending on pixels. */
+uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const uint32_t dest, const uint32_t src);
+
+/** apply blending on colors. */
+ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& dest, const ml::vec4& src);
 
 } /* namespace output_merger */
 

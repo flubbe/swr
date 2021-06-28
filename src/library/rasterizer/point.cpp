@@ -63,7 +63,7 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
         swr::impl::fragment_output out;
 
         process_fragment(x, y, states, v.coords.z, info, out);
-        framebuffer->color_attachment.merge_fragment(x, y, states, out);
+        states.draw_target->merge_color(0, x, y, out, states.blending_enabled, states.blend_src, states.blend_dst);
     }
 }
 

@@ -89,11 +89,21 @@ class render_device_context
 {
 public:
     /*
-     * context states.
+     * frame buffers.
      */
 
     /** default frame buffer. */
     default_framebuffer framebuffer;
+
+    /** frame buffer objects. */
+    utils::slot_map<framebuffer_object> framebuffer_objects;
+
+    /** depth renderbuffers. */
+    utils::slot_map<attachment_depth> depth_attachments;
+
+    /*
+     * context states.
+     */
 
     /** The current render states. These are copied on each draw call and stored in a draw list. */
     render_states states;
@@ -242,18 +252,6 @@ public:
     /** clear the depth buffer while respecting active render states. */
     void ClearDepthBuffer();
 
-    /** set the current clear color. */
-    void SetClearColor(float r, float g, float b, float a)
-    {
-        states.clear_color = ml::clamp_to_unit_interval({r, g, b, a});
-    }
-
-    /** set the current clear depth. */
-    void SetClearDepth(float z)
-    {
-        states.clear_depth = boost::algorithm::clamp(z, 0.f, 1.f);
-    }
-
     /*
      * primitive assembly.
      */
@@ -306,6 +304,9 @@ protected:
     /** associated SDL window. */
     SDL_Window* sdl_window{nullptr};
 
+    /** return the window's pixel format, converted to swr::pixel_format. if out_sdl_pixel_format is non-null, the SDL pixel format will be written into it. */
+    swr::pixel_format get_window_pixel_format(Uint32* out_sdl_pixel_format = nullptr) const;
+
 public:
     /** default constructor. */
     sdl_render_context(uint32_t thread_hint)
@@ -338,8 +339,8 @@ public:
     /** initialize the context with the supplied SDL data and create the buffers. */
     void Initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height);
 
-    /** (re-)create depth- and color buffers. */
-    void UpdateBuffers();
+    /** (re-)create depth- and color buffers using the given width and height. */
+    void UpdateBuffers(int width, int height);
 };
 
 /*

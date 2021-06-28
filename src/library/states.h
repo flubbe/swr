@@ -9,6 +9,7 @@
  */
 
 #include <boost/container/static_vector.hpp>
+#include <boost/algorithm/clamp.hpp>
 
 namespace swr
 {
@@ -58,8 +59,91 @@ struct render_states
     struct program_info* shader_info{nullptr}; /* the context owns the shader info */
     boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations> uniforms;
 
+    /* framebuffer. this needs to be always valid for the drawing functions. */
+    struct framebuffer_draw_target* draw_target{nullptr};
+
     /** default constructor. */
     render_states() = default;
+
+    /** reset the states. */
+    void reset(struct framebuffer_draw_target* default_draw_target)
+    {
+        clear_color = ml::vec4::zero();
+        clear_depth = 1;
+
+        x = 0;
+        y = 0;
+        width = 0;
+        height = 0;
+
+        z_near = 0;
+        z_far = 1;
+
+        scissor_test_enabled = false;
+        scissor_box = utils::rect{0, 0, 0, 0};
+
+        depth_test_enabled = false;
+        write_depth = true;
+        depth_func = comparison_func::less;
+
+        culling_enabled = false;
+        front_face = front_face_orientation::ccw;
+        cull_mode = cull_face_direction::back;
+
+        poly_mode = polygon_mode::fill;
+
+        blending_enabled = false;
+        blend_src = blend_func::one;
+        blend_dst = blend_func::zero;
+
+        texture_2d_units.clear();
+        texture_2d_units.shrink_to_fit();
+
+        texture_2d_active_unit = 0;
+
+        texture_2d_samplers.clear();
+        texture_2d_samplers.shrink_to_fit();
+
+        shader_info = nullptr;
+        uniforms.clear();
+        uniforms.shrink_to_fit();
+
+        draw_target = default_draw_target;
+    }
+
+    /** set the clear color. */
+    void set_clear_color(float r, float g, float b, float a)
+    {
+        clear_color = ml::clamp_to_unit_interval({r, g, b, a});
+    }
+
+    /** set the current clear depth. */
+    void set_clear_depth(float z)
+    {
+        clear_depth = boost::algorithm::clamp(z, 0.f, 1.f);
+    }
+
+    /** set the viewport. */
+    void set_viewport(int in_x, int in_y, unsigned int in_width, unsigned int in_height)
+    {
+        x = in_x;
+        y = in_y;
+        width = in_width;
+        height = in_height;
+    }
+
+    /** update min and max depth values. */
+    void set_depth_range(float in_z_near, float in_z_far)
+    {
+        z_near = boost::algorithm::clamp(in_z_near, 0.f, 1.f);
+        z_far = boost::algorithm::clamp(in_z_far, 0.f, 1.f);
+    }
+
+    /** set scissor box. */
+    void set_scissor_box(int x_min, int x_max, int y_min, int y_max)
+    {
+        scissor_box = utils::rect{x_min, x_max, y_min, y_max};
+    }
 };
 
 } /* namespace impl */

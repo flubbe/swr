@@ -327,7 +327,7 @@ public:
  * minimal application initialization and shutdown code for boost's global fixture.
  * note that this needs to be integrated into the boost test framework by
  * 
- *  using fixture = test::boost_global_fixture;
+ *  using fixture = swr_app::boost_global_fixture;
  *  BOOST_GLOBAL_FIXTURE(fixture)
  * 
  * this circumvents a substitution error of macros when used with nested names/namespaces.
