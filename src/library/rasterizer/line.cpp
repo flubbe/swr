@@ -421,7 +421,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
         error = fix_dv * 2 - fix_dp;
 
         // set final parameter
-        end_p = ml::fixed_t(std::min(info.v2->coords.x + info.offset_v2.x, static_cast<float>(raster_width - 1)));
+        end_p = ml::fixed_t(std::min(info.v2->coords.x + info.offset_v2.x, static_cast<float>(states.draw_target->properties.height - 1)));
     }
     else
     {
@@ -442,7 +442,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
         error = fix_dv * 2 - fix_dp;
 
         // set final parameter
-        end_p = ml::fixed_t(std::min(info.v2->coords.y + info.offset_v2.y, static_cast<float>(raster_height - 1)));
+        end_p = ml::fixed_t(std::min(info.v2->coords.y + info.offset_v2.y, static_cast<float>(states.draw_target->properties.height - 1)));
     }
 
     /*
@@ -457,7 +457,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
             attr.get_varyings<0, 0>(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
-            if(p >= 0 && v >= 0 && v < raster_height)
+            if(p >= 0 && v >= 0 && v < states.draw_target->properties.height)
             {
                 rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
                 swr::impl::fragment_output out;
@@ -485,7 +485,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
             attr.get_varyings<0, 0>(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
-            if(p >= 0 && v >= 0 && v < raster_width)
+            if(p >= 0 && v >= 0 && v < states.draw_target->properties.width)
             {
                 rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
                 swr::impl::fragment_output out;

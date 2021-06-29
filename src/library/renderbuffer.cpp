@@ -606,9 +606,8 @@ void ReleaseFramebufferObject(uint32_t id)
     auto slot = id_to_slot(id);
     if(slot < context->framebuffer_objects.size() && !context->framebuffer_objects.is_free(slot))
     {
-        // check if we are bound to a target.
-        auto* fbo = &context->framebuffer_objects[slot];
-        if(context->states.draw_target == fbo)
+        // check if we are bound to a target and reset the target if necessary.
+        if(context->states.draw_target == &context->framebuffer_objects[slot])
         {
             context->states.draw_target = &context->framebuffer;
         }

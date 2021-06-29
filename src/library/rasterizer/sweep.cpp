@@ -15,20 +15,12 @@
 #include "fragment.h"
 #include "sweep.h"
 
-#include "fmt/format.h"
-
 namespace rast
 {
 
 /*
  * sweep_rasterizer implementation.
  */
-
-void sweep_rasterizer::set_dimensions(int in_width, int in_height)
-{
-    raster_width = in_width;
-    raster_height = in_height;
-}
 
 void sweep_rasterizer::add_point(const swr::impl::render_states* states, const geom::vertex* vertex)
 {

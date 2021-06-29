@@ -45,8 +45,8 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
     int x = ml::integral_part(adjusted_coords.x - cnl::wrap<ml::vec2_fixed<4>::type>(FILL_RULE_EDGE_BIAS));
     int y = ml::integral_part(adjusted_coords.y - cnl::wrap<ml::vec2_fixed<4>::type>(FILL_RULE_EDGE_BIAS));
 
-    if(x >= 0 && x < raster_width
-       && y >= 0 && y < raster_height)
+    if(x >= 0 && x < states.draw_target->properties.width
+       && y >= 0 && y < states.draw_target->properties.height)
     {
         // set up attributes and varyings.
         boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp(v.varyings.size());

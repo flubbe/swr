@@ -221,49 +221,28 @@ struct attachment_texture
 };
 
 /** framebuffer properties. */
-class framebuffer_properties
+struct framebuffer_properties
 {
-protected:
     /** (effective) width of the framebuffer target. */
     int width{0};
 
     /** (effective) height of the framebuffer target. */
     int height{0};
 
-public:
-    /** default constructor. */
-    framebuffer_properties() = default;
-
-    /** constructor. */
-    framebuffer_properties(int in_width, int in_height)
-    : width{in_width}
-    , height{in_height}
-    {
-    }
-
-    /** reset width and height. */
-    void reset_dimensions(int in_width = 0, int in_height = 0)
+    /** reset dimensions. */
+    void reset(int in_width = 0, int in_height = 0)
     {
         width = in_width;
         height = in_height;
     }
-
-    /** get the target's width. */
-    int get_width() const
-    {
-        return width;
-    }
-
-    /** get the target's height. */
-    int get_height() const
-    {
-        return height;
-    }
 };
 
-/** framebuffer draw target interface. */
+/** framebuffer draw target. */
 struct framebuffer_draw_target
 {
+    /** the target's properties. */
+    framebuffer_properties properties;
+
     /** virtual destructor. */
     virtual ~framebuffer_draw_target() = default;
 
@@ -300,8 +279,7 @@ struct framebuffer_draw_target
 };
 
 /** default framebuffer. */
-struct default_framebuffer : public framebuffer_properties
-, public framebuffer_draw_target
+struct default_framebuffer : public framebuffer_draw_target
 {
     /** default color buffer. */
     attachment_color_buffer color_buffer;
@@ -337,7 +315,7 @@ struct default_framebuffer : public framebuffer_properties
     /** reset to default state. */
     void reset()
     {
-        reset_dimensions();
+        properties.reset();
         color_buffer.reset();
         depth_buffer.reset();
     }
@@ -349,7 +327,7 @@ struct default_framebuffer : public framebuffer_properties
         color_buffer.attach(width, height, pitch, data);
         color_buffer.converter.set_pixel_format(pixel_format_descriptor::named_format(pixel_format));
         depth_buffer.allocate(width, height);
-        reset_dimensions(width, height);
+        properties.reset(width, height);
     }
 
     /** update the color attachment's format. */
@@ -376,8 +354,7 @@ struct default_framebuffer : public framebuffer_properties
 constexpr int max_color_attachments = 8;
 
 /** framebuffer objects. */
-class framebuffer_object : public framebuffer_properties
-, public framebuffer_draw_target
+class framebuffer_object : public framebuffer_draw_target
 {
     /** id of this object. */
     uint32_t id{0};
@@ -396,8 +373,8 @@ class framebuffer_object : public framebuffer_properties
     /** calculate effective width and height. */
     void calculate_effective_dimensions()
     {
-        int min_color_width = -1;
-        int min_color_height = -1;
+        int width = -1;
+        int height = -1;
 
         if(color_attachment_count)
         {
@@ -405,8 +382,8 @@ class framebuffer_object : public framebuffer_properties
             {
                 if(it)
                 {
-                    min_color_width = (min_color_width < 0) ? it->info.width : std::min(min_color_width, it->info.width);
-                    min_color_height = (min_color_height < 0) ? it->info.height : std::min(min_color_height, it->info.height);
+                    width = (width < 0) ? it->info.width : std::min(width, it->info.width);
+                    height = (height < 0) ? it->info.height : std::min(height, it->info.height);
                 }
             }
         }
@@ -415,12 +392,11 @@ class framebuffer_object : public framebuffer_properties
         int depth_height = (depth_attachment == nullptr) ? -1 : depth_attachment->info.height;
 
         // set the effective width and height. we handle all cases except both widths/heights from above being negative.
-        width = (min_color_width > 0 && depth_width > 0) ? std::min(min_color_width, depth_width) : std::max(min_color_width, depth_width);
-        height = (min_color_height > 0 && depth_height > 0) ? std::min(min_color_height, depth_height) : std::max(min_color_height, depth_height);
+        width = (width > 0 && depth_width > 0) ? std::min(width, depth_width) : std::max(width, depth_width);
+        height = (height > 0 && depth_height > 0) ? std::min(height, depth_height) : std::max(height, depth_height);
 
         // if the widths/heights from above were negative, then the respective effective size is zero.
-        width = std::max(width, 0);
-        height = std::max(height, 0);
+        properties.reset(std::max(width, 0), std::max(height, 0));
     }
 
 public:
@@ -489,10 +465,15 @@ public:
 
                 ++color_attachment_count;
 
-                // if this is the first attachment, we need to set the effective width and height.
                 if(!depth_attachment)
                 {
-                    reset_dimensions(color_attachments[index]->info.width, color_attachments[index]->info.height);
+                    // if this is the first attachment, we need to set the effective width and height.
+                    properties.reset(color_attachments[index]->info.width, color_attachments[index]->info.height);
+                }
+                else
+                {
+                    // update effective dimensions.
+                    properties.reset(std::min(depth_attachment->info.width, color_attachments[index]->info.width), std::min(depth_attachment->info.height, color_attachments[index]->info.height));
                 }
             }
             else
@@ -500,8 +481,9 @@ public:
                 color_attachments[index]->attach(tex, level);
 
                 // update effective dimensions.
-                width = std::min(width, color_attachments[index]->info.width);
-                height = std::min(height, color_attachments[index]->info.height);
+                int old_width = properties.width;
+                int old_height = properties.height;
+                properties.reset(std::min(old_width, color_attachments[index]->info.width), std::min(old_height, color_attachments[index]->info.height));
             }
         }
     }
@@ -529,14 +511,12 @@ public:
         if(!std::count_if(color_attachments.begin(), color_attachments.end(), [](const auto& c) -> bool
                           { return static_cast<bool>(c); }))
         {
-            width = depth_attachment->info.width;
-            height = depth_attachment->info.height;
+            properties.reset(depth_attachment->info.width, depth_attachment->info.height);
         }
         else
         {
             // update effective dimensions.
-            width = std::min(width, depth_attachment->info.width);
-            height = std::min(width, depth_attachment->info.height);
+            properties.reset(std::min(properties.width, depth_attachment->info.width), std::min(properties.height, depth_attachment->info.height));
         }
     }
 

@@ -426,9 +426,18 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     if(states.scissor_test_enabled)
     {
         int x_min = std::max(states.scissor_box.x_min, 0);
-        int x_max = std::min(states.scissor_box.x_max, raster_width);
-        int y_min = std::max(raster_height - states.scissor_box.y_max, 0);
-        int y_max = std::min(raster_height - states.scissor_box.y_min, raster_height);
+        int x_max = std::min(states.scissor_box.x_max, states.draw_target->properties.width);
+
+        int y_min = std::max(states.scissor_box.y_min, 0);
+        int y_max = std::min(states.scissor_box.y_max, states.draw_target->properties.height);
+
+        // the default framebuffer needs a flip.
+        if(states.draw_target == framebuffer)
+        {
+            int y_temp = y_min;
+            y_min = states.draw_target->properties.height - y_max;
+            y_max = states.draw_target->properties.height - y_temp;
+        }
 
         start_x = std::max(swr::impl::lower_align_on_block_size(std::min({v1x, v2x, v3x})), x_min);
         end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), x_max);
@@ -438,9 +447,9 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     else
     {
         start_x = std::max(swr::impl::lower_align_on_block_size(std::min({v1x, v2x, v3x})), 0);
-        end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), raster_width);
+        end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), states.draw_target->properties.width);
         start_y = std::max(swr::impl::lower_align_on_block_size(std::min({v1y, v2y, v3y})), 0);
-        end_y = std::min(swr::impl::upper_align_on_block_size(std::max({v1y + 1, v2y + 1, v3y + 1})), raster_height);
+        end_y = std::min(swr::impl::upper_align_on_block_size(std::max({v1y + 1, v2y + 1, v3y + 1})), states.draw_target->properties.height);
     }
 
     // initialize lambdas for point-in-triangle detection.
@@ -526,8 +535,6 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
                 process_block_checked(tile_index, lambdas_box.top_left);
 #endif
             }
-
-            SWR_STATS_INCREMENT(stats_rast.jobs);
         }
     }
 }

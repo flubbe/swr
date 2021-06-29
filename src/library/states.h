@@ -65,6 +65,15 @@ struct render_states
     /** default constructor. */
     render_states() = default;
 
+    /** default copy constructor. */
+    render_states(const render_states&) = default;
+
+    /** default move constructor. */
+    render_states(render_states&&) = default;
+
+    /** default assignment operator. */
+    render_states& operator=(const render_states&) = default;
+
     /** reset the states. */
     void reset(struct framebuffer_draw_target* default_draw_target)
     {

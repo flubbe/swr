@@ -44,8 +44,19 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
      */
     if(states.scissor_test_enabled)
     {
+        int y_min{states.scissor_box.y_min};
+        int y_max{states.scissor_box.y_max};
+
+        // the default framebuffer needs a flip.
+        if(states.draw_target == framebuffer)
+        {
+            int y_temp = y_min;
+            y_min = states.draw_target->properties.height - y_max;
+            y_max = states.draw_target->properties.height - y_temp;
+        }
+
         if(x < states.scissor_box.x_min || x >= states.scissor_box.x_max
-           || y < (raster_height - states.scissor_box.y_max) || y >= (raster_height - states.scissor_box.y_min))
+           || y < y_min || y >= y_max)
         {
             out.write_flags = 0;
             return;
@@ -92,7 +103,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
     {
         frag_coord = {
           static_cast<float>(x) - pixel_center.x,
-          framebuffer->get_height() - (static_cast<float>(y) - pixel_center.y),
+          framebuffer->properties.height - (static_cast<float>(y) - pixel_center.y),
           z};
     }
     else
@@ -166,8 +177,19 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
      */
     if(states.scissor_test_enabled)
     {
-        auto scissor_check = [&states, this](int _x, int _y) -> bool
-        { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= (raster_height - states.scissor_box.y_max) && _y < (raster_height - states.scissor_box.y_min); };
+        int y_min{states.scissor_box.y_min};
+        int y_max{states.scissor_box.y_max};
+
+        // the default framebuffer needs a flip.
+        if(states.draw_target == framebuffer)
+        {
+            int y_temp = y_min;
+            y_min = states.draw_target->properties.height - y_max;
+            y_max = states.draw_target->properties.height - y_temp;
+        }
+
+        auto scissor_check = [y_min, y_max, &states, this](int _x, int _y) -> bool
+        { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= y_min && _y < y_max; };
         bool scissor_mask[4] = {
           scissor_check(coords[0].x, coords[0].y), scissor_check(coords[1].x, coords[1].y), scissor_check(coords[2].x, coords[2].y), scissor_check(coords[3].x, coords[3].y)};
 
@@ -238,10 +260,10 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
 
     if(states.draw_target == framebuffer)
     {
-        frag_coord[0].y = framebuffer->get_height() - frag_coord[0].y;
-        frag_coord[1].y = framebuffer->get_height() - frag_coord[1].y;
-        frag_coord[2].y = framebuffer->get_height() - frag_coord[2].y;
-        frag_coord[3].y = framebuffer->get_height() - frag_coord[3].y;
+        frag_coord[0].y = framebuffer->properties.height - frag_coord[0].y;
+        frag_coord[1].y = framebuffer->properties.height - frag_coord[1].y;
+        frag_coord[2].y = framebuffer->properties.height - frag_coord[2].y;
+        frag_coord[3].y = framebuffer->properties.height - frag_coord[3].y;
     }
 
     swr::fragment_shader_result accept_mask[4] = {

@@ -181,7 +181,7 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
 
     try
     {
-        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, width, height, &framebuffer));
+        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, &framebuffer));
     }
     catch(std::bad_alloc& e)
     {

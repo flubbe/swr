@@ -23,9 +23,6 @@ struct rasterizer
     /** pixel center. */
     ml::vec2 pixel_center{0.5f, 0.5f};
 
-    /** width and height of rasterized area. */
-    int raster_width{0}, raster_height{0};
-
     /** pointer to the default framebuffer. */
     swr::impl::default_framebuffer* framebuffer{nullptr};
 
@@ -49,10 +46,8 @@ struct rasterizer
     rasterizer() = default;
 
     /** initializing constructor. */
-    rasterizer(int width, int height, swr::impl::default_framebuffer* in_framebuffer)
-    : raster_width{width}
-    , raster_height{height}
-    , framebuffer{in_framebuffer}
+    rasterizer(swr::impl::default_framebuffer* in_framebuffer)
+    : framebuffer{in_framebuffer}
     {
         assert(in_framebuffer);
     }
@@ -64,9 +59,6 @@ struct rasterizer
 
     /** Return a short description of the rasterizer. */
     virtual const std::string describe() const = 0;
-
-    /** Set width and height of the render buffer. */
-    virtual void set_dimensions(int in_width, int in_height) = 0;
 
     /**
      * Add a point which is to be rasterized. The supplied vertices are assumed to

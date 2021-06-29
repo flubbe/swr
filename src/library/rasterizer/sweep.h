@@ -232,8 +232,8 @@ class sweep_rasterizer : public rasterizer
 
 public:
     /** Constructor. */
-    sweep_rasterizer(std::size_t in_thread_count, int width, int height, swr::impl::default_framebuffer* in_framebuffer)
-    : rasterizer(width, height, in_framebuffer)
+    sweep_rasterizer(std::size_t in_thread_count, swr::impl::default_framebuffer* in_framebuffer)
+    : rasterizer(in_framebuffer)
 #ifdef SWR_ENABLE_MULTI_THREADING
     , rasterizer_threads(in_thread_count)
 #endif
@@ -255,7 +255,6 @@ public:
     {
         return std::string("Sweep Rasterizer");
     }
-    void set_dimensions(int in_width, int in_height) override;
     void add_point(const swr::impl::render_states* S, const geom::vertex* V) override;
     void add_line(const swr::impl::render_states* S, const geom::vertex* V1, const geom::vertex* V2) override;
     void add_triangle(const swr::impl::render_states* S, bool is_front_facing, const geom::vertex* V1, const geom::vertex* V2, const geom::vertex* V3) override;
