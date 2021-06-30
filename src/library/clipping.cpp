@@ -49,66 +49,6 @@ constexpr float W_CLIPPING_PLANE = 1e-5f;
 #    define W_CLIPPING_PLANE (1e-5f)
 #endif
 
-/**
- * Clip a triangle against the w plane.
- *
- * Recall that a visible vertex has to satisfy the relations
- *
- *    -w <= x <= w
- *    -w <= y <= w
- *    -w <= z <= w
- *      0 < w.
- *
- * in_vb and out_vb are not allowed to refer to the same buffer.
- * 
- * if in_vb does not contain a triangle (i.e., 3 vertices), we empty the output buffer and return.
- */
-static void clip_triangle_on_w_plane(const vertex_buffer& in_triangle, vertex_buffer& out_vb)
-{
-    // ensure the output buffer is empty.
-    out_vb.clear();
-
-    // check that in_vb contains a triangle.
-    if(in_triangle.size() != 3)
-    {
-        return;
-    }
-
-    auto* prev_vert = &in_triangle[2]; /* last triangle vertex */
-    int prev_dot = (prev_vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
-
-    for(int i = 0; i < 3; ++i)
-    {
-        auto* vert = &in_triangle[i];
-        int dot = (vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
-
-        // do consistent clipping.
-        if(prev_dot * dot < 0)
-        {
-            // Need to clip against plane w=0.
-            //
-            // to avoid dividing by zero when converting to NDC, we clip
-            // against w=W_CLIPPING_PLANE.
-
-            auto* inside_vert = (prev_dot < 0) ? vert : prev_vert;
-            auto* outside_vert = (prev_dot < 0) ? prev_vert : vert;
-
-            float t = (inside_vert->coords.w - W_CLIPPING_PLANE) / (inside_vert->coords.w - outside_vert->coords.w);
-            assert(t >= 0 && t <= 1);
-
-            out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
-        }
-
-        if(dot > 0)
-        {
-            out_vb.push_back(*vert);
-        }
-
-        prev_vert = vert;
-        prev_dot = dot;
-    }
-}
-
 /** 
  * clip with respect to these axes. more precisely, clip against the 
  * planes with plane equations (x=w,x=-w), (y=w,y=-w), (z=w,z=-w). 
@@ -217,6 +157,205 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 }
 
 /**
+ * Clip a line against the w plane.
+ *
+ * Recall that a visible vertex has to satisfy the relations
+ *
+ *    -w <= x <= w
+ *    -w <= y <= w
+ *    -w <= z <= w
+ *      0 < w.
+ *
+ * in_vb and out_vb are not allowed to refer to the same buffer.
+ * 
+ * if in_vb does not contain a line (i.e., 2 vertices), we empty the output buffer and return.
+ */
+static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& out_vb)
+{
+    // ensure the output buffer is empty.
+    out_vb.clear();
+
+    // check that in_vb contains a line.
+    if(in_line.size() != 2)
+    {
+        return;
+    }
+
+    int dots[2] = {
+      (in_line[0].coords.w < W_CLIPPING_PLANE) ? -1 : 1,
+      (in_line[1].coords.w < W_CLIPPING_PLANE) ? -1 : 1};
+
+    if(dots[0] > 0)
+    {
+        out_vb.push_back(in_line[0]);
+    }
+
+    // do consistent clipping.
+    if(dots[0] * dots[1] < 0)
+    {
+        // Need to clip against plane w=0.
+        //
+        // to avoid dividing by zero when converting to NDC, we clip
+        // against w=W_CLIPPING_PLANE.
+
+        // !!fixme? this selection could be condensed into a single comparison, since dots[0]*dots[1]<0 implies that exactly one of the dots[i] is positive.
+        auto* inside_vert = (dots[0] < 0) ? &in_line[0] : &in_line[1];
+        auto* outside_vert = (dots[1] < 0) ? &in_line[1] : &in_line[0];
+
+        float t = (inside_vert->coords.w - W_CLIPPING_PLANE) / (inside_vert->coords.w - outside_vert->coords.w);
+        assert(t >= 0 && t <= 1);
+
+        out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
+    }
+
+    if(dots[1] > 0)
+    {
+        out_vb.push_back(in_line[1]);
+    }
+}
+
+/**
+ * Clip a vertex buffer/index buffer pair against the view frustum. the index buffer/vertex buffer pair is assumed
+ * to contain a line list, i.e., if i is divisible by 2, then in_ib[i] and in_ib[i+1] need to be indices into in_vb 
+ * forming a line.
+ */
+void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb)
+{
+    /*
+     * temporary buffers. they are static in order to do memory allocation only about once.
+     */
+    static vertex_buffer clipped_line{2};
+    static vertex_buffer temp_line{2};
+
+    /*
+     * Algorithm:
+     *
+     *  i)   Loop over lines
+     *  ii)  If the lines contains a discarded vertex, do clipping and copy resulting line to temporary buffer
+     *  iii) Copy all temporary lines to the output vertex buffer.
+     */
+
+    out_vb.clear();
+    out_vb.reserve(in_vb.size());
+
+    for(size_t index_it = 0; index_it < in_ib.size(); index_it += 2)
+    {
+        const auto i1 = in_ib[index_it];
+        const auto i2 = in_ib[index_it + 1];
+
+        const auto& v1 = in_vb[i1];
+        const auto& v2 = in_vb[i2];
+
+        // perform clipping.
+        if((v1.flags & geom::vf_clip_discard)
+           || (v2.flags & geom::vf_clip_discard))
+        {
+            // fill temporary vertex buffer.
+            temp_line.clear();
+            temp_line.push_back(v1);
+            temp_line.push_back(v2);
+
+            // perform clipping.
+            clipped_line.clear();
+            clip_line_on_w_plane(temp_line, clipped_line);
+#ifdef CLIP_ALL_PLANES
+            clip_vertex_buffer_on_plane(clipped_line, x_axis, clipped_line);
+            clip_vertex_buffer_on_plane(clipped_line, y_axis, clipped_line);
+#endif
+            clip_vertex_buffer_on_plane(clipped_line, z_axis, clipped_line);
+
+            // copy clipped vertices to output buffer.
+            if(output_type == point_list)
+            {
+                // write a list of points.
+                out_vb.insert(std::end(out_vb), std::begin(clipped_line), std::end(clipped_line));
+            }
+            else if(output_type == line_list)
+            {
+                // store vertex list.
+                out_vb.insert(std::end(out_vb), std::begin(clipped_line), std::end(clipped_line));
+            }
+        }
+        else
+        {
+            // copy clipped vertices to output buffer.
+            if(output_type == point_list)
+            {
+                // write a list of points.
+                out_vb.push_back(v1);
+                out_vb.push_back(v2);
+            }
+            else if(output_type == line_list)
+            {
+                // construct lines.
+                out_vb.push_back(v1);
+                out_vb.push_back(v2);
+            }
+        }
+    }
+}
+
+/**
+ * Clip a triangle against the w plane.
+ *
+ * Recall that a visible vertex has to satisfy the relations
+ *
+ *    -w <= x <= w
+ *    -w <= y <= w
+ *    -w <= z <= w
+ *      0 < w.
+ *
+ * in_vb and out_vb are not allowed to refer to the same buffer.
+ * 
+ * if in_vb does not contain a triangle (i.e., 3 vertices), we empty the output buffer and return.
+ */
+static void clip_triangle_on_w_plane(const vertex_buffer& in_triangle, vertex_buffer& out_vb)
+{
+    // ensure the output buffer is empty.
+    out_vb.clear();
+
+    // check that in_vb contains a triangle.
+    if(in_triangle.size() != 3)
+    {
+        return;
+    }
+
+    auto* prev_vert = &in_triangle[2]; /* last triangle vertex */
+    int prev_dot = (prev_vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
+
+    for(int i = 0; i < 3; ++i)
+    {
+        auto* vert = &in_triangle[i];
+        int dot = (vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
+
+        // do consistent clipping.
+        if(prev_dot * dot < 0)
+        {
+            // Need to clip against plane w=0.
+            //
+            // to avoid dividing by zero when converting to NDC, we clip
+            // against w=W_CLIPPING_PLANE.
+
+            auto* inside_vert = (prev_dot < 0) ? vert : prev_vert;
+            auto* outside_vert = (prev_dot < 0) ? prev_vert : vert;
+
+            float t = (inside_vert->coords.w - W_CLIPPING_PLANE) / (inside_vert->coords.w - outside_vert->coords.w);
+            assert(t >= 0 && t <= 1);
+
+            out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
+        }
+
+        if(dot > 0)
+        {
+            out_vb.push_back(*vert);
+        }
+
+        prev_vert = vert;
+        prev_dot = dot;
+    }
+}
+
+/**
  * Clip a vertex buffer/index buffer pair against the view frustum. the index buffer/vertex buffer pair is assumed
  * to contain a triangle list, i.e., if i is divisible by 3, then in_ib[i], in_ib[i+1] and in_ib[i+2] need to
  * be indices into in_vb forming a triangle.
@@ -238,8 +377,8 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
      * Algorithm:
      *
      *  i)   Loop over triangles
-     *  ii)  If the triangle contains a discarded vertex, do clipping and copy resulting triangles to buffer
-     *  iii) Copy all triangles to the output vertex buffer.
+     *  ii)  If the triangle contains a discarded vertex, do clipping and copy resulting triangles to temporary buffer
+     *  iii) Copy all temporary triangles to the output vertex buffer.
      */
 
     out_vb.clear();

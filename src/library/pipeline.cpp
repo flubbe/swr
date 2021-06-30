@@ -168,7 +168,11 @@ void Present()
                 }
             }
         }
-        else if(it->mode == vertex_buffer_mode::lines || it->states.poly_mode == polygon_mode::line)
+        else if(it->mode == vertex_buffer_mode::lines)
+        {
+            clip_line_buffer(it->vertices, it->indices, impl::line_list, it->clipped_vertices);
+        }
+        else if(it->mode == vertex_buffer_mode::triangles && it->states.poly_mode == polygon_mode::line)
         {
             clip_triangle_buffer(it->vertices, it->indices, impl::line_list, it->clipped_vertices);
         }
