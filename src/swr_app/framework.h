@@ -68,7 +68,7 @@ public:
     }
 
     /** update the window. */
-    virtual void update() = 0;
+    virtual void update(float delta_time) = 0;
 
     /** context access. */
     swr::context_handle get_rasterizer_context() const
@@ -138,6 +138,12 @@ class application
 
     /** command line arguments. */
     std::vector<std::string> cmd_args;
+
+    /** run time of the application, in seconds. */
+    float run_time{0};
+
+    /** if non-negative, this is the maximal requested run time of the application, in seconds. */
+    float max_run_time{-1.f};
 
 protected:
     /** the renderer. */
@@ -215,6 +221,8 @@ public:
     /** override this e.g. to create a render window. */
     virtual void initialize()
     {
+        // process command line arguments.
+        max_run_time = get_argument<float>("--run_time", -1.0f);
     }
 
     /** override this e,g, for global resource de-allocation. */
@@ -225,9 +233,23 @@ public:
     /** event loop. this only renders frames until a quit condition is met. does not process input. */
     virtual void event_loop()
     {
+        Uint32 reference_time = SDL_GetTicks();
+
         while(!quit_program && window)
         {
-            window->update();
+            uint32_t update_time = SDL_GetTicks();
+            float delta_time = static_cast<float>(update_time + reference_time) / 1000.f;
+            reference_time = -update_time;
+
+            run_time += delta_time;
+
+            window->update(delta_time);
+
+            // check if we reached the maximal runtime.
+            if(!quit_program)
+            {
+                quit_program = (max_run_time >= 0 && run_time >= max_run_time);
+            }
         }
     }
 
@@ -315,6 +337,12 @@ public:
     renderwindow* get_window() const
     {
         return window.get();
+    }
+
+    /** get application run time, in seconds. */
+    float get_run_time() const
+    {
+        return run_time;
     }
 };
 

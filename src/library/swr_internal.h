@@ -39,11 +39,13 @@
  * alignment helpers.
  */
 #if defined(__GNUC__)
-#    define DECLARE_ALIGNED_FLOAT4(name) float name[4] __attribute__((aligned(16)))
+#    define DECLARE_ALIGNED_ARRAY4(type, name) type name[4] __attribute__((aligned(16)))
+#    define DECLARE_ALIGNED_FLOAT4(name)       DECLARE_ALIGNED_ARRAY4(float, name)
 #elif defined(__MSVC__)
-#    define DECLARE_ALIGNED_FLOAT4(name) __declspec(align(16)) float name[4]
+#    define DECLARE_ALIGNED_ARRAY4(type, name) __declspec(align(16)) type name[4]
+#    define DECLARE_ALIGNED_FLOAT4(name)       DECLARE_ALIGNED_ARRAY4(float, name)
 #else
-#    error DECLARE_ALIGNED_FLOAT4 not defined for this compiler
+#    error DECLARE_ALIGNED_*4 not defined for this compiler
 #endif
 
 /* definitions internal to the renderer. */

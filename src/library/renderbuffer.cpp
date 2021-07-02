@@ -167,7 +167,7 @@ void default_framebuffer::merge_color(uint32_t attachment, int x, int y, const f
         uint32_t* color_buffer_ptr = color_buffer.info.data_ptr + y * color_buffer.info.width + x;
         if(do_blend)
         {
-            write_color = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, *color_buffer_ptr, write_color);
+            write_color = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, write_color, *color_buffer_ptr);
         }
 
         // write color.
@@ -191,7 +191,7 @@ void default_framebuffer::merge_color_block(uint32_t attachment, int x, int y, c
     if(frag.write_color[0] || frag.write_color[1] || frag.write_color[2] || frag.write_color[3])
     {
         // convert color to output format.
-        uint32_t write_color[4] = {
+        DECLARE_ALIGNED_ARRAY4(uint32_t, write_color) = {
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[0])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[1])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[2])),
@@ -204,19 +204,20 @@ void default_framebuffer::merge_color_block(uint32_t attachment, int x, int y, c
           color_buffer.info.data_ptr + coords[2].y * color_buffer.info.width + coords[2].x,
           color_buffer.info.data_ptr + coords[3].y * color_buffer.info.width + coords[3].x};
 
+        DECLARE_ALIGNED_ARRAY4(uint32_t, color_buffer_values) = {
+          *color_buffer_ptr[0], *color_buffer_ptr[1], *color_buffer_ptr[2], *color_buffer_ptr[3]};
+
         if(do_blend)
         {
-            write_color[0] = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, *color_buffer_ptr[0], write_color[0]);
-            write_color[1] = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, *color_buffer_ptr[1], write_color[1]);
-            write_color[2] = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, *color_buffer_ptr[2], write_color[2]);
-            write_color[3] = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, *color_buffer_ptr[3], write_color[3]);
+            // note: when compiling with SSE/SIMD enabled, make sure that src/dest/out are aligned on 16-byte boundaries.
+            swr::output_merger::blend_block(color_buffer.converter, blend_src, blend_dst, write_color, color_buffer_values, write_color);
         }
 
         // write color.
-        *(color_buffer_ptr[0]) = (*(color_buffer_ptr[0]) & ~color_write_mask[0]) | (write_color[0] & color_write_mask[0]);
-        *(color_buffer_ptr[1]) = (*(color_buffer_ptr[1]) & ~color_write_mask[1]) | (write_color[1] & color_write_mask[1]);
-        *(color_buffer_ptr[2]) = (*(color_buffer_ptr[2]) & ~color_write_mask[2]) | (write_color[2] & color_write_mask[2]);
-        *(color_buffer_ptr[3]) = (*(color_buffer_ptr[3]) & ~color_write_mask[3]) | (write_color[3] & color_write_mask[3]);
+        *(color_buffer_ptr[0]) = (color_buffer_values[0] & ~color_write_mask[0]) | (write_color[0] & color_write_mask[0]);
+        *(color_buffer_ptr[1]) = (color_buffer_values[1] & ~color_write_mask[1]) | (write_color[1] & color_write_mask[1]);
+        *(color_buffer_ptr[2]) = (color_buffer_values[2] & ~color_write_mask[2]) | (write_color[2] & color_write_mask[2]);
+        *(color_buffer_ptr[3]) = (color_buffer_values[3] & ~color_write_mask[3]) | (write_color[3] & color_write_mask[3]);
     }
 }
 
@@ -388,7 +389,7 @@ void framebuffer_object::merge_color(uint32_t attachment, int x, int y, const fr
         ml::vec4* color_buffer_ptr = data_ptr + y * pitch + x;
         if(do_blend)
         {
-            write_color = swr::output_merger::blend(blend_src, blend_dst, *color_buffer_ptr, write_color);
+            write_color = swr::output_merger::blend(blend_src, blend_dst, write_color, *color_buffer_ptr);
         }
 
         // write color.
@@ -419,19 +420,18 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
         const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
 
         // alpha blending.
-        ml::vec4* color_buffer_ptr[4] = {
+        ml::vec4* color_buffer_ptrs[4] = {
           data_ptr + coords[0].y * pitch + coords[0].x,
           data_ptr + coords[1].y * pitch + coords[1].x,
           data_ptr + coords[2].y * pitch + coords[2].x,
-          data_ptr + coords[3].y * pitch + coords[3].x,
-        };
+          data_ptr + coords[3].y * pitch + coords[3].x};
+
+        ml::vec4 color_buffer_values[4] = {
+          *color_buffer_ptrs[0], *color_buffer_ptrs[1], *color_buffer_ptrs[2], *color_buffer_ptrs[3]};
 
         if(do_blend)
         {
-            write_color[0] = swr::output_merger::blend(blend_src, blend_dst, *color_buffer_ptr[0], write_color[0]);
-            write_color[1] = swr::output_merger::blend(blend_src, blend_dst, *color_buffer_ptr[1], write_color[1]);
-            write_color[2] = swr::output_merger::blend(blend_src, blend_dst, *color_buffer_ptr[2], write_color[2]);
-            write_color[3] = swr::output_merger::blend(blend_src, blend_dst, *color_buffer_ptr[3], write_color[3]);
+            swr::output_merger::blend_block(blend_src, blend_dst, write_color, color_buffer_values, write_color);
         }
 
         // write color.
@@ -441,10 +441,10 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
         write_target = write_source;                             \
     }
 
-        CONDITIONAL_WRITE(frag.write_color[0], *(color_buffer_ptr[0]), write_color[0]);
-        CONDITIONAL_WRITE(frag.write_color[1], *(color_buffer_ptr[1]), write_color[1]);
-        CONDITIONAL_WRITE(frag.write_color[2], *(color_buffer_ptr[2]), write_color[2]);
-        CONDITIONAL_WRITE(frag.write_color[3], *(color_buffer_ptr[3]), write_color[3]);
+        CONDITIONAL_WRITE(frag.write_color[0], *(color_buffer_ptrs[0]), write_color[0]);
+        CONDITIONAL_WRITE(frag.write_color[1], *(color_buffer_ptrs[1]), write_color[1]);
+        CONDITIONAL_WRITE(frag.write_color[2], *(color_buffer_ptrs[2]), write_color[2]);
+        CONDITIONAL_WRITE(frag.write_color[3], *(color_buffer_ptrs[3]), write_color[3]);
 
 #undef CONDITIONAL_WRITE
     }

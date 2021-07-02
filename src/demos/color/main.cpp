@@ -53,16 +53,11 @@ class demo_cube : public swr_app::renderwindow
     /** a rotation offset for the cube. */
     float cube_rotation{0};
 
-    /** reference time to provide animation. */
-    Uint32 reference_time{0};
-
     /** frame counter. */
     uint32_t frame_count{0};
 
     /** if non-negative, indicates the maximal runtime */
     float max_runtime{-1};
-
-    float run_time{0};
 
     /** viewport width. */
     static const int width = 640;
@@ -95,8 +90,6 @@ public:
         {
             platform::logf("suggesting rasterizer to use {} thread{}", thread_hint, ((thread_hint > 1) ? "s" : ""));
         }
-
-        max_runtime = swr_app::application::get_instance().get_argument<float>("--run_time", -1.0f);
 
         context = swr::CreateSDLContext(sdl_window, sdl_renderer, thread_hint);
         if(!swr::MakeContextCurrent(context))
@@ -142,9 +135,6 @@ public:
         };
         cube_colors = swr::CreateAttributeBuffer(colors);
 
-        // set reference time for statistics and animation.
-        reference_time = -SDL_GetTicks();
-
         return true;
     }
 
@@ -176,7 +166,7 @@ public:
         renderwindow::destroy();
     }
 
-    void update()
+    void update(float delta_time)
     {
         // gracefully exit when asked.
         SDL_Event e;
@@ -187,23 +177,6 @@ public:
                 swr_app::application::quit();
                 return;
             }
-        }
-
-        /*
-         * update time.
-         */
-        Uint32 ticks = SDL_GetTicks();
-        float delta_time = static_cast<float>(ticks + reference_time) / 1000.f;
-        reference_time = -ticks;
-
-        /*
-         * check if we exceeded maximal existence time.
-         */
-        run_time += delta_time;
-        if(max_runtime > 0 && run_time > max_runtime)
-        {
-            swr_app::application::quit();
-            return;
         }
 
         /*
@@ -282,15 +255,13 @@ protected:
 class demo_app : public swr_app::application
 {
     log_fmt log;
-    Uint32 run_time{0};
 
 public:
     /** create a window. */
     void initialize()
     {
+        application::initialize();
         platform::set_log(&log);
-
-        run_time = -SDL_GetTicks();
 
         window = std::make_unique<demo_cube>();
         window->create();
@@ -302,10 +273,8 @@ public:
         if(window)
         {
             auto* w = static_cast<demo_cube*>(window.get());
-            run_time += SDL_GetTicks();
-            float run_time_in_s = static_cast<float>(run_time) / 1000.f;
-            float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;
-            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), run_time_in_s, fps, 1000.f / fps);
+            float fps = static_cast<float>(w->get_frame_count()) / get_run_time();
+            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), get_run_time(), fps, 1000.f / fps);
 
             window->destroy();
             window.reset();

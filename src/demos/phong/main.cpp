@@ -65,9 +65,6 @@ class demo_cube : public swr_app::renderwindow
     /** light position. */
     ml::vec4 light_position{0, 0, 0, 1};
 
-    /** reference time to provide animation. */
-    Uint32 reference_time{0};
-
     /** frame counter. */
     uint32_t frame_count{0};
 
@@ -167,9 +164,6 @@ public:
         swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
-        // set reference time for statistics and animation.
-        reference_time = -SDL_GetTicks();
-
         return true;
     }
 
@@ -204,7 +198,7 @@ public:
         renderwindow::destroy();
     }
 
-    void update()
+    void update(float delta_time)
     {
         // gracefully exit when asked.
         SDL_Event e;
@@ -216,13 +210,6 @@ public:
                 return;
             }
         }
-
-        /*
-         * update time.
-         */
-        Uint32 ticks = SDL_GetTicks();
-        float delta_time = static_cast<float>(ticks + reference_time) / 1000.f;
-        reference_time = -ticks;
 
         /*
          * update animation.
@@ -303,15 +290,13 @@ protected:
 class demo_app : public swr_app::application
 {
     log_fmt log;
-    Uint32 run_time{0};
 
 public:
     /** create a window. */
     void initialize()
     {
+        application::initialize();
         platform::set_log(&log);
-
-        run_time -= SDL_GetTicks();
 
         window = std::make_unique<demo_cube>();
         window->create();
@@ -323,10 +308,8 @@ public:
         if(window)
         {
             auto* w = static_cast<demo_cube*>(window.get());
-            run_time += SDL_GetTicks();
-            float run_time_in_s = static_cast<float>(run_time) / 1000.f;
-            float fps = static_cast<float>(w->get_frame_count()) / run_time_in_s;
-            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), run_time_in_s, fps, 1000.f / fps);
+            float fps = static_cast<float>(w->get_frame_count()) / get_run_time();
+            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), get_run_time(), fps, 1000.f / fps);
 
             window->destroy();
             window.reset();
