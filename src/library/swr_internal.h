@@ -12,6 +12,9 @@
 
 #include <boost/container/static_vector.hpp>
 
+/* use SIMD code by default. */
+#define SWR_USE_SIMD
+
 #include "swr/swr.h"
 #include "swr/shaders.h"
 
@@ -29,11 +32,6 @@
 #include "buffers.h"
 #include "renderobject.h"
 #include "context.h"
-
-/*
- * use SIMD code by default.
- */
-#define SWR_USE_SIMD
 
 /*
  * alignment helpers.
