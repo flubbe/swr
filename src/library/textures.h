@@ -92,8 +92,8 @@ void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
         h_offs += h;
     }
 #else
-    size_t dims = width; // this is the same as the height.
-    size_t offs = dims*dims;
+    size_t dims = width;    // this is the same as the height.
+    size_t offs = dims * dims;
     while(offs > 0)
     {
         data_ptrs.push_back(base_ptr + offs);

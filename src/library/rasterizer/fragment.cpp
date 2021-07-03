@@ -133,6 +133,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
     bool depth_write_mask = true;
     if(states.depth_test_enabled)
     {
+        depth_value = boost::algorithm::clamp(depth_value, 0.f, 1.f);
         states.draw_target->depth_compare_write(x, y, depth_value, states.depth_func, states.write_depth, depth_write_mask);
     }
 
@@ -247,7 +248,7 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
      */
 
     ml::vec4 color[4] = {ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}};
-    float depth_value[4] = {
+    DECLARE_ALIGNED_FLOAT4(depth_value) = {
       frag_info[0].depth_value,
       frag_info[1].depth_value,
       frag_info[2].depth_value,
@@ -294,6 +295,15 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
      */
     if(states.depth_test_enabled)
     {
+
+#if defined(SWR_USE_SIMD)
+        _mm_store_ps(depth_value, _mm_min_ps(_mm_max_ps(_mm_load_ps(depth_value), _mm_set_ps1(0.0f)), _mm_set_ps1(1.0f)));
+#else
+        depth_value[0] = boost::algorithm::clamp(depth_value[0], 0, 1);
+        depth_value[1] = boost::algorithm::clamp(depth_value[1], 0, 1);
+        depth_value[2] = boost::algorithm::clamp(depth_value[2], 0, 1);
+        depth_value[3] = boost::algorithm::clamp(depth_value[3], 0, 1);
+#endif
         states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
     }
     apply_mask(write_color, depth_mask);

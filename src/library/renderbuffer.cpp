@@ -108,7 +108,7 @@ static void scissor_clear_buffer_morton(T clear_value, attachment_info<T>& info,
     {
         for(int x = x_min; x < x_max; ++x)
         {
-            *(info.data_ptr + libmorton::morton2D_32_encode(x,y)) = clear_value;
+            *(info.data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_value;
         }
     }
 }
