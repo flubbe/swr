@@ -93,6 +93,8 @@ static void scissor_clear_buffer(T clear_value, attachment_info<T>& info, const 
     }
 }
 
+#ifndef SWR_USE_MORTON_CODES
+
 template<>
 void scissor_clear_buffer(ml::vec4 clear_value, attachment_info<ml::vec4>& info, const utils::rect& scissor_box)
 {
@@ -115,6 +117,27 @@ void scissor_clear_buffer(ml::vec4 clear_value, attachment_info<ml::vec4>& info,
         ptr += skip;
     }
 }
+
+#else
+
+template<typename T>
+static void scissor_clear_buffer_morton(T clear_value, attachment_info<T>& info, const utils::rect& scissor_box)
+{
+    int x_min = std::min(std::max(0, scissor_box.x_min), info.width);
+    int x_max = std::max(0, std::min(scissor_box.x_max, info.width));
+    int y_min = std::min(std::max(info.height - scissor_box.y_max, 0), info.height);
+    int y_max = std::max(0, std::min(info.height - scissor_box.y_min, info.height));
+
+    for(int y = y_min; y < y_max; ++y)
+    {
+        for(int x = x_min; x < x_max; ++x)
+        {
+            *(info.data_ptr + libmorton::morton2D_32_encode(x,y)) = clear_value;
+        }
+    }
+}
+
+#endif
 
 /*
  * default framebuffer.
@@ -350,7 +373,11 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color, 
 {
     if(attachment < color_attachments.size() && color_attachments[attachment])
     {
+#ifdef SWR_USE_MORTON_CODES
+        scissor_clear_buffer_morton(clear_color, color_attachments[attachment]->info, rect);
+#else
         scissor_clear_buffer(clear_color, color_attachments[attachment]->info, rect);
+#endif
     }
 }
 
@@ -367,7 +394,11 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
 {
     if(depth_attachment)
     {
+#ifdef SWR_USE_MORTON_CODES
+        scissor_clear_buffer_morton(clear_depth, depth_attachment->info, rect);
+#else
         scissor_clear_buffer(clear_depth, depth_attachment->info, rect);
+#endif
     }
 }
 
@@ -383,10 +414,16 @@ void framebuffer_object::merge_color(uint32_t attachment, int x, int y, const fr
         ml::vec4 write_color{ml::clamp_to_unit_interval(frag.color)};
 
         ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
+#ifndef SWR_USE_MORTON_CODES
         int pitch = color_attachments[attachment]->info.pitch;
+#endif
 
         // alpha blending.
+#ifdef SWR_USE_MORTON_CODES
+        ml::vec4* color_buffer_ptr = data_ptr + libmorton::morton2D_32_encode(x, y);
+#else
         ml::vec4* color_buffer_ptr = data_ptr + y * pitch + x;
+#endif
         if(do_blend)
         {
             write_color = swr::output_merger::blend(blend_src, blend_dst, write_color, *color_buffer_ptr);
@@ -414,17 +451,27 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
           ml::clamp_to_unit_interval(frag.color[3])};
 
         ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
+#ifndef SWR_USE_MORTON_CODES
         int pitch = color_attachments[attachment]->info.pitch;
+#endif
 
         // block coordinates
         const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
 
         // alpha blending.
+#ifdef SWR_USE_MORTON_CODES
+        ml::vec4* color_buffer_ptrs[4] = {
+          data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
+          data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
+          data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
+          data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
+#else
         ml::vec4* color_buffer_ptrs[4] = {
           data_ptr + coords[0].y * pitch + coords[0].x,
           data_ptr + coords[1].y * pitch + coords[1].x,
           data_ptr + coords[2].y * pitch + coords[2].x,
           data_ptr + coords[3].y * pitch + coords[3].x};
+#endif
 
         ml::vec4 color_buffer_values[4] = {
           *color_buffer_ptrs[0], *color_buffer_ptrs[1], *color_buffer_ptrs[2], *color_buffer_ptrs[3]};
@@ -469,7 +516,11 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
     }
 
     // read and compare depth buffer.
+#ifdef SWR_USE_MORTON_CODES
+    ml::fixed_32_t* depth_buffer_ptr = depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(x, y);
+#else
     ml::fixed_32_t* depth_buffer_ptr = depth_attachment->info.data_ptr + y * depth_attachment->info.width + x;
+#endif
     ml::fixed_32_t old_depth_value = *depth_buffer_ptr;
     ml::fixed_32_t new_depth_value{depth_value};
 
@@ -520,11 +571,19 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
     const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
 
     // read and compare depth buffer.
+#ifdef SWR_USE_MORTON_CODES
+    ml::fixed_32_t* depth_buffer_ptr[4] = {
+      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
+      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
+      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
+      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
+#else
     ml::fixed_32_t* depth_buffer_ptr[4] = {
       depth_attachment->info.data_ptr + coords[0].y * depth_attachment->info.width + coords[0].x,
       depth_attachment->info.data_ptr + coords[1].y * depth_attachment->info.width + coords[1].x,
       depth_attachment->info.data_ptr + coords[2].y * depth_attachment->info.width + coords[2].x,
       depth_attachment->info.data_ptr + coords[3].y * depth_attachment->info.width + coords[3].x};
+#endif
 
     ml::fixed_32_t old_depth_value[4] = {*depth_buffer_ptr[0], *depth_buffer_ptr[1], *depth_buffer_ptr[2], *depth_buffer_ptr[3]};
     ml::fixed_32_t new_depth_value[4] = {depth_value[0], depth_value[1], depth_value[2], depth_value[3]};
@@ -578,8 +637,7 @@ static auto id_to_slot = [](std::uint32_t id) -> std::uint32_t
 static auto slot_to_id = [](std::uint32_t slot) -> std::uint32_t
 { return slot + 1; };
 
-uint32_t
-  CreateFramebufferObject()
+uint32_t CreateFramebufferObject()
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;

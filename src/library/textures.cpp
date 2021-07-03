@@ -94,6 +94,11 @@ error texture_2d::allocate(int in_level, int in_width, int in_height)
         return error::none;
     }
 
+    if(!utils::is_power_of_two(in_width) || !utils::is_power_of_two(height))
+    {
+        return error::invalid_value;
+    }
+
     auto uLevel = static_cast<size_t>(in_level);
     if(uLevel == 0)
     {
@@ -145,7 +150,9 @@ error texture_2d::set_data(int level, int in_width, int in_height, pixel_format 
     }
 
     auto data_ptr = data.data_ptrs[level];
+#ifndef SWR_USE_MORTON_CODES
     auto pitch = width + (width >> 1);
+#endif
 
     pixel_format_converter pfc(pixel_format_descriptor::named_format(format));
     for(int y = 0; y < in_height; ++y)
@@ -154,7 +161,11 @@ error texture_2d::set_data(int level, int in_width, int in_height, pixel_format 
         {
             const uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
             uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
+#ifdef SWR_USE_MORTON_CODES
+            data_ptr[libmorton::morton2D_32_encode(x, y)] = pfc.to_color(color);
+#else
             data_ptr[y * pitch + x] = pfc.to_color(color);
+#endif
         }
     }
 
@@ -184,7 +195,9 @@ error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int 
     }
 
     auto data_ptr = data.data_ptrs[level];
+#ifndef SWR_USE_MORTON_CODES
     auto pitch = width + (width >> 1);
+#endif
 
     uint32_t max_width = std::max(std::min(in_x + in_width, width >> level) - in_x, 0);
     uint32_t max_height = std::max(std::min(in_y + in_height, height >> level) - in_y, 0);
@@ -196,7 +209,11 @@ error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int 
         {
             const uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
             uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
+#ifdef SWR_USE_MORTON_CODES
+            data_ptr[libmorton::morton2D_32_encode(in_x + x, in_y + y)] = pfc.to_color(color);
+#else
             data_ptr[(in_y + y) * pitch + (in_x + x)] = pfc.to_color(color);
+#endif
         }
     }
 
@@ -311,7 +328,7 @@ void create_default_texture(render_device_context* context)
         return;
     }
 
-    const std::vector<uint8_t> DefaultTexture = {
+    const std::vector<uint8_t> default_texture_data = {
       0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0xff, /* RGBA RGBA */
       0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff  /* RGBA RGBA */
     };
@@ -331,7 +348,7 @@ void create_default_texture(render_device_context* context)
         }                              \
     }
 
-    CHECK(context->default_texture_2d->set_data(0, 2, 2, pixel_format::rgba8888, DefaultTexture));
+    CHECK(context->default_texture_2d->set_data(0, 2, 2, pixel_format::rgba8888, default_texture_data));
     CHECK(context->default_texture_2d->set_wrap_s(wrap_mode::repeat));
     CHECK(context->default_texture_2d->set_wrap_t(wrap_mode::repeat));
 
@@ -339,7 +356,6 @@ void create_default_texture(render_device_context* context)
 
     context->default_texture_2d->set_filter_mag(texture_filter::nearest);
     context->default_texture_2d->set_filter_min(texture_filter::nearest);
-    context->default_texture_2d->initialize_sampler();
 }
 
 } /* namespace impl */

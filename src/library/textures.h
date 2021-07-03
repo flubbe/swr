@@ -8,6 +8,11 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+/* morton codes */
+#ifdef SWR_USE_MORTON_CODES
+#    include "libmorton/morton.h"
+#endif
+
 namespace swr
 {
 
@@ -51,6 +56,10 @@ void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
     assert(utils::is_power_of_two(width));
     assert(utils::is_power_of_two(height));
 
+#ifdef SWR_USE_MORTON_CODES
+    assert(width == height);
+#endif
+
     if(!mipmapping)
     {
         // just allocate the base texture. in this case, data_ptrs only holds a single element.
@@ -74,6 +83,7 @@ void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
     auto base_ptr = data_ptrs[0];
 
     // mipmaps.
+#ifndef SWR_USE_MORTON_CODES
     auto pitch = width + (width >> 1);
     size_t h_offs = 0;
     for(size_t h = height >> 1; h > 0; h >>= 1)
@@ -81,6 +91,15 @@ void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
         data_ptrs.push_back(base_ptr + h_offs * pitch + width);
         h_offs += h;
     }
+#else
+    size_t dims = width; // this is the same as the height.
+    size_t offs = dims*dims;
+    while(offs > 0)
+    {
+        data_ptrs.push_back(base_ptr + offs);
+        offs >>= 2;
+    }
+#endif
 }
 
 /*
@@ -225,6 +244,19 @@ class sampler_2d_impl : public sampler_2d
      */
 
     /** get mipmap parameters for the specified mipmap level. if no mipmaps exists, returns parameters for the base image and sets level to zero. */
+#ifdef SWR_USE_MORTON_CODES
+    void get_mipmap_params(int& level, int& w, int& h) const
+    {
+        if(associated_texture->data.data_ptrs.size() == 1)
+        {
+            // no mipmapping available.
+            level = 0;
+        }
+
+        w = associated_texture->width >> mipmap_level;
+        h = associated_texture->height >> mipmap_level;
+    }
+#else
     void get_mipmap_params(int& level, int& w, int& h, int& pitch) const
     {
         if(associated_texture->data.data_ptrs.size() == 1)
@@ -241,11 +273,21 @@ class sampler_2d_impl : public sampler_2d
         w = associated_texture->width >> mipmap_level;
         h = associated_texture->height >> mipmap_level;
     }
+#endif
 
     /** nearest-neighbor sampling. */
     ml::vec4 sample_at_nearest(const ml::vec2 uv) const
     {
         int mipmap_level{0};    // only consider mipmap level 0.
+#ifdef SWR_USE_MORTON_CODES
+        int w{0}, h{0};
+
+        get_mipmap_params(mipmap_level, w, h);
+        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.u * w), ml::truncate_unchecked(uv.v * h)};
+        texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
+
+        return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_64_encode(texel_coords.x, texel_coords.y)];
+#else
         int w{0}, h{0}, pitch{0};
 
         get_mipmap_params(mipmap_level, w, h, pitch);
@@ -253,12 +295,24 @@ class sampler_2d_impl : public sampler_2d
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
         return (associated_texture->data.data_ptrs[mipmap_level])[texel_coords.y * pitch + texel_coords.x];
+#endif
     }
 
     /** dithered sampling. */
     ml::vec4 sample_at_dithered(const ml::vec2 uv) const
     {
         int mipmap_level{0};    // only consider mipmap level 0.
+#ifdef SWR_USE_MORTON_CODES
+        int w{0}, h{0};
+
+        get_mipmap_params(mipmap_level, w, h);
+        ml::vec2 dithered_texel_coords = {static_cast<float>(ml::truncate_unchecked(uv.u * w)), static_cast<float>(ml::truncate_unchecked(uv.v * h))};
+        dithered_texel_coords += dither_offset;
+        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(dithered_texel_coords.x), ml::truncate_unchecked(dithered_texel_coords.y)};
+        texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
+
+        return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_64_encode(texel_coords.x, texel_coords.y)];
+#else
         int w{0}, h{0}, pitch{0};
 
         get_mipmap_params(mipmap_level, w, h, pitch);
@@ -268,6 +322,7 @@ class sampler_2d_impl : public sampler_2d
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
         return (associated_texture->data.data_ptrs[mipmap_level])[texel_coords.y * pitch + texel_coords.x];
+#endif
     }
 
 public:

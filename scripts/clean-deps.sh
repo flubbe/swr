@@ -15,6 +15,7 @@ if [ -d "./deps/concurrency_utils" ]; then rm -Rf "./deps/concurrency_utils"; fi
 
 if [ -d "./deps/3rd-party/cpu_features" ]; then rm -Rf "./deps/3rd-party/cpu_features"; fi
 if [ -d "./deps/3rd-party/fmt" ]; then rm -Rf "./deps/3rd-party/fmt"; fi
+if [ -d "./deps/3rd-party/libmorton" ]; then rm -Rf "./deps/3rd-party/libmorton"; fi
 if [ -d "./deps/3rd-party/lodepng" ]; then rm -Rf "./deps/3rd-party/lodepng"; fi
 
 #

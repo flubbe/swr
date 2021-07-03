@@ -24,6 +24,9 @@ tar -xf v0.6.0.tar.gz
 rm v0.6.0.tar.gz
 mv cpu_features-0.6.0 cpu_features
 
+# Download libmorton
+git clone https://github.com/Forceflow/libmorton.git
+
 # Download lodepng
 git clone https://github.com/lvandeve/lodepng.git
 

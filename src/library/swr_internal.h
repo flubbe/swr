@@ -12,8 +12,19 @@
 
 #include <boost/container/static_vector.hpp>
 
+/*
+ * configurable options.
+ */
+
 /* use SIMD code by default. */
 #define SWR_USE_SIMD
+
+/* enable the use of morton codes (for texture access) by default. */
+#define SWR_USE_MORTON_CODES
+
+/*
+ * headers.
+ */
 
 #include "swr/swr.h"
 #include "swr/shaders.h"
@@ -36,6 +47,7 @@
 /*
  * alignment helpers.
  */
+
 #if defined(__GNUC__)
 #    define DECLARE_ALIGNED_ARRAY4(type, name) type name[4] __attribute__((aligned(16)))
 #    define DECLARE_ALIGNED_FLOAT4(name)       DECLARE_ALIGNED_ARRAY4(float, name)
@@ -46,16 +58,15 @@
 #    error DECLARE_ALIGNED_*4 not defined for this compiler
 #endif
 
-/* definitions internal to the renderer. */
+/*
+ * rasterizer configuration.
+ */
+
 namespace swr
 {
 
 namespace impl
 {
-
-/*
- * rasterization.
- */
 
 /** Block size for triangle rasterization. The context buffer sizes have to be aligned on this value. */
 constexpr std::uint32_t rasterizer_block_size{1 << 5};
