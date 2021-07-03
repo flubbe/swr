@@ -286,7 +286,7 @@ class sampler_2d_impl : public sampler_2d
         ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.u * w), ml::truncate_unchecked(uv.v * h)};
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
-        return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_64_encode(texel_coords.x, texel_coords.y)];
+        return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords.x, texel_coords.y)];
 #else
         int w{0}, h{0}, pitch{0};
 
@@ -311,7 +311,7 @@ class sampler_2d_impl : public sampler_2d
         ml::tvec2<int> texel_coords = {ml::truncate_unchecked(dithered_texel_coords.x), ml::truncate_unchecked(dithered_texel_coords.y)};
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
-        return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_64_encode(texel_coords.x, texel_coords.y)];
+        return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords.x, texel_coords.y)];
 #else
         int w{0}, h{0}, pitch{0};
 

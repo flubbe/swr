@@ -69,39 +69,15 @@ bool attachment_texture::is_valid() const
     return global_context->texture_2d_storage[tex_id].get() == tex && tex_id == tex->id && info.data_ptr == tex->data.data_ptrs[level];
 }
 
-/*
- * buffer clearing helpers.
- */
-
-template<typename T>
-static void scissor_clear_buffer(T clear_value, attachment_info<T>& info, const utils::rect& scissor_box)
-{
-    static_assert(sizeof(T) == sizeof(uint32_t), "Types sizes must match for utils::memset32 to work correctly.");
-
-    int x_min = std::min(std::max(0, scissor_box.x_min), info.width);
-    int x_max = std::max(0, std::min(scissor_box.x_max, info.width));
-    int y_min = std::min(std::max(info.height - scissor_box.y_max, 0), info.height);
-    int y_max = std::max(0, std::min(info.height - scissor_box.y_min, info.height));
-
-    const auto row_size = (x_max - x_min) * sizeof(T);
-
-    auto ptr = reinterpret_cast<uint8_t*>(info.data_ptr) + y_min * info.pitch + x_min * sizeof(T);
-    for(int y = y_min; y < y_max; ++y)
-    {
-        utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_value));
-        ptr += info.pitch;
-    }
-}
-
-#ifndef SWR_USE_MORTON_CODES
+#if defined(SWR_USE_MORTON_CODES) && 0
 
 template<>
 void scissor_clear_buffer(ml::vec4 clear_value, attachment_info<ml::vec4>& info, const utils::rect& scissor_box)
 {
     int x_min = std::min(std::max(0, scissor_box.x_min), info.width);
     int x_max = std::max(0, std::min(scissor_box.x_max, info.width));
-    int y_min = std::min(std::max(info.height - scissor_box.y_max, 0), info.height);
-    int y_max = std::max(0, std::min(info.height - scissor_box.y_min, info.height));
+    int y_min = std::min(std::max(0, scissor_box.y_max), info.height);
+    int y_max = std::max(0, std::min(scissor_box.y_min, info.height));
 
     const auto row_size = x_max - x_min;
     const auto skip = info.pitch - row_size;
@@ -118,7 +94,7 @@ void scissor_clear_buffer(ml::vec4 clear_value, attachment_info<ml::vec4>& info,
     }
 }
 
-#else
+#elif 0
 
 template<typename T>
 static void scissor_clear_buffer_morton(T clear_value, attachment_info<T>& info, const utils::rect& scissor_box)
@@ -156,7 +132,21 @@ void default_framebuffer::clear_color(uint32_t attachment, ml::vec4 clear_color,
 {
     if(attachment == 0)
     {
-        scissor_clear_buffer(color_buffer.converter.to_pixel(clear_color), color_buffer.info, rect);
+        auto clear_value = color_buffer.converter.to_pixel(clear_color);
+
+        int x_min = std::min(std::max(0, rect.x_min), color_buffer.info.width);
+        int x_max = std::max(0, std::min(rect.x_max, color_buffer.info.width));
+        int y_min = std::min(std::max(color_buffer.info.height - rect.y_max, 0), color_buffer.info.height);
+        int y_max = std::max(0, std::min(color_buffer.info.height - rect.y_min, color_buffer.info.height));
+
+        const auto row_size = (x_max - x_min) * sizeof(uint32_t);
+
+        auto ptr = reinterpret_cast<uint8_t*>(color_buffer.info.data_ptr) + y_min * color_buffer.info.pitch + x_min * sizeof(uint32_t);
+        for(int y = y_min; y < y_max; ++y)
+        {
+            utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_value));
+            ptr += color_buffer.info.pitch;
+        }
     }
 }
 
@@ -171,7 +161,19 @@ void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth)
 
 void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect)
 {
-    scissor_clear_buffer(clear_depth, depth_buffer.info, rect);
+    int x_min = std::min(std::max(0, rect.x_min), depth_buffer.info.width);
+    int x_max = std::max(0, std::min(rect.x_max, depth_buffer.info.width));
+    int y_min = std::min(std::max(depth_buffer.info.height - rect.y_max, 0), depth_buffer.info.height);
+    int y_max = std::max(0, std::min(depth_buffer.info.height - rect.y_min, depth_buffer.info.height));
+
+    const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
+
+    auto ptr = reinterpret_cast<uint8_t*>(depth_buffer.info.data_ptr) + y_min * depth_buffer.info.pitch + x_min * sizeof(ml::fixed_32_t);
+    for(int y = y_min; y < y_max; ++y)
+    {
+        utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_depth));
+        ptr += depth_buffer.info.pitch;
+    }
 }
 
 void default_framebuffer::merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
@@ -374,9 +376,41 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color, 
     if(attachment < color_attachments.size() && color_attachments[attachment])
     {
 #ifdef SWR_USE_MORTON_CODES
-        scissor_clear_buffer_morton(clear_color, color_attachments[attachment]->info, rect);
+        auto& info = color_attachments[attachment]->info;
+
+        int x_min = std::min(std::max(0, rect.x_min), info.width);
+        int x_max = std::max(0, std::min(rect.x_max, info.width));
+        int y_min = std::min(std::max(0, rect.y_min), info.height);
+        int y_max = std::max(0, std::min(rect.y_max, info.height));
+
+        for(int x = x_min; x < x_max; ++x)
+        {
+            for(int y = y_min; y < y_max; ++y)
+            {
+                *(info.data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_color;
+            }
+        }
 #else
-        scissor_clear_buffer(clear_color, color_attachments[attachment]->info, rect);
+        auto& info = color_attachments[attachment]->info;
+
+        int x_min = std::min(std::max(0, rect.x_min), info.width);
+        int x_max = std::max(0, std::min(rect.x_max, info.width));
+        int y_min = std::min(std::max(0, rect.y_min), info.height);
+        int y_max = std::max(0, std::min(rect.y_max, info.height));
+
+        const auto row_size = x_max - x_min;
+        const auto skip = info.pitch - row_size;
+
+        auto ptr = info.data_ptr + y_min * info.pitch + x_min;
+        for(int y = y_min; y < y_max; ++y)
+        {
+            for(int i = 0; i < row_size; ++i)
+            {
+                *ptr++ = clear_color;
+            }
+
+            ptr += skip;
+        }
 #endif
     }
 }
@@ -395,9 +429,36 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
     if(depth_attachment)
     {
 #ifdef SWR_USE_MORTON_CODES
-        scissor_clear_buffer_morton(clear_depth, depth_attachment->info, rect);
+        auto& info = depth_attachment->info;
+
+        int x_min = std::min(std::max(0, rect.x_min), info.width);
+        int x_max = std::max(0, std::min(rect.x_max, info.width));
+        int y_min = std::min(std::max(rect.y_min, 0), info.height);
+        int y_max = std::max(0, std::min(rect.y_max, info.height));
+
+        for(int x = x_min; x < x_max; ++x)
+        {
+            for(int y = y_min; y < y_max; ++y)
+            {
+                *(info.data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_depth;
+            }
+        }
 #else
-        scissor_clear_buffer(clear_depth, depth_attachment->info, rect);
+        auto& info = depth_attachment->info;
+
+        int x_min = std::min(std::max(0, rect.x_min), info.width);
+        int x_max = std::max(0, std::min(rect.x_max, info.width));
+        int y_min = std::min(std::max(rect.y_min, 0), info.height);
+        int y_max = std::max(0, std::min(rect.y_max, info.height));
+
+        const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
+
+        auto ptr = reinterpret_cast<uint8_t*>(info.data_ptr) + y_min * info.pitch + x_min * sizeof(ml::fixed_32_t);
+        for(int y = y_min; y < y_max; ++y)
+        {
+            utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_depth));
+            ptr += info.pitch;
+        }
 #endif
     }
 }
