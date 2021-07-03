@@ -26,15 +26,15 @@ endif()
 #
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
 	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
 	endif()
 else()
 	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -O3 -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -O3 -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse -fno-omit-frame-pointer")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse -fno-omit-frame-pointer")
 	endif()
 endif()
 
@@ -77,6 +77,7 @@ include_directories(
 	deps/3rd-party/cpu_features/include 
 	deps/3rd-party/cnl/include
 	deps/3rd-party/fmt/include
+	deps/3rd-party/libmorton
 	)
 
 #
