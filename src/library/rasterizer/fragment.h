@@ -16,7 +16,12 @@ namespace rast
  */
 struct fragment_info
 {
-    /** Fragment z coordinate (within [0,1]), which may be written or compared to the depth buffer. */
+    /** 
+     * Fragment z coordinate (within [0,1]), which may be written or compared to the depth buffer. 
+     * 
+     * In eq. (15.1), p.415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf, 
+     * this is called z_f.
+     */
     float depth_value;
 
     /** whether this fragment comes from a front-facing triangle. */

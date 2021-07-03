@@ -70,6 +70,10 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
 
     /*
      * Compute z and interpolated values.
+     * 
+     * Recall that one_over_viewport_z comes from the clip coordinates' w component. That is, it is
+     * called w_c in eq. (15.1) on p.415 of https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf,
+     * and with respect to the notation found there, we compute w_f here.
      */
     float z = 1.0f / one_over_viewport_z;
     for(auto& it: frag_info.varyings)
@@ -96,7 +100,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
 
     /*
      * set up the fragment coordinate. this should match (15.1) on p. 415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
-     * note that we need to reverse the y-axis for the default fraembuffer.
+     * note that we need to reverse the y-axis for the default framebuffer.
      */
     ml::vec4 frag_coord;
     if(states.draw_target == framebuffer)
@@ -104,6 +108,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
         frag_coord = {
           static_cast<float>(x) - pixel_center.x,
           framebuffer->properties.height - (static_cast<float>(y) - pixel_center.y),
+          depth_value,
           z};
     }
     else
@@ -111,6 +116,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
         frag_coord = {
           static_cast<float>(x) - pixel_center.x,
           static_cast<float>(y) - pixel_center.y,
+          depth_value,
           z};
     }
 
