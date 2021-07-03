@@ -127,11 +127,11 @@ public:
         float falloff = light_power / distance_squared;
 
         // sample normal map.
-        const ml::vec3 material_normal = (samplers[1]->sample_at({tex_coords.x, tex_coords.y}) * 2 - 1).xyz().normalized();
+        const ml::vec3 material_normal = (samplers[1]->sample_at({tex_coords.x, tex_coords.y}) * 2 - 1).xyz();
 
         // normal of the computed fragment, in camera space.
-        auto tbn = ml::mat4x4{tangent, bitangent, normal, {0, 0, 0, 0}}.transposed();
-        const ml::vec3 n = (tbn * ml::vec4{material_normal, 0.0}).xyz().normalized();
+        auto tbn = ml::mat4x4{tangent, bitangent, normal, ml::vec4::zero()}.transposed();
+        const ml::vec3 n = (tbn * ml::vec4{material_normal, 0.f}).xyz().normalized();
         // Direction of the light (from the fragment to the light)
         const ml::vec3 l = light_direction.xyz().normalized();
 
