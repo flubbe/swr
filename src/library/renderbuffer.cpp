@@ -367,7 +367,11 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color)
     {
         // this also clears mipmaps, if present
         auto& info = color_attachments[attachment]->info;
+#ifdef SWR_USE_SIMD
+        utils::memset128(info.data_ptr, info.pitch * info.height * sizeof(__m128), *reinterpret_cast<__m128i*>(&clear_color.data));
+#else
         std::fill_n(info.data_ptr, info.pitch * info.height, clear_color);
+#endif
     }
 }
 
@@ -399,8 +403,16 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color, 
         int y_max = std::max(0, std::min(rect.y_max, info.height));
 
         const auto row_size = x_max - x_min;
-        const auto skip = info.pitch - row_size;
 
+#    ifdef SWR_USE_SIMD
+        auto ptr = info.data_ptr + y_min * info.pitch + x_min;
+        for(int y = y_min; y < y_max; ++y)
+        {
+            utils::memset128(ptr, row_size * sizeof(__m128), *reinterpret_cast<__m128i*>(&clear_color.data));
+            ptr += info.pitch;
+        }
+#    else
+        const auto skip = info.pitch - row_size;
         auto ptr = info.data_ptr + y_min * info.pitch + x_min;
         for(int y = y_min; y < y_max; ++y)
         {
@@ -411,7 +423,8 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color, 
 
             ptr += skip;
         }
-#endif
+#    endif /* SWR_USE_SIMD */
+#endif     /* SWR_USE_MORTON_CODES */
     }
 }
 
@@ -459,7 +472,7 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
             utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_depth));
             ptr += info.pitch;
         }
-#endif
+#endif /* SWR_USE_MORTON_CODES */
     }
 }
 

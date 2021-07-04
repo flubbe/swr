@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  * 
- * software renderer demonstration (colored rotating cube).
+ * software renderer demonstration (default framebuffer clearing).
  * 
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
@@ -17,9 +17,6 @@
 #include "swr/swr.h"
 #include "swr/shaders.h"
 
-/* shaders for this demo. */
-#include "shader.h"
-
 /* application framework. */
 #include "swr_app/framework.h"
 
@@ -27,32 +24,11 @@
 #include "../common/platform/platform.h"
 
 /** demo title. */
-const auto demo_title = "Colored Cube";
+const auto demo_title = "Clear Default Framebuffer";
 
 /** demo window. */
-class demo_cube : public swr_app::renderwindow
+class demo_clear : public swr_app::renderwindow
 {
-    /** color shader */
-    shader::color shader;
-
-    /** color shader id. */
-    uint32_t shader_id{0};
-
-    /** projection matrix. */
-    ml::mat4x4 proj;
-
-    /** the cube's vertices. */
-    uint32_t cube_verts{0};
-
-    /** the cube's indices. */
-    uint32_t cube_indices{0};
-
-    /** vertex colors. */
-    uint32_t cube_colors{0};
-
-    /** a rotation offset for the cube. */
-    float cube_rotation{0};
-
     /** frame counter. */
     uint32_t frame_count{0};
 
@@ -64,7 +40,7 @@ class demo_cube : public swr_app::renderwindow
 
 public:
     /** constructor. */
-    demo_cube()
+    demo_clear()
     : swr_app::renderwindow(demo_title, width, height)
     {
     }
@@ -98,62 +74,11 @@ public:
         swr::SetClearDepth(1.0f);
         swr::SetViewport(0, 0, width, height);
 
-        swr::SetState(swr::state::cull_face, true);
-        swr::SetState(swr::state::depth_test, true);
-
-        shader_id = swr::RegisterShader(&shader);
-        if(!shader_id)
-        {
-            throw std::runtime_error("shader registration failed");
-        }
-
-        // set projection matrix.
-        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 2, 1.f, 10.f);
-
-        // load cube.
-        std::vector<uint32_t> indices = {
-#define FACE_LIST(...) __VA_ARGS__
-#include "../common/cube.geom"
-#undef FACE_LIST
-        };
-        cube_indices = swr::CreateIndexBuffer(indices);
-
-        std::vector<ml::vec4> vertices = {
-#define VERTEX_LIST(...) __VA_ARGS__
-#include "../common/cube.geom"
-#undef VERTEX_LIST
-        };
-        cube_verts = swr::CreateAttributeBuffer(vertices);
-
-        std::vector<ml::vec4> colors = {
-#define COLOR_LIST(...) __VA_ARGS__
-#include "../common/cube.geom"
-#undef COLOR_LIST
-        };
-        cube_colors = swr::CreateAttributeBuffer(colors);
-
         return true;
     }
 
     void destroy()
     {
-        swr::DeleteAttributeBuffer(cube_colors);
-        swr::DeleteAttributeBuffer(cube_verts);
-        swr::DeleteIndexBuffer(cube_indices);
-
-        cube_colors = 0;
-        cube_verts = 0;
-        cube_indices = 0;
-
-        if(shader_id)
-        {
-            if(context)
-            {
-                swr::UnregisterShader(shader_id);
-            }
-            shader_id = 0;
-        }
-
         if(context)
         {
             swr::DestroyContext(context);
@@ -163,7 +88,7 @@ public:
         renderwindow::destroy();
     }
 
-    void update(float delta_time)
+    void update([[maybe_unused]] float delta_time)
     {
         // gracefully exit when asked.
         SDL_Event e;
@@ -176,17 +101,7 @@ public:
             }
         }
 
-        /*
-         * update animation.
-         */
-        cube_rotation += 0.2f * delta_time;
-        if(cube_rotation > 2 * static_cast<float>(M_PI))
-        {
-            cube_rotation -= 2 * static_cast<float>(M_PI);
-        }
-
         begin_render();
-        draw_cube(ml::vec3{0, 0, -7}, cube_rotation);
         end_render();
 
         ++frame_count;
@@ -202,34 +117,6 @@ public:
     {
         swr::Present();
         swr::CopyDefaultColorBuffer(context);
-    }
-
-    void draw_cube(ml::vec3 pos, float angle)
-    {
-        ml::mat4x4 view = ml::mat4x4::identity();
-        view *= ml::matrices::rotation_z(angle);
-
-        view *= ml::matrices::translation(pos.x, pos.y, pos.z);
-        view *= ml::matrices::scaling(2.0f);
-        view *= ml::matrices::rotation_y(angle);
-        view *= ml::matrices::rotation_z(2 * angle);
-        view *= ml::matrices::rotation_x(3 * angle);
-
-        swr::BindShader(shader_id);
-
-        swr::EnableAttributeBuffer(cube_verts, 0);
-        swr::EnableAttributeBuffer(cube_colors, 1);
-
-        swr::BindUniform(0, proj);
-        swr::BindUniform(1, view);
-
-        // draw the buffer.
-        swr::DrawIndexedElements(cube_indices, swr::vertex_buffer_mode::triangles);
-
-        swr::DisableAttributeBuffer(cube_colors);
-        swr::DisableAttributeBuffer(cube_verts);
-
-        swr::BindShader(0);
     }
 
     int get_frame_count() const
@@ -260,7 +147,7 @@ public:
         application::initialize();
         platform::set_log(&log);
 
-        window = std::make_unique<demo_cube>();
+        window = std::make_unique<demo_clear>();
         window->create();
     }
 
@@ -269,7 +156,7 @@ public:
     {
         if(window)
         {
-            auto* w = static_cast<demo_cube*>(window.get());
+            auto* w = static_cast<demo_clear*>(window.get());
             float fps = static_cast<float>(w->get_frame_count()) / get_run_time();
             platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), get_run_time(), fps, 1000.f / fps);
 

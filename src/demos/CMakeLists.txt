@@ -36,6 +36,12 @@ add_executable(demo_blinn_phong
 )
 target_link_libraries(demo_blinn_phong swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
+add_executable(demo_clear
+	${COMMON_SOURCES}
+	clear/main.cpp
+)
+target_link_libraries(demo_clear swrast cpu_features fmt swr_app ${EXTRA_LIBS})
+
 add_executable(demo_color
 	${COMMON_SOURCES}
 	../../deps/3rd-party/lodepng/lodepng.cpp
