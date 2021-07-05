@@ -15,8 +15,6 @@
 #include "swr_internal.h"
 #include "clipping.h"
 
-#include "fmt/format.h"
-
 namespace swr
 {
 
@@ -82,6 +80,72 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
     // use static temporary vertex buffer to remove the need for permanent reallocation.
     static vertex_buffer temp;
     temp.clear();
+
+    // special case for lines.
+    if(in_vb.size() == 2)
+    {
+        int dot1 = (in_vb[0].coords[axis] <= in_vb[0].coords.w) ? 1 : -1;
+        int dot2 = (in_vb[1].coords[axis] <= in_vb[1].coords.w) ? 1 : -1;
+
+        if(dot1 > 0)
+        {
+            temp.push_back(in_vb[0]);
+        }
+
+        // do consistent clipping.
+        if(dot1 * dot2 < 0)
+        {
+            // Need to clip against plane x/y/z = w, as specified by axis.
+
+            auto* inside_vert = (dot1 < 0) ? &in_vb[1] : &in_vb[0];
+            auto* outside_vert = (dot1 < 0) ? &in_vb[0] : &in_vb[1];
+
+            float t = (inside_vert->coords.w - inside_vert->coords[axis]) / ((inside_vert->coords.w - inside_vert->coords[axis]) - (outside_vert->coords.w - outside_vert->coords[axis]));
+            assert(t >= 0 && t <= 1);
+
+            temp.emplace_back(lerp(t, *inside_vert, *outside_vert));
+        }
+
+        if(dot2 > 0)
+        {
+            temp.push_back(in_vb[1]);
+        }
+
+        out_vb.clear();
+        if(temp.size())
+        {
+            assert(temp.size() == 2);
+
+            int dot1 = (-temp[0].coords[axis] <= temp[0].coords.w) ? 1 : -1;
+            int dot2 = (-temp[1].coords[axis] <= temp[1].coords.w) ? 1 : -1;
+
+            if(dot1 > 0)
+            {
+                out_vb.push_back(temp[0]);
+            }
+
+            // do consistent clipping.
+            if(dot1 * dot2 < 0)
+            {
+                // Need to clip against plane x/y/z = -w, as specified by axis.
+
+                auto* inside_vert = (dot1 < 0) ? &temp[1] : &temp[0];
+                auto* outside_vert = (dot1 < 0) ? &temp[0] : &temp[1];
+
+                float t = -(inside_vert->coords.w + inside_vert->coords[axis]) / ((-inside_vert->coords.w - inside_vert->coords[axis]) + (outside_vert->coords.w + outside_vert->coords[axis]));
+                assert(t >= 0 && t <= 1);
+
+                out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
+            }
+
+            if(dot2 > 0)
+            {
+                out_vb.push_back(temp[1]);
+            }
+        }
+
+        return;
+    }
 
     auto* prev_vert = &in_vb.back();
     int prev_dot = (prev_vert->coords[axis] <= prev_vert->coords.w) ? 1 : -1;
@@ -200,7 +264,7 @@ static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& ou
 
         // !!fixme? this selection could be condensed into a single comparison, since dots[0]*dots[1]<0 implies that exactly one of the dots[i] is positive.
         auto* inside_vert = (dots[0] < 0) ? &in_line[0] : &in_line[1];
-        auto* outside_vert = (dots[1] < 0) ? &in_line[1] : &in_line[0];
+        auto* outside_vert = (dots[1] < 0) ? &in_line[0] : &in_line[1];
 
         float t = (inside_vert->coords.w - W_CLIPPING_PLANE) / (inside_vert->coords.w - outside_vert->coords.w);
         assert(t >= 0 && t <= 1);

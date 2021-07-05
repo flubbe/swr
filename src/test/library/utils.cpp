@@ -11,7 +11,7 @@
 /* boost test framework. */
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_ALTERNATIVE_INIT_API
-#define BOOST_TEST_MODULE custom memset tests
+#define BOOST_TEST_MODULE utility tests
 #include <boost/test/unit_test.hpp>
 
 /* make sure we include the non-SIMD version of memset */
@@ -109,7 +109,7 @@ constexpr int large_unaligned = (1 << 24) + 77777;
  * tests.
  */
 
-BOOST_AUTO_TEST_SUITE(math)
+BOOST_AUTO_TEST_SUITE(utility_tests)
 
 /* test pack and unpack functions. */
 BOOST_AUTO_TEST_CASE(internal_pack)
