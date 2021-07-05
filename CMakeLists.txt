@@ -89,3 +89,8 @@ add_subdirectory(src/demos)
 add_subdirectory(src/library)
 add_subdirectory(src/swr_app)
 
+# benchmarks
+add_subdirectory(src/bench)
+
+# tests
+add_subdirectory(src/test)

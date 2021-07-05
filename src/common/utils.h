@@ -26,44 +26,61 @@ namespace utils
 #ifdef SWR_USE_SIMD
 
 /**
- * use SIMD for memset. try to write in 16-byte chunks.
+ * use SIMD for memset. try to write in 16-byte chunks. assumes that buf starts on a 16-byte boundary.
  */
-inline void* memset128(void* buf, size_t size, __m128i c)
+inline void* memset128_aligned(void* buf, __m128i c, size_t size)
 {
-    if(size < 16)
+    auto chunks = (size & (~15)) >> 4;
+    __m128i* ptr = reinterpret_cast<__m128i*>(buf);
+
+    while(chunks--)
     {
-        for(size_t i = 0; i < size; ++i)
+        _mm_stream_si128(ptr++, c);
+    }
+    _mm_sfence();
+
+    // write remaining bytes.
+    size_t tail = reinterpret_cast<uintptr_t>(buf) + size - reinterpret_cast<uintptr_t>(ptr);
+    for(size_t i = 0; i < tail; ++i)
+    {
+        reinterpret_cast<std::byte*>(ptr)[i] = reinterpret_cast<std::byte*>(&c)[i];
+    }
+
+    return buf;
+}
+
+inline void* memset128(void* buf, __m128i c, size_t size)
+{
+    constexpr size_t memset_small_size = 16384;
+
+    // small sizes.
+    if(size < memset_small_size)
+    {
+        const auto aligned_size = (size & (~15));
+        uintptr_t i;
+        for(i = 0; i < aligned_size; i += 16)
         {
-            *reinterpret_cast<uint8_t*>(buf) = reinterpret_cast<uint8_t*>(&c)[i];
+            std::memcpy(reinterpret_cast<std::byte*>(buf) + i, &c, 16);
         }
+        for(;i<size;++i)
+        {
+            (reinterpret_cast<std::byte*>(buf))[i] = (reinterpret_cast<std::byte*>(&c))[i & 15];
+        }
+
         return buf;
     }
 
-    // get aligned buffer start and end.
-    uintptr_t aligned_buf = reinterpret_cast<uintptr_t>((reinterpret_cast<uint8_t*>(buf) + 0xF)) & ~static_cast<uintptr_t>(0xF);
-    uintptr_t aligned_end = reinterpret_cast<uintptr_t>(reinterpret_cast<uint8_t*>(buf) + size) & ~static_cast<uintptr_t>(0xF);
+    size_t unaligned_start = 0x10 - (reinterpret_cast<uintptr_t>(buf) & 0xF);
+    size -= unaligned_start;
 
-    uintptr_t first = aligned_buf - reinterpret_cast<uintptr_t>(buf);
-    uintptr_t last = aligned_end - reinterpret_cast<uintptr_t>(buf);
-
-    // write non-aligned first part.
-    size_t i;
-    for(i = 0; i < first; ++i)
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(buf);
+    while(unaligned_start--)
     {
-        reinterpret_cast<uint8_t*>(buf)[i] = reinterpret_cast<uint8_t*>(&c)[i];
+        *ptr++ = *reinterpret_cast<uint8_t*>(&c);
+        c = _mm_or_si128(_mm_srli_si128(c, 1), _mm_slli_si128(c, 15));
     }
 
-    // write aligned part.
-    for(; i < last; i += 16)
-    {
-        _mm_stream_si128(reinterpret_cast<__m128i*>(&reinterpret_cast<uint8_t*>(buf)[i]), c);
-    }
-
-    // write end.
-    for(; i < size; ++i)
-    {
-        reinterpret_cast<uint8_t*>(buf)[i] = reinterpret_cast<uint8_t*>(&c)[i];
-    }
+    memset128_aligned(ptr, c, size);
 
     return buf;
 }
@@ -84,20 +101,20 @@ inline void* memset128(void* buf, size_t size, __m128i c)
  *   case the amount of memory to be filled is not a multiple of 64 bits. If you know it always will be, you can simply drop 
  *   that loop.
  */
-inline void* memset64(void* buf, size_t size, uint64_t c)
+inline void* memset64(void* buf, uint64_t c, size_t size)
 {
 #ifdef SWR_USE_SIMD
-    return memset128(buf, size, _mm_set_epi64x(c, c));
+    return memset128(buf, _mm_set_epi64x(c, c), size);
 #else
     const auto aligned_size = (size & (~7));
     uintptr_t i;
     for(i = 0; i < aligned_size; i += 8)
     {
-        std::memcpy(reinterpret_cast<char*>(buf) + i, &c, 8);
+        std::memcpy(reinterpret_cast<std::byte*>(buf) + i, &c, 8);
     }
     for(; i < size; ++i)
     {
-        (reinterpret_cast<char*>(buf))[i] = (reinterpret_cast<char*>(&c))[i & 7];
+        (reinterpret_cast<std::byte*>(buf))[i] = (reinterpret_cast<std::byte*>(&c))[i & 7];
     }
     return buf;
 #endif
@@ -106,12 +123,12 @@ inline void* memset64(void* buf, size_t size, uint64_t c)
 /**
  * memset which writes 2*32 bits at once, built from (c << 32) | c. See memset64 for an explanation.
  */
-inline void* memset32(void* buf, size_t size, uint32_t c)
+inline void* memset32(void* buf, uint32_t c, size_t size)
 {
 #ifdef SWR_USE_SIMD
-    return memset128(buf, size, _mm_set1_epi32(c));
+    return memset128(buf, _mm_set1_epi32(c), size);
 #else
-    return memset64(buf, size, (static_cast<uint64_t>(c) << 32) | static_cast<uint64_t>(c));
+    return memset64(buf, (static_cast<uint64_t>(c) << 32) | static_cast<uint64_t>(c), size);
 #endif
 }
 

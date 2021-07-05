@@ -124,7 +124,7 @@ void default_framebuffer::clear_color(uint32_t attachment, ml::vec4 clear_color)
     if(attachment == 0)
     {
         auto& info = color_buffer.info;
-        utils::memset32(info.data_ptr, info.pitch * info.height, color_buffer.converter.to_pixel(clear_color));
+        utils::memset32(info.data_ptr, color_buffer.converter.to_pixel(clear_color), info.pitch * info.height);
     }
 }
 
@@ -144,7 +144,7 @@ void default_framebuffer::clear_color(uint32_t attachment, ml::vec4 clear_color,
         auto ptr = reinterpret_cast<uint8_t*>(color_buffer.info.data_ptr) + y_min * color_buffer.info.pitch + x_min * sizeof(uint32_t);
         for(int y = y_min; y < y_max; ++y)
         {
-            utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_value));
+            utils::memset32(ptr, *reinterpret_cast<uint32_t*>(&clear_value), row_size);
             ptr += color_buffer.info.pitch;
         }
     }
@@ -155,7 +155,7 @@ void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth)
     auto& info = depth_buffer.info;
     if(info.data_ptr)
     {
-        utils::memset32(reinterpret_cast<uint32_t*>(info.data_ptr), info.pitch * info.height, ml::unwrap(clear_depth));
+        utils::memset32(reinterpret_cast<uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
     }
 }
 
@@ -171,7 +171,7 @@ void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth, const utils::r
     auto ptr = reinterpret_cast<uint8_t*>(depth_buffer.info.data_ptr) + y_min * depth_buffer.info.pitch + x_min * sizeof(ml::fixed_32_t);
     for(int y = y_min; y < y_max; ++y)
     {
-        utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_depth));
+        utils::memset32(ptr, *reinterpret_cast<uint32_t*>(&clear_depth), row_size);
         ptr += depth_buffer.info.pitch;
     }
 }
@@ -368,7 +368,7 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color)
         // this also clears mipmaps, if present
         auto& info = color_attachments[attachment]->info;
 #ifdef SWR_USE_SIMD
-        utils::memset128(info.data_ptr, info.pitch * info.height * sizeof(__m128), *reinterpret_cast<__m128i*>(&clear_color.data));
+        utils::memset128(info.data_ptr, *reinterpret_cast<__m128i*>(&clear_color.data), info.pitch * info.height * sizeof(__m128));
 #else
         std::fill_n(info.data_ptr, info.pitch * info.height, clear_color);
 #endif
@@ -433,7 +433,7 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth)
     if(depth_attachment)
     {
         auto& info = depth_attachment->info;
-        utils::memset32(reinterpret_cast<uint32_t*>(info.data_ptr), info.pitch * info.height, ml::unwrap(clear_depth));
+        utils::memset32(reinterpret_cast<uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
     }
 }
 
@@ -469,7 +469,7 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
         auto ptr = reinterpret_cast<uint8_t*>(info.data_ptr) + y_min * info.pitch + x_min * sizeof(ml::fixed_32_t);
         for(int y = y_min; y < y_max; ++y)
         {
-            utils::memset32(ptr, row_size, *reinterpret_cast<uint32_t*>(&clear_depth));
+            utils::memset32(ptr, *reinterpret_cast<uint32_t*>(&clear_depth), row_size);
             ptr += info.pitch;
         }
 #endif /* SWR_USE_MORTON_CODES */
