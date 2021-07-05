@@ -300,5 +300,4 @@ BOOST_AUTO_TEST_CASE(simd_memset128)
     }
 }
 
-
 BOOST_AUTO_TEST_SUITE_END();

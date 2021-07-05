@@ -62,7 +62,7 @@ inline void* memset128(void* buf, __m128i c, size_t size)
         {
             std::memcpy(reinterpret_cast<std::byte*>(buf) + i, &c, 16);
         }
-        for(;i<size;++i)
+        for(; i < size; ++i)
         {
             (reinterpret_cast<std::byte*>(buf))[i] = (reinterpret_cast<std::byte*>(&c))[i & 15];
         }

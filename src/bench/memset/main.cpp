@@ -32,7 +32,7 @@ namespace simd
 } /* namespace simd */
 
 /** small size of memory */
-constexpr auto memset_test_small_size = 33; // intentionally unaligned.
+constexpr auto memset_test_small_size = 33;    // intentionally unaligned.
 
 /** large size of memory. */
 constexpr auto memset_test_size = 640 * 480 * 16 * 4;
@@ -136,18 +136,18 @@ static void bench_memset128_simd(benchmark::State& state)
 }
 BENCHMARK(bench_memset128_simd);
 
-constexpr int mult=1024;
+constexpr int mult = 1024;
 
 static void bench_memset_small(benchmark::State& state)
 {
     std::vector<std::byte> mem;
-    mem.resize(memset_test_small_size*mult);
+    mem.resize(memset_test_small_size * mult);
 
     for(auto _: state)
     {
-        for(int k=0;k<mult;++k)
+        for(int k = 0; k < mult; ++k)
         {
-            std::memset(mem.data(), '0', memset_test_small_size*k);
+            std::memset(mem.data(), '0', memset_test_small_size * k);
         }
         benchmark::DoNotOptimize(mem);
     }
@@ -157,7 +157,7 @@ BENCHMARK(bench_memset_small);
 static void bench_memset128_simd_small(benchmark::State& state)
 {
     std::vector<std::byte> mem;
-    mem.resize(memset_test_small_size*mult);
+    mem.resize(memset_test_small_size * mult);
 
     const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
     const uint64_t c2 = c1 | (c1 << 32);
@@ -165,14 +165,13 @@ static void bench_memset128_simd_small(benchmark::State& state)
 
     for(auto _: state)
     {
-        for(int k=0;k<mult;++k)
+        for(int k = 0; k < mult; ++k)
         {
-            simd::utils::memset128(mem.data(), c, memset_test_small_size*k);
+            simd::utils::memset128(mem.data(), c, memset_test_small_size * k);
         }
         benchmark::DoNotOptimize(mem);
     }
 }
 BENCHMARK(bench_memset128_simd_small);
-
 
 BENCHMARK_MAIN();
