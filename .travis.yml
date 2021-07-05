@@ -15,6 +15,7 @@ jobs:
         sources:
           - sourceline: 'ppa:ubuntu-toolchain-r/test'        
         packages:
+          - libbenchmark-dev
           - libboost-dev
           - libboost-test-dev
           - libsdl2-dev
