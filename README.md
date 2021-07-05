@@ -25,7 +25,8 @@ Some configuration options can be set in `src/library/swr_internal.h`.
 
 ## Dependencies
 
-The project uses [boost](https://www.boost.org/) and [SDL2](https://www.libsdl.org/). 
+The project uses [boost](https://www.boost.org/) and [SDL2](https://www.libsdl.org/). If you'd like to run the benchmarks,
+you also need [Google's benchmark library](https://github.com/google/benchmark).
 
 For the other dependencies:
 - put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release 1.1.2, in `deps/3rd-party/cnl`.
