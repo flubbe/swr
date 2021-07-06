@@ -452,7 +452,7 @@ public:
         // set projection matrix.
         proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 8, 5.f, 60.f);
 
-        //!!todo: create gears.
+        // create gears.
         gears[0] = make_gear(1.0, 4.0, 1.0, 20, 0.7);
         gears[1] = make_gear(0.5, 2.0, 2.0, 10, 0.7);
         gears[2] = make_gear(1.3, 2.0, 0.5, 10, 0.7);
