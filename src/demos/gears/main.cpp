@@ -33,26 +33,20 @@ const auto demo_title = "Gears";
 class drawable_object
 {
     /** index buffer id. */
-    std::uint32_t index_buffer_id;
+    std::uint32_t index_buffer_id{0};
 
     /** vertex buffer id. */
-    std::uint32_t vertex_buffer_id;
+    std::uint32_t vertex_buffer_id{0};
 
     /** normal buffer id. */
-    std::uint32_t normal_buffer_id;
+    std::uint32_t normal_buffer_id{0};
 
     /** remember if we still store data. */
-    bool has_data;
+    bool has_data{false};
 
 public:
     /** default constructor. */
-    drawable_object()
-    : index_buffer_id{0}
-    , vertex_buffer_id{0}
-    , normal_buffer_id{0}
-    , has_data{false}
-    {
-    }
+    drawable_object() = default;
 
     /** initialize the object at least with an index buffer id. */
     drawable_object(std::uint32_t in_ib, std::uint32_t in_vb, std::uint32_t in_nb)
@@ -63,8 +57,17 @@ public:
     {
     }
 
-    /* disallow moving, copying and assignment */
-    drawable_object(drawable_object&& other) = default;
+    /** move data. */
+    drawable_object(drawable_object&& other)
+    : index_buffer_id{other.index_buffer_id}
+    , vertex_buffer_id{other.vertex_buffer_id}
+    , normal_buffer_id{other.normal_buffer_id}
+    , has_data{other.has_data}
+    {
+        other.has_data = false;
+    }
+
+    /* disallow copying and assignment */
     drawable_object(const drawable_object&) = default;
     drawable_object& operator=(const drawable_object&) = default;
 
@@ -82,7 +85,7 @@ public:
     }
 
     /** draw the object. */
-    void draw()
+    void draw() const
     {
         if(has_data)
         {
@@ -95,48 +98,69 @@ public:
     }
 };
 
-/** demo window. */
-class demo_gears : public swr_app::renderwindow
+/** the gear's inner cylinder has smooth shading enabled, so we divide the meshes (and also the shaders) accordingly. */
+struct gear_object
 {
-    /** color shader */
-    shader::color shader_red{ml::vec4{0.8f, 0.1f, 0.0f, 1.0f}};
-    shader::color shader_green{ml::vec4{0.0f, 0.8f, 0.2f, 1.0f}};
-    shader::color shader_blue{ml::vec4{0.2f, 0.2f, 1.0f, 1.0f}};
+    /** outside of the gear. */
+    drawable_object outside;
 
-    /** color shader ids. */
-    uint32_t shader_ids[3] = {0, 0, 0};
+    /** inner cylinder of the gear. */
+    drawable_object cylinder;
 
-    /** projection matrix. */
-    ml::mat4x4 proj;
+    /** flat shader for the outside. */
+    shader::color flat_shader;
 
-    /** the gears. */
-    drawable_object gears[3];
+    /** smooth shader for the cylinder. */
+    shader::color smooth_shader;
 
-    /** view rotation. */
-    ml::vec3 view_rotation = {20.f, 30.f, 0.f};
+    /** flat shader id. */
+    uint32_t flat_shader_id{0};
 
-    /** a rotation offset for the gears. */
-    float gear_rotation{0};
+    /** smooth shader id. */
+    uint32_t smooth_shader_id{0};
 
-    /** frame counter. */
-    uint32_t frame_count{0};
+    /** default constructor. */
+    gear_object() = default;
 
-    /** viewport width. */
-    static const int width = 640;
+    /** disable copying. */
+    gear_object(const gear_object&) = delete;
+    gear_object(gear_object&&) = delete;
 
-    /** viewport height. */
-    static const int height = 480;
+    gear_object& operator=(const gear_object& other) = delete;
 
-    /** 
-     * create a gear and upload it to the graphics driver. the code here is adapted from glxgears.c.
-     */
-    drawable_object make_gear(float inner_radius, float outer_radius, float width, int teeth, float tooth_depth)
+    /** release all data and unregister shaders. */
+    void release()
     {
+        outside.release();
+        cylinder.release();
+
+        swr::UnregisterShader(flat_shader_id);
+        swr::UnregisterShader(smooth_shader_id);
+
+        flat_shader_id = 0;
+        smooth_shader_id = 0;
+    }
+
+    /** draw the gear. */
+    void draw() const
+    {
+        swr::BindShader(flat_shader_id);
+        outside.draw();
+
+        swr::BindShader(smooth_shader_id);
+        cylinder.draw();
+    }
+
+    /** create a gear and upload it to the graphics driver. the code here is adapted from glxgears.c. */
+    void make_gear(float inner_radius, float outer_radius, float width, int teeth, float tooth_depth, ml::vec4 color)
+    {
+        release();
+
         float r0 = inner_radius;
         float r1 = outer_radius - tooth_depth / 2.f;
         float r2 = outer_radius + tooth_depth / 2.f;
 
-        float da = 2.f * static_cast<float>(M_PI) / static_cast<float>(teeth) / 4.f;
+        float da = 2.f * static_cast<float>(M_PI / teeth) / 4.f;
 
         std::vector<ml::vec4> vb;
         std::vector<ml::vec4> nb;
@@ -149,15 +173,15 @@ class demo_gears : public swr_app::renderwindow
             vb.emplace_back(r0 * std::cos(angle), r0 * std::sin(angle), width * 0.5f);
             vb.emplace_back(r1 * std::cos(angle), r1 * std::sin(angle), width * 0.5f);
 
-            nb.emplace_back(0, 0, 1);
-            nb.emplace_back(0, 0, 1);
+            nb.emplace_back(0, 0, 1, 0);
+            nb.emplace_back(0, 0, 1, 0);
 
             if(i != 0)
             {
                 auto cur_idx = vb.size() - 1;
+                ib.push_back(cur_idx - 1);
                 ib.push_back(cur_idx - 3);
                 ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx - 1);
 
                 ib.push_back(cur_idx - 1);
                 ib.push_back(cur_idx - 2);
@@ -169,13 +193,13 @@ class demo_gears : public swr_app::renderwindow
                 vb.emplace_back(r0 * std::cos(angle), r0 * std::sin(angle), width * 0.5f);
                 vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), width * 0.5f);
 
-                nb.emplace_back(0, 0, 1);
-                nb.emplace_back(0, 0, 1);
+                nb.emplace_back(0, 0, 1, 0);
+                nb.emplace_back(0, 0, 1, 0);
 
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 3);
                 ib.push_back(cur_idx - 2);
                 ib.push_back(cur_idx - 1);
+                ib.push_back(cur_idx - 3);
 
                 ib.push_back(cur_idx - 1);
                 ib.push_back(cur_idx - 2);
@@ -194,10 +218,10 @@ class demo_gears : public swr_app::renderwindow
             vb.emplace_back(r2 * std::cos(angle + 2 * da), r2 * std::sin(angle + 2 * da), width * 0.5f);
             vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), width * 0.5f);
 
-            nb.emplace_back(0, 0, 1);
-            nb.emplace_back(0, 0, 1);
-            nb.emplace_back(0, 0, 1);
-            nb.emplace_back(0, 0, 1);
+            nb.emplace_back(0, 0, 1, 0);
+            nb.emplace_back(0, 0, 1, 0);
+            nb.emplace_back(0, 0, 1, 0);
+            nb.emplace_back(0, 0, 1, 0);
 
             auto cur_idx = vb.size() - 1;
             ib.push_back(cur_idx - 3);
@@ -216,8 +240,8 @@ class demo_gears : public swr_app::renderwindow
             vb.emplace_back(r1 * std::cos(angle), r1 * std::sin(angle), -width * 0.5f);
             vb.emplace_back(r0 * std::cos(angle), r0 * std::sin(angle), -width * 0.5f);
 
-            nb.emplace_back(0, 0, -1);
-            nb.emplace_back(0, 0, -1);
+            nb.emplace_back(0, 0, -1, 0);
+            nb.emplace_back(0, 0, -1, 0);
 
             if(i != 0)
             {
@@ -236,8 +260,8 @@ class demo_gears : public swr_app::renderwindow
                 vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), -width * 0.5f);
                 vb.emplace_back(r0 * std::cos(angle), r0 * std::sin(angle), -width * 0.5f);
 
-                nb.emplace_back(0, 0, -1);
-                nb.emplace_back(0, 0, -1);
+                nb.emplace_back(0, 0, -1, 0);
+                nb.emplace_back(0, 0, -1, 0);
 
                 auto cur_idx = vb.size() - 1;
                 ib.push_back(cur_idx - 3);
@@ -261,10 +285,10 @@ class demo_gears : public swr_app::renderwindow
             vb.emplace_back(r2 * std::cos(angle + da), r2 * std::sin(angle + da), -width * 0.5f);
             vb.emplace_back(r1 * std::cos(angle), r1 * std::sin(angle), -width * 0.5f);
 
-            nb.emplace_back(0, 0, -1);
-            nb.emplace_back(0, 0, -1);
-            nb.emplace_back(0, 0, -1);
-            nb.emplace_back(0, 0, -1);
+            nb.emplace_back(0, 0, -1, 0);
+            nb.emplace_back(0, 0, -1, 0);
+            nb.emplace_back(0, 0, -1, 0);
+            nb.emplace_back(0, 0, -1, 0);
 
             auto cur_idx = vb.size() - 1;
             ib.push_back(cur_idx - 3);
@@ -284,24 +308,6 @@ class demo_gears : public swr_app::renderwindow
             vb.emplace_back(r1 * std::cos(angle), r1 * std::sin(angle), width * 0.5f);
             vb.emplace_back(r1 * std::cos(angle), r1 * std::sin(angle), -width * 0.5f);
 
-            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
-            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
-
-            if(i != 0)
-            {
-                auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 3);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx - 1);
-
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx);
-            }
-
-            vb.emplace_back(r2 * std::cos(angle + da), r2 * std::sin(angle + da), width * 0.5f);
-            vb.emplace_back(r2 * std::cos(angle + da), r2 * std::sin(angle + da), -width * 0.5f);
-
             ml::vec4 uv{
               r2 * std::sin(angle + da) - r1 * std::sin(angle),
               -r2 * std::cos(angle + da) + r1 * std::cos(angle),
@@ -309,36 +315,39 @@ class demo_gears : public swr_app::renderwindow
             nb.emplace_back(uv.normalized());
             nb.emplace_back(uv.normalized());
 
+            if(i != 0)
+            {
+                auto cur_idx = vb.size() - 1;
+                ib.push_back(cur_idx - 2);
+                ib.push_back(cur_idx - 1);
+                ib.push_back(cur_idx - 3);
+
+                ib.push_back(cur_idx - 2);
+                ib.push_back(cur_idx);
+                ib.push_back(cur_idx - 1);
+            }
+
+            vb.emplace_back(r2 * std::cos(angle + da), r2 * std::sin(angle + da), width * 0.5f);
+            vb.emplace_back(r2 * std::cos(angle + da), r2 * std::sin(angle + da), -width * 0.5f);
+
+            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
+            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
+
             auto cur_idx = vb.size() - 1;
-            ib.push_back(cur_idx - 3);
             ib.push_back(cur_idx - 2);
             ib.push_back(cur_idx - 1);
+            ib.push_back(cur_idx - 3);
 
-            ib.push_back(cur_idx - 1);
             ib.push_back(cur_idx - 2);
             ib.push_back(cur_idx);
+            ib.push_back(cur_idx - 1);
 
             vb.emplace_back(r2 * std::cos(angle + 2 * da), r2 * std::sin(angle + 2 * da), width * 0.5f);
             vb.emplace_back(r2 * std::cos(angle + 2 * da), r2 * std::sin(angle + 2 * da), -width * 0.5f);
 
-            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
-            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
-
-            cur_idx = vb.size() - 1;
-            ib.push_back(cur_idx - 3);
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx - 1);
-
-            ib.push_back(cur_idx - 1);
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx);
-
-            vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), width * 0.5f);
-            vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), -width * 0.5f);
-
             uv = ml::vec4{
               r1 * std::sin(angle + 3 * da) - r2 * std::sin(angle + 2 * da),
-              r1 * std::cos(angle + 3 * da) - r2 * std::cos(angle + 2 * da),
+              -r1 * std::cos(angle + 3 * da) + r2 * std::cos(angle + 2 * da),
               0, 0};
             nb.emplace_back(uv.normalized());
             nb.emplace_back(uv.normalized());
@@ -348,25 +357,48 @@ class demo_gears : public swr_app::renderwindow
             ib.push_back(cur_idx - 2);
             ib.push_back(cur_idx - 1);
 
-            ib.push_back(cur_idx - 1);
             ib.push_back(cur_idx - 2);
             ib.push_back(cur_idx);
+            ib.push_back(cur_idx - 1);
+
+            vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), width * 0.5f);
+            vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), -width * 0.5f);
+
+            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
+            nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
+
+            cur_idx = vb.size() - 1;
+            ib.push_back(cur_idx - 2);
+            ib.push_back(cur_idx - 1);
+            ib.push_back(cur_idx - 3);
+
+            ib.push_back(cur_idx - 2);
+            ib.push_back(cur_idx);
+            ib.push_back(cur_idx - 1);
         }
 
         vb.emplace_back(r1 * std::cos(0.f), r1 * std::sin(0.f), width * 0.5f);
         vb.emplace_back(r1 * std::cos(0.f), r1 * std::sin(0.f), -width * 0.5f);
 
-        nb.emplace_back(r1 * std::cos(0.f), r1 * std::sin(0.f), 0.0f, 0.0f);
-        nb.emplace_back(r1 * std::cos(0.f), r1 * std::sin(0.f), 0.0f, 0.0f);
+        nb.emplace_back(std::cos(0.f), std::sin(0.f), 0, 0);
+        nb.emplace_back(std::cos(0.f), std::sin(0.f), 0, 0);
 
         auto cur_idx = vb.size() - 1;
-        ib.push_back(cur_idx - 3);
         ib.push_back(cur_idx - 2);
         ib.push_back(cur_idx - 1);
+        ib.push_back(cur_idx - 3);
 
-        ib.push_back(cur_idx - 1);
         ib.push_back(cur_idx - 2);
         ib.push_back(cur_idx);
+        ib.push_back(cur_idx - 1);
+
+        /* create outside of the gear. */
+        outside = {swr::CreateIndexBuffer(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+
+        /* clear buffers for the inner cylinder. */
+        vb.clear();
+        nb.clear();
+        ib.clear();
 
         /* draw inside radius cylinder */
         for(int i = 0; i <= teeth; i++)
@@ -375,24 +407,65 @@ class demo_gears : public swr_app::renderwindow
             vb.emplace_back(r0 * std::cos(angle), r0 * std::sin(angle), -width * 0.5f);
             vb.emplace_back(r0 * std::cos(angle), r0 * std::sin(angle), width * 0.5f);
 
-            nb.emplace_back(-std::cos(angle), -std::sin(angle), 0.f);
-            nb.emplace_back(-std::cos(angle), -std::sin(angle), 0.f);
+            nb.emplace_back(-std::cos(angle), -std::sin(angle), 0, 0);
+            nb.emplace_back(-std::cos(angle), -std::sin(angle), 0, 0);
 
             if(i != 0)
             {
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 3);
                 ib.push_back(cur_idx - 2);
                 ib.push_back(cur_idx - 1);
+                ib.push_back(cur_idx - 3);
 
-                ib.push_back(cur_idx - 1);
                 ib.push_back(cur_idx - 2);
                 ib.push_back(cur_idx);
+                ib.push_back(cur_idx - 1);
             }
         }
 
-        return {swr::CreateIndexBuffer(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+        /* create inner cylinder. */
+        cylinder = {swr::CreateIndexBuffer(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+
+        /* create shaders. */
+        smooth_shader = {swr::interpolation_qualifier::smooth, color};
+        flat_shader = {swr::interpolation_qualifier::flat, color};
+
+        flat_shader_id = swr::RegisterShader(&flat_shader);
+        smooth_shader_id = swr::RegisterShader(&smooth_shader);
+
+        if(!flat_shader_id || !smooth_shader_id)
+        {
+            throw std::runtime_error("gear_object: shader registration failed.");
+        }
     }
+};
+
+/** demo window. */
+class demo_gears : public swr_app::renderwindow
+{
+    /** light position. */
+    ml::vec4 light_pos{5.0f, 5.0f, 10.0f, 0.0f};
+
+    /** projection matrix. */
+    ml::mat4x4 proj;
+
+    /** the gears. */
+    gear_object gears[3];
+
+    /** view rotation. */
+    ml::vec3 view_rotation = {20.f, 30.f, 0.f};
+
+    /** a rotation offset for the gears. */
+    float gear_rotation{0};
+
+    /** frame counter. */
+    uint32_t frame_count{0};
+
+    /** viewport width. */
+    static const int width = 640;
+
+    /** viewport height. */
+    static const int height = 480;
 
 public:
     /** constructor. */
@@ -433,29 +506,13 @@ public:
         swr::SetState(swr::state::cull_face, true);
         swr::SetState(swr::state::depth_test, true);
 
-        shader_ids[0] = swr::RegisterShader(&shader_red);
-        if(!shader_ids[0])
-        {
-            throw std::runtime_error("shader registration failed (red)");
-        }
-        shader_ids[1] = swr::RegisterShader(&shader_green);
-        if(!shader_ids[1])
-        {
-            throw std::runtime_error("shader registration failed (green)");
-        }
-        shader_ids[2] = swr::RegisterShader(&shader_blue);
-        if(!shader_ids[2])
-        {
-            throw std::runtime_error("shader registration failed (blue)");
-        }
-
         // set projection matrix.
         proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 8, 5.f, 60.f);
 
         // create gears.
-        gears[0] = make_gear(1.0, 4.0, 1.0, 20, 0.7);
-        gears[1] = make_gear(0.5, 2.0, 2.0, 10, 0.7);
-        gears[2] = make_gear(1.3, 2.0, 0.5, 10, 0.7);
+        gears[0].make_gear(1.0, 4.0, 1.0, 20, 0.7, {0.8f, 0.1f, 0.0f, 1.0f});
+        gears[1].make_gear(0.5, 2.0, 2.0, 10, 0.7, {0.0f, 0.8f, 0.2f, 1.0f});
+        gears[2].make_gear(1.3, 2.0, 0.5, 10, 0.7, {0.2f, 0.2f, 1.0f, 1.0f});
 
         return true;
     }
@@ -465,18 +522,6 @@ public:
         gears[0].release();
         gears[1].release();
         gears[2].release();
-
-        for(int i = 0; i < 3; ++i)
-        {
-            if(shader_ids[i])
-            {
-                if(context)
-                {
-                    swr::UnregisterShader(shader_ids[i]);
-                }
-                shader_ids[i] = 0;
-            }
-        }
 
         if(context)
         {
@@ -536,11 +581,11 @@ public:
         ml::mat4x4 view = ml::mat4x4::identity();
         view *= ml::matrices::translation(0.f, 0.f, -40.f);
 
-        // radians to angles.
-        auto view_radians = view_rotation * static_cast<float>(M_PI) / 180.f;
-        view *= ml::matrices::rotation_x(view_radians.x);
-        view *= ml::matrices::rotation_y(view_radians.y);
-        view *= ml::matrices::rotation_z(view_radians.z);
+        swr::BindUniform(2, view * light_pos);
+
+        view *= ml::matrices::rotation_x(ml::to_radians(view_rotation.x));
+        view *= ml::matrices::rotation_y(ml::to_radians(view_rotation.y));
+        view *= ml::matrices::rotation_z(ml::to_radians(view_rotation.z));
 
         /*
          * gear 1
@@ -549,7 +594,6 @@ public:
         temp *= ml::matrices::translation(-3.f, -2.f, 0.f);
         temp *= ml::matrices::rotation_z(gear_rotation);
 
-        swr::BindShader(shader_ids[0]);
         swr::BindUniform(1, temp);
         gears[0].draw();
 
@@ -560,7 +604,6 @@ public:
         temp *= ml::matrices::translation(3.1f, -2.f, 0.f);
         temp *= ml::matrices::rotation_z(-2.f * gear_rotation - 9.f);
 
-        swr::BindShader(shader_ids[1]);
         swr::BindUniform(1, temp);
         gears[1].draw();
 
@@ -571,7 +614,6 @@ public:
         temp *= ml::matrices::translation(-3.1f, 4.2f, 0.f);
         temp *= ml::matrices::rotation_z(-2.f * gear_rotation - 25.f);
 
-        swr::BindShader(shader_ids[2]);
         swr::BindUniform(1, temp);
         gears[2].draw();
 

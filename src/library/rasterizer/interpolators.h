@@ -318,7 +318,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
      * Initialize the interpolator. 
      * !!fixme: why do we need to pass one_over_span_length explicitly?
      */
-    line_interpolator(const geom::vertex& v1, const geom::vertex& v2, const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs, float one_over_span_length)
+    line_interpolator(const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v_ref, const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs, float one_over_span_length)
     : basic_interpolation_data(v1.coords.z, v1.coords.w)
     {
         // depth interpolation.
@@ -345,52 +345,33 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
         varyings.resize(varying_count);
         for(size_t i = 0; i < varying_count; ++i)
         {
-            auto varying_v1 = v1.varyings[i];
-            auto varying_v2 = v2.varyings[i];
-
             if(iqs[i] == swr::interpolation_qualifier::smooth)
             {
+                auto varying_v1 = v1.varyings[i];
+                auto varying_v2 = v2.varyings[i];
+
                 varying_v1 *= v1.coords.w;
                 varying_v2 *= v2.coords.w;
+
+                auto dir = varying_v2 - varying_v1;
+                auto step = dir * one_over_span_length;
+
+                varyings[i] = varying_interpolator(
+                  swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::smooth},
+                  {step, ml::vec4::zero()},
+                  {dir, ml::vec4::zero()});
             }
-
-            auto dir = varying_v2 - varying_v1;
-            auto step = dir * one_over_span_length;
-
-            varyings[i] = varying_interpolator(
-              swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero(), iqs[i]},
-              {step, ml::vec4::zero()},
-              {dir, ml::vec4::zero()});
-        }
-    }
-
-    line_interpolator(const line_interpolator& v1, const line_interpolator& v2, float one_over_span_length)
-    : basic_interpolation_data(v1.reference_depth_value, v1.reference_one_over_viewport_z)
-    {
-        // raster z interpolation.
-        auto depth_diff = v2.depth_value.value - v1.depth_value.value;
-        auto depth_step = depth_diff * one_over_span_length;
-        depth_value = geom::linear_interpolator_1d<float>{v1.depth_value.value, depth_step, depth_diff};
-
-        // viewport z interpolation
-        auto one_over_viewport_z_diff = v2.one_over_viewport_z.value - v1.one_over_viewport_z.value;
-        auto one_over_viewport_z_step = one_over_viewport_z_diff * one_over_span_length;
-        one_over_viewport_z = geom::linear_interpolator_1d<float>{v1.one_over_viewport_z.value, one_over_viewport_z_step, one_over_viewport_z_diff};
-
-        // all other vertex attributes.
-        assert(v1.varyings.size() == v2.varyings.size());
-        const auto varying_count = v1.varyings.size();
-
-        varyings.resize(varying_count);
-        for(size_t i = 0; i < varying_count; ++i)
-        {
-            auto dir = v2.varyings[i].value - v1.varyings[i].value;
-            auto step = dir * one_over_span_length;
-
-            varyings[i] = varying_interpolator(
-              v1.varyings[i],
-              {step, ml::vec4::zero()},
-              {dir, ml::vec4::zero()});
+            else if(iqs[i] == swr::interpolation_qualifier::flat)
+            {
+                varyings[i] = varying_interpolator{
+                  {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::flat},
+                  {ml::vec4::zero(), ml::vec4::zero()},
+                  {ml::vec4::zero(), ml::vec4::zero()}};
+            }
+            else
+            {
+                //!!todo: unimplemented.
+            }
         }
     }
 
@@ -448,11 +429,12 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
      * \param v0 first triangle vertex in cw orienation (w.r.t. viewport coordinstes)
      * \param v1 second triangle vertex in cw orientation (w.r.t. viewport coordinates)
      * \param v2 third triangle vertex in cw orientation (w.r.t. viewport coordinates)
+     * \param v_ref reference vertex for flat shading
      * \param iqs Interpolation qualifiers for the varyings.
      * \param one_over_area inverse area of the triangle
      */
     triangle_interpolator(
-      const geom::vertex& v0, const geom::vertex& v1, const geom::vertex& v2,
+      const geom::vertex& v0, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v_ref,
       const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs,
       float one_over_area)
     : basic_interpolation_data(v0.coords.z, v0.coords.w)
@@ -503,27 +485,38 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         varyings.resize(varying_count);
         for(size_t i = 0; i < varying_count; ++i)
         {
-            auto varying_v0 = v0.varyings[i];
-            auto varying_v1 = v1.varyings[i];
-            auto varying_v2 = v2.varyings[i];
-
             if(iqs[i] == swr::interpolation_qualifier::smooth)
             {
+                auto varying_v0 = v0.varyings[i];
+                auto varying_v1 = v1.varyings[i];
+                auto varying_v2 = v2.varyings[i];
+
                 varying_v0 *= v0.coords.w;
                 varying_v1 *= v1.coords.w;
                 varying_v2 *= v2.coords.w;
+
+                auto diff_v0v1 = varying_v1 - varying_v0;
+                auto diff_v0v2 = varying_v2 - varying_v0;
+
+                auto step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
+                auto step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
+
+                varyings[i] = varying_interpolator(
+                  {varying_v0, step_x, step_y, swr::interpolation_qualifier::smooth},
+                  {step_x, step_y},
+                  {diff_v0v1, diff_v0v2});
             }
-
-            auto diff_v0v1 = varying_v1 - varying_v0;
-            auto diff_v0v2 = varying_v2 - varying_v0;
-
-            auto step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
-            auto step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
-
-            varyings[i] = varying_interpolator(
-              {varying_v0, step_x, step_y, iqs[i]},
-              {step_x, step_y},
-              {diff_v0v1, diff_v0v2});
+            else if(iqs[i] == swr::interpolation_qualifier::flat)
+            {
+                varyings[i] = varying_interpolator{
+                  {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::flat},
+                  {ml::vec4::zero(), ml::vec4::zero()},
+                  {ml::vec4::zero(), ml::vec4::zero()}};
+            }
+            else
+            {
+                //!!todo: unimplemented.
+            }
         }
     }
 

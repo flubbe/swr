@@ -29,14 +29,15 @@ namespace shader
  */
 class color : public swr::program
 {
-    const ml::vec4 light_pos{5.0f, 5.0f, 10.0f, 0.0f};
+    swr::interpolation_qualifier iq;
     ml::vec4 diffuse_color{1, 0, 0, 1};
     ml::vec4 ambient_color{1, 0, 0, 1};
 
 public:
     color() = default;
-    color(ml::vec4 in_color)
-    : diffuse_color{in_color}
+    color(swr::interpolation_qualifier in_iq, ml::vec4 in_color)
+    : iq{in_iq}
+    , diffuse_color{in_color}
     , ambient_color{in_color}
     {
     }
@@ -45,8 +46,8 @@ public:
     {
         // set varying count and interpolation qualifiers.
         iqs.resize(2);
-        iqs[0] = swr::interpolation_qualifier::smooth;
-        iqs[1] = swr::interpolation_qualifier::smooth;
+        iqs[0] = iq;                                 /* normal */
+        iqs[1] = swr::interpolation_qualifier::flat; /* light direction */
     }
 
     void vertex_shader(
@@ -60,12 +61,13 @@ public:
     {
         ml::mat4x4 proj = (*uniforms)[0].m4;
         ml::mat4x4 view = (*uniforms)[1].m4;
+        ml::vec4 light_dir = (*uniforms)[2].v4;
 
         // transform vertex.
-        gl_Position = proj * (view * attribs[0]);
+        gl_Position = proj * view * attribs[0];
 
-        varyings[0] = attribs[1];
-        varyings[1] = light_pos - ml::vec4((view * attribs[0]).xyz(), 0);
+        varyings[0] = ml::vec4((view * attribs[1]).xyz(), 0); /* normal in camera space */
+        varyings[1] = ml::vec4(light_dir.xyz(), 0);           /* light direction. */
     }
 
     swr::fragment_shader_result fragment_shader(
@@ -79,7 +81,10 @@ public:
         const ml::vec4 normal = varyings[0];
         const ml::vec4 direction = varyings[1];
 
-        auto l = boost::algorithm::clamp(ml::dot(normal, direction.normalized()), 0.f, 1.f);
+        const ml::vec3 n = normal.xyz().normalized();
+        const ml::vec3 d = direction.xyz().normalized();
+
+        auto l = boost::algorithm::clamp(ml::dot(n, d), 0.f, 1.f);
 
         // write color.
         gl_FragColor = ambient_color * 0.2f + diffuse_color * l;

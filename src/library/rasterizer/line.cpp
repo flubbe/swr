@@ -398,7 +398,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
     ml::fixed_t start_y = info.v1->coords.y + info.offset_v1.y;
 
     // initialize gradients along the line.
-    rast::line_interpolator attr(*info.v1, *info.v2, states.shader_info->iqs, 1.0f / info.max_absolute_delta);
+    rast::line_interpolator attr(*info.v1, *info.v2, v1, states.shader_info->iqs, 1.0f / info.max_absolute_delta);
     attr.setup(0.f);
 
     // advance to pixel center and initialize end coordinate.

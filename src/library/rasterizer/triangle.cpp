@@ -472,7 +472,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     /*
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
      */
-    rast::triangle_interpolator attributes{*v1_cw, *v2_cw, v3, states.shader_info->iqs, 1.0f / area};
+    rast::triangle_interpolator attributes{*v1_cw, *v2_cw, v3, v1, states.shader_info->iqs, 1.0f / area};
     attributes.setup_from_screen_coords({static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f});
 
     for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size, attributes.advance_y(swr::impl::rasterizer_block_size))
