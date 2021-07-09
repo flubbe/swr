@@ -119,45 +119,44 @@ struct basic_interpolation_data
     void get_varyings(boost::container::static_vector<swr::varying, geom::limits::max::varyings>& out_varyings) const
     {
         out_varyings.resize(varyings.size());
-
-        auto it = varyings.begin();
         auto out_it = out_varyings.begin();
 
         if(offs_x == 0 && offs_y == 0)
         {
-            for(; it != varyings.end(); ++it, ++out_it)
+            for(auto& it: varyings)
             {
-                *out_it = *it;
+                *out_it = it;
+                ++out_it;
             }
         }
         else if(offs_x == 0)
         {
-            for(; it != varyings.end(); ++it, ++out_it)
+            for(auto it: varyings)
             {
-                auto v = *it;
-                v.setup_block_processing();
-                v.advance_y(offs_y);
-                *out_it = v;
+                it.setup_block_processing();
+                it.advance_y(offs_y);
+                *out_it = it;
+                ++out_it;
             }
         }
         else if(offs_y == 0)
         {
-            for(; it != varyings.end(); ++it, ++out_it)
+            for(auto it: varyings)
             {
-                auto v = *it;
-                v.advance_x(offs_x);
-                *out_it = v;
+                it.advance_x(offs_x);
+                *out_it = it;
+                ++out_it;
             }
         }
         else
         {
-            for(; it != varyings.end(); ++it, ++out_it)
+            for(auto it: varyings)
             {
-                auto v = *it;
-                v.setup_block_processing();
-                v.advance_y(offs_y);
-                v.advance_x(offs_x);
-                *out_it = v;
+                it.setup_block_processing();
+                it.advance_y(offs_y);
+                it.advance_x(offs_x);
+                *out_it = it;
+                ++out_it;
             }
         }
     }

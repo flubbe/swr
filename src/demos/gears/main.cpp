@@ -108,10 +108,10 @@ struct gear_object
     drawable_object cylinder;
 
     /** flat shader for the outside. */
-    shader::color flat_shader;
+    shader::color_flat flat_shader;
 
     /** smooth shader for the cylinder. */
-    shader::color smooth_shader;
+    shader::color_smooth smooth_shader;
 
     /** flat shader id. */
     uint32_t flat_shader_id{0};
@@ -427,8 +427,8 @@ struct gear_object
         cylinder = {swr::CreateIndexBuffer(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
 
         /* create shaders. */
-        smooth_shader = {swr::interpolation_qualifier::smooth, color};
-        flat_shader = {swr::interpolation_qualifier::flat, color};
+        smooth_shader = {color};
+        flat_shader = {color};
 
         flat_shader_id = swr::RegisterShader(&flat_shader);
         smooth_shader_id = swr::RegisterShader(&smooth_shader);
