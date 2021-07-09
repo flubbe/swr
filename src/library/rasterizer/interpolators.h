@@ -455,7 +455,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
           };
         depth_value = geom::linear_interpolator_2d<float>{
           v0.coords.z,
-          depth_steps,
+          ml::to_tvec2<float>(depth_steps),
           {depth_diff_v0v1, depth_diff_v0v2}};
 
         // viewport z interpolation.
@@ -467,7 +467,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
             -viewport_z_diff_v0v1 * normalized_diff_v0v2.x + viewport_z_diff_v0v2 * normalized_diff_v0v1.x};
         one_over_viewport_z = geom::linear_interpolator_2d<float>{
           v0.coords.w,
-          viewport_z_steps,
+          ml::to_tvec2<float>(viewport_z_steps),
           {viewport_z_diff_v0v1, viewport_z_diff_v0v2}};
 
         /*

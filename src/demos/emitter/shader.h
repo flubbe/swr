@@ -132,7 +132,7 @@ public:
         // Direction of the light (from the fragment to the light)
         const ml::vec3 l = light_direction.xyz().normalized();
 
-        float lambertian = boost::algorithm::clamp(n * l, 0.f, 1.f);
+        float lambertian = boost::algorithm::clamp(ml::dot(n, l), 0.f, 1.f);
 
         // sample diffuse texture.
         auto material_diffuse_color = samplers[0]->sample_at({tex_coords.x, tex_coords.y});
@@ -148,8 +148,8 @@ public:
 
         if(lambertian > 0.0f)
         {
-            auto reflect_dir = -(l - n * 2.f * (l * n)); /* reflect vector w.r.t. normal */
-            auto specular_angle = reflect_dir * eye_direction.xyz().normalized();
+            auto reflect_dir = -(l - n * 2.f * ml::dot(l, n)); /* reflect vector w.r.t. normal */
+            auto specular_angle = ml::dot(reflect_dir, eye_direction.xyz().normalized());
             specular = std::pow(boost::algorithm::clamp(specular_angle, 0.f, 1.f), shininess / 4.f);
         }
 
