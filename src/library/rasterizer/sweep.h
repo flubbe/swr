@@ -109,7 +109,7 @@ class sweep_rasterizer : public rasterizer
         tile() = delete;
 
         /** initializing constructor. */
-        tile(const swr::impl::render_states* in_states, triangle_interpolator in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+        tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
         : states{in_states}
         , attributes{in_attributes}
         , x{in_x}
@@ -127,7 +127,7 @@ class sweep_rasterizer : public rasterizer
     boost::container::static_vector<tile, max_cached_tiles> tile_cache;
 
     /** allocate a new tile. if the cache is full, it is rasterized and then emptied. */
-    size_t allocate_tile(const swr::impl::render_states* in_states, triangle_interpolator in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
     {
         if(tile_cache.size() == tile_cache.max_size())
         {
@@ -150,7 +150,7 @@ class sweep_rasterizer : public rasterizer
     tile tile_cache[max_cached_tiles];
 
     /** the allocation function only 0 and sets the parameters for the only tile in the tile cache. */
-    size_t allocate_tile(const swr::impl::render_states* in_states, triangle_interpolator in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
     {
         new(tile_cache) tile(in_states, in_attributes, in_x, in_y, in_front_facing);
         return 0;

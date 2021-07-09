@@ -457,23 +457,20 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_row_top_left_next[3] = {
       {{-edges_fix[0].evaluate(start_coord)},
        {-edges_fix[0].get_change_x(),
-        -edges_fix[0].get_change_y()},
-       {}},
+        -edges_fix[0].get_change_y()}},
       {{-edges_fix[1].evaluate(start_coord)},
        {-edges_fix[1].get_change_x(),
-        -edges_fix[1].get_change_y()},
-       {}},
+        -edges_fix[1].get_change_y()}},
       {{-edges_fix[2].evaluate(start_coord)},
        {-edges_fix[2].get_change_x(),
-        -edges_fix[2].get_change_y()},
-       {}}};
+        -edges_fix[2].get_change_y()}}};
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_row_top_left[3];
 
     /*
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
      */
-    rast::triangle_interpolator attributes{*v1_cw, *v2_cw, v3, v1, states.shader_info->iqs, 1.0f / area};
-    attributes.setup_from_screen_coords({static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f});
+    const ml::vec2 screen_coords{static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f};
+    rast::triangle_interpolator attributes{screen_coords, *v1_cw, *v2_cw, v3, v1, states.shader_info->iqs, 1.0f / area};
 
     for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size, attributes.advance_y(swr::impl::rasterizer_block_size))
     {

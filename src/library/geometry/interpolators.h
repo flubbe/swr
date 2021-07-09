@@ -23,23 +23,14 @@ struct linear_interpolator_1d
     /** Unit step size. */
     T step;
 
-    /** Difference along the edge */
-    T diff;
-
     /** default constructor. */
     linear_interpolator_1d() = default;
 
     /** initializing constructor. */
-    linear_interpolator_1d(const T& in_value, const T& in_step, const T& in_diff)
+    linear_interpolator_1d(const T& in_value, const T& in_step)
     : value(in_value)
     , step(in_step)
-    , diff(in_diff)
     {
-    }
-
-    void set_value_from_reference(const T& reference_value, float lambda)
-    {
-        value = reference_value + diff * lambda;
     }
 
     void set_value(const T& in_value)
@@ -73,27 +64,17 @@ struct linear_interpolator_2d
     /** Unit step size. */
     ml::tvec2<T> step;
 
-    /** Differences along two linearly independent vectors. */
-    ml::tvec2<T> diffs;
-
     /** Value at the start of a row. */
     T row_start;
 
     /** Constructors. */
     linear_interpolator_2d() = default;
 
-    linear_interpolator_2d(const T& in_value, const ml::tvec2<T>& in_step, const ml::tvec2<T>& in_diffs)
+    linear_interpolator_2d(const T& in_value, const ml::tvec2<T>& in_step)
     : value{in_value}
     , step{in_step}
-    , diffs{in_diffs}
     , row_start{in_value}
     {
-    }
-
-    void set_value_from_reference(const T& reference_value, float lambda1, float lambda2)
-    {
-        row_start = reference_value + diffs.x * lambda1 + diffs.y * lambda2;
-        value = row_start;
     }
 
     /** blocks are processed in rows, so we need to store the value of the interpolated value at the start of each row in order to use advance_y, which jumps to the next row. */

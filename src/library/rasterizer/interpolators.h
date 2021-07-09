@@ -24,29 +24,25 @@ struct varying_interpolator : public swr::varying
     /** Linear or weighted step (with respect to window coordinates). */
     ml::tvec2<ml::vec4> step;
 
-    /** Differences along two linearly independent vectors. */
-    ml::tvec2<ml::vec4> diffs;
-
     /** Value at the start of a row. */
     ml::vec4 row_start;
 
     /** Constructors. */
     varying_interpolator() = default;
 
-    varying_interpolator(const varying& in_attrib, const ml::tvec2<ml::vec4>& in_step, const ml::tvec2<ml::vec4>& in_diffs)
+    varying_interpolator(const varying& in_attrib, const ml::tvec2<ml::vec4>& in_step)
     : varying(in_attrib)
     , input_value(in_attrib.value)
     , step(in_step)
-    , diffs(in_diffs)
     , row_start(in_attrib.value)
     {
     }
 
     /** Initialize at a specific point. */
-    void set_value_from_reference(float x, float y = 0)
+    void set_value(const ml::vec4& v)
     {
-        value = input_value + diffs.x * x + diffs.y * y;
-        row_start = value;
+        value = v;
+        row_start = v;
     }
 
     /** store current value as row start. */
@@ -86,9 +82,6 @@ struct varying_interpolator : public swr::varying
 template<typename T>
 struct basic_interpolation_data
 {
-    const float reference_depth_value{1};
-    const float reference_one_over_viewport_z{1};
-
     /** interpolated depth value for the depth buffer */
     T depth_value{};
 
@@ -100,13 +93,6 @@ struct basic_interpolation_data
 
     /** default constructor. */
     basic_interpolation_data() = default;
-
-    /** initialize constant data. */
-    basic_interpolation_data(float ref_depth, float ref_one_over_viewport_z)
-    : reference_depth_value(ref_depth)
-    , reference_one_over_viewport_z(ref_one_over_viewport_z)
-    {
-    }
 
     /** default copy constructor. */
     basic_interpolation_data(const basic_interpolation_data&) = default;
@@ -299,9 +285,6 @@ struct basic_interpolation_data
     /** assignment. */
     basic_interpolation_data<T>& operator=(const basic_interpolation_data<T>& other)
     {
-        assert(reference_depth_value == other.reference_depth_value);
-        assert(reference_one_over_viewport_z == other.reference_one_over_viewport_z);
-
         depth_value = other.depth_value;
         one_over_viewport_z = other.one_over_viewport_z;
         varyings = other.varyings;
@@ -318,17 +301,18 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
      * !!fixme: why do we need to pass one_over_span_length explicitly?
      */
     line_interpolator(const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v_ref, const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs, float one_over_span_length)
-    : basic_interpolation_data(v1.coords.z, v1.coords.w)
     {
         // depth interpolation.
         auto depth_diff = v2.coords.z - v1.coords.z;
         auto depth_step = depth_diff * one_over_span_length;
-        depth_value = geom::linear_interpolator_1d<float>{v1.coords.z, depth_step, depth_diff};
+        depth_value = geom::linear_interpolator_1d<float>{v1.coords.z, depth_step};
+        depth_value.set_value(v1.coords.z);
 
         // viewport z interpolation
         auto one_over_viewport_z_diff = v2.coords.w - v1.coords.w;
         auto one_over_viewport_z_step = one_over_viewport_z_diff * one_over_span_length;
-        one_over_viewport_z = geom::linear_interpolator_1d<float>{v1.coords.w, one_over_viewport_z_step, one_over_viewport_z_diff};
+        one_over_viewport_z = geom::linear_interpolator_1d<float>{v1.coords.w, one_over_viewport_z_step};
+        one_over_viewport_z.set_value(v1.coords.w);
 
         /*
          * all other vertex attributes.
@@ -357,34 +341,22 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
 
                 varyings[i] = varying_interpolator(
                   swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::smooth},
-                  {step, ml::vec4::zero()},
-                  {dir, ml::vec4::zero()});
+                  {step, ml::vec4::zero()});
             }
             else if(iqs[i] == swr::interpolation_qualifier::flat)
             {
                 varyings[i] = varying_interpolator{
                   {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::flat},
-                  {ml::vec4::zero(), ml::vec4::zero()},
                   {ml::vec4::zero(), ml::vec4::zero()}};
             }
             else
             {
                 //!!todo: unimplemented.
             }
+
+            varyings[i].set_value(varyings[i].input_value);
         }
     }
-
-    void setup(float lambda)
-    {
-        depth_value.set_value_from_reference(reference_depth_value, lambda);
-        one_over_viewport_z.set_value_from_reference(reference_one_over_viewport_z, lambda);
-
-        for(auto& it: varyings)
-        {
-            it.set_value_from_reference(lambda);
-        }
-    }
-
     /** Increment values along the parameter direction. */
     void advance()
     {
@@ -407,12 +379,6 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
  */
 struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolator_2d<float>>
 {
-    /** inverse triangle area, needed for normalization. */
-    const float inv_area{1};
-
-    /** the two triangle edge functions used for interpolation. */
-    const geom::edge_function edge_v0v1, edge_v0v2;
-
     /** no default constructor (edge_v0v1 and edge_v0v2 need to be initialized). */
     triangle_interpolator() = delete;
 
@@ -433,17 +399,21 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
      * \param one_over_area inverse area of the triangle
      */
     triangle_interpolator(
+      const ml::vec2 screen_coords,
       const geom::vertex& v0, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v_ref,
       const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs,
       float one_over_area)
-    : basic_interpolation_data(v0.coords.z, v0.coords.w)
-    , inv_area(one_over_area)
-    , edge_v0v1{v0.coords.xy(), v1.coords.xy()}
-    , edge_v0v2{v0.coords.xy(), v2.coords.xy()}
     {
+        // the two triangle edge functions
+        const geom::edge_function edge_v0v1{v0.coords.xy(), v1.coords.xy()}, edge_v0v2{v0.coords.xy(), v2.coords.xy()};
+
         // set up vertex attribute interpolation
-        const ml::vec2 normalized_diff_v0v1 = edge_v0v1.v_diff * inv_area;
-        const ml::vec2 normalized_diff_v0v2 = edge_v0v2.v_diff * inv_area;
+        const ml::vec2 normalized_diff_v0v1 = edge_v0v1.v_diff * one_over_area;
+        const ml::vec2 normalized_diff_v0v2 = edge_v0v2.v_diff * one_over_area;
+
+        // calculate floating-point normalized barycentric coordinates.
+        const auto lambda2 = -edge_v0v1.evaluate(screen_coords) * one_over_area;
+        const auto lambda0 = edge_v0v2.evaluate(screen_coords) * one_over_area;
 
         // depth value interpolation.
         const auto depth_diff_v0v1 = v1.coords.z - v0.coords.z;
@@ -455,8 +425,8 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
           };
         depth_value = geom::linear_interpolator_2d<float>{
           v0.coords.z,
-          ml::to_tvec2<float>(depth_steps),
-          {depth_diff_v0v1, depth_diff_v0v2}};
+          ml::to_tvec2<float>(depth_steps)};
+        depth_value.set_value(v0.coords.z + depth_diff_v0v1 * lambda0 + depth_diff_v0v2 * lambda2);
 
         // viewport z interpolation.
         const auto viewport_z_diff_v0v1 = v1.coords.w - v0.coords.w;
@@ -467,8 +437,8 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
             -viewport_z_diff_v0v1 * normalized_diff_v0v2.x + viewport_z_diff_v0v2 * normalized_diff_v0v1.x};
         one_over_viewport_z = geom::linear_interpolator_2d<float>{
           v0.coords.w,
-          ml::to_tvec2<float>(viewport_z_steps),
-          {viewport_z_diff_v0v1, viewport_z_diff_v0v2}};
+          ml::to_tvec2<float>(viewport_z_steps)};
+        one_over_viewport_z.set_value(v0.coords.w + viewport_z_diff_v0v1 * lambda0 + viewport_z_diff_v0v2 * lambda2);
 
         /*
          * all other vertex attributes.
@@ -502,37 +472,20 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
 
                 varyings[i] = varying_interpolator(
                   {varying_v0, step_x, step_y, swr::interpolation_qualifier::smooth},
-                  {step_x, step_y},
-                  {diff_v0v1, diff_v0v2});
+                  {step_x, step_y});
+
+                varyings[i].set_value(varyings[i].input_value + diff_v0v1 * lambda0 + diff_v0v2 * lambda2);
             }
             else if(iqs[i] == swr::interpolation_qualifier::flat)
             {
                 varyings[i] = varying_interpolator{
                   {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::flat},
-                  {ml::vec4::zero(), ml::vec4::zero()},
                   {ml::vec4::zero(), ml::vec4::zero()}};
             }
             else
             {
                 //!!todo: unimplemented.
             }
-        }
-    }
-
-    /** Set up non-constant attributes. */
-    void setup_from_screen_coords(const ml::vec2 screen_coords)
-    {
-        // calculate floating-point normalized barycentric coordinates.
-        const auto lambda2 = -edge_v0v1.evaluate(screen_coords) * inv_area;
-        const auto lambda0 = edge_v0v2.evaluate(screen_coords) * inv_area;
-
-        // set up attributes.
-        depth_value.set_value_from_reference(reference_depth_value, lambda0, lambda2);
-        one_over_viewport_z.set_value_from_reference(reference_one_over_viewport_z, lambda0, lambda2);
-
-        for(auto& it: varyings)
-        {
-            it.set_value_from_reference(lambda0, lambda2);
         }
     }
 
@@ -599,14 +552,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     /** assignment. */
     triangle_interpolator& operator=(const triangle_interpolator& other)
     {
-        assert(inv_area == other.inv_area);
-        assert(edge_v0v1.c == other.edge_v0v1.c);
-        assert(edge_v0v1.v_diff == other.edge_v0v1.v_diff);
-        assert(edge_v0v2.c == other.edge_v0v2.c);
-        assert(edge_v0v2.v_diff == other.edge_v0v2.v_diff);
-
         static_cast<basic_interpolation_data<geom::linear_interpolator_2d<float>>>(*this) = basic_interpolation_data<geom::linear_interpolator_2d<float>>(other);
-
         return *this;
     }
 };
