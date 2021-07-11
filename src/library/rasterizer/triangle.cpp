@@ -22,12 +22,15 @@
 #include "fragment.h"
 #include "sweep.h"
 
+#include "fmt/format.h"
+
 namespace rast
 {
 
 void sweep_rasterizer::process_block(unsigned int tile_index)
 {
     auto tile = tile_cache[tile_index];
+
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
     temp_varyings[0].resize(tile.attributes.varyings.size());
     temp_varyings[1].resize(tile.attributes.varyings.size());
@@ -68,11 +71,11 @@ void sweep_rasterizer::process_block(unsigned int tile_index)
     }
 }
 
+#ifdef SWR_USE_SIMD
+
 void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3])
 {
     auto tile = tile_cache[tile_index];
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings;
-    temp_varyings.resize(tile.attributes.varyings.size());
 
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
     temp_varyings_block[0].resize(tile.attributes.varyings.size());
@@ -80,8 +83,141 @@ void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom
     temp_varyings_block[2].resize(tile.attributes.varyings.size());
     temp_varyings_block[3].resize(tile.attributes.varyings.size());
 
+    float frag_depth_block[4];
+    float one_over_viewport_z_block[4];
+
     const auto end_x = tile.x + swr::impl::rasterizer_block_size;
     const auto end_y = tile.y + swr::impl::rasterizer_block_size;
+
+    __m128i lambda0 = _mm_set1_epi32(cnl::unwrap(lambdas_top_left[0].value));
+    __m128i lambda1 = _mm_set1_epi32(cnl::unwrap(lambdas_top_left[1].value));
+    __m128i lambda2 = _mm_set1_epi32(cnl::unwrap(lambdas_top_left[2].value));
+
+    __m128i step0 = _mm_set_epi32(0, cnl::unwrap(lambdas_top_left[0].step.x), cnl::unwrap(lambdas_top_left[0].step.y), cnl::unwrap(lambdas_top_left[0].step.x + lambdas_top_left[0].step.y));
+    __m128i step1 = _mm_set_epi32(0, cnl::unwrap(lambdas_top_left[1].step.x), cnl::unwrap(lambdas_top_left[1].step.y), cnl::unwrap(lambdas_top_left[1].step.x + lambdas_top_left[1].step.y));
+    __m128i step2 = _mm_set_epi32(0, cnl::unwrap(lambdas_top_left[2].step.x), cnl::unwrap(lambdas_top_left[2].step.y), cnl::unwrap(lambdas_top_left[2].step.x + lambdas_top_left[2].step.y));
+
+    __m128i row_start0 = _mm_set1_epi32(cnl::unwrap(lambdas_top_left[0].row_start));
+    __m128i row_start1 = _mm_set1_epi32(cnl::unwrap(lambdas_top_left[1].row_start));
+    __m128i row_start2 = _mm_set1_epi32(cnl::unwrap(lambdas_top_left[2].row_start));
+
+    __m128i loop_stepx0 = _mm_add_epi32(_mm_set1_epi32(cnl::unwrap(lambdas_top_left[0].step.x)), _mm_set1_epi32(cnl::unwrap(lambdas_top_left[0].step.x)));
+    __m128i loop_stepx1 = _mm_add_epi32(_mm_set1_epi32(cnl::unwrap(lambdas_top_left[1].step.x)), _mm_set1_epi32(cnl::unwrap(lambdas_top_left[1].step.x)));
+    __m128i loop_stepx2 = _mm_add_epi32(_mm_set1_epi32(cnl::unwrap(lambdas_top_left[2].step.x)), _mm_set1_epi32(cnl::unwrap(lambdas_top_left[2].step.x)));
+
+    __m128i loop_stepy0 = _mm_add_epi32(_mm_set1_epi32(cnl::unwrap(lambdas_top_left[0].step.y)), _mm_set1_epi32(cnl::unwrap(lambdas_top_left[0].step.y)));
+    __m128i loop_stepy1 = _mm_add_epi32(_mm_set1_epi32(cnl::unwrap(lambdas_top_left[1].step.y)), _mm_set1_epi32(cnl::unwrap(lambdas_top_left[1].step.y)));
+    __m128i loop_stepy2 = _mm_add_epi32(_mm_set1_epi32(cnl::unwrap(lambdas_top_left[2].step.y)), _mm_set1_epi32(cnl::unwrap(lambdas_top_left[2].step.y)));
+
+    const bool front_facing = tile.front_facing;
+
+    // process block.
+    for(; tile.y < end_y; tile.y += 2)
+    {
+        for(unsigned int x = tile.x; x < end_x; x += 2)
+        {
+            __m128i lambda0_block = _mm_add_epi32(lambda0, step0);
+            __m128i lambda1_block = _mm_add_epi32(lambda1, step1);
+            __m128i lambda2_block = _mm_add_epi32(lambda2, step2);
+
+            __m128i l0 = _mm_cmpgt_epi32(lambda0_block, _mm_setzero_si128());
+            __m128i l1 = _mm_cmpgt_epi32(lambda1_block, _mm_setzero_si128());
+            __m128i l2 = _mm_cmpgt_epi32(lambda2_block, _mm_setzero_si128());
+            int cmp_mask = _mm_movemask_epi8(_mm_packs_epi16(_mm_packs_epi32(l0, l1), _mm_packs_epi32(l2, _mm_setzero_si128())));
+
+            if((cmp_mask & 0xf) == 0 || (cmp_mask & 0xf0) == 0 || (cmp_mask & 0xf00) == 0)
+            {
+                // the block was completely missed.
+            }
+            else if(cmp_mask == 0xfff)
+            {
+                // the block is completely covered.
+                tile.attributes.get_varyings_block(temp_varyings_block);
+                tile.attributes.get_depth_block(frag_depth_block);
+                tile.attributes.get_one_over_viewport_z_block(one_over_viewport_z_block);
+
+                rast::fragment_info frag_info[4] = {
+                  {frag_depth_block[0], front_facing, temp_varyings_block[0]},
+                  {frag_depth_block[1], front_facing, temp_varyings_block[1]},
+                  {frag_depth_block[2], front_facing, temp_varyings_block[2]},
+                  {frag_depth_block[3], front_facing, temp_varyings_block[3]}};
+                swr::impl::fragment_output_block out;
+
+                process_fragment_block(x, tile.y, *tile.states, one_over_viewport_z_block, frag_info, out);
+                tile.states->draw_target->merge_color_block(0, x, tile.y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst);
+            }
+            else
+            {
+                // the block is partially covered.
+
+                // alias names.
+                float& frag_depth = frag_depth_block[0];
+                float& one_over_viewport_z = one_over_viewport_z_block[0];
+                auto& temp_varyings = temp_varyings_block[0];
+
+#    define CMPMASK(k) ((1 << k) | (16 << k) | (256 << k))
+#    define PROCESS_FRAGMENT_CHECKED(k)                                                                                                                                \
+        if((cmp_mask & CMPMASK(k)) == CMPMASK(k))                                                                                                                      \
+        {                                                                                                                                                              \
+            const auto offs_x = (~k) & 1;                                                                                                                              \
+            const auto offs_y = ((~k) & 2) >> 1;                                                                                                                       \
+                                                                                                                                                                       \
+            tile.attributes.get_varyings<offs_x, offs_y>(temp_varyings);                                                                                               \
+            tile.attributes.get_depth<offs_x, offs_y>(frag_depth);                                                                                                     \
+            tile.attributes.get_one_over_viewport_z<offs_x, offs_y>(one_over_viewport_z);                                                                              \
+                                                                                                                                                                       \
+            rast::fragment_info frag_info{frag_depth, front_facing, temp_varyings};                                                                                    \
+            swr::impl::fragment_output out;                                                                                                                            \
+            process_fragment(x + offs_x, tile.y + offs_y, *tile.states, one_over_viewport_z, frag_info, out);                                                          \
+            tile.states->draw_target->merge_color(0, x + offs_x, tile.y + offs_y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst); \
+        }
+
+                PROCESS_FRAGMENT_CHECKED(0); /* (x,   tile.y  ) */
+                PROCESS_FRAGMENT_CHECKED(1); /* (x+1, tile.y  ) */
+                PROCESS_FRAGMENT_CHECKED(2); /* (x,   tile.y+1) */
+                PROCESS_FRAGMENT_CHECKED(3); /* (x+1, tile.y+1) */
+
+#    undef PROCESS_FRAGMENT_CHECKED
+#    undef CMPMASK
+            }
+
+            lambda0 = _mm_add_epi32(lambda0, loop_stepx0);
+            lambda1 = _mm_add_epi32(lambda1, loop_stepx1);
+            lambda2 = _mm_add_epi32(lambda2, loop_stepx2);
+
+            tile.attributes.advance_x(2);
+        }
+
+        row_start0 = _mm_add_epi32(row_start0, loop_stepy0);
+        row_start1 = _mm_add_epi32(row_start1, loop_stepy1);
+        row_start2 = _mm_add_epi32(row_start2, loop_stepy2);
+
+        lambda0 = row_start0;
+        lambda1 = row_start1;
+        lambda2 = row_start2;
+
+        tile.attributes.advance_y(2);
+    }
+}
+
+#else /* SWR_USE_SIMD */
+
+void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_top_left[3])
+{
+    auto tile = tile_cache[tile_index];
+
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
+    temp_varyings_block[0].resize(tile.attributes.varyings.size());
+    temp_varyings_block[1].resize(tile.attributes.varyings.size());
+    temp_varyings_block[2].resize(tile.attributes.varyings.size());
+    temp_varyings_block[3].resize(tile.attributes.varyings.size());
+
+    float frag_depth_block[4];
+    float one_over_viewport_z_block[4];
+
+    const auto end_x = tile.x + swr::impl::rasterizer_block_size;
+    const auto end_y = tile.y + swr::impl::rasterizer_block_size;
+
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3] = {lambdas_top_left[0], lambdas_top_left[1], lambdas_top_left[2]};
 
     const bool front_facing = tile.front_facing;
@@ -91,42 +227,17 @@ void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom
     {
         for(unsigned int x = tile.x; x < end_x; x += 2)
         {
-            geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_x[3] = {lambdas[0], lambdas[1], lambdas[2]};
-            geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_y[3] = {lambdas[0], lambdas[1], lambdas[2]};
-
-            lambdas_x[0].advance_x();
-            lambdas_x[1].advance_x();
-            lambdas_x[2].advance_x();
-
-            lambdas_y[0].setup_block_processing();
-            lambdas_y[1].setup_block_processing();
-            lambdas_y[2].setup_block_processing();
-
-            lambdas_y[0].advance_y();
-            lambdas_y[1].advance_y();
-            lambdas_y[2].advance_y();
-
-            geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas_xy[3] = {lambdas_y[0], lambdas_y[1], lambdas_y[2]};
-
-            lambdas_xy[0].advance_x();
-            lambdas_xy[1].advance_x();
-            lambdas_xy[2].advance_x();
-
             const bool mask[4] = {
               lambdas[0].value > 0 && lambdas[1].value > 0 && lambdas[2].value > 0,
-              lambdas_x[0].value > 0 && lambdas_x[1].value > 0 && lambdas_x[2].value > 0,
-              lambdas_y[0].value > 0 && lambdas_y[1].value > 0 && lambdas_y[2].value > 0,
-              lambdas_xy[0].value > 0 && lambdas_xy[1].value > 0 && lambdas_xy[2].value > 0};
+              (lambdas[0].value + lambdas[0].step.x > 0) && (lambdas[1].value + lambdas[1].step.x) > 0 && (lambdas[2].value + lambdas[2].step.x) > 0,
+              (lambdas[0].value + lambdas[0].step.y > 0) && (lambdas[1].value + lambdas[1].step.y) > 0 && (lambdas[2].value + lambdas[2].step.y) > 0,
+              (lambdas[0].value + lambdas[0].step.x + lambdas[0].step.y > 0) && (lambdas[1].value + lambdas[1].step.x + lambdas[1].step.y) > 0 && (lambdas[2].value + lambdas[2].step.x + lambdas[2].step.y) > 0};
 
             if(mask[0] && mask[1] && mask[2] && mask[3])
             {
                 tile.attributes.get_varyings_block(temp_varyings_block);
-
-                float frag_depth_block[4];
                 tile.attributes.get_depth_block(frag_depth_block);
-
-                float one_over_viewport_z[4];
-                tile.attributes.get_one_over_viewport_z_block(one_over_viewport_z);
+                tile.attributes.get_one_over_viewport_z_block(one_over_viewport_z_block);
 
                 rast::fragment_info frag_info[4] = {
                   {frag_depth_block[0], front_facing, temp_varyings_block[0]},
@@ -135,50 +246,56 @@ void sweep_rasterizer::process_block_checked(unsigned int tile_index, const geom
                   {frag_depth_block[3], front_facing, temp_varyings_block[3]}};
                 swr::impl::fragment_output_block out;
 
-                process_fragment_block(x, tile.y, *tile.states, one_over_viewport_z, frag_info, out);
+                process_fragment_block(x, tile.y, *tile.states, one_over_viewport_z_block, frag_info, out);
                 tile.states->draw_target->merge_color_block(0, x, tile.y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst);
             }
             else
             {
-                float frag_depth;
-                float one_over_viewport_z;
+                // alias names.
+                float& frag_depth = frag_depth_block[0];
+                float& one_over_viewport_z = one_over_viewport_z_block[0];
+                auto& temp_varyings = temp_varyings_block[0];
 
-#define PROCESS_FRAGMENT_CHECKED(k)                                                                                                                                \
-    if(mask[k])                                                                                                                                                    \
-    {                                                                                                                                                              \
-        const auto offs_x = k & 1;                                                                                                                                 \
-        const auto offs_y = (k & 2) >> 1;                                                                                                                          \
-                                                                                                                                                                   \
-        tile.attributes.get_varyings<offs_x, offs_y>(temp_varyings);                                                                                               \
-        tile.attributes.get_depth<offs_x, offs_y>(frag_depth);                                                                                                     \
-        tile.attributes.get_one_over_viewport_z<offs_x, offs_y>(one_over_viewport_z);                                                                              \
-                                                                                                                                                                   \
-        rast::fragment_info frag_info{frag_depth, front_facing, temp_varyings};                                                                                    \
-        swr::impl::fragment_output out;                                                                                                                            \
-        process_fragment(x + offs_x, tile.y + offs_y, *tile.states, one_over_viewport_z, frag_info, out);                                                          \
-        tile.states->draw_target->merge_color(0, x + offs_x, tile.y + offs_y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst); \
-    }
+#    define PROCESS_FRAGMENT_CHECKED(k)                                                                                                                                \
+        if(mask[k])                                                                                                                                                    \
+        {                                                                                                                                                              \
+            const auto offs_x = k & 1;                                                                                                                                 \
+            const auto offs_y = (k & 2) >> 1;                                                                                                                          \
+                                                                                                                                                                       \
+            tile.attributes.get_varyings<offs_x, offs_y>(temp_varyings);                                                                                               \
+            tile.attributes.get_depth<offs_x, offs_y>(frag_depth);                                                                                                     \
+            tile.attributes.get_one_over_viewport_z<offs_x, offs_y>(one_over_viewport_z);                                                                              \
+                                                                                                                                                                       \
+            rast::fragment_info frag_info{frag_depth, front_facing, temp_varyings};                                                                                    \
+            swr::impl::fragment_output out;                                                                                                                            \
+            process_fragment(x + offs_x, tile.y + offs_y, *tile.states, one_over_viewport_z, frag_info, out);                                                          \
+            tile.states->draw_target->merge_color(0, x + offs_x, tile.y + offs_y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst); \
+        }
 
                 PROCESS_FRAGMENT_CHECKED(0); /* (x,   tile.y  ) */
                 PROCESS_FRAGMENT_CHECKED(1); /* (x+1, tile.y  ) */
                 PROCESS_FRAGMENT_CHECKED(2); /* (x,   tile.y+1) */
                 PROCESS_FRAGMENT_CHECKED(3); /* (x+1, tile.y+1) */
 
-#undef PROCESS_FRAGMENT_CHECKED
+#    undef PROCESS_FRAGMENT_CHECKED
             }
 
             lambdas[0].advance_x(2);
             lambdas[1].advance_x(2);
             lambdas[2].advance_x(2);
+
             tile.attributes.advance_x(2);
         }
 
         lambdas[0].advance_y(2);
         lambdas[1].advance_y(2);
         lambdas[2].advance_y(2);
+
         tile.attributes.advance_y(2);
     }
 }
+
+#endif /* SWR_USE_SIMD */
 
 #ifdef SWR_ENABLE_MULTI_THREADING
 
@@ -392,7 +509,6 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
         if(edges_fix[i].v_diff.y == 0
            && edges_fix[i].v_diff.x > 0)
         {
-            //  This is equivalent to EdgeList[i]->c += ml::fixed_28_4_t(0.0625f * FILL_RULE_EDGE_BIAS);
             edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
         }
         // Left edge test.
@@ -401,7 +517,6 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
         // In terms of the y coordinate, the difference vector has to be strictly negative.
         else if(edges_fix[i].v_diff.y < 0)
         {
-            //  This is equivalent to EdgeList[i]->c += ml::fixed_28_4_t(0.0625f * FILL_RULE_EDGE_BIAS);
             edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
         }
         else

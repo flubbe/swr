@@ -34,144 +34,150 @@ namespace simd
 /** small size of memory */
 constexpr auto memset_test_small_size = 33;    // intentionally unaligned.
 
+/** medium size of memory */
+constexpr auto memset_test_medium_size = 4096 + 35;    // intentionally unaligned.
+
 /** large size of memory. */
 constexpr auto memset_test_size = 640 * 480 * 16 * 4;
 
 static void bench_fill_n(benchmark::State& state)
 {
+    std::size_t mem_size = state.range(0);
+
     std::vector<std::byte> mem;
-    mem.resize(memset_test_size);
+    mem.resize(mem_size);
 
     for(auto _: state)
     {
-        std::fill_n(mem.begin(), memset_test_size, static_cast<std::byte>('0'));
-        benchmark::DoNotOptimize(mem);
+        std::fill_n(mem.begin(), mem_size, static_cast<std::byte>('0'));
     }
+
+    benchmark::DoNotOptimize(mem);
 }
-BENCHMARK(bench_fill_n);
+BENCHMARK(bench_fill_n)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
+
+static void bench_fill_n_32(benchmark::State& state)
+{
+    std::size_t mem_size = state.range(0);
+
+    std::vector<std::byte> mem;
+    mem.resize(mem_size);
+
+    std::size_t aligned_fill_size = mem_size & ~static_cast<std::size_t>(0x1f);
+    std::size_t tail_size = mem_size & static_cast<std::size_t>(0x1f);
+
+    for(auto _: state)
+    {
+        std::fill_n(reinterpret_cast<std::uint32_t*>(mem.data()), aligned_fill_size >> 2, static_cast<uint32_t>(0x30303030));
+        std::fill_n(mem.begin() + aligned_fill_size, tail_size, static_cast<std::byte>(0x30));
+    }
+
+    benchmark::DoNotOptimize(mem);
+}
+BENCHMARK(bench_fill_n_32)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
 
 static void bench_memset(benchmark::State& state)
 {
+    std::size_t mem_size = state.range(0);
+
     std::vector<std::byte> mem;
-    mem.resize(memset_test_size);
+    mem.resize(mem_size);
 
     for(auto _: state)
     {
-        std::memset(mem.data(), '0', memset_test_size);
-        benchmark::DoNotOptimize(mem);
+        std::memset(mem.data(), '0', mem_size);
     }
+
+    benchmark::DoNotOptimize(mem);
 }
-BENCHMARK(bench_memset);
+BENCHMARK(bench_memset)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
 
 static void bench_memset32(benchmark::State& state)
 {
+    std::size_t mem_size = state.range(0);
+
     std::vector<std::byte> mem;
-    mem.resize(memset_test_size);
+    mem.resize(mem_size);
 
     for(auto _: state)
     {
         const uint32_t c = static_cast<uint32_t>('0') | (static_cast<uint32_t>('0') << 8) | (static_cast<uint32_t>('0') << 16) | (static_cast<uint32_t>('0') << 24);
-        utils::memset32(mem.data(), c, memset_test_size);
-        benchmark::DoNotOptimize(mem);
+        utils::memset32(mem.data(), c, mem_size);
     }
+
+    benchmark::DoNotOptimize(mem);
 }
-BENCHMARK(bench_memset32);
+BENCHMARK(bench_memset32)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
 
 static void bench_memset64(benchmark::State& state)
 {
+    std::size_t mem_size = state.range(0);
+
     std::vector<std::byte> mem;
-    mem.resize(memset_test_size);
+    mem.resize(mem_size);
 
     for(auto _: state)
     {
         const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
         const uint64_t c2 = c1 | (c1 << 32);
-        utils::memset64(mem.data(), c2, memset_test_size);
-        benchmark::DoNotOptimize(mem);
+        utils::memset64(mem.data(), c2, mem_size);
     }
+
+    benchmark::DoNotOptimize(mem);
 }
-BENCHMARK(bench_memset64);
+BENCHMARK(bench_memset64)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
 
 static void bench_memset32_simd(benchmark::State& state)
 {
+    std::size_t mem_size = state.range(0);
+
     std::vector<std::byte> mem;
-    mem.resize(memset_test_size);
+    mem.resize(mem_size);
 
     for(auto _: state)
     {
         const uint32_t c = static_cast<uint32_t>('0') | (static_cast<uint32_t>('0') << 8) | (static_cast<uint32_t>('0') << 16) | (static_cast<uint32_t>('0') << 24);
-        simd::utils::memset32(mem.data(), c, memset_test_size);
-        benchmark::DoNotOptimize(mem);
+        simd::utils::memset32(mem.data(), c, mem_size);
     }
+
+    benchmark::DoNotOptimize(mem);
 }
-BENCHMARK(bench_memset32_simd);
+BENCHMARK(bench_memset32_simd)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
 
 static void bench_memset64_simd(benchmark::State& state)
 {
+    std::size_t mem_size = state.range(0);
+
     std::vector<std::byte> mem;
-    mem.resize(memset_test_size);
+    mem.resize(mem_size);
 
     for(auto _: state)
     {
         const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
         const uint64_t c2 = c1 | (c1 << 32);
-        simd::utils::memset64(mem.data(), c2, memset_test_size);
-        benchmark::DoNotOptimize(mem);
+        simd::utils::memset64(mem.data(), c2, mem_size);
     }
+
+    benchmark::DoNotOptimize(mem);
 }
-BENCHMARK(bench_memset64_simd);
+BENCHMARK(bench_memset64_simd)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
 
 static void bench_memset128_simd(benchmark::State& state)
 {
+    std::size_t mem_size = state.range(0);
+
     std::vector<std::byte> mem;
-    mem.resize(memset_test_size);
+    mem.resize(mem_size);
 
     for(auto _: state)
     {
         const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
         const uint64_t c2 = c1 | (c1 << 32);
-        simd::utils::memset128(mem.data(), _mm_set_epi64x(c2, c2), memset_test_size);
-        benchmark::DoNotOptimize(mem);
+        simd::utils::memset128(mem.data(), _mm_set_epi64x(c2, c2), mem_size);
     }
+
+    benchmark::DoNotOptimize(mem);
 }
-BENCHMARK(bench_memset128_simd);
-
-constexpr int mult = 1024;
-
-static void bench_memset_small(benchmark::State& state)
-{
-    std::vector<std::byte> mem;
-    mem.resize(memset_test_small_size * mult);
-
-    for(auto _: state)
-    {
-        for(int k = 0; k < mult; ++k)
-        {
-            std::memset(mem.data(), '0', memset_test_small_size * k);
-        }
-        benchmark::DoNotOptimize(mem);
-    }
-}
-BENCHMARK(bench_memset_small);
-
-static void bench_memset128_simd_small(benchmark::State& state)
-{
-    std::vector<std::byte> mem;
-    mem.resize(memset_test_small_size * mult);
-
-    const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
-    const uint64_t c2 = c1 | (c1 << 32);
-    auto c = _mm_set_epi64x(c2, c2);
-
-    for(auto _: state)
-    {
-        for(int k = 0; k < mult; ++k)
-        {
-            simd::utils::memset128(mem.data(), c, memset_test_small_size * k);
-        }
-        benchmark::DoNotOptimize(mem);
-    }
-}
-BENCHMARK(bench_memset128_simd_small);
+BENCHMARK(bench_memset128_simd)->Arg(memset_test_small_size)->Arg(memset_test_medium_size)->Arg(memset_test_size);
 
 BENCHMARK_MAIN();

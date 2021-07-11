@@ -255,9 +255,9 @@ public:
     {
         return std::string("Sweep Rasterizer");
     }
-    void add_point(const swr::impl::render_states* S, const geom::vertex* V) override;
-    void add_line(const swr::impl::render_states* S, const geom::vertex* V1, const geom::vertex* V2) override;
-    void add_triangle(const swr::impl::render_states* S, bool is_front_facing, const geom::vertex* V1, const geom::vertex* V2, const geom::vertex* V3) override;
+    void add_point(const swr::impl::render_states* states, const geom::vertex* v) override;
+    void add_line(const swr::impl::render_states* states, const geom::vertex* v1, const geom::vertex* v2) override;
+    void add_triangle(const swr::impl::render_states* states, bool is_front_facing, const geom::vertex* v1, const geom::vertex* v2, const geom::vertex* v3) override;
     void draw_primitives() override;
 };
 
