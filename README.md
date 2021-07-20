@@ -19,7 +19,7 @@ The project directory layout consists of:
  6. some textures in `textures/`.
 
 For understanding the graphics pipeline code, you should probably start with the function `Present` in `src/library/pipeline.cpp`.
-The primitive rasterization takes places in `src/library/rasterizer/point_st.cpp`, `src/library/rasterizer/line_st.cpp` and `src/library/rasterizer/triangle_st.cpp`.
+The primitive rasterization takes places in `src/library/rasterizer/point.cpp`, `src/library/rasterizer/line.cpp` and `src/library/rasterizer/triangle.cpp`.
 
 Some configuration options can be set in `src/library/swr_internal.h`.
 
