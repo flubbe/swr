@@ -131,15 +131,10 @@ void sweep_rasterizer::process_block_checked(unsigned int tile_index)
                   {frag_depth_block[1], front_facing, temp_varyings_block[1]},
                   {frag_depth_block[2], front_facing, temp_varyings_block[2]},
                   {frag_depth_block[3], front_facing, temp_varyings_block[3]}};
-                swr::impl::fragment_output_block out;
+
+                swr::impl::fragment_output_block out{(mask & 0x8) != 0, (mask & 0x4) != 0, (mask & 0x2) != 0, (mask & 0x1) != 0};
 
                 process_fragment_block(x, y, *tile.states, one_over_viewport_z_block, frag_info, out);
-
-                out.write_color[0] = (mask & 0x8) != 0;
-                out.write_color[1] = (mask & 0x4) != 0;
-                out.write_color[2] = (mask & 0x2) != 0;
-                out.write_color[3] = (mask & 0x1) != 0;
-
                 tile.states->draw_target->merge_color_block(0, x, y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst);
             }
 

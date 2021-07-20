@@ -170,7 +170,12 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
     };
 
     // initialize masks.
-    bool depth_mask[4] = {states.write_depth, states.write_depth, states.write_depth, states.write_depth};
+    bool depth_mask[4] = {out.write_color[0], out.write_color[1], out.write_color[2], out.write_color[3]};
+    depth_mask[0] &= states.write_depth;
+    depth_mask[1] &= states.write_depth;
+    depth_mask[2] &= states.write_depth;
+    depth_mask[3] &= states.write_depth;
+
     bool write_color[4] = {true, true, true, true};
     bool write_stencil[4] = {false, false, false, false}; /* unimplemented */
 

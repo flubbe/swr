@@ -45,13 +45,22 @@ struct fragment_output_block
       */
 
     /** whether the color values should be written to the color buffer. */
-    bool write_color[4] = {false, false, false, false};
+    bool write_color[4] = {true, true, true, true};
 
     /** whether the stencil values should be written to the stencil buffer (currently unused). */
     bool write_stencil[4] = {false, false, false, false}; /* currently unused */
 
     /** default constructor. */
     fragment_output_block() = default;
+
+    /** initialize color mask. */
+    fragment_output_block(bool mask0, bool mask1, bool mask2, bool mask3)
+    {
+        write_color[0] = mask0;
+        write_color[1] = mask1;
+        write_color[2] = mask2;
+        write_color[3] = mask3;
+    }
 };
 
 /** framebuffer attachment info. */
