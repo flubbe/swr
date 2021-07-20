@@ -23,9 +23,6 @@
 /* user headers. */
 #include "swr_internal.h"
 
-//!!debug: remove this.
-#define TEST
-
 /* make sure we include the non-SIMD code. */
 #ifdef SWR_USE_SIMD
 #    undef SWR_USE_SIMD

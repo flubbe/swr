@@ -12,9 +12,6 @@
 /* user headers. */
 #include "swr_internal.h"
 
-//!!debug
-#include "fmt/format.h"
-
 namespace swr
 {
 
