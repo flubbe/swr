@@ -8,6 +8,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include "geometry/barycentric_coords.h"
+
 namespace rast
 {
 
@@ -96,6 +98,9 @@ class sweep_rasterizer : public rasterizer
         /** attribute interpolators for this block. */
         triangle_interpolator attributes;
 
+        /** barycentric coordinates and steps for this block. */
+        geom::barycentric_coordinate_block lambdas;
+
         /** viewport x coordinate of the upper-left corner. */
         unsigned int x{0};
 
@@ -109,9 +114,10 @@ class sweep_rasterizer : public rasterizer
         tile() = delete;
 
         /** initializing constructor. */
-        tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+        tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing)
         : states{in_states}
         , attributes{in_attributes}
+        , lambdas{in_lambdas}
         , x{in_x}
         , y{in_y}
         , front_facing{in_front_facing}
@@ -127,7 +133,7 @@ class sweep_rasterizer : public rasterizer
     boost::container::static_vector<tile, max_cached_tiles> tile_cache;
 
     /** allocate a new tile. if the cache is full, it is rasterized and then emptied. */
-    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing)
     {
         if(tile_cache.size() == tile_cache.max_size())
         {
@@ -138,7 +144,7 @@ class sweep_rasterizer : public rasterizer
         }
 
         auto index = tile_cache.size();
-        tile_cache.emplace_back(in_states, in_attributes, in_x, in_y, in_front_facing);
+        tile_cache.emplace_back(in_states, in_attributes, in_lambdas, in_x, in_y, in_front_facing);
 
         return index;
     }
@@ -188,16 +194,18 @@ class sweep_rasterizer : public rasterizer
      * described by the vertex attributes.
      * 
      * \param tile_index index of the block/tile in the tile cache
-     * \param lambda_fixed fixed-point lambdas for the top-left corner of this block
+     * \param lambda0 fixed-point lambdas for the top-left corner of this block
+     * \param lambda1 fixed-point lambdas for the top-left corner of this block
+     * \param lambda2 fixed-point lambdas for the top-left corner of this block
      */
-    void process_block_checked(unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3]);
+    void process_block_checked(unsigned int tile_index);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** static block drawing functions. callable by threads. */
     static void thread_process_block(sweep_rasterizer* rasterizer, unsigned int tile_index);
 
     /** static block drawing functions. callable by threads. */
-    static void thread_process_block_checked(sweep_rasterizer* rasterizer, unsigned int tile_index, const geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_fixed[3]);
+    static void thread_process_block_checked(sweep_rasterizer* rasterizer, unsigned int tile_index);
 #endif
 
     /*

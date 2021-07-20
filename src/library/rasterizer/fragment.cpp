@@ -217,12 +217,12 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
     /*
      * Compute z and interpolated values.
      */
-#if defined(SWR_USE_SIMD)
+#ifdef SWR_USE_SIMD
     DECLARE_ALIGNED_FLOAT4(z);
     _mm_store_ps(z, _mm_div_ps(_mm_set_ps1(1.0f), _mm_set_ps(one_over_viewport_z[3], one_over_viewport_z[2], one_over_viewport_z[1], one_over_viewport_z[0])));
-#else
+#else  /* SWR_USE_SIMD */
     const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
-#endif
+#endif /* SWR_USE_SIMD */
 
     for(int k = 0; k < 4; ++k)
     {
@@ -295,15 +295,14 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
      */
     if(states.depth_test_enabled)
     {
-
-#if defined(SWR_USE_SIMD)
+#ifdef SWR_USE_SIMD
         _mm_store_ps(depth_value, _mm_min_ps(_mm_max_ps(_mm_load_ps(depth_value), _mm_set_ps1(0.0f)), _mm_set_ps1(1.0f)));
-#else
+#else  /* SWR_USE_SIMD */
         depth_value[0] = boost::algorithm::clamp(depth_value[0], 0, 1);
         depth_value[1] = boost::algorithm::clamp(depth_value[1], 0, 1);
         depth_value[2] = boost::algorithm::clamp(depth_value[2], 0, 1);
         depth_value[3] = boost::algorithm::clamp(depth_value[3], 0, 1);
-#endif
+#endif /* SWR_USE_SIMD */
         states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
     }
     apply_mask(write_color, depth_mask);

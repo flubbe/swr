@@ -369,9 +369,9 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color)
         auto& info = color_attachments[attachment]->info;
 #ifdef SWR_USE_SIMD
         utils::memset128(info.data_ptr, *reinterpret_cast<__m128i*>(&clear_color.data), info.pitch * info.height * sizeof(__m128));
-#else
+#else  /* SWR_USE_SIMD */
         std::fill_n(info.data_ptr, info.pitch * info.height, clear_color);
-#endif
+#endif /* SWR_USE_SIMD */
     }
 }
 
@@ -411,7 +411,7 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color, 
             utils::memset128(ptr, row_size * sizeof(__m128), *reinterpret_cast<__m128i*>(&clear_color.data));
             ptr += info.pitch;
         }
-#    else
+#    else  /* SWR_USE_SIMD */
         const auto skip = info.pitch - row_size;
         auto ptr = info.data_ptr + y_min * info.pitch + x_min;
         for(int y = y_min; y < y_max; ++y)

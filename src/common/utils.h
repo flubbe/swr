@@ -85,7 +85,7 @@ inline void* memset128(void* buf, __m128i c, size_t size)
     return buf;
 }
 
-#endif
+#endif /* SWR_USE_SIMD */
 
 /**
  * memset which writes 64 bits at once.
@@ -105,7 +105,7 @@ inline void* memset64(void* buf, uint64_t c, size_t size)
 {
 #ifdef SWR_USE_SIMD
     return memset128(buf, _mm_set_epi64x(c, c), size);
-#else
+#else  /* SWR_USE_SIMD */
     const auto aligned_size = (size & (~7));
     uintptr_t i;
     for(i = 0; i < aligned_size; i += 8)
@@ -117,7 +117,7 @@ inline void* memset64(void* buf, uint64_t c, size_t size)
         (reinterpret_cast<std::byte*>(buf))[i] = (reinterpret_cast<std::byte*>(&c))[i & 7];
     }
     return buf;
-#endif
+#endif /* SWR_USE_SIMD */
 }
 
 /**
@@ -127,9 +127,9 @@ inline void* memset32(void* buf, uint32_t c, size_t size)
 {
 #ifdef SWR_USE_SIMD
     return memset128(buf, _mm_set1_epi32(c), size);
-#else
+#else  /* SWR_USE_SIMD */
     return memset64(buf, (static_cast<uint64_t>(c) << 32) | static_cast<uint64_t>(c), size);
-#endif
+#endif /* SWR_USE_SIMD */
 }
 
 /*
@@ -141,7 +141,7 @@ namespace alignment
 /** alignment size used by SSE code */
 const int sse = 16;
 
-}    // namespace alignment
+} /* namespace alignment */
 
 /**
  * Create aligned memory by resizing a std::vector.

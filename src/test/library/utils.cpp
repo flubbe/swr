@@ -17,7 +17,7 @@
 /* make sure we include the non-SIMD version of memset */
 #ifdef SWR_USE_SIMD
 #    undef SWR_USE_SIMD
-#endif
+#endif /* SWR_USE_SIMD */
 
 #include "../../common/utils.h"
 
