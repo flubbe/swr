@@ -9,6 +9,7 @@
 
 This project is for learning how software rasterization (or rasterization in general) works. It mimics part of the
 [OpenGL](https://www.khronos.org/opengl/) API, or at least took it as a strong inspiration of how things can work.
+The color rendering is based on 32-bit floats.
 
 The project directory layout consists of:
  1. the public header files `include/swr/swr.h`, `include/swr/shader.h`, `include/swr/stats.h`,
@@ -25,8 +26,8 @@ Some configuration options can be set in `src/library/swr_internal.h`.
 
 ## Dependencies
 
-The project uses [boost](https://www.boost.org/) and [SDL2](https://www.libsdl.org/). If you'd like to run the benchmarks,
-you also need [Google's benchmark library](https://github.com/google/benchmark).
+The project uses [boost](https://www.boost.org/) and [SDL2](https://www.libsdl.org/), and the tests rely on the [Boost.Test](https://www.boost.org/)
+framework. If you'd like to run the benchmarks, you also need [Google's benchmark library](https://github.com/google/benchmark).
 
 For the other dependencies:
 - put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release 1.1.2, in `deps/3rd-party/cnl`.
