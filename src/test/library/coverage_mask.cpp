@@ -1143,7 +1143,7 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
      *          *
      *   224   0      0      0      0      0
      * 
-     * corresponding 2x2 8-bit masks (order: top-left top-right bottom-left bottom-right):
+     * corresponding 2x2 4-bit masks (order: top-left top-right bottom-left bottom-right):
      * 
      *  0001 0011 0010 0000   =   1320
      *  0101 1110 1000 0000   =   5e80

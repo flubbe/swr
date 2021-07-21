@@ -148,25 +148,33 @@ class sweep_rasterizer : public rasterizer
 
         return index;
     }
-#else
+#else  /* SWR_ENABLE_MULTI_THREADING */
     /** for the single-threaded rasterizer, there only ever is a single tile active. */
     constexpr static int max_cached_tiles = 1;
 
     /** single tile cache. */
-    tile tile_cache[max_cached_tiles];
+    boost::container::static_vector<tile, max_cached_tiles> tile_cache;
 
     /** the allocation function only 0 and sets the parameters for the only tile in the tile cache. */
-    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing)
     {
-        new(tile_cache) tile(in_states, in_attributes, in_x, in_y, in_front_facing);
+        if(tile_cache.size())
+        {
+            new(&tile_cache[0]) tile{in_states, in_attributes, in_lambdas, in_x, in_y, in_front_facing};
+        }
+        else
+        {
+            tile_cache.emplace_back(in_states, in_attributes, in_lambdas, in_x, in_y, in_front_facing);
+        }
+
         return 0;
     }
-#endif
+#endif /* SWR_ENABLE_MULTI_THREADING */
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** worker threads. */
     concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_queue<std::function<void()>>> rasterizer_threads;
-#endif
+#endif /* SWR_ENABLE_MULTI_THREADING */
 
     /*
      * fragment processing.
@@ -240,7 +248,7 @@ class sweep_rasterizer : public rasterizer
 
 public:
     /** Constructor. */
-    sweep_rasterizer(std::size_t in_thread_count, swr::impl::default_framebuffer* in_framebuffer)
+    sweep_rasterizer([[maybe_unused]] std::size_t in_thread_count, swr::impl::default_framebuffer* in_framebuffer)
     : rasterizer(in_framebuffer)
 #ifdef SWR_ENABLE_MULTI_THREADING
     , rasterizer_threads(in_thread_count)

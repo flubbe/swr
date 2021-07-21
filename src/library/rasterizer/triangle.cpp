@@ -355,7 +355,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
 #ifdef SWR_ENABLE_MULTI_THREADING
                 rasterizer_threads.push_task(thread_process_block_checked, this, tile_index);
 #else
-                process_block_checked(tile_index, lambdas_box.top_left);
+                process_block_checked(tile_index);
 #endif
             }
 
