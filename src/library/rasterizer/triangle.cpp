@@ -25,33 +25,51 @@
 namespace rast
 {
 
-void sweep_rasterizer::process_block(unsigned int tile_index)
+void sweep_rasterizer::process_tile(unsigned int tile_index)
 {
-    auto tile = tile_cache[tile_index];
-
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
-    temp_varyings[0].resize(tile.attributes.varyings.size());
-    temp_varyings[1].resize(tile.attributes.varyings.size());
-    temp_varyings[2].resize(tile.attributes.varyings.size());
-    temp_varyings[3].resize(tile.attributes.varyings.size());
 
-    const auto end_x = tile.x + swr::impl::rasterizer_block_size;
-    const auto end_y = tile.y + swr::impl::rasterizer_block_size;
+    auto tile = tile_cache[tile_index];
+    for(auto it: tile.primitives)
+    {
+        if(it.mode == primitive_data::rasterization_mode::block)
+        {
+            process_block(tile, it);
+        }
+        else if(it.mode == primitive_data::rasterization_mode::checked)
+        {
+            process_block_checked(tile, it);
+        }
+    }
+}
 
-    const bool front_facing = tile.front_facing;
+void sweep_rasterizer::process_block(const tile& in_tile, primitive_data& in_data)
+{
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
+
+    const auto varying_count = in_data.attributes.varyings.size();
+    temp_varyings[0].resize(varying_count);
+    temp_varyings[1].resize(varying_count);
+    temp_varyings[2].resize(varying_count);
+    temp_varyings[3].resize(varying_count);
+
+    const bool front_facing = in_data.front_facing;
+
+    const auto end_x = in_tile.x + swr::impl::rasterizer_block_size;
+    const auto end_y = in_tile.y + swr::impl::rasterizer_block_size;
 
     // process block.
-    for(; tile.y < end_y; tile.y += 2)
+    for(unsigned int y = in_tile.y; y < end_y; y += 2)
     {
-        for(unsigned int x = tile.x; x < end_x; x += 2)
+        for(unsigned int x = in_tile.x; x < end_x; x += 2)
         {
-            tile.attributes.get_varyings_block(temp_varyings);
+            in_data.attributes.get_varyings_block(temp_varyings);
 
             float frag_depth[4];
-            tile.attributes.get_depth_block(frag_depth);
+            in_data.attributes.get_depth_block(frag_depth);
 
             float one_over_viewport_z[4];
-            tile.attributes.get_one_over_viewport_z_block(one_over_viewport_z);
+            in_data.attributes.get_one_over_viewport_z_block(one_over_viewport_z);
 
             rast::fragment_info frag_info[4] = {
               {frag_depth[0], front_facing, temp_varyings[0]},
@@ -60,54 +78,56 @@ void sweep_rasterizer::process_block(unsigned int tile_index)
               {frag_depth[3], front_facing, temp_varyings[3]}};
             swr::impl::fragment_output_block out;
 
-            process_fragment_block(x, tile.y, *tile.states, one_over_viewport_z, frag_info, out);
-            tile.states->draw_target->merge_color_block(0, x, tile.y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst);
+            process_fragment_block(x, y, *in_data.states, one_over_viewport_z, frag_info, out);
+            in_data.states->draw_target->merge_color_block(0, x, y, out, in_data.states->blending_enabled, in_data.states->blend_src, in_data.states->blend_dst);
 
-            tile.attributes.advance_x(2);
+            in_data.attributes.advance_x(2);
         }
-        tile.attributes.advance_y(2);
+        in_data.attributes.advance_y(2);
     }
 }
 
-void sweep_rasterizer::process_block_checked(unsigned int tile_index)
+void sweep_rasterizer::process_block_checked(const tile& in_tile, primitive_data& in_data)
 {
-    auto& tile = tile_cache[tile_index];
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
+
+    const auto varying_count = in_data.attributes.varyings.size();
+    temp_varyings_block[0].resize(varying_count);
+    temp_varyings_block[1].resize(varying_count);
+    temp_varyings_block[2].resize(varying_count);
+    temp_varyings_block[3].resize(varying_count);
+
+    const bool front_facing = in_data.front_facing;
+
+    const auto end_x = in_tile.x + swr::impl::rasterizer_block_size;
+    const auto end_y = in_tile.y + swr::impl::rasterizer_block_size;
 
     // set up barycentric coordinates for 2x2 blocks.
-    geom::barycentric_coordinate_block lambdas = tile.lambdas;
+    geom::barycentric_coordinate_block lambdas = in_data.lambdas;
     lambdas.setup(1, 1);
-
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
-    temp_varyings_block[0].resize(tile.attributes.varyings.size());
-    temp_varyings_block[1].resize(tile.attributes.varyings.size());
-    temp_varyings_block[2].resize(tile.attributes.varyings.size());
-    temp_varyings_block[3].resize(tile.attributes.varyings.size());
 
     float frag_depth_block[4];
     float one_over_viewport_z_block[4];
 
-    const auto end_x = tile.x + swr::impl::rasterizer_block_size;
-    const auto end_y = tile.y + swr::impl::rasterizer_block_size;
-
-    const bool front_facing = tile.front_facing;
-
     /*
      * process in 2x2 blocks.
      */
-    for(auto y = tile.y; y < end_y; y += 2)
+    for(unsigned int y = in_tile.y; y < end_y; y += 2)
     {
         geom::barycentric_coordinate_block::fixed_24_8_array_4 row_start[3];
         lambdas.store_position(row_start[0], row_start[1], row_start[2]);
 
-        for(auto x = tile.x; x < end_x; x += 2)
+        for(unsigned int x = in_tile.x; x < end_x; x += 2)
         {
-            int mask = lambdas.get_coverage_mask();
+            // get reduced coverage mask.
+            int mask = geom::reduce_coverage_mask(lambdas.get_coverage_mask());
+
             if(mask)
             {
                 // the block is at least partially covered.
-                tile.attributes.get_varyings_block(temp_varyings_block);
-                tile.attributes.get_depth_block(frag_depth_block);
-                tile.attributes.get_one_over_viewport_z_block(one_over_viewport_z_block);
+                in_data.attributes.get_varyings_block(temp_varyings_block);
+                in_data.attributes.get_depth_block(frag_depth_block);
+                in_data.attributes.get_one_over_viewport_z_block(one_over_viewport_z_block);
 
                 rast::fragment_info frag_info[4] = {
                   {frag_depth_block[0], front_facing, temp_varyings_block[0]},
@@ -116,35 +136,19 @@ void sweep_rasterizer::process_block_checked(unsigned int tile_index)
                   {frag_depth_block[3], front_facing, temp_varyings_block[3]}};
                 swr::impl::fragment_output_block out{(mask & 0x8) != 0, (mask & 0x4) != 0, (mask & 0x2) != 0, (mask & 0x1) != 0};
 
-                process_fragment_block(x, y, *tile.states, one_over_viewport_z_block, frag_info, out);
-                tile.states->draw_target->merge_color_block(0, x, y, out, tile.states->blending_enabled, tile.states->blend_src, tile.states->blend_dst);
+                process_fragment_block(x, y, *in_data.states, one_over_viewport_z_block, frag_info, out);
+                in_data.states->draw_target->merge_color_block(0, x, y, out, in_data.states->blending_enabled, in_data.states->blend_src, in_data.states->blend_dst);
             }
 
             lambdas.step_x(2);
-            tile.attributes.advance_x(2);
+            in_data.attributes.advance_x(2);
         }
 
         lambdas.load_position(row_start[0], row_start[1], row_start[2]);
         lambdas.step_y(2);
-        tile.attributes.advance_y(2);
+        in_data.attributes.advance_y(2);
     }
 }
-
-#ifdef SWR_ENABLE_MULTI_THREADING
-
-/** static block drawing function. callable by threads. */
-void sweep_rasterizer::thread_process_block(sweep_rasterizer* rasterizer, unsigned int tile_index)
-{
-    rasterizer->process_block(tile_index);
-}
-
-/** static block drawing function. callable by threads. */
-void sweep_rasterizer::thread_process_block_checked(sweep_rasterizer* rasterizer, unsigned int tile_index)
-{
-    rasterizer->process_block_checked(tile_index);
-}
-
-#endif /* SWR_ENABLE_MULTI_THREADING */
 
 void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3)
 {
@@ -315,7 +319,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     const ml::vec2 screen_coords{static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f};
     rast::triangle_interpolator attributes{screen_coords, *v1_cw, *v2_cw, v3, v1, states.shader_info->iqs, 1.0f / area};
 
-    for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size, attributes.advance_y(swr::impl::rasterizer_block_size))
+    for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
     {
         // initialize lambdas for the corners of the block.
         geom::barycentric_coordinate_block lambdas_box{
@@ -325,47 +329,45 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
         lambdas_box.setup(swr::impl::rasterizer_block_size, swr::impl::rasterizer_block_size);
 
         rast::triangle_interpolator attributes_row = attributes;
-        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size, attributes_row.advance_x(swr::impl::rasterizer_block_size))
+        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size)
         {
-            if(!lambdas_box.check_coverage())
+            // check if we have any block coverage. if so, calculate a reduced coverage mask.
+            int mask = lambdas_box.get_coverage_mask();
+            if(!mask)
             {
                 // the block is outside the triangle.
                 lambdas_box.step_x(swr::impl::rasterizer_block_size);
+                attributes_row.advance_x(swr::impl::rasterizer_block_size);
+
                 continue;
             }
 
+            // reduce mask.
+            mask = geom::reduce_coverage_mask(mask);
+
             rast::triangle_interpolator attributes_temp = attributes_row;
             attributes_temp.setup_block_processing();
-
-            // add this block to the tile cache.
-            std::size_t tile_index = allocate_tile(&states, attributes_temp, lambdas_box, x, y, is_front_facing);
-
-            if(lambdas_box.get_coverage_mask() == 0xf)
+            if(mask == 0xf)
             {
                 // the block is completely covered.
-#ifdef SWR_ENABLE_MULTI_THREADING
-                rasterizer_threads.push_task(thread_process_block, this, tile_index);
-#else
-                process_block(tile_index);
-#endif
+                cache_triangle_data(&states, attributes_temp, lambdas_box, x, y, is_front_facing, primitive_data::rasterization_mode::block);
             }
             else
             {
                 // the block is partially covered.
-#ifdef SWR_ENABLE_MULTI_THREADING
-                rasterizer_threads.push_task(thread_process_block_checked, this, tile_index);
-#else
-                process_block_checked(tile_index);
-#endif
+                cache_triangle_data(&states, attributes_temp, lambdas_box, x, y, is_front_facing, primitive_data::rasterization_mode::checked);
             }
 
             lambdas_box.step_x(swr::impl::rasterizer_block_size);
+            attributes_row.advance_x(swr::impl::rasterizer_block_size);
         }
 
         // advance y
         lambda_row_top_left[0].step_y(swr::impl::rasterizer_block_size);
         lambda_row_top_left[1].step_y(swr::impl::rasterizer_block_size);
         lambda_row_top_left[2].step_y(swr::impl::rasterizer_block_size);
+
+        attributes.advance_y(swr::impl::rasterizer_block_size);
     }
 }
 

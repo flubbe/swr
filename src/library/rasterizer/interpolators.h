@@ -379,8 +379,8 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
  */
 struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolator_2d<float>>
 {
-    /** no default constructor (edge_v0v1 and edge_v0v2 need to be initialized). */
-    triangle_interpolator() = delete;
+    /** default constructor. */
+    triangle_interpolator() = default;
 
     /** default copy constructor. */
     triangle_interpolator(const triangle_interpolator&) = default;

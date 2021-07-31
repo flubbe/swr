@@ -80,16 +80,10 @@ void sweep_rasterizer::draw_primitives_sequentially()
             draw_filled_triangle(*it.states, it.is_front_facing, *it.v[0], *it.v[1], *it.v[2]);
         }
 
-#ifdef SWR_ENABLE_MULTI_THREADING
-        rasterizer_threads.run_tasks_and_wait();
-#endif
+        // process tile cache.
+        process_tile_cache();
     }
-
     draw_list.clear();
-
-#ifdef SWR_ENABLE_MULTI_THREADING
-    tile_cache.clear();
-#endif
 }
 
 #ifdef SWR_ENABLE_MULTI_THREADING
@@ -114,16 +108,16 @@ void sweep_rasterizer::draw_primitives_parallel()
          */
         if(it.type != primitive::triangle)
         {
-            rasterizer_threads.run_tasks_and_wait();
+            process_tile_cache();
         }
         else if(!it.states->depth_test_enabled || it.states->blending_enabled)
         {
-            rasterizer_threads.run_tasks_and_wait();
+            process_tile_cache();
         }
         else if(it.states->depth_test_enabled && last_depth_func != it.states->depth_func)
         {
             // if the depth buffer mode changed, ensure that all depth operations have finished.
-            rasterizer_threads.run_tasks_and_wait();
+            process_tile_cache();
             last_depth_func = it.states->depth_func;
         }
 
@@ -143,14 +137,17 @@ void sweep_rasterizer::draw_primitives_parallel()
     }
 
     // run possibly waiting tasks.
-    if(rasterizer_threads.get_waiting_tasks())
-    {
-        rasterizer_threads.run_tasks_and_wait();
-    }
+    process_tile_cache();
+    clear_tile_cache();
 
     draw_list.clear();
-    tile_cache.clear();
 }
+
+void sweep_rasterizer::process_tile_static(sweep_rasterizer* rasterizer, unsigned int tile_index)
+{
+    rasterizer->process_tile(tile_index);
+}
+
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
 } /* namespace rast */

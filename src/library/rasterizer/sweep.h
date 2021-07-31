@@ -89,17 +89,50 @@ class sweep_rasterizer : public rasterizer
     /** list containing all primitives which are to be rasterized. */
     std::vector<primitive> draw_list;
 
-    /** a tile waiting to be processed. currently only used for triangles. */
-    struct tile
+    /** primitive data associated to a tile. currently only implemented for triangles. */
+    struct primitive_data
     {
+        /** rasterization modes for this block. */
+        enum class rasterization_mode
+        {
+            block = 0,  /** we unconditionally rasterize the whole block. */
+            checked = 1 /** we need to check each pixel if it belongs to the primitive. */
+        };
+
+        /** barycentric coordinates and steps for this block. */
+        geom::barycentric_coordinate_block lambdas;
+
         /** render states. points to an entry in the context's draw list. */
         const swr::impl::render_states* states{nullptr};
+
+        /** whether this corresponding triangle is front-facing. */
+        bool front_facing{true};
 
         /** attribute interpolators for this block. */
         triangle_interpolator attributes;
 
-        /** barycentric coordinates and steps for this block. */
-        geom::barycentric_coordinate_block lambdas;
+        /** rasterization mode. */
+        rasterization_mode mode{rasterization_mode::block};
+
+        /** default constructor. */
+        primitive_data() = default;
+
+        /** initializing constructor. */
+        primitive_data(const geom::barycentric_coordinate_block& in_lambdas, const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, bool in_front_facing, rasterization_mode in_mode)
+        : lambdas{in_lambdas}
+        , states{in_states}
+        , front_facing{in_front_facing}
+        , attributes{in_attributes}
+        , mode{in_mode}
+        {
+        }
+    };
+
+    /** a tile waiting to be processed. currently only used for triangles. */
+    struct tile
+    {
+        /** maximum number of primitives for a tile. */
+        constexpr static int max_primitive_count = 32;
 
         /** viewport x coordinate of the upper-left corner. */
         unsigned int x{0};
@@ -107,69 +140,94 @@ class sweep_rasterizer : public rasterizer
         /** viewport y coordinate of the upper-left corner. */
         unsigned int y{0};
 
-        /** whether this corresponding triangle is front-facing. */
-        bool front_facing{true};
-
-        /** delete constructor. note that triangle_interpolator cannot have a default constructor. */
-        tile() = delete;
-
-        /** initializing constructor. */
-        tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing)
-        : states{in_states}
-        , attributes{in_attributes}
-        , lambdas{in_lambdas}
-        , x{in_x}
-        , y{in_y}
-        , front_facing{in_front_facing}
-        {
-        }
+        /** primitives associated to this tile. */
+        boost::container::static_vector<primitive_data, max_primitive_count> primitives;
     };
 
-#ifdef SWR_ENABLE_MULTI_THREADING
-    /** maximum number of cached tiles. */
-    constexpr static int max_cached_tiles = 1024;
+    /** tile cache width. */
+    int tiles_x{0};
 
-    /** list containing all tiles. */
-    boost::container::static_vector<tile, max_cached_tiles> tile_cache;
+    /** tile cache height. */
+    int tiles_y{0};
+
+    /** tile cache. */
+    boost::container::vector<tile> tile_cache;
+
+    /** reset tile cache. */
+    void reset_tile_cache(int in_tiles_x, int in_tiles_y)
+    {
+        tile_cache.clear();
+        tiles_x = 0;
+        tiles_y = 0;
+
+        if(in_tiles_x > 0 && in_tiles_y > 0)
+        {
+            tile_cache.resize(in_tiles_x * in_tiles_y);
+            tiles_x = in_tiles_x;
+            tiles_y = in_tiles_y;
+
+            for(int y = 0; y < in_tiles_y; ++y)
+            {
+                for(int x = 0; x < in_tiles_x; ++x)
+                {
+                    tile_cache[y * in_tiles_x + x].x = x * swr::impl::rasterizer_block_size;
+                    tile_cache[y * in_tiles_x + x].y = y * swr::impl::rasterizer_block_size;
+                }
+            }
+        }
+    }
+
+    /** mark each tile in the cache as clear. */
+    void clear_tile_cache()
+    {
+        for(auto& it: tile_cache)
+        {
+            it.primitives.clear();
+        }
+    }
+
+#ifdef SWR_ENABLE_MULTI_THREADING
+    /** process all tiles stored in the tile cache. */
+    void process_tile_cache()
+    {
+        // for each non-empty tile, add a job to the thread pool.
+        for(std::size_t i = 0; i < tile_cache.size(); ++i)
+        {
+            rasterizer_threads.push_task(process_tile_static, this, i);
+        }
+
+        rasterizer_threads.run_tasks_and_wait();
+        clear_tile_cache();
+    }
+#else /* SWR_ENABLE_MULTI_THREADING */
+    /** process all tiles stored in the tile cache. */
+    void process_tile_cache()
+    {
+        // for each non-empty tile, add a job to the thread pool.
+        for(std::size_t i = 0; i < tile_cache.size(); ++i)
+        {
+            process_tile(i);
+        }
+
+        clear_tile_cache();
+    }
+#endif
 
     /** allocate a new tile. if the cache is full, it is rasterized and then emptied. */
-    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing)
+    void cache_triangle_data(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing, primitive_data::rasterization_mode in_mode)
     {
-        if(tile_cache.size() == tile_cache.max_size())
-        {
-            rasterizer_threads.run_tasks_and_wait();
+        // find the tile's coordinates.
+        unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * tiles_x + (in_x >> swr::impl::rasterizer_block_shift);
+        assert(tile_index < tile_cache.size());
 
-            draw_list.clear();
-            tile_cache.clear();
+        auto& tile = tile_cache[tile_index];
+        if(tile.primitives.size() == tile.primitives.max_size())
+        {
+            process_tile_cache();
         }
 
-        auto index = tile_cache.size();
-        tile_cache.emplace_back(in_states, in_attributes, in_lambdas, in_x, in_y, in_front_facing);
-
-        return index;
+        tile.primitives.emplace_back(in_lambdas, in_states, in_attributes, in_front_facing, in_mode);
     }
-#else  /* SWR_ENABLE_MULTI_THREADING */
-    /** for the single-threaded rasterizer, there only ever is a single tile active. */
-    constexpr static int max_cached_tiles = 1;
-
-    /** single tile cache. */
-    boost::container::static_vector<tile, max_cached_tiles> tile_cache;
-
-    /** the allocation function only 0 and sets the parameters for the only tile in the tile cache. */
-    size_t allocate_tile(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing)
-    {
-        if(tile_cache.size())
-        {
-            new(&tile_cache[0]) tile{in_states, in_attributes, in_lambdas, in_x, in_y, in_front_facing};
-        }
-        else
-        {
-            tile_cache.emplace_back(in_states, in_attributes, in_lambdas, in_x, in_y, in_front_facing);
-        }
-
-        return 0;
-    }
-#endif /* SWR_ENABLE_MULTI_THREADING */
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** worker threads. */
@@ -192,28 +250,21 @@ class sweep_rasterizer : public rasterizer
 
     /**
      * Rasterize a complete block of dimension (rasterizer_block_size, rasterizer_block_size), i.e. do not perform additional edge checks.
-     * 
-     * \param tile_index index of the block/tile in the tile cache
      */
-    void process_block(unsigned int tile_index);
+    void process_block(const tile& in_tile, primitive_data& in_data);
 
     /**
      * Rasterize block of dimension (rasterizer_block_size, rasterizer_block_size) and check for each fragment, if it is inside the triangle
      * described by the vertex attributes.
-     * 
-     * \param tile_index index of the block/tile in the tile cache
-     * \param lambda0 fixed-point lambdas for the top-left corner of this block
-     * \param lambda1 fixed-point lambdas for the top-left corner of this block
-     * \param lambda2 fixed-point lambdas for the top-left corner of this block
      */
-    void process_block_checked(unsigned int tile_index);
+    void process_block_checked(const tile& in_tile, primitive_data& in_data);
+
+    /** process a tile. */
+    void process_tile(unsigned int tile_index);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    /** static block drawing functions. callable by threads. */
-    static void thread_process_block(sweep_rasterizer* rasterizer, unsigned int tile_index);
-
-    /** static block drawing functions. callable by threads. */
-    static void thread_process_block_checked(sweep_rasterizer* rasterizer, unsigned int tile_index);
+    /** calls rasterizer->process_tile. */
+    static void process_tile_static(sweep_rasterizer* rasterizer, unsigned int tile_index);
 #endif
 
     /*
@@ -254,13 +305,16 @@ public:
     , rasterizer_threads(in_thread_count)
 #endif
     {
-#ifdef SWR_ENABLE_STATS
-#    ifdef SWR_ENABLE_MULTI_THREADING
-        stats_rast.available_threads = rasterizer_threads.get_thread_count();
-#    else
-        stats_rast.available_threads = 1;
-#    endif /* SWR_ENABLE_MULTI_THREADING */
-#endif     /* SWR_ENABLE_STATS */
+        assert(framebuffer);
+
+        /*
+         * set up tile cache.
+         */
+
+        unsigned int tiles_x = (framebuffer->properties.width >> swr::impl::rasterizer_block_shift) + 1;
+        unsigned int tiles_y = (framebuffer->properties.height >> swr::impl::rasterizer_block_shift) + 1;
+
+        reset_tile_cache(tiles_x, tiles_y);
     }
 
     /*

@@ -294,10 +294,11 @@ BOOST_AUTO_TEST_CASE(trivial_hit)
      * (1,1,1) (1,1,1)
      * (1,1,1) (1,1,1)
      * 
-     * the coverage mask is thus 0b1111 = 0xf.
+     * the reduced coverage mask is thus 0b1111 = 0xf.
      */
     block.setup(2, 2);
-    BOOST_TEST(block.get_coverage_mask() == 0xf);
+
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(mask)
@@ -307,35 +308,40 @@ BOOST_AUTO_TEST_CASE(mask)
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{0, 0},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{0, 0}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x0);
+
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x0);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x8);
+
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x8);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x4);
+
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x2);
+
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x2);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x1);
+
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x1);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit1)
@@ -366,7 +372,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -379,7 +385,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -392,7 +398,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x5);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
 
     /*
      * step in y direction.
@@ -405,7 +411,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x4);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
 
     /*
      * step in x direction.
@@ -418,7 +424,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xd);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
 
     /*
      * step in x direction.
@@ -431,7 +437,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xf);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit2)
@@ -462,7 +468,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -475,7 +481,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -488,7 +494,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x5);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
 
     /*
      * step in y direction.
@@ -501,7 +507,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x4);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
 
     /*
      * step in x direction.
@@ -514,7 +520,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xd);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
 
     /*
      * step in x direction.
@@ -527,7 +533,90 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xf);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+}
+
+BOOST_AUTO_TEST_CASE(step_hit3)
+{
+    ml::fixed_24_8_t lambda0{0};
+    ml::fixed_24_8_t lambda1{-2};
+    ml::fixed_24_8_t lambda2{-4};
+
+    ml::tvec2<ml::fixed_24_8_t> step0{0.5, 0};
+    ml::tvec2<ml::fixed_24_8_t> step1{1, -0.5};
+    ml::tvec2<ml::fixed_24_8_t> step2{2, -2};
+
+    geom::barycentric_coordinate_block block{
+      lambda0, step0,
+      lambda1, step1,
+      lambda2, step2};
+
+    /*
+     * set up 2x2 blocks.
+     * 
+     * the values of lambda are:
+     * 
+     * (0,  -2,-4) (0.5,  -1,-2)
+     * (0,-2.5,-6) (0.5,-1.5,-4)
+     * 
+     * the coverage mask is thus 0b0000 = 0x0.
+     */
+    block.setup(1, 1);
+
+    /* coverage mask: 0b0000 */
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+
+    /*
+     * step in x direction.
+     * 
+     * the values of lambda are:
+     * 
+     * (1,   0, 0) (1.5,  1,2)
+     * (1,-0.5,-2) (1.5,0.5,0)
+     * 
+     * the coverage mask is thus 0b0100 = 0x4.
+     */
+    block.step_x(2);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+
+    /*
+     * step in x direction.
+     * 
+     * the values of lambda are:
+     * 
+     * (2,  2,4) (2.5,  3,6)
+     * (2,1.5,2) (2.5,2.5,4)
+     * 
+     * the coverage mask is thus 0b1111 = 0xf.
+     */
+    block.step_x(2);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+
+    /*
+     * step in y direction.
+     * 
+     * the values of lambda are:
+     * 
+     * (2,  1, 0) (2.5,  2,2)
+     * (2,0.5,-2) (2.5,1.5,0)
+     * 
+     * the coverage mask is thus 0b0101 = 0x4.
+     */
+    block.step_y(2);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+
+    /*
+     * step in y direction.
+     * 
+     * the values of lambda are:
+     * 
+     * (2,   0,-4) (2.5,  1,-2)
+     * (2,-0.5,-6) (2.5,0.5,-4)
+     * 
+     * the coverage mask is thus 0b0000= 0x0.
+     */
+    block.step_y(2);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x0);
 }
 
 /*
@@ -758,7 +847,7 @@ BOOST_AUTO_TEST_CASE(trivial_miss_simd)
      */
     block.setup(2, 2);
 
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 }
 
 BOOST_AUTO_TEST_CASE(trivial_hit_simd)
@@ -787,7 +876,7 @@ BOOST_AUTO_TEST_CASE(trivial_hit_simd)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.setup(2, 2);
-    BOOST_TEST(block.get_coverage_mask() == 0xf);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(mask_simd)
@@ -797,35 +886,35 @@ BOOST_AUTO_TEST_CASE(mask_simd)
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{0, 0},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{0, 0}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x0);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x8);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x8);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x4);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x2);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x2);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2}};
     block.setup(1, 1);
-    BOOST_TEST(block.get_coverage_mask() == 0x1);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x1);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit1_simd)
@@ -856,7 +945,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -869,7 +958,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -882,7 +971,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x5);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
 
     /*
      * step in y direction.
@@ -895,7 +984,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x4);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
 
     /*
      * step in x direction.
@@ -908,7 +997,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xd);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
 
     /*
      * step in x direction.
@@ -921,7 +1010,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xf);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit2_simd)
@@ -952,7 +1041,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -965,7 +1054,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
 
     /*
      * step in x direction.
@@ -978,7 +1067,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x5);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
 
     /*
      * step in y direction.
@@ -991,7 +1080,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(block.get_coverage_mask() == 0x4);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
 
     /*
      * step in x direction.
@@ -1004,7 +1093,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xd);
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
 
     /*
      * step in x direction.
@@ -1017,57 +1106,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(block.get_coverage_mask() == 0xf);
-}
-
-BOOST_AUTO_TEST_CASE(example_values1)
-{
-    geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3] = {
-      {39840, {0, -192}},
-      {-39743.996, {192, 192}},
-      {36768, {-192, 0}}};
-
-    // initialize lambdas for the corners of the block.
-    geom::barycentric_coordinate_block lambdas_box{
-      lambdas[0].value, lambdas[0].step,
-      lambdas[1].value, lambdas[1].step,
-      lambdas[2].value, lambdas[2].step};
-
-    lambdas_box.setup(swr::impl::rasterizer_block_size, swr::impl::rasterizer_block_size);
-
-    for(int k = 0; k < 5; ++k)
-    {
-        BOOST_TEST(!lambdas_box.check_coverage());
-        lambdas_box.step_x(swr::impl::rasterizer_block_size);
-    }
-
-    BOOST_TEST(lambdas_box.check_coverage());
-    lambdas_box.step_x(swr::impl::rasterizer_block_size);
-
-    BOOST_TEST(!lambdas_box.check_coverage());
-}
-
-BOOST_AUTO_TEST_CASE(example_values2)
-{
-    geom::linear_interpolator_2d<ml::fixed_24_8_t> lambdas[3] = {
-      {-2975.996, {0, 192}},
-      {39744, {-192, -192}},
-      {96.00391, {192, 0}}};
-
-    // initialize lambdas for the corners of the block.
-    geom::barycentric_coordinate_block lambdas_box{
-      lambdas[0].value, lambdas[0].step,
-      lambdas[1].value, lambdas[1].step,
-      lambdas[2].value, lambdas[2].step};
-    lambdas_box.setup(swr::impl::rasterizer_block_size, swr::impl::rasterizer_block_size);
-
-    for(int k = 0; k < 7; ++k)
-    {
-        BOOST_TEST(lambdas_box.check_coverage());
-        lambdas_box.step_x(swr::impl::rasterizer_block_size);
-    }
-
-    BOOST_TEST(!lambdas_box.check_coverage());
+    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
 }
 
 template<typename T, size_t N>
@@ -1184,7 +1223,8 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
         for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size)
         {
             BOOST_REQUIRE(ref_mask_ptr < reference_masks_32 + countof(reference_masks_32));
-            BOOST_TEST(lambdas_box.get_coverage_mask() == *ref_mask_ptr);
+
+            BOOST_TEST(geom::reduce_coverage_mask(lambdas_box.get_coverage_mask()) == *ref_mask_ptr);
             ++ref_mask_ptr;
 
             lambdas_box.step_x(swr::impl::rasterizer_block_size);

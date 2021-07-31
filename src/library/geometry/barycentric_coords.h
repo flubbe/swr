@@ -11,6 +11,12 @@
 namespace geom
 {
 
+/** reduce coverage mask to 4 bits. */
+inline int reduce_coverage_mask(int x)
+{
+    return x & (x >> 4) & (x >> 8);
+}
+
 #ifdef SWR_USE_SIMD
 
 /** unnormalied, fixed-point barycentric coordinates for triangles, evaluated on a rectangle. */
@@ -102,7 +108,7 @@ struct barycentric_coordinate_block
     }
 
     /** store current position. */
-    void store_position(fixed_24_8_array_4& c0, fixed_24_8_array_4& c1, fixed_24_8_array_4& c2)
+    void store_position(fixed_24_8_array_4& c0, fixed_24_8_array_4& c1, fixed_24_8_array_4& c2) const
     {
         c0 = corners[0];
         c1 = corners[1];
@@ -117,23 +123,14 @@ struct barycentric_coordinate_block
         corners[2] = c2;
     }
 
-    /** check if the current block is (partially) covered. */
-    bool check_coverage() const
-    {
-        __m128i l0 = _mm_cmpgt_epi32(corners[0], _mm_setzero_si128());
-        __m128i l1 = _mm_cmpgt_epi32(corners[1], _mm_setzero_si128());
-        __m128i l2 = _mm_cmpgt_epi32(corners[2], _mm_setzero_si128());
-
-        return _mm_movemask_epi8(_mm_packs_epi16(_mm_packs_epi32(l0, l1), _mm_packs_epi32(l2, _mm_setzero_si128()))) != 0;
-    }
-
     /** 
      * calculate and return the coverage mask. 
      * 
      * layout:
      * 
-     * bit:              8  4  2  1
-     * pixsel position: tl tr bl br
+     *                          lambda2         |       lambda1       |       lambda0
+     * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
+     * pixsel position:    tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
      */
     int get_coverage_mask() const
     {
@@ -141,8 +138,7 @@ struct barycentric_coordinate_block
         __m128i l1 = _mm_cmpgt_epi32(corners[1], _mm_setzero_si128());
         __m128i l2 = _mm_cmpgt_epi32(corners[2], _mm_setzero_si128());
 
-        int mask = _mm_movemask_epi8(_mm_packs_epi16(_mm_packs_epi32(l0, l1), _mm_packs_epi32(l2, _mm_setzero_si128())));
-        return mask & (mask >> 4) & (mask >> 8);
+        return _mm_movemask_epi8(_mm_packs_epi16(_mm_packs_epi32(l0, l1), _mm_packs_epi32(l2, _mm_setzero_si128())));
     }
 };
 
@@ -288,7 +284,7 @@ struct barycentric_coordinate_block
     }
 
     /** store current position. */
-    void store_position(fixed_24_8_array_4& c0, fixed_24_8_array_4& c1, fixed_24_8_array_4& c2)
+    void store_position(fixed_24_8_array_4& c0, fixed_24_8_array_4& c1, fixed_24_8_array_4& c2) const
     {
         c0 = corners[0];
         c1 = corners[1];
@@ -303,44 +299,20 @@ struct barycentric_coordinate_block
         corners[2] = c2;
     }
 
-    /** check if the current block is (partially) covered. */
-    bool check_coverage() const
-    {
-        auto is_positive = [](const fixed_24_8_array_4& f) -> bool
-        { return (f.f3 > 0) && (f.f2 > 0) && (f.f1 > 0) && (f.f0 > 0); };
-
-        if(is_positive(corners[0]) && is_positive(corners[1]) && is_positive(corners[2]))
-        {
-            // the block is completely inside the triangle.
-            return true;
-        }
-
-        auto is_negative = [](const fixed_24_8_array_4& f) -> bool
-        { return (f.f3 < 0) && (f.f2 < 0) && (f.f1 < 0) && (f.f0 < 0); };
-
-        if(is_negative(corners[0]) || is_negative(corners[1]) || is_negative(corners[2]))
-        {
-            // the block is completely outside the triangle.
-            return false;
-        }
-
-        // the block partly covers the triangle.
-        return true;
-    }
-
     /** 
      * calculate and return the coverage mask. 
      * 
      * layout:
      * 
-     * bit:              8  4  2  1
-     * pixsel position: tl tr bl br
+     *                          lambda2         |       lambda1       |       lambda0
+     * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
+     * pixsel position:    tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
      */
     int get_coverage_mask() const
     {
         auto gen_mask = [](const fixed_24_8_array_4& f) -> int
         { return ((f.f3 > 0) << 3) | ((f.f2 > 0) << 2) | ((f.f1 > 0) << 1) | (f.f0 > 0); };
-        return gen_mask(corners[0]) & gen_mask(corners[1]) & gen_mask(corners[2]);
+        return gen_mask(corners[0]) | (gen_mask(corners[1]) << 4) | (gen_mask(corners[2]) << 8);
     }
 };
 

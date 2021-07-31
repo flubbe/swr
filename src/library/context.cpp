@@ -340,7 +340,7 @@ void CopyDefaultColorBuffer(context_handle context)
     internal_context->CopyDefaultColorBuffer();
 
     // check results in debug builds.
-#ifdef DEBUG
+#ifndef NDEBUG
     bool locked = internal_context->Lock();
     assert(locked);
 #else

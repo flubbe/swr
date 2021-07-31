@@ -17,7 +17,7 @@
  */
 
 /* use SIMD code by default. */
-#define SWR_USE_SIMD
+//#define SWR_USE_SIMD
 
 /* enable the use of morton codes (for texture access) by default. */
 #define SWR_USE_MORTON_CODES
@@ -68,8 +68,11 @@ namespace swr
 namespace impl
 {
 
+/** block size for triangle rasterization. */
+constexpr std::uint32_t rasterizer_block_shift{4};
+
 /** Block size for triangle rasterization. The context buffer sizes have to be aligned on this value. */
-constexpr std::uint32_t rasterizer_block_size{1 << 5};
+constexpr std::uint32_t rasterizer_block_size{1 << rasterizer_block_shift};
 static_assert(utils::is_power_of_two(rasterizer_block_size), "rasterizer_block_size has to be a power of 2");
 
 /** round down to block size. */

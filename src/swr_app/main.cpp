@@ -24,8 +24,10 @@ int _tmain(int argc, _TCHAR* argv[])
 int main(int argc, char* argv[])
 #endif
 {
+#ifdef NDEBUG
     try
     {
+#endif
         swr_app::application::initialize_instance(argc, argv);
 
         swr_app::application::get_instance().initialize();
@@ -33,12 +35,14 @@ int main(int argc, char* argv[])
         swr_app::application::get_instance().shutdown();
 
         swr_app::application::shutdown_instance();
+#ifdef NDEBUG
     }
     catch(const std::exception& e)
     {
         platform::logf("{}", e.what());
         return EXIT_FAILURE;
     }
+#endif
 
     return EXIT_SUCCESS;
 }
