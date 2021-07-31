@@ -17,7 +17,7 @@
  */
 
 /* use SIMD code by default. */
-//#define SWR_USE_SIMD
+#define SWR_USE_SIMD
 
 /* enable the use of morton codes (for texture access) by default. */
 #define SWR_USE_MORTON_CODES
