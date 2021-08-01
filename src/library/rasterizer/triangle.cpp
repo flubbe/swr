@@ -25,22 +25,7 @@
 namespace rast
 {
 
-void sweep_rasterizer::process_tile(tile& in_tile)
-{
-    for(auto& it: in_tile.primitives)
-    {
-        if(it.mode == primitive_data::rasterization_mode::block)
-        {
-            process_block(in_tile.x, in_tile.y, it);
-        }
-        else if(it.mode == primitive_data::rasterization_mode::checked)
-        {
-            process_block_checked(in_tile.x, in_tile.y, it);
-        }
-    }
-}
-
-void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y, primitive_data& in_data)
+void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y, tile_info& in_data)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
 
@@ -84,7 +69,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
     }
 }
 
-void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int block_y, primitive_data& in_data)
+void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int block_y, tile_info& in_data)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
 
@@ -347,12 +332,36 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             if(mask == 0xf)
             {
                 // the block is completely covered.
-                cache_triangle_data(&states, attributes_temp, lambdas_box, x, y, is_front_facing, primitive_data::rasterization_mode::block);
+
+                // try to add the triangle to the tile cache.
+                if(!tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block))
+                {
+                    // the cache is full. process all tiles and add the triangle again.
+                    process_tile_cache();
+
+#ifdef NDEBUG
+                    tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block);
+#else
+                    assert(tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block));
+#endif
+                }
             }
             else
             {
                 // the block is partially covered.
-                cache_triangle_data(&states, attributes_temp, lambdas_box, x, y, is_front_facing, primitive_data::rasterization_mode::checked);
+
+                // try to add the triangle to the tile cache.
+                if(!tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked))
+                {
+                    // the cache is full. process all tiles and add the triangle again.
+                    process_tile_cache();
+
+#ifdef NDEBUG
+                    tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked);
+#else
+                    assert(tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked));
+#endif
+                }
             }
 
             lambdas_box.step_x(swr::impl::rasterizer_block_size);

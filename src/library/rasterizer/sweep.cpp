@@ -138,10 +138,33 @@ void sweep_rasterizer::draw_primitives_parallel()
 
     // run possibly waiting tasks.
     process_tile_cache();
-    clear_tile_cache();
+    tiles.clear_tiles();
 
     draw_list.clear();
 }
+
+#endif /* SWR_ENABLE_MULTI_THREADING */
+
+/*
+ * tile processing.
+ */
+
+void sweep_rasterizer::process_tile(tile& in_tile)
+{
+    for(auto& it: in_tile.primitives)
+    {
+        if(it.mode == tile_info::rasterization_mode::block)
+        {
+            process_block(in_tile.x, in_tile.y, it);
+        }
+        else if(it.mode == tile_info::rasterization_mode::checked)
+        {
+            process_block_checked(in_tile.x, in_tile.y, it);
+        }
+    }
+}
+
+#ifdef SWR_ENABLE_MULTI_THREADING
 
 void sweep_rasterizer::process_tile_static(sweep_rasterizer* rasterizer, tile* in_tile)
 {
