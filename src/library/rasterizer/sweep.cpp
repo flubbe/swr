@@ -143,9 +143,9 @@ void sweep_rasterizer::draw_primitives_parallel()
     draw_list.clear();
 }
 
-void sweep_rasterizer::process_tile_static(sweep_rasterizer* rasterizer, unsigned int tile_index)
+void sweep_rasterizer::process_tile_static(sweep_rasterizer* rasterizer, tile* in_tile)
 {
-    rasterizer->process_tile(tile_index);
+    rasterizer->process_tile(*in_tile);
 }
 
 #endif /* SWR_ENABLE_MULTI_THREADING */

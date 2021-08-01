@@ -193,7 +193,10 @@ class sweep_rasterizer : public rasterizer
         // for each non-empty tile, add a job to the thread pool.
         for(std::size_t i = 0; i < tile_cache.size(); ++i)
         {
-            rasterizer_threads.push_task(process_tile_static, this, i);
+            if(tile_cache[i].primitives.size())
+            {
+                rasterizer_threads.push_task(process_tile_static, this, &tile_cache[i]);
+            }
         }
 
         rasterizer_threads.run_tasks_and_wait();
@@ -231,7 +234,7 @@ class sweep_rasterizer : public rasterizer
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** worker threads. */
-    concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_queue<std::function<void()>>> rasterizer_threads;
+    concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_blocking_queue<std::function<void()>>> rasterizer_threads;
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
     /*
@@ -251,20 +254,20 @@ class sweep_rasterizer : public rasterizer
     /**
      * Rasterize a complete block of dimension (rasterizer_block_size, rasterizer_block_size), i.e. do not perform additional edge checks.
      */
-    void process_block(const tile& in_tile, primitive_data& in_data);
+    void process_block(unsigned int in_x, unsigned int in_y, primitive_data& in_data);
 
     /**
      * Rasterize block of dimension (rasterizer_block_size, rasterizer_block_size) and check for each fragment, if it is inside the triangle
      * described by the vertex attributes.
      */
-    void process_block_checked(const tile& in_tile, primitive_data& in_data);
+    void process_block_checked(unsigned int in_x, unsigned int in_y, primitive_data& in_data);
 
     /** process a tile. */
-    void process_tile(unsigned int tile_index);
+    void process_tile(tile& in_tile);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** calls rasterizer->process_tile. */
-    static void process_tile_static(sweep_rasterizer* rasterizer, unsigned int tile_index);
+    static void process_tile_static(sweep_rasterizer* rasterizer, tile* in_tile);
 #endif
 
     /*

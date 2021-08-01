@@ -25,25 +25,22 @@
 namespace rast
 {
 
-void sweep_rasterizer::process_tile(unsigned int tile_index)
+void sweep_rasterizer::process_tile(tile& in_tile)
 {
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
-
-    auto tile = tile_cache[tile_index];
-    for(auto it: tile.primitives)
+    for(auto& it: in_tile.primitives)
     {
         if(it.mode == primitive_data::rasterization_mode::block)
         {
-            process_block(tile, it);
+            process_block(in_tile.x, in_tile.y, it);
         }
         else if(it.mode == primitive_data::rasterization_mode::checked)
         {
-            process_block_checked(tile, it);
+            process_block_checked(in_tile.x, in_tile.y, it);
         }
     }
 }
 
-void sweep_rasterizer::process_block(const tile& in_tile, primitive_data& in_data)
+void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y, primitive_data& in_data)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
 
@@ -55,13 +52,13 @@ void sweep_rasterizer::process_block(const tile& in_tile, primitive_data& in_dat
 
     const bool front_facing = in_data.front_facing;
 
-    const auto end_x = in_tile.x + swr::impl::rasterizer_block_size;
-    const auto end_y = in_tile.y + swr::impl::rasterizer_block_size;
+    const auto end_x = block_x + swr::impl::rasterizer_block_size;
+    const auto end_y = block_y + swr::impl::rasterizer_block_size;
 
     // process block.
-    for(unsigned int y = in_tile.y; y < end_y; y += 2)
+    for(unsigned int y = block_y; y < end_y; y += 2)
     {
-        for(unsigned int x = in_tile.x; x < end_x; x += 2)
+        for(unsigned int x = block_x; x < end_x; x += 2)
         {
             in_data.attributes.get_varyings_block(temp_varyings);
 
@@ -87,7 +84,7 @@ void sweep_rasterizer::process_block(const tile& in_tile, primitive_data& in_dat
     }
 }
 
-void sweep_rasterizer::process_block_checked(const tile& in_tile, primitive_data& in_data)
+void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int block_y, primitive_data& in_data)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
 
@@ -99,8 +96,8 @@ void sweep_rasterizer::process_block_checked(const tile& in_tile, primitive_data
 
     const bool front_facing = in_data.front_facing;
 
-    const auto end_x = in_tile.x + swr::impl::rasterizer_block_size;
-    const auto end_y = in_tile.y + swr::impl::rasterizer_block_size;
+    const auto end_x = block_x + swr::impl::rasterizer_block_size;
+    const auto end_y = block_y + swr::impl::rasterizer_block_size;
 
     // set up barycentric coordinates for 2x2 blocks.
     geom::barycentric_coordinate_block lambdas = in_data.lambdas;
@@ -112,12 +109,12 @@ void sweep_rasterizer::process_block_checked(const tile& in_tile, primitive_data
     /*
      * process in 2x2 blocks.
      */
-    for(unsigned int y = in_tile.y; y < end_y; y += 2)
+    for(unsigned int y = block_y; y < end_y; y += 2)
     {
         geom::barycentric_coordinate_block::fixed_24_8_array_4 row_start[3];
         lambdas.store_position(row_start[0], row_start[1], row_start[2]);
 
-        for(unsigned int x = in_tile.x; x < end_x; x += 2)
+        for(unsigned int x = block_x; x < end_x; x += 2)
         {
             // get reduced coverage mask.
             int mask = geom::reduce_coverage_mask(lambdas.get_coverage_mask());
