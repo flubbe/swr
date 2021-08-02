@@ -1115,6 +1115,28 @@ size_t countof([[maybe_unused]] T const (&array)[N])
     return N;
 }
 
+/* 
+ * the block size in the rasterizer will possibly get adjusted, so we define our own here to not accidentally break the test. 
+ */
+namespace test
+{
+
+constexpr std::uint32_t rasterizer_block_shift{5};
+constexpr std::uint32_t rasterizer_block_size{1 << rasterizer_block_shift};
+static_assert(utils::is_power_of_two(rasterizer_block_size), "rasterizer_block_size has to be a power of 2");
+
+inline int lower_align_on_block_size(int v)
+{
+    return v & ~(rasterizer_block_size - 1);
+};
+
+inline int upper_align_on_block_size(int v)
+{
+    return (v + (rasterizer_block_size - 1)) & ~(rasterizer_block_size - 1);
+}
+
+} /* namespace test */
+
 BOOST_AUTO_TEST_CASE(triangle_coarse)
 {
     ml::vec2 v1_xy{100, 100};
@@ -1142,10 +1164,10 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
     const int height = 480;
 
     std::uint32_t start_x{0}, start_y{0}, end_x{0}, end_y{0};
-    start_x = std::max(swr::impl::lower_align_on_block_size(std::min({v1x, v2x, v3x})), 0);
-    end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), width);
-    start_y = std::max(swr::impl::lower_align_on_block_size(std::min({v1y, v2y, v3y})), 0);
-    end_y = std::min(swr::impl::upper_align_on_block_size(std::max({v1y + 1, v2y + 1, v3y + 1})), height);
+    start_x = test::lower_align_on_block_size(std::max(std::min({v1x, v2x, v3x}), 0));
+    end_x = test::upper_align_on_block_size(std::min(std::max({v1x + 1, v2x + 1, v3x + 1}), width));
+    start_y = test::lower_align_on_block_size(std::max(std::min({v1y, v2y, v3y}), 0));
+    end_y = test::upper_align_on_block_size(std::min(std::max({v1y + 1, v2y + 1, v3y + 1}), height));
 
     /*
      * bounding box (32-aligned): 3*32 = 96 < 100; 200 < 224 = 7*32.
@@ -1211,29 +1233,29 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
 
     const ml::vec2 screen_coords{static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f};
 
-    for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
+    for(auto y = start_y; y < end_y; y += test::rasterizer_block_size)
     {
         // initialize lambdas for the corners of the block.
         geom::barycentric_coordinate_block lambdas_box{
           lambda_row_top_left[0].value, lambda_row_top_left[0].step,
           lambda_row_top_left[1].value, lambda_row_top_left[1].step,
           lambda_row_top_left[2].value, lambda_row_top_left[2].step};
-        lambdas_box.setup(swr::impl::rasterizer_block_size, swr::impl::rasterizer_block_size);
+        lambdas_box.setup(test::rasterizer_block_size, test::rasterizer_block_size);
 
-        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size)
+        for(auto x = start_x; x < end_x; x += test::rasterizer_block_size)
         {
             BOOST_REQUIRE(ref_mask_ptr < reference_masks_32 + countof(reference_masks_32));
 
             BOOST_TEST(geom::reduce_coverage_mask(lambdas_box.get_coverage_mask()) == *ref_mask_ptr);
             ++ref_mask_ptr;
 
-            lambdas_box.step_x(swr::impl::rasterizer_block_size);
+            lambdas_box.step_x(test::rasterizer_block_size);
         }
 
         // advance y
-        lambda_row_top_left[0].step_y(swr::impl::rasterizer_block_size);
-        lambda_row_top_left[1].step_y(swr::impl::rasterizer_block_size);
-        lambda_row_top_left[2].step_y(swr::impl::rasterizer_block_size);
+        lambda_row_top_left[0].step_y(test::rasterizer_block_size);
+        lambda_row_top_left[1].step_y(test::rasterizer_block_size);
+        lambda_row_top_left[2].step_y(test::rasterizer_block_size);
     }
 }
 
