@@ -136,6 +136,10 @@ struct tile_cache
 
         // add triangle to the primitives list.
         tile.primitives.emplace_back(in_lambdas, in_states, in_attributes, in_front_facing, in_mode);
+
+        // set up triangle attributes.
+        tile.primitives.back().attributes.setup_block_processing();
+
         return true;
     }
 };

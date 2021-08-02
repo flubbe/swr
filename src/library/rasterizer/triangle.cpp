@@ -269,17 +269,17 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             y_max = states.draw_target->properties.height - y_temp;
         }
 
-        start_x = std::max(swr::impl::lower_align_on_block_size(std::min({v1x, v2x, v3x})), x_min);
-        end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), x_max);
-        start_y = std::max(swr::impl::lower_align_on_block_size(std::min({v1y, v2y, v3y})), y_min);
-        end_y = std::min(swr::impl::upper_align_on_block_size(std::max({v1y + 1, v2y + 1, v3y + 1})), y_max);
+        start_x = swr::impl::lower_align_on_block_size(std::max(std::min({v1x, v2x, v3x}), x_min));
+        end_x = swr::impl::upper_align_on_block_size(std::min(std::max({v1x + 1, v2x + 1, v3x + 1}), x_max));
+        start_y = swr::impl::lower_align_on_block_size(std::max(std::min({v1y, v2y, v3y}), y_min));
+        end_y = swr::impl::upper_align_on_block_size(std::min(std::max({v1y + 1, v2y + 1, v3y + 1}), y_max));
     }
     else
     {
-        start_x = std::max(swr::impl::lower_align_on_block_size(std::min({v1x, v2x, v3x})), 0);
-        end_x = std::min(swr::impl::upper_align_on_block_size(std::max({v1x + 1, v2x + 1, v3x + 1})), states.draw_target->properties.width);
-        start_y = std::max(swr::impl::lower_align_on_block_size(std::min({v1y, v2y, v3y})), 0);
-        end_y = std::min(swr::impl::upper_align_on_block_size(std::max({v1y + 1, v2y + 1, v3y + 1})), states.draw_target->properties.height);
+        start_x = swr::impl::lower_align_on_block_size(std::max(std::min({v1x, v2x, v3x}), 0));
+        end_x = swr::impl::upper_align_on_block_size(std::min(std::max({v1x + 1, v2x + 1, v3x + 1}), states.draw_target->properties.width));
+        start_y = swr::impl::lower_align_on_block_size(std::max(std::min({v1y, v2y, v3y}), 0));
+        end_y = swr::impl::upper_align_on_block_size(std::min(std::max({v1y + 1, v2y + 1, v3y + 1}), states.draw_target->properties.height));
     }
 
     // initialize lambdas for point-in-triangle detection.
@@ -327,20 +327,18 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             // reduce mask.
             mask = geom::reduce_coverage_mask(mask);
 
-            rast::triangle_interpolator attributes_temp = attributes_row;
-            attributes_temp.setup_block_processing();
             if(mask == 0xf)
             {
                 // the block is completely covered.
 
                 // try to add the triangle to the tile cache.
-                if(!tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block))
+                if(!tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block))
                 {
                     // the cache is full. process all tiles and add the triangle again.
                     process_tile_cache();
 
 #ifdef NDEBUG
-                    tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block);
+                    tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block);
 #else
                     assert(tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block));
 #endif
@@ -351,13 +349,13 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
                 // the block is partially covered.
 
                 // try to add the triangle to the tile cache.
-                if(!tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked))
+                if(!tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked))
                 {
                     // the cache is full. process all tiles and add the triangle again.
                     process_tile_cache();
 
 #ifdef NDEBUG
-                    tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked);
+                    tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked);
 #else
                     assert(tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked));
 #endif
