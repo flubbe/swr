@@ -276,14 +276,14 @@ class sampler_2d_impl : public sampler_2d
 #endif
 
     /** nearest-neighbor sampling. */
-    ml::vec4 sample_at_nearest(const ml::vec2 uv) const
+    ml::vec4 sample_at_nearest(const swr::varying& uv) const
     {
         int mipmap_level{0};    // only consider mipmap level 0.
 #ifdef SWR_USE_MORTON_CODES
         int w{0}, h{0};
 
         get_mipmap_params(mipmap_level, w, h);
-        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.u * w), ml::truncate_unchecked(uv.v * h)};
+        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.value.x * w), ml::truncate_unchecked(uv.value.y * h)};
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
         return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords.x, texel_coords.y)];
@@ -291,7 +291,7 @@ class sampler_2d_impl : public sampler_2d
         int w{0}, h{0}, pitch{0};
 
         get_mipmap_params(mipmap_level, w, h, pitch);
-        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.u * w), ml::truncate_unchecked(uv.v * h)};
+        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.value.x * w), ml::truncate_unchecked(uv.value.y * h)};
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
         return (associated_texture->data.data_ptrs[mipmap_level])[texel_coords.y * pitch + texel_coords.x];
@@ -299,14 +299,14 @@ class sampler_2d_impl : public sampler_2d
     }
 
     /** dithered sampling. */
-    ml::vec4 sample_at_dithered(const ml::vec2 uv) const
+    ml::vec4 sample_at_dithered(const swr::varying& uv) const
     {
         int mipmap_level{0};    // only consider mipmap level 0.
 #ifdef SWR_USE_MORTON_CODES
         int w{0}, h{0};
 
         get_mipmap_params(mipmap_level, w, h);
-        ml::vec2 dithered_texel_coords = {static_cast<float>(ml::truncate_unchecked(uv.u * w)), static_cast<float>(ml::truncate_unchecked(uv.v * h))};
+        ml::vec2 dithered_texel_coords = {static_cast<float>(ml::truncate_unchecked(uv.value.x * w)), static_cast<float>(ml::truncate_unchecked(uv.value.y * h))};
         dithered_texel_coords += dither_offset;
         ml::tvec2<int> texel_coords = {ml::truncate_unchecked(dithered_texel_coords.x), ml::truncate_unchecked(dithered_texel_coords.y)};
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
@@ -316,7 +316,7 @@ class sampler_2d_impl : public sampler_2d
         int w{0}, h{0}, pitch{0};
 
         get_mipmap_params(mipmap_level, w, h, pitch);
-        ml::vec2 dithered_texel_coords = {static_cast<float>(ml::truncate_unchecked(uv.u * w)), static_cast<float>(ml::truncate_unchecked(uv.v * h))};
+        ml::vec2 dithered_texel_coords = {static_cast<float>(ml::truncate_unchecked(uv.value.x * w)), static_cast<float>(ml::truncate_unchecked(uv.value.y * h))};
         dithered_texel_coords += dither_offset;
         ml::tvec2<int> texel_coords = {ml::truncate_unchecked(dithered_texel_coords.x), ml::truncate_unchecked(dithered_texel_coords.y)};
         texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
@@ -394,7 +394,7 @@ public:
     }
 
     /** sampling function. */
-    ml::vec4 sample_at(const ml::vec2 uv) const override
+    ml::vec4 sample_at(const swr::varying& uv) const override
     {
         // check which filter we are using.
         bool force_minification_filter{false};

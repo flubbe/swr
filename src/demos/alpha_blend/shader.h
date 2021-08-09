@@ -128,10 +128,10 @@ public:
       ml::vec4& gl_FragColor) const override
     {
         // texture coordinates.
-        const ml::vec4 tex_coords = varyings[0];
+        const swr::varying& tex_coords = varyings[0];
 
         // sample texture.
-        ml::vec4 color = samplers[0]->sample_at(tex_coords.xy());
+        ml::vec4 color = samplers[0]->sample_at(tex_coords);
 
         // write fragment color.
         gl_FragColor = color;

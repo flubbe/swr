@@ -124,6 +124,24 @@ struct varying
     }
 };
 
+/** convenience function to return x-derivative of a varying. */
+inline const ml::vec4 dFdx(const varying& v)
+{
+    return v.dFdx;
+}
+
+/** convenience function to return y-derivative of a varying. */
+inline const ml::vec4 dFdy(const varying& v)
+{
+    return v.dFdy;
+}
+
+/** return the sum of the absolute value of derivatives in x and y. */
+inline float fwidth(const varying& v)
+{
+    return v.dFdx.length() + v.dFdy.length();
+}
+
 /** maximum number of color attachments. */
 //!!fixme: this is related more to the framebuffer, which is not implemented.
 constexpr int max_color_attachments = 8;

@@ -112,7 +112,7 @@ public:
       [[maybe_unused]] float& gl_FragDepth,
       ml::vec4& gl_FragColor) const override
     {
-        const ml::vec4 tex_coords = varyings[0];
+        const swr::varying& tex_coords = varyings[0];
         const ml::vec4 position = varyings[1];
         const ml::vec4 normal = varyings[2];
         const ml::vec4 tangent = varyings[3];
@@ -127,7 +127,7 @@ public:
         float falloff = light_power / distance_squared;
 
         // sample normal map.
-        const ml::vec3 material_normal = (samplers[1]->sample_at({tex_coords.x, tex_coords.y}) * 2 - 1).xyz();
+        const ml::vec3 material_normal = (samplers[1]->sample_at(tex_coords) * 2 - 1).xyz();
 
         // normal of the computed fragment, in camera space.
         auto tbn = ml::mat4x4{tangent, bitangent, normal, ml::vec4::zero()}.transposed();
@@ -138,7 +138,7 @@ public:
         float lambertian = boost::algorithm::clamp(ml::dot(n, l), 0.f, 1.f);
 
         // sample diffuse texture.
-        auto material_diffuse_color = samplers[0]->sample_at({tex_coords.x, tex_coords.y});
+        auto material_diffuse_color = samplers[0]->sample_at(tex_coords);
 
         // calculate diffuse color.
         ml::vec4 diffuse_color = light_color * material_diffuse_color * lambertian;
@@ -218,10 +218,10 @@ public:
       ml::vec4& gl_FragColor) const override
     {
         // texture coordinates.
-        const ml::vec4 tex_coords = varyings[0];
+        const swr::varying& tex_coords = varyings[0];
 
         // sample texture.
-        ml::vec4 color = samplers[0]->sample_at(tex_coords.xy());
+        ml::vec4 color = samplers[0]->sample_at(tex_coords);
 
         // write fragment color.
         gl_FragColor = {color.xyz(), 0.16f};

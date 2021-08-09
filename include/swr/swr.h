@@ -503,7 +503,7 @@ struct sampler_2d
     virtual ~sampler_2d() = default;
 
     /** Return a texel (as a 4-vector) while respecting the active texture filters. */
-    virtual ml::vec4 sample_at(const ml::vec2 UV) const = 0;
+    virtual ml::vec4 sample_at(const struct varying& tex_coords) const = 0;
 };
 
 /*

@@ -408,7 +408,7 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color, 
         auto ptr = info.data_ptr + y_min * info.pitch + x_min;
         for(int y = y_min; y < y_max; ++y)
         {
-            utils::memset128(ptr, row_size * sizeof(__m128), *reinterpret_cast<__m128i*>(&clear_color.data));
+            utils::memset128(ptr, *reinterpret_cast<__m128i*>(&clear_color.data), row_size * sizeof(__m128));
             ptr += info.pitch;
         }
 #    else  /* SWR_USE_SIMD */

@@ -94,7 +94,7 @@ public:
       [[maybe_unused]] float& gl_FragDepth,
       ml::vec4& gl_FragColor) const override
     {
-        const ml::vec4 tex_coords = varyings[0];
+        const swr::varying& tex_coords = varyings[0];
         const ml::vec4 position = varyings[1];
         const ml::vec4 normal = varyings[2];
         const ml::vec4 eye_direction = varyings[3];
@@ -103,7 +103,7 @@ public:
         ml::vec4 light_position = (*uniforms)[2].v4;
 
         // sample diffuse texture.
-        ml::vec4 material_diffuse_color = samplers[0]->sample_at({tex_coords.x, tex_coords.y});
+        ml::vec4 material_diffuse_color = samplers[0]->sample_at(tex_coords);
 
         // distance to light.
         float distance_squared = (light_position - position).xyz().length_squared();
