@@ -55,7 +55,6 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
             temp[i].value = v.varyings[i];
             temp[i].dFdx = ml::vec4::zero();    // !!fixme: see comment above.
             temp[i].dFdy = ml::vec4::zero();    // !!fixme: see comment above.
-            temp[i].iq = states.shader_info->iqs[i];
         }
 
         // draw the point.

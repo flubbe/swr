@@ -76,13 +76,13 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
      * and with respect to the notation found there, we compute w_f here.
      */
     float z = 1.0f / one_over_viewport_z;
-    for(auto& it: frag_info.varyings)
+    for(size_t i = 0; i < states.shader_info->iqs.size(); ++i)
     {
-        if(it.iq == swr::interpolation_qualifier::smooth)
+        if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
         {
-            it.value *= z;
-            it.dFdx *= z;
-            it.dFdy *= z;
+            frag_info.varyings[i].value *= z;
+            frag_info.varyings[i].dFdx *= z;
+            frag_info.varyings[i].dFdy *= z;
         }
     }
 
@@ -231,13 +231,13 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
 
     for(int k = 0; k < 4; ++k)
     {
-        for(auto& it: frag_info[k].varyings)
+        for(size_t i = 0; i < states.shader_info->iqs.size(); ++i)
         {
-            if(it.iq == swr::interpolation_qualifier::smooth)
+            if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
             {
-                it.value *= z[k];
-                it.dFdx *= z[k];
-                it.dFdy *= z[k];
+                frag_info[k].varyings[i].value *= z[k];
+                frag_info[k].varyings[i].dFdx *= z[k];
+                frag_info[k].varyings[i].dFdy *= z[k];
             }
         }
     }

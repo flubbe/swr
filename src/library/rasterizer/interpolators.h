@@ -340,13 +340,13 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
                 auto step = dir * one_over_span_length;
 
                 varyings[i] = varying_interpolator(
-                  swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::smooth},
+                  swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero()},
                   {step, ml::vec4::zero()});
             }
             else if(iqs[i] == swr::interpolation_qualifier::flat)
             {
                 varyings[i] = varying_interpolator{
-                  {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::flat},
+                  {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero()},
                   {ml::vec4::zero(), ml::vec4::zero()}};
             }
             else
@@ -471,7 +471,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
                 auto step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
 
                 varyings[i] = varying_interpolator(
-                  {varying_v0, step_x, step_y, swr::interpolation_qualifier::smooth},
+                  {varying_v0, step_x, step_y},
                   {step_x, step_y});
 
                 varyings[i].set_value(varyings[i].input_value + diff_v0v1 * lambda0 + diff_v0v2 * lambda2);
@@ -479,7 +479,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
             else if(iqs[i] == swr::interpolation_qualifier::flat)
             {
                 varyings[i] = varying_interpolator{
-                  {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero(), swr::interpolation_qualifier::flat},
+                  {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero()},
                   {ml::vec4::zero(), ml::vec4::zero()}};
             }
             else

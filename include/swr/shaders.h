@@ -95,18 +95,14 @@ struct varying
     /** approximation of the partial derivative with respect to x. */
     ml::vec4 dFdy;
 
-    /** interpolation qualifier. */
-    interpolation_qualifier iq{interpolation_qualifier::smooth};
-
     /** default constructor. */
     varying() = default;
 
     /** initializing constructor. */
-    varying(const ml::vec4& in_value, const ml::vec4& in_dFdx, const ml::vec4& in_dFdy, interpolation_qualifier in_iq)
+    varying(const ml::vec4& in_value, const ml::vec4& in_dFdx, const ml::vec4& in_dFdy)
     : value(in_value)
     , dFdx(in_dFdx)
     , dFdy(in_dFdy)
-    , iq(in_iq)
     {
     }
 
