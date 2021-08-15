@@ -231,12 +231,12 @@ class sampler_2d_impl : public sampler_2d
         /*
          * check if there are mipmaps available. if not, we don't need to calculate anything.
          */
-        int mipmap_levels = static_cast<float>(associated_texture->data.data_ptrs.size());
+        auto mipmap_levels = associated_texture->data.data_ptrs.size();
         if(mipmap_levels <= 1)
         {
             return 0;
         }
-        float lod_max = static_cast<float>(mipmap_levels) - 1;
+        float lod_max = static_cast<float>(mipmap_levels - 1);
 
         /*
          * first define the squares of the functions u and v from eq. (8.7) on p. 217. 
@@ -413,7 +413,7 @@ public:
     }
 
     /** get texture magnification filter. */
-    texture_filter get_filter_mag()
+    texture_filter get_filter_mag() const
     {
         return filter_mag;
     }
@@ -446,26 +446,12 @@ public:
     ml::vec4 sample_at(const swr::varying& uv) const override
     {
         // calculate the mipmap level. this also tells if we need to apply the magnification or minification filter.
+        // note that lambda>=0.
         float lambda = calculate_mipmap_level(uv.dFdx, uv.dFdy);
-        int mipmap_level = std::floor(lambda);
+        int mipmap_level = static_cast<int>(std::floor(lambda));
 
         /* sample the texture according to the selected filter. */
-        if(mipmap_level > 0)
-        {
-            // use the minification filter.
-
-            if(filter_min == texture_filter::nearest)
-            {
-                // this filter does not use mipmaps.
-                return sample_at_nearest(0, uv);
-            }
-            else if(filter_min == texture_filter::bilinear)
-            {
-                // this filter does not use mipmaps.
-                return sample_at_bilinear(0, uv);
-            }
-        }
-        else
+        if(mipmap_level == 0)
         {
             // use the magnification filter.
 
@@ -475,6 +461,21 @@ public:
             }
             else if(filter_mag == texture_filter::bilinear)
             {
+                return sample_at_bilinear(0, uv);
+            }
+        }
+        else
+        {
+            // here we know that mipmap_level>0, so we use the minification filter.
+
+            if(filter_min == texture_filter::nearest)
+            {
+                // this filter does not use mipmaps.
+                return sample_at_nearest(0, uv);
+            }
+            else if(filter_min == texture_filter::bilinear)
+            {
+                // this filter does not use mipmaps.
                 return sample_at_bilinear(0, uv);
             }
         }
