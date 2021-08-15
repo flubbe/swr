@@ -130,7 +130,7 @@ struct barycentric_coordinate_block
      * 
      *                          lambda2         |       lambda1       |       lambda0
      * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
-     * pixsel position:    tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
+     * pixel position:     tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
      */
     int get_coverage_mask() const
     {

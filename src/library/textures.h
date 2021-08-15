@@ -13,6 +13,14 @@
 #    include "libmorton/morton.h"
 #endif
 
+/*
+ * forward declaration.
+ */
+namespace rast
+{
+class sweep_rasterizer;
+} /* namespace rast */
+
 namespace swr
 {
 
@@ -197,10 +205,10 @@ inline int wrap(wrap_mode m, int coord, int max)
 /** texture sampler implementation. */
 class sampler_2d_impl : public sampler_2d
 {
-    friend struct texture_2d;
+    friend class rast::sweep_rasterizer;
 
     /** associated texture. */
-    struct texture_2d* associated_texture{nullptr};
+    texture_2d* associated_texture{nullptr};
 
     /** texture minification and magnification filters. */
     texture_filter filter_min{texture_filter::nearest}, filter_mag{texture_filter::nearest};
@@ -208,24 +216,44 @@ class sampler_2d_impl : public sampler_2d
     /** edge value sampling. */
     wrap_mode wrap_s{wrap_mode::repeat}, wrap_t{wrap_mode::repeat};
 
-    /*
-     * mipmap parameters. these have to be calculated in the rasterization stage,
-     * since the sampler has no knowledge of the texel-to-pixel mapping.
+    /** 
+     * given dFdx and dFdy, calculate the corresponding mipmap level,
+     * see section 8.14 on p. 216 of https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
+     * 
+     * the function returns a float in the range [0, max_mipmap_level], where
+     * max_mipmap_level is associated_texture->data.data_ptrs.size().
+     * 
+     * note: the function assumes that the texture is square (see e.g. eq. (8.7) on p. 217 in the reference) and does not have borders.
+     * also, we ignore any biases.
      */
+    float calculate_mipmap_level(const ml::vec4& dFdx, const ml::vec4& dFdy) const
+    {
+        /*
+         * check if there are mipmaps available. if not, we don't need to calculate anything.
+         */
+        int mipmap_levels = static_cast<float>(associated_texture->data.data_ptrs.size());
+        if(mipmap_levels <= 1)
+        {
+            return 0;
+        }
+        float lod_max = static_cast<float>(mipmap_levels) - 1;
 
-    /** calculated mipmap level. */
-    float mipmap_level_parameter{0.0f};
+        /*
+         * first define the squares of the functions u and v from eq. (8.7) on p. 217. 
+         * note that we currently only support square textures without any borders.
+         */
+        float u_squared = associated_texture->width * associated_texture->width * dFdx.length_squared();
+        float v_squared = associated_texture->height * associated_texture->height * dFdy.length_squared();
 
-    /** actual mipmap level. */
-    int mipmap_level{0};
+        /*
+         * next, we combine eqs. (8.8) on p. 218 and (8.4) on p. 216. the factor 0.5f accounts for the square root.
+         * we ignore any biases for now.
+         */
+        float lambda = 0.5f * std::log2(std::max(u_squared, v_squared));
 
-    /** mipmap parameter. */
-    float mipmap_delta_max_squared{0.0f};
-
-    /*
-     * dither info.
-     */
-    ml::vec2 dither_offset;
+        // clamp the level-of-detail parameter, roughly corresponding to eq. (8.6) on p. 216.
+        return boost::algorithm::clamp(lambda, 0.f, lod_max);
+    }
 
     /*
      * sampling functions:
@@ -233,7 +261,7 @@ class sampler_2d_impl : public sampler_2d
      *   param setting              linear within mip level     has mipmapping 
      *   ---------------------------------------------------------------------
      *         nearest                                  no                  no
-     *        dithered                                (yes)                 no
+     *        bilinear                                 yes                  no
      * 
      *   reference: https://www.khronos.org/opengl/wiki/Sampler_Object
      * 
@@ -253,8 +281,8 @@ class sampler_2d_impl : public sampler_2d
             level = 0;
         }
 
-        w = associated_texture->width >> mipmap_level;
-        h = associated_texture->height >> mipmap_level;
+        w = associated_texture->width >> level;
+        h = associated_texture->height >> level;
     }
 #else
     void get_mipmap_params(int& level, int& w, int& h, int& pitch) const
@@ -270,15 +298,14 @@ class sampler_2d_impl : public sampler_2d
             pitch = associated_texture->width + (associated_texture->width >> 1);
         }
 
-        w = associated_texture->width >> mipmap_level;
-        h = associated_texture->height >> mipmap_level;
+        w = associated_texture->width >> level;
+        h = associated_texture->height >> level;
     }
 #endif
 
     /** nearest-neighbor sampling. */
-    ml::vec4 sample_at_nearest(const swr::varying& uv) const
+    ml::vec4 sample_at_nearest(int mipmap_level, const swr::varying& uv) const
     {
-        int mipmap_level{0};    // only consider mipmap level 0.
 #ifdef SWR_USE_MORTON_CODES
         int w{0}, h{0};
 
@@ -298,30 +325,65 @@ class sampler_2d_impl : public sampler_2d
 #endif
     }
 
-    /** dithered sampling. */
-    ml::vec4 sample_at_dithered(const swr::varying& uv) const
+    /** bilinear sampling. */
+    ml::vec4 sample_at_bilinear(int mipmap_level, const swr::varying& uv) const
     {
-        int mipmap_level{0};    // only consider mipmap level 0.
 #ifdef SWR_USE_MORTON_CODES
         int w{0}, h{0};
 
         get_mipmap_params(mipmap_level, w, h);
-        ml::vec2 dithered_texel_coords = {static_cast<float>(ml::truncate_unchecked(uv.value.x * w)), static_cast<float>(ml::truncate_unchecked(uv.value.y * h))};
-        dithered_texel_coords += dither_offset;
-        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(dithered_texel_coords.x), ml::truncate_unchecked(dithered_texel_coords.y)};
-        texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
-        return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords.x, texel_coords.y)];
+        // calculate nearest texel and interpolation parameters.
+        ml::vec2 texel_coords = {uv.value.x * w - 0.5f, uv.value.y * h - 0.5f};
+        ml::tvec2<int> texel_coords_dec = {static_cast<int>(std::floor(texel_coords.x)), static_cast<int>(std::floor(texel_coords.y))};
+        ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
+
+        // calculate nearest four texel coordinates while respect the texture wrap mode.
+        ml::tvec2<int> texel_coords_dec_wrap[4] = {
+          {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
+          {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
+          {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
+          { wrap(wrap_s, texel_coords_dec.x + 1, w),
+            wrap(wrap_t, texel_coords_dec.y + 1, h) }};
+
+        // get color values.
+        ml::vec4 texels[4] = {
+          (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[0].x, texel_coords_dec_wrap[0].y)],
+          (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[1].x, texel_coords_dec_wrap[1].y)],
+          (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[2].x, texel_coords_dec_wrap[2].y)],
+          (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[3].x, texel_coords_dec_wrap[3].y)],
+        };
+
+        // return bilinearly interpolated color.
+        return ml::lerp(texel_coords_frac.y, ml::lerp(texel_coords_frac.x, texels[0], texels[1]), ml::lerp(texel_coords_frac.x, texels[2], texels[3]));
 #else
         int w{0}, h{0}, pitch{0};
 
         get_mipmap_params(mipmap_level, w, h, pitch);
-        ml::vec2 dithered_texel_coords = {static_cast<float>(ml::truncate_unchecked(uv.value.x * w)), static_cast<float>(ml::truncate_unchecked(uv.value.y * h))};
-        dithered_texel_coords += dither_offset;
-        ml::tvec2<int> texel_coords = {ml::truncate_unchecked(dithered_texel_coords.x), ml::truncate_unchecked(dithered_texel_coords.y)};
-        texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
-        return (associated_texture->data.data_ptrs[mipmap_level])[texel_coords.y * pitch + texel_coords.x];
+        // calculate nearest texel and interpolation parameters.
+        ml::vec2 texel_coords = {uv.value.x * w - 0.5f, uv.value.y * h - 0.5f};
+        ml::tvec2<int> texel_coords_dec = {static_cast<int>(std::floor(texel_coords.x)), static_cast<int>(std::floor(texel_coords.y))};
+        ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
+
+        // calculate nearest four texel coordinates while respect the texture wrap mode.
+        ml::tvec2<int> texel_coords_dec_wrap[4] = {
+          {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
+          {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
+          {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
+          {wrap(wrap_s, texel_coords_dec.x + 1, w),
+           wrap(wrap_t, texel_coords_dec.y + 1, h)}};
+
+        // get color values.
+        ml::vec4 texels[4] = {
+          (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[0].y * pitch + texel_coords_dec_wrap[0].x],
+          (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[1].y * pitch + texel_coords_dec_wrap[1].x],
+          (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[2].y * pitch + texel_coords_dec_wrap[2].x],
+          (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[3].y * pitch + texel_coords_dec_wrap[3].x],
+        };
+
+        // return bilinearly interpolated color.
+        return ml::lerp(texel_coords_frac.y, ml::lerp(texel_coords_frac.x, texels[0], texels[1]), ml::lerp(texel_coords_frac.x, texels[2], texels[3]));
 #endif
     }
 
@@ -332,41 +394,28 @@ public:
     {
     }
 
-    /** update mipmap information. */
-    void update_mipmap_info(float level_param, int level, float delta_max_sqr)
+    /** set texture minification filter. */
+    void set_filter_min(texture_filter min)
     {
-        mipmap_level_parameter = level_param;
-        mipmap_level = level;
-        mipmap_delta_max_squared = delta_max_sqr;
-    }
-
-    /** update dither reference value. */
-    void update_dither(int x, int y)
-    {
-        int index_x = x & 1;
-        int index_y = y & 1;
-
-        // dither kernel.
-        const float kernel[8] = {
-          0.00f, -0.25f, 0.25f, 0.50f,
-          0.50f, 0.25f, -0.25f, 0.00f};
-
-        int i = (index_x << 2) | (index_y << 1);
-        dither_offset = {kernel[i], kernel[i + 1]};
-    }
-
-    /** set texture magnification and minification filters. */
-    void set_texture_filters(texture_filter mag, texture_filter min)
-    {
-        filter_mag = mag;
         filter_min = min;
     }
 
-    /** get texture magnification and minification filters. */
-    void get_texture_filters(texture_filter& mag, texture_filter& min) const
+    /** set texture magnification filter. */
+    void set_filter_mag(texture_filter mag)
     {
-        mag = filter_mag;
-        min = filter_min;
+        filter_mag = mag;
+    }
+
+    /** get texture minification filter. */
+    texture_filter get_filter_min() const
+    {
+        return filter_min;
+    }
+
+    /** get texture magnification filter. */
+    texture_filter get_filter_mag()
+    {
+        return filter_mag;
     }
 
     /** set wrapping modes. */
@@ -396,40 +445,37 @@ public:
     /** sampling function. */
     ml::vec4 sample_at(const swr::varying& uv) const override
     {
-        // check which filter we are using.
-        bool force_minification_filter{false};
+        // calculate the mipmap level. this also tells if we need to apply the magnification or minification filter.
+        float lambda = calculate_mipmap_level(uv.dFdx, uv.dFdy);
+        int mipmap_level = std::floor(lambda);
 
-        /*
-         * When applying dithering as a magnification filter, it does not look very good
-         * at the point where the texel-to-pixel-ratio is approximately one. We handle
-         * this case separately by changing the filter to a nearest-neighbor one.
-         */
-        if(filter_mag == texture_filter::dithered && mipmap_level == 0)
+        /* sample the texture according to the selected filter. */
+        if(mipmap_level > 0)
         {
-            //!!fixme: the 0.5f is somewhat arbitrary and may need adjustment.
-            force_minification_filter = (mipmap_level_parameter > 0.5f);
-        }
+            // use the minification filter.
 
-        if(mipmap_level > 0 || force_minification_filter)
-        {
             if(filter_min == texture_filter::nearest)
             {
-                return sample_at_nearest(uv);
+                // this filter does not use mipmaps.
+                return sample_at_nearest(0, uv);
             }
-            else if(filter_min == texture_filter::dithered)
+            else if(filter_min == texture_filter::bilinear)
             {
-                return sample_at_dithered(uv);
+                // this filter does not use mipmaps.
+                return sample_at_bilinear(0, uv);
             }
         }
         else
         {
+            // use the magnification filter.
+
             if(filter_mag == texture_filter::nearest)
             {
-                return sample_at_nearest(uv);
+                return sample_at_nearest(0, uv);
             }
-            else if(filter_mag == texture_filter::dithered)
+            else if(filter_mag == texture_filter::bilinear)
             {
-                return sample_at_dithered(uv);
+                return sample_at_bilinear(0, uv);
             }
         }
 
@@ -453,7 +499,9 @@ inline texture_2d::texture_2d(
 {
     initialize_sampler();
 
-    sampler->set_texture_filters(filter_mag, filter_min);
+    sampler->set_filter_mag(filter_mag);
+    sampler->set_filter_min(filter_min);
+
     sampler->set_wrap_s(wrap_s);
     sampler->set_wrap_t(wrap_t);
 }

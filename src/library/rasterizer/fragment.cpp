@@ -81,6 +81,8 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
         if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
         {
             frag_info.varyings[i].value *= z;
+
+            //!!fixme: these need to be calculated.
             frag_info.varyings[i].dFdx *= z;
             frag_info.varyings[i].dFdy *= z;
         }
@@ -229,16 +231,28 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
     const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
 #endif /* SWR_USE_SIMD */
 
-    for(int k = 0; k < 4; ++k)
+    for(size_t i = 0; i < states.shader_info->iqs.size(); ++i)
     {
-        for(size_t i = 0; i < states.shader_info->iqs.size(); ++i)
+        if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
         {
-            if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
-            {
-                frag_info[k].varyings[i].value *= z[k];
-                frag_info[k].varyings[i].dFdx *= z[k];
-                frag_info[k].varyings[i].dFdy *= z[k];
-            }
+            frag_info[0].varyings[i].value *= z[0];
+            frag_info[1].varyings[i].value *= z[1];
+            frag_info[2].varyings[i].value *= z[2];
+            frag_info[3].varyings[i].value *= z[3];
+
+            /*
+             * calculate the approximate derivatives for this quad.
+             */
+
+            frag_info[0].varyings[i].dFdx = frag_info[1].varyings[i].value - frag_info[0].varyings[i].value;
+            frag_info[1].varyings[i].dFdx = frag_info[0].varyings[i].dFdx;
+            frag_info[2].varyings[i].dFdx = frag_info[3].varyings[i].value - frag_info[2].varyings[i].value;
+            frag_info[3].varyings[i].dFdx = frag_info[2].varyings[i].dFdx;
+
+            frag_info[0].varyings[i].dFdy = frag_info[2].varyings[i].value - frag_info[0].varyings[i].value;
+            frag_info[1].varyings[i].dFdy = frag_info[3].varyings[i].value - frag_info[1].varyings[i].value;
+            frag_info[2].varyings[i].dFdy = frag_info[0].varyings[i].dFdy;
+            frag_info[3].varyings[i].dFdy = frag_info[1].varyings[i].dFdy;
         }
     }
 

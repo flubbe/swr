@@ -471,12 +471,12 @@ void GetTextureWrapMode(uint32_t id, wrap_mode* s, wrap_mode* t);
 enum class texture_filter
 {
     nearest, /** Get the nearest texel in the nearest mipmap. */
-    dithered /** Get a dithered texel in the nearest mipmap. This is an approximation to a Gaussian interpolation in the nearest mipmap. */
+    bilinear /** Filter linearly between the nearest four texels in the mipmap. */
 };
 
 /**
  * Set the filter for the currently active texture which is used for minification.
- * \param Filter nearest or dithered.
+ * \param Filter nearest or bilinear.
  */
 void SetTextureMinificationFilter(texture_filter Filter);
 
@@ -485,7 +485,7 @@ texture_filter GetTextureMinificationFilter();
 
 /**
  * Set the filter for the currently active texture which is used for magnification.
- * \param Filter nearest or dithered.
+ * \param Filter nearest or bilinear.
  */
 void SetTextureMagnificationFilter(texture_filter Filter);
 

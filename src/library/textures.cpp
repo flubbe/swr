@@ -33,12 +33,12 @@ namespace impl
 
 void texture_2d::set_filter_mag(texture_filter filter_mag)
 {
-    sampler->filter_mag = filter_mag;
+    sampler->set_filter_mag(filter_mag);
 }
 
 void texture_2d::set_filter_min(texture_filter filter_min)
 {
-    sampler->filter_min = filter_min;
+    sampler->set_filter_min(filter_min);
 }
 
 void texture_2d::initialize_sampler()
@@ -605,9 +605,7 @@ texture_filter GetTextureMinificationFilter()
 
     if(sampler)
     {
-        texture_filter min, mag /* unused */;
-        sampler->get_texture_filters(mag, min);
-        return min;
+        return sampler->get_filter_min();
     }
     else
     {
@@ -624,9 +622,7 @@ texture_filter GetTextureMagnificationFilter()
 
     if(sampler)
     {
-        texture_filter min /* unused */, mag;
-        sampler->get_texture_filters(mag, min);
-        return mag;
+        return sampler->get_filter_mag();
     }
     else
     {

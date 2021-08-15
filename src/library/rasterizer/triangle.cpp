@@ -340,7 +340,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
 #ifdef NDEBUG
                     tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block);
 #else
-                    assert(tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block));
+                    assert(tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block));
 #endif
                 }
             }
@@ -357,7 +357,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
 #ifdef NDEBUG
                     tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked);
 #else
-                    assert(tiles.add_triangle(&states, attributes_temp, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked));
+                    assert(tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked));
 #endif
                 }
             }

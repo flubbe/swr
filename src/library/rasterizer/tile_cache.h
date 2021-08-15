@@ -125,7 +125,7 @@ struct tile_cache
     {
         // find the tile's coordinates.
         unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
-        assert(tile_index < tile_cache.size());
+        assert(tile_index < entries.size());
 
         auto& tile = entries[tile_index];
         if(tile.primitives.size() == tile.primitives.max_size())
