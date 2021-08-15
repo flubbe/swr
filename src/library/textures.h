@@ -261,7 +261,7 @@ class sampler_2d_impl : public sampler_2d
      *   param setting              linear within mip level     has mipmapping 
      *   ---------------------------------------------------------------------
      *         nearest                                  no                  no
-     *        bilinear                                 yes                  no
+     *          linear                                 yes                  no
      * 
      *   reference: https://www.khronos.org/opengl/wiki/Sampler_Object
      * 
@@ -325,8 +325,8 @@ class sampler_2d_impl : public sampler_2d
 #endif
     }
 
-    /** bilinear sampling. */
-    ml::vec4 sample_at_bilinear(int mipmap_level, const swr::varying& uv) const
+    /** linear sampling. */
+    ml::vec4 sample_at_linear(int mipmap_level, const swr::varying& uv) const
     {
 #ifdef SWR_USE_MORTON_CODES
         int w{0}, h{0};
@@ -354,7 +354,7 @@ class sampler_2d_impl : public sampler_2d
           (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[3].x, texel_coords_dec_wrap[3].y)],
         };
 
-        // return bilinearly interpolated color.
+        // return linearly interpolated color.
         return ml::lerp(texel_coords_frac.y, ml::lerp(texel_coords_frac.x, texels[0], texels[1]), ml::lerp(texel_coords_frac.x, texels[2], texels[3]));
 #else
         int w{0}, h{0}, pitch{0};
@@ -382,7 +382,7 @@ class sampler_2d_impl : public sampler_2d
           (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[3].y * pitch + texel_coords_dec_wrap[3].x],
         };
 
-        // return bilinearly interpolated color.
+        // return linearly interpolated color.
         return ml::lerp(texel_coords_frac.y, ml::lerp(texel_coords_frac.x, texels[0], texels[1]), ml::lerp(texel_coords_frac.x, texels[2], texels[3]));
 #endif
     }
@@ -459,9 +459,9 @@ public:
             {
                 return sample_at_nearest(0, uv);
             }
-            else if(filter_mag == texture_filter::bilinear)
+            else if(filter_mag == texture_filter::linear)
             {
-                return sample_at_bilinear(0, uv);
+                return sample_at_linear(0, uv);
             }
         }
         else
@@ -473,10 +473,10 @@ public:
                 // this filter does not use mipmaps.
                 return sample_at_nearest(0, uv);
             }
-            else if(filter_min == texture_filter::bilinear)
+            else if(filter_min == texture_filter::linear)
             {
                 // this filter does not use mipmaps.
-                return sample_at_bilinear(0, uv);
+                return sample_at_linear(0, uv);
             }
         }
 
