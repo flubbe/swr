@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * logging.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -22,7 +22,7 @@ static log_null null_log;
 log_device* log_device::singleton{&null_log};
 
 /*
- * singleton interface 
+ * singleton interface
  */
 
 void log_device::set(log_device* new_singleton)

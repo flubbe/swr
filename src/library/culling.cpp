@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * face culling.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -33,7 +33,7 @@ cull_face_direction get_face_orientation(front_face_orientation ffo, const ml::v
 }
 
 /**
- * reject 
+ * reject
  */
 bool cull_reject(cull_face_direction mode, cull_face_direction test_direction)
 {

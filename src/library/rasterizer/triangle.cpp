@@ -241,8 +241,8 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     }
 
     /*
-	 * Loop through blocks of size (rasterizer_block_size,rasterizer_block_size), starting and ending on an aligned value.
-	 */
+     * Loop through blocks of size (rasterizer_block_size,rasterizer_block_size), starting and ending on an aligned value.
+     */
 
     auto v1x = ml::truncate_unchecked(v1.coords.x);
     auto v1y = ml::truncate_unchecked(v1.coords.y);

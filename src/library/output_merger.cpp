@@ -1,9 +1,9 @@
 /**
  * swr - a software rasterizer
- * 
- * rasterizer output merging (currently only blending for the default framebuffer). 
+ *
+ * rasterizer output merging (currently only blending for the default framebuffer).
  * the functions here operate in the pixel format of the output buffer.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -23,7 +23,7 @@ namespace argb8888
 
 /*
  * Fast alpha blending functions.
- * 
+ *
  * Note: This is a approximation to accurate alpha blending, since the fast blending functions divide by 256 instead of 255
  */
 

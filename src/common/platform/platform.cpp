@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
- * Global platform initialization and shutdown code. Rewrite if using different platforms/components. 
- * 
+ *
+ * Global platform initialization and shutdown code. Rewrite if using different platforms/components.
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).

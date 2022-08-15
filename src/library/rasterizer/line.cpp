@@ -1,17 +1,17 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * line setup and drawing.
  *
  * some references:
- * 
+ *
  *  [1] Direct3D 11 fill rules: https://msdn.microsoft.com/de-de/library/windows/desktop/cc627092(v=vs.85).aspx#Line_1
  *  [2] https://github.com/MIvanchev/diamond-exit-line/blob/master/src/com/podrug/line/LineRenderer.java
  *  [3] http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
  *  [4] http://rosettacode.org/wiki/Bitmap/Bresenham%27s_line_algorithm#C.2B.2B
  *  [5] Diamond-exit: https://msdn.microsoft.com/de-de/library/windows/desktop/cc627092(v=vs.85).aspx
  *  [6] Mesa 3D: https://github.com/anholt/mesa/blob/master/src/gallium/drivers/llvmpipe/lp_setup_line.c
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -72,19 +72,19 @@ static float fracf(float f)
 
 /*
  * 1) a note on the coordinate system used:
- * 
+ *
  *    line_info contains information used by sweep_rasterizer::draw_line, which in turn calls
  *    sweep_rasterizer::process_fragment to write the fragment. this last function takes (x,y)
  *    coordinates with respect to screen space; in particular, the x-axis extends to the right
  *    and the y-axis extends downwards.
- * 
+ *
  *    for the differences to the pixel centers, this means:
  *     *) the calculated differences are all in the half-open interval [-0.5f, 0.5f).
  *     *) an x-/y-difference of -0.5 means that the point is vertically/horizontally exactly half-way between two pixels.
- * 
+ *
  * 2) from the knowledge of dx, dy and the x-/y-differences of the starting/ending points, we can infer
- *    if the line crosses the (x/y) halfway line of the pixel. 
- * 
+ *    if the line crosses the (x/y) halfway line of the pixel.
+ *
  *    for example:
  *     *) if dx>0 (i.e., the line extends to the right) and v1_diff.x>0, we do not cross the halfway line.
  *     *) if dx>0 and v1_diff.x < 0, we do cross the halfway line.
@@ -126,9 +126,9 @@ void line_info::setup()
         {
             /*
              * we start outside the diamond, and one of the following holds:
-             *  *) dx>0 (i.e., the line extends to the right) and v1_diff.x>0 
+             *  *) dx>0 (i.e., the line extends to the right) and v1_diff.x>0
              *     (i.e., the start point lies in the right half of the starting pixel outside the diamond)
-             *  *) dx<0 (i.e., the line extends to the left) and v1_diff.x<0 
+             *  *) dx<0 (i.e., the line extends to the left) and v1_diff.x<0
              *     (i.e., the start point lies in the left half of the starting pixel outside the diamond)
              *  *) dx=0 and v_1.diff.x=0 (in this case there is no line)
              */
@@ -149,7 +149,7 @@ void line_info::setup()
         {
             /*
              * we need to perform an intersection test to obtain a result.
-             * 
+             *
              * if the line extends to the right and we hit the pixel's vertical center axis
              * in the range (0,1), we draw the starting pixel. This is equivalent to the
              * line exiting the diamond of the starting pixel.
@@ -171,9 +171,9 @@ void line_info::setup()
         {
             /*
              * we start outside the diamond, and one of the following holds:
-             *  *) dx>0 (i.e., the line extends to the right) and v2_diff.x<0 
+             *  *) dx>0 (i.e., the line extends to the right) and v2_diff.x<0
              *     (i.e., the end point lies in the left half of the starting pixel outside the diamond)
-             *  *) dx<0 (i.e., the line extends to the left) and v2_diff.x>0 
+             *  *) dx<0 (i.e., the line extends to the left) and v2_diff.x>0
              *     (i.e., the end point lies in the right half of the starting pixel outside the diamond)
              *  *) dx=0 and v_1.diff.x=0 (in this case there is no line)
              */
@@ -194,7 +194,7 @@ void line_info::setup()
         {
             /*
              * we need to perform an intersection test to obtain a result.
-             * 
+             *
              * if the line extends to the right and we hit the pixel's vertical center axis
              * in the range (0,1), we draw the end pixel. This is equivalent to the
              * line exiting the diamond of the end pixel.
@@ -377,7 +377,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
      *     2*F(x,y) = 2*dy*x - 2*dx*y + 2*dx*b = 0 ,
      *
      * where we multiplied everything by 2 for convenience. Assume that a point (x0,y0) lies exactly on the line. Then the (vertically centered)
-     * point (x0+1,y0+1/2) is used to determine if the pixel to right right or to the top-right should be colored (where we assumed w.l.o.g. 
+     * point (x0+1,y0+1/2) is used to determine if the pixel to right right or to the top-right should be colored (where we assumed w.l.o.g.
      * that y2>=y1, since in the other case the appropriate quantities have to be decremented instead of incremented).
      *
      * To initialize the error variable D=F(x0+1,y0+1/2), we use the fact that F vanishes for coordinates lying exactly on the line. In particular,

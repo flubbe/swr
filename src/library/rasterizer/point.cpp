@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * point rasterization.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -26,7 +26,7 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
 {
     /*
      * a note on the pixel center adjustment:
-     * 
+     *
      * here we use it to find the correct position for the fragment as an integer (x,y)-coordinate.
      * by convention, the fragment's coordinate are then adjusted by the pixel center again in process_fragment.
      */

@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * frame buffer buffer implementation.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -341,11 +341,15 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
     }
 
     bool depth_mask[4] = {
-      depth_compare[static_cast<std::uint32_t>(depth_func)][0], depth_compare[static_cast<std::uint32_t>(depth_func)][1], depth_compare[static_cast<std::uint32_t>(depth_func)][2], depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
+        depth_compare[static_cast<std::uint32_t>(depth_func)][0],
+        depth_compare[static_cast<std::uint32_t>(depth_func)][1],
+        depth_compare[static_cast<std::uint32_t>(depth_func)][2],
+        depth_compare[static_cast<std::uint32_t>(depth_func)][3]
+    };
     apply_mask(write_mask, depth_mask);
 
     // write depth.
@@ -488,14 +492,12 @@ void framebuffer_object::merge_color(uint32_t attachment, int x, int y, const fr
         ml::vec4 write_color{ml::clamp_to_unit_interval(frag.color)};
 
         ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
-#ifndef SWR_USE_MORTON_CODES
-        int pitch = color_attachments[attachment]->info.pitch;
-#endif
 
         // alpha blending.
 #ifdef SWR_USE_MORTON_CODES
         ml::vec4* color_buffer_ptr = data_ptr + libmorton::morton2D_32_encode(x, y);
 #else
+        int pitch = color_attachments[attachment]->info.pitch;
         ml::vec4* color_buffer_ptr = data_ptr + y * pitch + x;
 #endif
         if(do_blend)
@@ -525,9 +527,6 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
           ml::clamp_to_unit_interval(frag.color[3])};
 
         ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
-#ifndef SWR_USE_MORTON_CODES
-        int pitch = color_attachments[attachment]->info.pitch;
-#endif
 
         // block coordinates
         const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
@@ -540,6 +539,7 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
           data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
           data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
 #else
+        int pitch = color_attachments[attachment]->info.pitch;
         ml::vec4* color_buffer_ptrs[4] = {
           data_ptr + coords[0].y * pitch + coords[0].x,
           data_ptr + coords[1].y * pitch + coords[1].x,
@@ -680,7 +680,7 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
     }
 
     bool depth_mask[4] = {

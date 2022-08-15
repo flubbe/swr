@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * test clipping functions.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -78,9 +78,9 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     /*
      * vertices are inside the view frustum if -w <= x,y,w <= w and w > 0.
      * we first fill some coordinates into the vertex buffer, and then set the clip flags (which are assumed to be set by the clipping functions).
-     * 
+     *
      * vertices that are inside the view frustum need to have their coordinates preserved (bit-exact).
-     * 
+     *
      * clip_line_buffer does not check if the supplied indices are valid - we have to ensure that they are.
      */
 

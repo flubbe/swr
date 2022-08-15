@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * texture management.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -232,11 +232,11 @@ void texture_2d::clear()
  * texture binding.
  */
 
-/** 
+/**
  * bind a 2d texture to the context's texture pointer. sets global_context->last_error to error::invalid_operation
  * if binding to the defaul texture failed. sets global_context->last_error to error::invalid_value, if
  * the supplied id is invalid.
- * 
+ *
  * \param id the id of the texture to be bound to the 2d texture pointer
  * \return true if the bind was successful and false otherwise. In the latter case, global_context->last_error is set.
  */

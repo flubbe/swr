@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * software rasterizer interface implementation.
  *
  * \author Felix Lubbe
@@ -99,10 +99,10 @@ void sweep_rasterizer::draw_primitives_parallel()
 
         /*
          * check if we need to draw the triangles in the queue. this is the case if:
-         * 
+         *
          *  *) the depth test is disabled or has changed, or
          *  *) blending is enabled.
-         * 
+         *
          * since currently only triangles are processed in parallel, we also need
          * to execute the draw calls before drawing any other primitive.
          */

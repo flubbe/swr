@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * test coverage masks.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -260,9 +260,9 @@ BOOST_AUTO_TEST_CASE(trivial_miss)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (-1,-1,-1) (-1,-1,-1)
      * (-1,-1,-1) (-1,-1,-1)
      */
@@ -288,12 +288,12 @@ BOOST_AUTO_TEST_CASE(trivial_hit)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,1,1) (1,1,1)
      * (1,1,1) (1,1,1)
-     * 
+     *
      * the reduced coverage mask is thus 0b1111 = 0xf.
      */
     block.setup(2, 2);
@@ -361,12 +361,12 @@ BOOST_AUTO_TEST_CASE(step_hit1)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0,  -2,-4) (0.5,  -1,-2)
      * (0,-2.5,-4) (0.5,-1.5,-2)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.setup(1, 1);
@@ -376,12 +376,12 @@ BOOST_AUTO_TEST_CASE(step_hit1)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0.5,  -1,-2) (1,   0,0)
      * (0.5,-1.5,-2) (1,-0.5,0)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
@@ -389,12 +389,12 @@ BOOST_AUTO_TEST_CASE(step_hit1)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,   0,0) (1.5,  1,2)
      * (1,-0.5,0) (1.5,0.5,2)
-     * 
+     *
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
@@ -402,12 +402,12 @@ BOOST_AUTO_TEST_CASE(step_hit1)
 
     /*
      * step in y direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,-0.5,-1) (1.5,0.5,1)
      * (1,  -1,-1) (1.5,  0,1)
-     * 
+     *
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
@@ -415,12 +415,12 @@ BOOST_AUTO_TEST_CASE(step_hit1)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1.5,0.5,1) (2,1.5,3)
      * (1.5,  0,1) (2,  1,3)
-     * 
+     *
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
@@ -428,12 +428,12 @@ BOOST_AUTO_TEST_CASE(step_hit1)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (2,1.5,3) (2.5,2.5,5)
      * (2,  1,3) (2.5,  2,5)
-     * 
+     *
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
@@ -457,12 +457,12 @@ BOOST_AUTO_TEST_CASE(step_hit2)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0,  -2,-4) (0.5,  -1,-2)
      * (0,-2.5,-4) (0.5,-1.5,-2)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.setup(1, 1);
@@ -472,12 +472,12 @@ BOOST_AUTO_TEST_CASE(step_hit2)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0.5,  -1,-2) (1,   0,0)
      * (0.5,-1.5,-2) (1,-0.5,0)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
@@ -485,12 +485,12 @@ BOOST_AUTO_TEST_CASE(step_hit2)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,   0,0) (1.5,  1,2)
      * (1,-0.5,0) (1.5,0.5,2)
-     * 
+     *
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
@@ -498,12 +498,12 @@ BOOST_AUTO_TEST_CASE(step_hit2)
 
     /*
      * step in y direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,-0.5,-1) (1.5,0.5,1)
      * (1,  -1,-1) (1.5,  0,1)
-     * 
+     *
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
@@ -511,12 +511,12 @@ BOOST_AUTO_TEST_CASE(step_hit2)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1.5,0.5,1) (2,1.5,3)
      * (1.5,  0,1) (2,  1,3)
-     * 
+     *
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
@@ -524,12 +524,12 @@ BOOST_AUTO_TEST_CASE(step_hit2)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (2,1.5,3) (2.5,2.5,5)
      * (2,  1,3) (2.5,  2,5)
-     * 
+     *
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
@@ -553,12 +553,12 @@ BOOST_AUTO_TEST_CASE(step_hit3)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0,  -2,-4) (0.5,  -1,-2)
      * (0,-2.5,-6) (0.5,-1.5,-4)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.setup(1, 1);
@@ -568,12 +568,12 @@ BOOST_AUTO_TEST_CASE(step_hit3)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,   0, 0) (1.5,  1,2)
      * (1,-0.5,-2) (1.5,0.5,0)
-     * 
+     *
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_x(2);
@@ -581,12 +581,12 @@ BOOST_AUTO_TEST_CASE(step_hit3)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (2,  2,4) (2.5,  3,6)
      * (2,1.5,2) (2.5,2.5,4)
-     * 
+     *
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(2);
@@ -594,12 +594,12 @@ BOOST_AUTO_TEST_CASE(step_hit3)
 
     /*
      * step in y direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (2,  1, 0) (2.5,  2,2)
      * (2,0.5,-2) (2.5,1.5,0)
-     * 
+     *
      * the coverage mask is thus 0b0101 = 0x4.
      */
     block.step_y(2);
@@ -607,12 +607,12 @@ BOOST_AUTO_TEST_CASE(step_hit3)
 
     /*
      * step in y direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (2,   0,-4) (2.5,  1,-2)
      * (2,-0.5,-6) (2.5,0.5,-4)
-     * 
+     *
      * the coverage mask is thus 0b0000= 0x0.
      */
     block.step_y(2);
@@ -839,9 +839,9 @@ BOOST_AUTO_TEST_CASE(trivial_miss_simd)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (-1,-1,-1) (-1,-1,-1)
      * (-1,-1,-1) (-1,-1,-1)
      */
@@ -867,12 +867,12 @@ BOOST_AUTO_TEST_CASE(trivial_hit_simd)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,1,1) (1,1,1)
      * (1,1,1) (1,1,1)
-     * 
+     *
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.setup(2, 2);
@@ -934,12 +934,12 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0,  -2,-4) (0.5,  -1,-2)
      * (0,-2.5,-4) (0.5,-1.5,-2)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.setup(1, 1);
@@ -949,12 +949,12 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0.5,  -1,-2) (1,   0,0)
      * (0.5,-1.5,-2) (1,-0.5,0)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
@@ -962,12 +962,12 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,   0,0) (1.5,  1,2)
      * (1,-0.5,0) (1.5,0.5,2)
-     * 
+     *
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
@@ -975,12 +975,12 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
 
     /*
      * step in y direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,-0.5,-1) (1.5,0.5,1)
      * (1,  -1,-1) (1.5,  0,1)
-     * 
+     *
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
@@ -988,12 +988,12 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1.5,0.5,1) (2,1.5,3)
      * (1.5,  0,1) (2,  1,3)
-     * 
+     *
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
@@ -1001,12 +1001,12 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (2,1.5,3) (2.5,2.5,5)
      * (2,  1,3) (2.5,  2,5)
-     * 
+     *
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
@@ -1030,12 +1030,12 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
 
     /*
      * set up 2x2 blocks.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0,  -2,-4) (0.5,  -1,-2)
      * (0,-2.5,-4) (0.5,-1.5,-2)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.setup(1, 1);
@@ -1045,12 +1045,12 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (0.5,  -1,-2) (1,   0,0)
      * (0.5,-1.5,-2) (1,-0.5,0)
-     * 
+     *
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
@@ -1058,12 +1058,12 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,   0,0) (1.5,  1,2)
      * (1,-0.5,0) (1.5,0.5,2)
-     * 
+     *
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
@@ -1071,12 +1071,12 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
 
     /*
      * step in y direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1,-0.5,-1) (1.5,0.5,1)
      * (1,  -1,-1) (1.5,  0,1)
-     * 
+     *
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
@@ -1084,12 +1084,12 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (1.5,0.5,1) (2,1.5,3)
      * (1.5,  0,1) (2,  1,3)
-     * 
+     *
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
@@ -1097,12 +1097,12 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
 
     /*
      * step in x direction.
-     * 
+     *
      * the values of lambda are:
-     * 
+     *
      * (2,1.5,3) (2.5,2.5,5)
      * (2,  1,3) (2.5,  2,5)
-     * 
+     *
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
@@ -1115,8 +1115,8 @@ size_t countof([[maybe_unused]] T const (&array)[N])
     return N;
 }
 
-/* 
- * the block size in the rasterizer will possibly get adjusted, so we define our own here to not accidentally break the test. 
+/*
+ * the block size in the rasterizer will possibly get adjusted, so we define our own here to not accidentally break the test.
  */
 namespace test
 {
@@ -1179,7 +1179,7 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
 
     /*
      * triangle:
-     * 
+     *
      *         96    128    160    192    224
      *    96
      *          *--------------------*
@@ -1190,9 +1190,9 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
      *   192    | *
      *          *
      *   224
-     * 
+     *
      * coverage:
-     * 
+     *
      *       96    128    160    192    224
      *    96   0      0      0      0      0
      *          *--------------------*
@@ -1203,9 +1203,9 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
      *   192   0| *   0      0      0      0
      *          *
      *   224   0      0      0      0      0
-     * 
+     *
      * corresponding 2x2 4-bit masks (order: top-left top-right bottom-left bottom-right):
-     * 
+     *
      *  0001 0011 0010 0000   =   1320
      *  0101 1110 1000 0000   =   5e80
      *  0100 1000 0000 0000   =   4800

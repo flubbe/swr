@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * get/log CPU information using Google's cpu_features library.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -17,8 +17,8 @@
 namespace platform
 {
 
-/** 
- * get (and log) cpu info 
+/**
+ * get (and log) cpu info
  */
 void get_cpu_info()
 {

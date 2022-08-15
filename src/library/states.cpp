@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * render pipeline state management.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -106,7 +106,7 @@ blend_func GetDestinationBlendFunc()
 }
 
 /*
- * depth test. 
+ * depth test.
  */
 
 void SetDepthTest(comparison_func func)
@@ -122,7 +122,7 @@ comparison_func GetDepthTest()
 }
 
 /*
- * cull mode. 
+ * cull mode.
  */
 
 void SetFrontFace(front_face_orientation ffo)
@@ -150,7 +150,7 @@ cull_face_direction GetCullMode()
 }
 
 /*
- * polygon mode. 
+ * polygon mode.
  */
 
 void SetPolygonMode(polygon_mode Mode)

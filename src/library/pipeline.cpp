@@ -1,10 +1,10 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * the graphics pipeline.
- * 
+ *
  * most of the actual work (e.g. clipping, primitive assembly and rasterization) is delegated to subroutines implemented elsewhere.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -92,12 +92,12 @@ static void transform_to_viewport_coords(impl::vertex_buffer& vb, float x, float
 /*
  * Execute the graphics pipeline and output an image into the frame buffer. The function operates on
  * the draw list produced by the drawing functions. For each draw list entry, execute:
- * 
+ *
  *  1) the vertex shader
  *  2) clipping
  *  3) the viewport transformation (including perspective divide)
  *  4) primitive assembly
- * 
+ *
  * The assembled primitives are then drawn by the rasterizer into the frame buffer and the draw list is emptied.
  * To display the image, the buffer needs to be copied to e.g. to a window.
  */

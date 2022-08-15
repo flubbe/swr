@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * buffer object management.
  *
  * \author Felix Lubbe

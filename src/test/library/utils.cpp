@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * test (some) utility functions.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).

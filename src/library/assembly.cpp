@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * primitive assembly.
  *
  * \author Felix Lubbe

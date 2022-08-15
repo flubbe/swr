@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * software renderer demonstration (bitmap font).
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -35,9 +35,9 @@
 /** demo title. */
 const auto demo_title = "Bitmap Font";
 
-/** 
+/**
  * get the next power of two of a 32-bit unsigned integer.
- * 
+ *
  * source: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
  */
 static uint32_t next_power_of_two(uint32_t n)
@@ -51,8 +51,8 @@ static uint32_t next_power_of_two(uint32_t n)
     return n + 1;
 }
 
-/** 
- * load textures, with dimensions possibly not being powers of two. data is RGBA with 8 bits per channel. 
+/**
+ * load textures, with dimensions possibly not being powers of two. data is RGBA with 8 bits per channel.
  * the largest valid texture coordinates are written to max_u and max_v.
  */
 static uint32_t load_texture(uint32_t w, uint32_t h, const std::vector<uint8_t>& data, float* max_u = nullptr, float* max_v = nullptr)

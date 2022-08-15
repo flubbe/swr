@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * statistics and benchmarking helpers.
  *
  * \author Felix Lubbe

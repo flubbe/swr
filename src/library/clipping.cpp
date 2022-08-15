@@ -1,11 +1,11 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * triangle clipping in homogeneous coordinates.
- * 
+ *
  * references:
  *  [1] http://fabiensanglard.net/polygon_codec/
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -23,22 +23,22 @@ namespace impl
 
 /**
  * clip against all planes (including the w-plane!)
- * 
+ *
  * NOTE: if this is disabled, it may provoke segfault during fragment write,
  *       since we rely on the validity of the coordinates.
  */
 #define CLIP_ALL_PLANES
 
 /*
- * 1) A technical note: If we compile via Visual Studio, check that the compiler 
- *    supports constexpr's. Support has been added in Visual Studio 2015 [1], which 
+ * 1) A technical note: If we compile via Visual Studio, check that the compiler
+ *    supports constexpr's. Support has been added in Visual Studio 2015 [1], which
  *    corresponds to the compiler version being 1900 [2].
  *
  *     [1] https://msdn.microsoft.com/de-de/library/hh567368.aspx
  *     [2] https://sourceforge.net/p/predef/wiki/Compilers/#microsoft-visual-c
- * 
+ *
  * 2) From https://fabiensanglard.net/polygon_codec/:
- *    The clipping actually produces vertices with a W=0 component. That would cause a 
+ *    The clipping actually produces vertices with a W=0 component. That would cause a
  *    divide by zero. A way to solve this is to clip against the W=0.00001 plane.
  */
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
@@ -47,9 +47,9 @@ constexpr float W_CLIPPING_PLANE = 1e-5f;
 #    define W_CLIPPING_PLANE (1e-5f)
 #endif
 
-/** 
- * clip with respect to these axes. more precisely, clip against the 
- * planes with plane equations (x=w,x=-w), (y=w,y=-w), (z=w,z=-w). 
+/**
+ * clip with respect to these axes. more precisely, clip against the
+ * planes with plane equations (x=w,x=-w), (y=w,y=-w), (z=w,z=-w).
  */
 enum clip_axis
 {
@@ -231,7 +231,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
  *      0 < w.
  *
  * in_vb and out_vb are not allowed to refer to the same buffer.
- * 
+ *
  * if in_vb does not contain a line (i.e., 2 vertices), we empty the output buffer and return.
  */
 static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& out_vb)
@@ -280,7 +280,7 @@ static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& ou
 
 /**
  * Clip a vertex buffer/index buffer pair against the view frustum. the index buffer/vertex buffer pair is assumed
- * to contain a line list, i.e., if i is divisible by 2, then in_ib[i] and in_ib[i+1] need to be indices into in_vb 
+ * to contain a line list, i.e., if i is divisible by 2, then in_ib[i] and in_ib[i+1] need to be indices into in_vb
  * forming a line.
  */
 void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb)
@@ -370,7 +370,7 @@ void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, cli
  *      0 < w.
  *
  * in_vb and out_vb are not allowed to refer to the same buffer.
- * 
+ *
  * if in_vb does not contain a triangle (i.e., 3 vertices), we empty the output buffer and return.
  */
 static void clip_triangle_on_w_plane(const vertex_buffer& in_triangle, vertex_buffer& out_vb)
@@ -428,7 +428,7 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
 {
     /*
      * temporary buffers. they are static in order to do memory allocation only about once.
-     * 
+     *
      * a note on the initial buffer size: if a large triangle is intersected with a small enough cube,
      * it can produce a hexagonal-type polygon, i.e., 6 vertices. now if one vertex is inside
      * the cube and the triangle is "flat enough", two additional vertices appear, so 8 seems

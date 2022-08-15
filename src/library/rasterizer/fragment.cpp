@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * fragment processing.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -27,13 +27,13 @@ static_assert(swr::fragment_shader_result::accept == 1, "swr::fragment_shader_re
 /**
  * Generate fragment color values, generate color write mask, perform depth testing and depth writing.
  * Everything is performed with respect to the currently active draw target.
- * 
+ *
  * More precisely, we do the following operations, in order:
- * 
+ *
  *  1) Scissor test.
- * 
+ *
  * If it succeeds, we calculate all interpolated values for the varyings.
- * 
+ *
  *  2) Call the fragment shader.
  *  3) Depth test (note that this cannot be done earlier, since the fragment shader may modify the depth value).
  */
@@ -70,7 +70,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
 
     /*
      * Compute z and interpolated values.
-     * 
+     *
      * Recall that one_over_viewport_z comes from the clip coordinates' w component. That is, it is
      * called w_c in eq. (15.1) on p.415 of https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf,
      * and with respect to the notation found there, we compute w_f here.
@@ -90,12 +90,12 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
 
     /*
      * Execute the fragment shader.
-	 */
+     */
     //!!fixme: From docs: gl_PointCoord: contains the coordinate of a fragment within a point. currently undefined.
 
     /*
      * set up the output color attachments for the fragment shader. the default color is explicitly unspecified in OpenGL, and we
-     * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color 
+     * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color
      */
     ml::vec4 color{0, 0, 0, 1};
     float depth_value = frag_info.depth_value;
@@ -258,12 +258,12 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
 
     /*
      * Execute the fragment shader.
-	 */
+     */
     //!!fixme: From docs: gl_PointCoord: contains the coordinate of a fragment within a point. currently undefined.
 
     /*
      * set up the output color attachments for the fragment shader. the default color is explicitly unspecified in OpenGL, and we
-     * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color 
+     * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color
      */
 
     ml::vec4 color[4] = {ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}};
