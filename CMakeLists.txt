@@ -78,7 +78,7 @@ include_directories(
 	deps/3rd-party/cpu_features/include 
 	deps/3rd-party/cnl/include
 	deps/3rd-party/fmt/include
-	deps/3rd-party/libmorton
+	deps/3rd-party/libmorton/include
 	)
 
 #
