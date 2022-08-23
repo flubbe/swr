@@ -202,7 +202,7 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
             y_max = states.draw_target->properties.height - y_temp;
         }
 
-        auto scissor_check = [y_min, y_max, &states, this](int _x, int _y) -> bool
+        auto scissor_check = [y_min, y_max, &states](int _x, int _y) -> bool
         { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= y_min && _y < y_max; };
         bool scissor_mask[4] = {
           scissor_check(coords[0].x, coords[0].y), scissor_check(coords[1].x, coords[1].y), scissor_check(coords[2].x, coords[2].y), scissor_check(coords[3].x, coords[3].y)};

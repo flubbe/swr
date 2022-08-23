@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * floating-point and fixed-point edge functions.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -12,14 +12,14 @@ namespace geom
 {
 
 /**
- * Given a point p and an oriented line, the edge function of the line determines 
+ * Given a point p and an oriented line, the edge function of the line determines
  * on which side (w.r.t. the orientation) p is.
  *
  * A value of 0 means the point is on the line.
- * 
+ *
  * A value > 0 means the point is on the "right side" of the line, i.e. the triangle given by (p, v1, v2) has
  * the opposite orientation the triangle ( (0,0), (1,0), (0,1) ).
- * 
+ *
  * A value < 0 means the point is on the "left side" of the line, i.e. the triangle given by (p, v1, v2) has
  * the same orientation as the triangle ( (0,0), (1,0), (0,1) ).
  */
@@ -47,9 +47,9 @@ struct edge_function
      * Evaluate the edge function on a point.
      *
      * \param p The point on which this function is evaluated.
-     * \return If the result is 0, p is on this edge. If it is <0, p is on the "left side" of the line defining the edge, i.e., 
-     *         the triangle given by (p, v1, v2) has the same orientation as the triangle ( (0,0), (1,0), (0,1) ). If it is >0, 
-     *         p is on the "right side" of the line defining the edge, i.e., the triangle given by (p, v1, v2) has the opposite 
+     * \return If the result is 0, p is on this edge. If it is <0, p is on the "left side" of the line defining the edge, i.e.,
+     *         the triangle given by (p, v1, v2) has the same orientation as the triangle ( (0,0), (1,0), (0,1) ). If it is >0,
+     *         p is on the "right side" of the line defining the edge, i.e., the triangle given by (p, v1, v2) has the opposite
      *         orientation as the triangle ( (0,0), (1,0), (0,1) ).
      */
     float evaluate(const ml::vec2& p) const
@@ -68,9 +68,9 @@ struct edge_function
     }
 };
 
-/** 
- * edge_function for fixed-point numbers. 
- * 
+/**
+ * edge_function for fixed-point numbers.
+ *
  * NOTE: this is not just edge_function with float replaced by a fixed-point type, since multiplication changes the fixed-point type.
  */
 struct edge_function_fixed

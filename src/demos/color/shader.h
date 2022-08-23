@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * A shader that applies coloring.
  *
  * \author Felix Lubbe
@@ -11,20 +11,20 @@
 namespace shader
 {
 
-/** 
+/**
  * A shader that applies coloring.
  *
  * vertex shader input:
  *   attribute 0: vertex position
  *   attribute 1: vertex color
- * 
+ *
  * varyings:
  *   location 0: color
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
- * 
+ *
  */
 class color : public swr::program
 {

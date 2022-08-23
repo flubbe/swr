@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * abstract rasterizer that queues up points, lines and triangles and finally draws them.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -17,7 +17,7 @@ namespace rast
 struct rasterizer
 {
     /*
-     * rasterizer states. 
+     * rasterizer states.
      */
 
     /** pixel center. */
@@ -72,7 +72,7 @@ struct rasterizer
      */
     virtual void add_line(const swr::impl::render_states* s, const geom::vertex* v1, const geom::vertex* v2) = 0;
 
-    /** 
+    /**
      * Add a triangle which is to be rasterized. The supplied vertices are assumed to
      * be valid pointers when the actual rasterization takes place.
      */

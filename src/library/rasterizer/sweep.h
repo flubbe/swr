@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * software rasterizer interface.
  *
  * \author Felix Lubbe
@@ -52,10 +52,10 @@ class sweep_rasterizer : public rasterizer
         /** Points to the active render states (which are stored in the context's draw lists). */
         const swr::impl::render_states* states{nullptr};
 
-        /** 
-         * default constructor. only for compatibility with std containers. 
-         * 
-         * NOTE: this does not make sense to use on its own and probably leaves the object in an undefined and unusable state. 
+        /**
+         * default constructor. only for compatibility with std containers.
+         *
+         * NOTE: this does not make sense to use on its own and probably leaves the object in an undefined and unusable state.
          */
         primitive() = default;
 

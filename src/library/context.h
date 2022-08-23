@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * general render context and SDL render context.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -258,7 +258,7 @@ public:
 
     /**
      * Assemble the base primitives from a given vertex buffer. The base primitives are stored in the rasterizer.
-     * Face culling takes place at this stage. 
+     * Face culling takes place at this stage.
      *
      * Reference: https://www.khronos.org/opengl/wiki/Primitive_Assembly
      */

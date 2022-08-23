@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * linear interpolators in 1d and 2d.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -51,7 +51,7 @@ struct linear_interpolator_1d
 
 /**
  * linear interpolator for data with two interpolation directions.
- * 
+ *
  * the advance_y method is geared towards the data
  * living on an object with a left vertical edge.
  */
@@ -115,9 +115,9 @@ struct linear_interpolator_2d
         value = row_start;
     }
 
-    /** 
-     * step in y direction. 
-     * 
+    /**
+     * step in y direction.
+     *
      * NOTE: this method does not affect row_start. If the interpolator is to be used to process blocks,
      *       setup_block_processing needs to be called before using advance_y.
      */

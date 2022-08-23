@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * unnormalized barycentric coordinates.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -123,11 +123,11 @@ struct barycentric_coordinate_block
         corners[2] = c2;
     }
 
-    /** 
-     * calculate and return the coverage mask. 
-     * 
+    /**
+     * calculate and return the coverage mask.
+     *
      * layout:
-     * 
+     *
      *                          lambda2         |       lambda1       |       lambda0
      * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
      * pixel position:     tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
@@ -184,30 +184,30 @@ struct barycentric_coordinate_block
         }
     };
 
-    /** 
-     * values at the corners of the block. 
-     * 
-     * after setup, the assignments of members to corners is given by 
-     * (.f3, .f2, .f1, .f0) = (top-left, top-right, bottom-left, bottom-right). 
+    /**
+     * values at the corners of the block.
+     *
+     * after setup, the assignments of members to corners is given by
+     * (.f3, .f2, .f1, .f0) = (top-left, top-right, bottom-left, bottom-right).
      */
     fixed_24_8_array_4 corners[3];
 
-    /** 
-     * steps to take in x direction on each advance. 
-     * 
-     * after setup, the assignments of members to corners is given by 
-     * (.f3, .f2, .f1, .f0) = (top-left, top-right, bottom-left, bottom-right). 
-     * 
+    /**
+     * steps to take in x direction on each advance.
+     *
+     * after setup, the assignments of members to corners is given by
+     * (.f3, .f2, .f1, .f0) = (top-left, top-right, bottom-left, bottom-right).
+     *
      * the members usually all contain the same value.
      */
     fixed_24_8_array_4 steps_x[3];
 
-    /** 
+    /**
      * steps to take in y direction on each advance.
      *
-     * after setup, the assignments of members to corners is given by 
-     * (.f3, .f2, .f1, .f0) = (top-left, top-right, bottom-left, bottom-right). 
-     * 
+     * after setup, the assignments of members to corners is given by
+     * (.f3, .f2, .f1, .f0) = (top-left, top-right, bottom-left, bottom-right).
+     *
      * the members usually all contain the same value.
      */
     fixed_24_8_array_4 steps_y[3];
@@ -299,11 +299,11 @@ struct barycentric_coordinate_block
         corners[2] = c2;
     }
 
-    /** 
-     * calculate and return the coverage mask. 
-     * 
+    /**
+     * calculate and return the coverage mask.
+     *
      * layout:
-     * 
+     *
      *                          lambda2         |       lambda1       |       lambda0
      * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
      * pixsel position:    tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br

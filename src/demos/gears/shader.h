@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * color shader with directional lighting.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -11,21 +11,21 @@
 namespace shader
 {
 
-/** 
+/**
  * A shader that applies coloring and directional lighting.
  *
  * vertex shader input:
  *   attribute 0: vertex position
  *   attribute 1: vertex normal
- * 
+ *
  * varyings:
  *   location 0: normal
  *   location 1: light direction in camera space
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
- * 
+ *
  */
 class color_flat : public swr::program
 {

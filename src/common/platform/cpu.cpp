@@ -25,11 +25,9 @@ void get_cpu_info()
     log_device::get().logf("");
     log_device::get().logf("CPU info:");
 
-    char brand_string[49];
     const cpu_features::X86Info info = cpu_features::GetX86Info();
-    cpu_features::FillX86BrandString(brand_string);
     log_device::get().logf("arch:     x86");
-    log_device::get().logf("brand:    {:s}", brand_string);
+    log_device::get().logf("brand:    {:s}", info.brand_string);
     log_device::get().logf("family:   {:#x}", info.family);
     log_device::get().logf("model:    {:#x}", info.model);
     log_device::get().logf("stepping: {:#x}", info.stepping);

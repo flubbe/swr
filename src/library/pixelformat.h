@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * support for different pixel formats.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).

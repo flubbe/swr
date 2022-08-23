@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * output buffers for rendering.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -41,8 +41,8 @@ struct fragment_output_block
     ml::vec4 color[4];
 
     /*
-      * masks.
-      */
+     * masks.
+     */
 
     /** whether the color values should be written to the color buffer. */
     bool write_color[4] = {true, true, true, true};
@@ -73,7 +73,7 @@ struct attachment_info
     /** height of the attachment. Has to be aligned on rasterizer_block_size. */
     int height{0};
 
-    /** 
+    /**
      * attachment pitch. the interpretation depends on the buffer type:
      * for uint32_t color buffers, this is the buffer width, in bytes.
      * for ml::vec4 textures, this is the difference between two lines, measured in sizeof(ml::vec4).
@@ -273,14 +273,14 @@ struct framebuffer_draw_target
     /** merge a 2x2 block of color values while respecting blend modes, if requested. silently fails for invalid attachments. */
     virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) = 0;
 
-    /** 
-     * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write a new value to the depth buffer. 
+    /**
+     * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write a new value to the depth buffer.
      * if the depth test failed, write_mask is set to false, and true otherwise. sets write_mask to true if no depth buffer was available.
      */
     virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) = 0;
 
-    /** 
-     * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write new values to the depth buffer. 
+    /**
+     * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write new values to the depth buffer.
      * if a depth test failed, correpsonding entry in write_mask is set to false, and true otherwise. sets all write_mask entries
      * to true if no depth buffer was available.
      */

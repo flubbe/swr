@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * rasterizer tile cache.
  *
  * \author Felix Lubbe

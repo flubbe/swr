@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * color shader and texture shader.
  *
  * \author Felix Lubbe
@@ -17,10 +17,10 @@ namespace shader
  * vertex shader input:
  *   attribute 0: vertex position
  *   attribute 1: vertex color
- * 
+ *
  * varyings:
  *   location 0: color
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
@@ -73,20 +73,20 @@ public:
     }
 };
 
-/** 
+/**
  * A shader that applies the diffuse texture.
- * 
+ *
  * vertex shader input:
  *   attribute 0: vertex position
  *   attribute 1: texture coordinates
- * 
+ *
  * varyings:
  *   location 0: texture coordinates
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
- * 
+ *
  * samplers:
  *   location 0: diffuse texture
  */

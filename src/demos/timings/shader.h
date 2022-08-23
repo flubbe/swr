@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * Texture and color shader for bitmap font test.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -18,14 +18,14 @@ namespace shader
  *   attribute 0: vertex position
  *   attribute 1: color
  *   attribute 2: texture coordinates
- * 
+ *
  * varyings:
  *   location 0: texture coordinates
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
- * 
+ *
  * samplers:
  *   location 0: diffuse texture
  */
@@ -86,10 +86,10 @@ public:
  * vertex shader input:
  *   attribute 0: vertex position
  *   attribute 1: vertex color
- * 
+ *
  * varyings:
  *   location 0: color
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]

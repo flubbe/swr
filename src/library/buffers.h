@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * vertex-, index- and attribute buffers.
  *
  * \author Felix Lubbe
@@ -22,7 +22,7 @@ typedef std::vector<uint32_t> index_buffer;
 
 /**
  * vertex attribute buffer.
- * 
+ *
  * each attribute seems to have 4 entries (some of them may be unused),
  * see https://www.khronos.org/opengl/wiki/GLAPI/glBindAttribLocation .
  */

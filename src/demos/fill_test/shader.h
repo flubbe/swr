@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * color and mesh shader.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -11,7 +11,7 @@
 namespace shader
 {
 
-/** 
+/**
  * A shader that applies coloring to meshes.
  *
  * vertex shader input:
@@ -21,10 +21,10 @@ namespace shader
  *   attribute 3: bitangent [unused]
  *   attribute 4: color
  *   attribute 5: texture coordinate [unused]
- * 
+ *
  * varyings:
  *   location 0: color
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]

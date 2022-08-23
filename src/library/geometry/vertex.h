@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * vertex definition.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -34,9 +34,9 @@ enum default_index
 /** Vertex format. */
 struct vertex
 {
-    /** 
+    /**
      * coordinates at different stages of the pipeline.
-     * 
+     *
      * depending on the pipeline stage, these may contain any of:
      *  *) the vertex position relative
      *  *) the homogeneous clip coordinates
@@ -64,10 +64,10 @@ struct vertex
 };
 
 /**
- * Linear interpolate vertex data in clipping stage. This occurs after the vertex shader has been called, 
+ * Linear interpolate vertex data in clipping stage. This occurs after the vertex shader has been called,
  * so that we also interpolate vertex shader outputs (i.e., varyings).
- * 
- * Interpolated data: 
+ *
+ * Interpolated data:
  *  *) clip coordinates
  *  *) varyings
  */

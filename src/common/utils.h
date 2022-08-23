@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * utility functions.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -89,16 +89,16 @@ inline void* memset128(void* buf, __m128i c, size_t size)
 
 /**
  * memset which writes 64 bits at once.
- * 
+ *
  * from http://stackoverflow.com/questions/108866/is-there-memset-that-accepts-integers-larger-than-char:
- * 
- *   When you assign to a pointer, the compiler assumes that the pointer is aligned to the type's natural alignment; 
- *   for uint64_t, that is 8 bytes. memcpy() makes no such assumption. On some hardware unaligned accesses are impossible, 
- *   so assignment is not a suitable solution unless you know unaligned accesses work on the hardware with small or no penalty, 
- *   or know that they will never occur, or both. The compiler will replace small memcpy()s and memset()s with more suitable 
- *   code so it is not as horrible is it looks; but if you do know enough to guarantee assignment will always work and your 
- *   profiler tells you it is faster, you can replace the memcpy with an assignment. The second for() loop is present in 
- *   case the amount of memory to be filled is not a multiple of 64 bits. If you know it always will be, you can simply drop 
+ *
+ *   When you assign to a pointer, the compiler assumes that the pointer is aligned to the type's natural alignment;
+ *   for uint64_t, that is 8 bytes. memcpy() makes no such assumption. On some hardware unaligned accesses are impossible,
+ *   so assignment is not a suitable solution unless you know unaligned accesses work on the hardware with small or no penalty,
+ *   or know that they will never occur, or both. The compiler will replace small memcpy()s and memset()s with more suitable
+ *   code so it is not as horrible is it looks; but if you do know enough to guarantee assignment will always work and your
+ *   profiler tells you it is faster, you can replace the memcpy with an assignment. The second for() loop is present in
+ *   case the amount of memory to be filled is not a multiple of 64 bits. If you know it always will be, you can simply drop
  *   that loop.
  */
 inline void* memset64(void* buf, uint64_t c, size_t size)
@@ -278,14 +278,14 @@ struct slot_map
 
 /*
  * CPU cycles/TSC measurement.
- * 
- * Some comments: 
+ *
+ * Some comments:
  *  1) The measurement overhead itself is not taken care of and seems to ba at about 27-37 cycles.
  *     It seems that the cycle count also is expected to fluctuate a bit.
  *  2) The cycle count may not provide accurate results on all platforms, so use it with care.
  *  3) OS context switches may affect the output.
  *  4) Thread execution may shift to a different CPU core with a different TSC.
- * 
+ *
  * !!todo: non-GNUC code is untested.
  */
 
@@ -384,9 +384,9 @@ constexpr bool is_power_of_two(std::size_t c)
     return (c & (c - 1)) == 0;
 }
 
-/** 
- * get the next power of two of the argument. e.g. next_power_of_two(1)=2, next_power_of_two(2)=4. 
- * 
+/**
+ * get the next power of two of the argument. e.g. next_power_of_two(1)=2, next_power_of_two(2)=4.
+ *
  * source: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
  */
 constexpr std::size_t round_to_next_power_of_two(std::size_t n)

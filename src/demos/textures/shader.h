@@ -1,22 +1,22 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * A shader that applies the diffuse texture.
  *
  * vertex shader input:
  *   attribute 0: vertex position
  *   attribute 1: texture coordinates
- * 
+ *
  * varyings:
  *   location 0: texture coordinates
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
- * 
+ *
  * samplers:
  *   location 0: diffuse texture
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).

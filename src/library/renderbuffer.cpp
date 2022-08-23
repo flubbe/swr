@@ -345,11 +345,10 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
     }
 
     bool depth_mask[4] = {
-        depth_compare[static_cast<std::uint32_t>(depth_func)][0],
-        depth_compare[static_cast<std::uint32_t>(depth_func)][1],
-        depth_compare[static_cast<std::uint32_t>(depth_func)][2],
-        depth_compare[static_cast<std::uint32_t>(depth_func)][3]
-    };
+      depth_compare[static_cast<std::uint32_t>(depth_func)][0],
+      depth_compare[static_cast<std::uint32_t>(depth_func)][1],
+      depth_compare[static_cast<std::uint32_t>(depth_func)][2],
+      depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
     apply_mask(write_mask, depth_mask);
 
     // write depth.

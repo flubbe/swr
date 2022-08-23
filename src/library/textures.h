@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * texture management.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -78,11 +78,11 @@ void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
 
     /*
      * allocate a texture buffer of size 1.5*width*height. Seen as a rectangle, the left width*height part stores the
-     * base image. 
-     * 
+     * base image.
+     *
      *  *) the first mipmap level of size (width/2)x(height/2) starts at coordinate (width,0) with pitch 1.5*width.
      *  *) the second mipmap level of size (width/4)x(height/4) starts at coordinate (width,height/2) with pitch 1.5*width
-     * 
+     *
      * in general, the n-th mipmap level of size (width/2^n)x(height/2^n) starts at coordinate (width,(1-1/2^(n-1))*height) with pitch 1.5*width.
      */
 
@@ -159,14 +159,14 @@ struct texture_2d
     /** allocate texture data initialized to zero. */
     swr::error allocate(int level, int width, int height);
 
-    /** 
+    /**
      * Set the texture data using the specified pixel format. the base texture level needs to be set up first through this call, since
      * it allocates the storage. the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
     swr::error set_data(int level, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
 
-    /** 
-     * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up. 
+    /**
+     * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up.
      * the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
     swr::error set_sub_data(int level, int x, int y, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
@@ -216,13 +216,13 @@ class sampler_2d_impl : public sampler_2d
     /** edge value sampling. */
     wrap_mode wrap_s{wrap_mode::repeat}, wrap_t{wrap_mode::repeat};
 
-    /** 
+    /**
      * given dFdx and dFdy, calculate the corresponding mipmap level,
      * see section 8.14 on p. 216 of https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
-     * 
+     *
      * the function returns a float in the range [0, max_mipmap_level], where
      * max_mipmap_level is associated_texture->data.data_ptrs.size().
-     * 
+     *
      * note: the function assumes that the texture is square (see e.g. eq. (8.7) on p. 217 in the reference) and does not have borders.
      * also, we ignore any biases.
      */
@@ -239,7 +239,7 @@ class sampler_2d_impl : public sampler_2d
         float lod_max = static_cast<float>(mipmap_levels - 1);
 
         /*
-         * first define the squares of the functions u and v from eq. (8.7) on p. 217. 
+         * first define the squares of the functions u and v from eq. (8.7) on p. 217.
          * note that we currently only support square textures without any borders.
          */
         float u_squared = associated_texture->width * associated_texture->width * dFdx.length_squared();
@@ -257,18 +257,18 @@ class sampler_2d_impl : public sampler_2d
 
     /*
      * sampling functions:
-     * 
-     *   param setting              linear within mip level     has mipmapping 
+     *
+     *   param setting              linear within mip level     has mipmapping
      *   ---------------------------------------------------------------------
      *         nearest                                  no                  no
      *          linear                                 yes                  no
-     * 
+     *
      *   reference: https://www.khronos.org/opengl/wiki/Sampler_Object
-     * 
+     *
      * sampling logic:
-     * 
+     *
      *   the sample functions access the texture data. the resulting data then is interpolated according to the method implemented by the function.
-     * 
+     *
      */
 
     /** get mipmap parameters for the specified mipmap level. if no mipmaps exists, returns parameters for the base image and sets level to zero. */

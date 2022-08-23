@@ -19,7 +19,5 @@ if [ -d "./deps/3rd-party/libmorton" ]; then rm -Rf "./deps/3rd-party/libmorton"
 if [ -d "./deps/3rd-party/lodepng" ]; then rm -Rf "./deps/3rd-party/lodepng"; fi
 
 #
-# Delete directory if empty
+# Do not delete directory (it still contains README.md and 3rd-party/README.md).
 #
-rmdir "./deps/3rd-party"
-rmdir "./deps"

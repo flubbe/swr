@@ -66,6 +66,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 
 #
+# Disable testing (for cpu_features integration)
+#
+set(BUILD_TESTING OFF)
+
+#
 # Set up project include directories
 #
 include_directories(

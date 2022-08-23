@@ -1,4 +1,4 @@
-project(swtest)
+project(swrtest)
 
 # add support for boost test framework
 add_definitions(-DBOOST_TEST_DYN_LINK) 

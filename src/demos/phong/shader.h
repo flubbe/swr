@@ -1,28 +1,28 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * Phong lighting shader.
  *
  * vertex shader input:
  *   attribute 0: vertex position
  *   attribute 1: vertex normal
  *   attribute 2: texture coordinates
- * 
+ *
  * varyings:
  *   location 0: texture coordinates
  *   location 1: vertex position in camera space
  *   location 2: normal w.r.t. camera space
  *   location 3: eye direction in camera space
  *   location 4: light direction in camera space
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
  *   location 2: light position in camera space [vec4]
- * 
+ *
  * samplers:
  *   location 0: diffuse texture
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).

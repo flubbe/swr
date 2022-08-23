@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * interpolators for quantities on lines and triangles.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -13,7 +13,7 @@ namespace rast
 
 /**
  * interpolator for varyings with one or two interpolation directions.
- * 
+ *
  * the advance_y method is geared towards the data living on an object with a left vertical edge.
  */
 struct varying_interpolator : public swr::varying
@@ -296,8 +296,8 @@ struct basic_interpolation_data
 /** Interpolate vertex varyings along lines. */
 struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d<float>>
 {
-    /** 
-     * Initialize the interpolator. 
+    /**
+     * Initialize the interpolator.
      * !!fixme: why do we need to pass one_over_span_length explicitly?
      */
     line_interpolator(const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v_ref, const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs, float one_over_span_length)
@@ -372,9 +372,9 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
 
 /**
  * Interpolate vertex varyings on triangles using (normalized) barycentric coordinates.
- * These coordinates are given with respect to the edges used during their initialization 
+ * These coordinates are given with respect to the edges used during their initialization
  * in the constructor.
- * 
+ *
  * NOTE: The validity of the parameters is not checked!
  */
 struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolator_2d<float>>
@@ -390,7 +390,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
 
     /**
      * Initialize the interpolator along the x-direction and along the y-direction with respect to the triangle edges.
-     * 
+     *
      * \param v0 first triangle vertex in cw orienation (w.r.t. viewport coordinstes)
      * \param v1 second triangle vertex in cw orientation (w.r.t. viewport coordinates)
      * \param v2 third triangle vertex in cw orientation (w.r.t. viewport coordinates)

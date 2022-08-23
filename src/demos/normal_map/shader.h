@@ -1,6 +1,6 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * Normal mapping shader.
  *
  * vertex shader input:
@@ -9,7 +9,7 @@
  *   attribute 2: vertex tangents
  *   attribute 3: vertex bitangents
  *   attribute 4: texture coordinates
- * 
+ *
  * varyings:
  *   location 0: texture coordinates
  *   location 1: vertex position in camera space
@@ -18,16 +18,16 @@
  *   location 4: bitangent w.r.t. camera space
  *   location 5: eye direction in camera space
  *   location 6: light direction in camera space
- * 
+ *
  * uniforms:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
  *   location 2: light position in camera space [vec4]
- * 
+ *
  * samplers:
  *   location 0: diffuse texture
  *   location 1: normal map
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).

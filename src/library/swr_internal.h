@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * internal header. mostly includes commonly needed headers.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
