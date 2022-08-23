@@ -31,8 +31,8 @@ framework. If you'd like to run the benchmarks, you also need [Google's benchmar
 
 For the other dependencies:
 - put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release 1.1.2, in `deps/3rd-party/cnl`.
-- put [cpu_features](https://github.com/google/cpu_features), release 0.6.0, into `deps/3rd-party/cpu_features`
-- put [fmt](https://github.com/fmtlib/fmt), release 7.1.3, into `deps/3rd-party/fmt`
+- put [cpu_features](https://github.com/google/cpu_features), release 0.7.0, into `deps/3rd-party/cpu_features`
+- put [fmt](https://github.com/fmtlib/fmt), release 8.1.1, into `deps/3rd-party/fmt`
 - if you use [Morton Codes](https://en.wikipedia.org/wiki/Z-order_curve) (enabled by default), put [libmorton](https://github.com/Forceflow/libmorton) into `deps/3rd-party/libmorton`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
 - clone [ml](https://github.com/flubbe/ml) into `deps/ml`
@@ -56,7 +56,7 @@ Alternatively, you can use the included build scripts:
 
 If everything succeeded, you should find the demo files in the `bin`-directory.
 
-Building was tested on Linux, GCC 11.1 (with C++-17 enabled), CMake 3.20.2 and [Ninja](https://ninja-build.org/) 1.10.2.
+Building was tested on Linux, GCC 12.2 (with C++-17 enabled), CMake 3.24.1 and [Ninja](https://ninja-build.org/) 1.11.0.
 
 ## Limitations
 
