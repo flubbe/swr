@@ -327,39 +327,18 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             // reduce mask.
             mask = geom::reduce_coverage_mask(mask);
 
-            if(mask == 0xf)
+            // assertions are here to correctly convert below.
+            static_assert(static_cast<int>(tile_info::rasterization_mode::block) == 0);
+            static_assert(static_cast<int>(tile_info::rasterization_mode::checked) == 1);
+
+            // a mask of 0xf corresponds to block processing, otherwise we need to do further checks.
+            auto mode = static_cast<tile_info::rasterization_mode>(static_cast<int>(mask != 0xf));
+
+            // add the triangle to the tile cache.
+            if(tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, mode))
             {
-                // the block is completely covered.
-
-                // try to add the triangle to the tile cache.
-                if(!tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block))
-                {
-                    // the cache is full. process all tiles and add the triangle again.
-                    process_tile_cache();
-
-#ifdef NDEBUG
-                    tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block);
-#else
-                    assert(tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::block));
-#endif
-                }
-            }
-            else
-            {
-                // the block is partially covered.
-
-                // try to add the triangle to the tile cache.
-                if(!tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked))
-                {
-                    // the cache is full. process all tiles and add the triangle again.
-                    process_tile_cache();
-
-#ifdef NDEBUG
-                    tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked);
-#else
-                    assert(tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, tile_info::rasterization_mode::checked));
-#endif
-                }
+                // the cache is full. process all tiles and add the triangle again.
+                process_tile_cache();
             }
 
             lambdas_box.step_x(swr::impl::rasterizer_block_size);

@@ -400,7 +400,7 @@ public:
 
         uint32_t w{0}, h{0};
         font.get_string_dimensions(str, w, h);
-        str = fmt::format(" fps: {: #5.1f}", 1000.0f / display_msec);
+        str = fmt::format(" fps: {: #6.1f}", 1000.0f / display_msec);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
 
 #ifdef SWR_ENABLE_STATS

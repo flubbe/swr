@@ -83,7 +83,7 @@ struct tile_cache
     int pitch{0};
 
     /** tiles. */
-    boost::container::vector<tile> entries;
+    std::vector<tile> entries;
 
     /** default constructor. */
     tile_cache() = default;
@@ -120,7 +120,7 @@ struct tile_cache
         }
     }
 
-    /** allocate a new tile. if the cache is full, return false. */
+    /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
     bool add_triangle(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing, tile_info::rasterization_mode in_mode)
     {
         // find the tile's coordinates.
@@ -130,17 +130,18 @@ struct tile_cache
         auto& tile = entries[tile_index];
         if(tile.primitives.size() == tile.primitives.max_size())
         {
-            // the cache is full.
-            return false;
+            // the cache was full.
+            // FIXME this should not happen
+            return true;
         }
 
         // add triangle to the primitives list.
-        tile.primitives.emplace_back(in_lambdas, in_states, in_attributes, in_front_facing, in_mode);
+        auto& triangle_ref = tile.primitives.emplace_back(in_lambdas, in_states, in_attributes, in_front_facing, in_mode);
 
         // set up triangle attributes.
-        tile.primitives.back().attributes.setup_block_processing();
+        triangle_ref.attributes.setup_block_processing();
 
-        return true;
+        return tile.primitives.size() == tile.primitives.max_size();
     }
 };
 

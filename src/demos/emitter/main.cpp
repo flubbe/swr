@@ -83,6 +83,9 @@ class demo_emitter : public swr_app::renderwindow
     /** frame counter. */
     uint32_t frame_count{0};
 
+    /** whether to update the particle system paused. */
+    bool update_particles{true};
+
     /** viewport width. */
     static const int width = 640;
 
@@ -261,12 +264,23 @@ public:
                 swr_app::application::quit();
                 return;
             }
+
+            if(e.type == SDL_KEYDOWN)
+            {
+                if(e.key.keysym.sym == SDLK_p)
+                {
+                    update_particles = !update_particles;
+                }
+            }
         }
 
         /*
          * update particles.
          */
-        particle_system.update(delta_time);
+        if(update_particles)
+        {
+            particle_system.update(delta_time);
+        }
 
         /*
          * every second, print some statistics.
