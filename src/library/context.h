@@ -48,13 +48,13 @@ struct program_info
     uint32_t flags{program_flags::none};
 
     /** (pointer to) the graphics program/shader. */
-    program* shader{nullptr};
+    const program_base* shader{nullptr};
 
     /** default constructor. */
     program_info() = default;
 
     /** constructor. */
-    program_info(program* in_shader)
+    program_info(const program_base* in_shader)
     : shader(in_shader)
     {
     }
@@ -145,7 +145,7 @@ public:
     utils::slot_map<program_info> programs;
 
     /** default shader. */
-    std::unique_ptr<program> default_shader;
+    std::unique_ptr<program_base> default_shader;
 
     /*
      * immediate mode support.
@@ -189,11 +189,26 @@ public:
     texture_2d* default_texture_2d{nullptr};
 
     /*
-     * rasterization.
+     * thread pool.
      */
 
-    /** rasterization threads. */
-    uint32_t rasterizer_thread_pool_size{0};
+#ifdef SWR_ENABLE_MULTI_THREADING
+    /** thread pool type to use. */
+    typedef concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_blocking_queue<std::function<void()>>> thread_pool_type;
+
+    /** processing threads. */
+    uint32_t thread_pool_size{0};
+
+    /** worker threads. */
+    thread_pool_type thread_pool;
+#else
+    /** no thread pool type. */
+    typedef std::nullptr_t thread_pool_type;
+#endif /* SWR_ENABLE_MULTI_THREADING */
+
+    /*
+     * rasterization.
+     */
 
     /** rasterizes points, lines and triangles. */
     std::unique_ptr<rast::rasterizer> rasterizer;
@@ -219,7 +234,7 @@ public:
     /** virtual destructor. */
     virtual ~render_device_context()
     {
-        Shutdown();
+        shutdown();
     }
 
     /*
@@ -232,7 +247,7 @@ public:
      *
      * Returns nullptr on failure.
      */
-    render_object* CreateRenderObject(size_t vertex_count, vertex_buffer_mode mode);
+    render_object* create_render_object(size_t vertex_count, vertex_buffer_mode mode);
 
     /**
      * Create render object from (indexed) vertex buffer.
@@ -240,17 +255,17 @@ public:
      *
      * Returns nullptr on failure.
      */
-    render_object* CreateIndexedRenderObject(const index_buffer& ib, vertex_buffer_mode mode);
+    render_object* create_indexed_render_object(const index_buffer& ib, vertex_buffer_mode mode);
 
     /*
      * buffer management.
      */
 
     /** clear the color buffer while respecting active render states. */
-    void ClearColorBuffer();
+    void clear_color_buffer();
 
     /** clear the depth buffer while respecting active render states. */
-    void ClearDepthBuffer();
+    void clear_depth_buffer();
 
     /*
      * primitive assembly.
@@ -262,28 +277,28 @@ public:
      *
      * Reference: https://www.khronos.org/opengl/wiki/Primitive_Assembly
      */
-    void AssemblePrimitives(const render_states* States, vertex_buffer_mode Mode, const vertex_buffer& Buffer);
+    void assemble_primitives(const render_states* states, vertex_buffer_mode mode, const vertex_buffer& vb);
 
     /*
      * render_device_context interface.
      */
 
     /** free all resources. */
-    virtual void Shutdown();
+    virtual void shutdown();
 
     /** Lock color buffer for writing. On success, ensures ColorBuffer.data_ptr to be valid. */
-    virtual bool Lock()
+    virtual bool lock()
     {
         return false;
     }
 
     /** unlock the color buffer. */
-    virtual void Unlock()
+    virtual void unlock()
     {
     }
 
     /** copy the default color buffer to some target. */
-    virtual void CopyDefaultColorBuffer()
+    virtual void copy_default_color_buffer()
     {
     }
 };
@@ -309,38 +324,40 @@ protected:
 
 public:
     /** default constructor. */
-    sdl_render_context(uint32_t thread_hint)
+    sdl_render_context([[maybe_unused]] uint32_t thread_hint)
     {
+#ifdef SWR_ENABLE_MULTI_THREADING
         if(thread_hint > 0)
         {
-            rasterizer_thread_pool_size = thread_hint;
+            thread_pool_size = thread_hint;
         }
+#endif
     }
 
     /** destructor. */
     ~sdl_render_context()
     {
-        Shutdown();
+        shutdown();
     }
 
     /*
      * render_device_context interface.
      */
 
-    void Shutdown() override;
-    bool Lock() override;
-    void Unlock() override;
-    void CopyDefaultColorBuffer() override;
+    void shutdown() override;
+    bool lock() override;
+    void unlock() override;
+    void copy_default_color_buffer() override;
 
     /*
      * sdl_render_context interface.
      */
 
     /** initialize the context with the supplied SDL data and create the buffers. */
-    void Initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height);
+    void initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height);
 
     /** (re-)create depth- and color buffers using the given width and height. */
-    void UpdateBuffers(int width, int height);
+    void update_buffers(int width, int height);
 };
 
 /*

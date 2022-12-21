@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * public interface.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -58,8 +58,8 @@ enum class wrap_mode
     clamp_to_edge    /** Clamp the texture coordinates to [0,1] */
 };
 
-/** 
- * default positions of color, normal and texture coordinates inside the vertex attributes. 
+/**
+ * default positions of color, normal and texture coordinates inside the vertex attributes.
  */
 namespace default_index
 {
@@ -609,7 +609,7 @@ void DepthRange(float zNear, float zFar);
 uint32_t CreateFramebufferObject();
 
 /**
- * Release a framebuffer object. 
+ * Release a framebuffer object.
  * \param id The id of the framebuffer object to be freed.
  */
 void ReleaseFramebufferObject(uint32_t id);

@@ -57,11 +57,15 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
             temp[i].dFdy = ml::vec4::zero();    // !!fixme: see comment above.
         }
 
+        // create shader instance.
+        std::vector<std::byte> shader_storage{states.shader_info->shader->size()};
+        swr::program_base* shader = states.shader_info->shader->create_instance(shader_storage.data(), states.uniforms, &states.texture_2d_samplers);
+
         // draw the point.
         rast::fragment_info info(v.coords.z, true, temp);
         swr::impl::fragment_output out;
 
-        process_fragment(x, y, states, v.coords.w, info, out);
+        process_fragment(x, y, states, shader, v.coords.w, info, out);
         states.draw_target->merge_color(0, x, y, out, states.blending_enabled, states.blend_src, states.blend_dst);
     }
 }

@@ -14,8 +14,6 @@
 namespace rast
 {
 
-#define SWR_ENABLE_MULTI_THREADING
-
 /**
  * Bias for application to fill rules. This is edge to the line equations if the corresponding
  * edge is a left or top one. Since this is done before any normalization took place, the fill
@@ -94,6 +92,9 @@ class sweep_rasterizer : public rasterizer
     tile_cache tiles;
 
 #ifdef SWR_ENABLE_MULTI_THREADING
+    /** thread pool. */
+    swr::impl::render_device_context::thread_pool_type* thread_pool{nullptr};
+
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
@@ -103,11 +104,11 @@ class sweep_rasterizer : public rasterizer
         {
             if(tiles.entries[i].primitives.size())
             {
-                rasterizer_threads.push_task(process_tile_static, this, &tiles.entries[i]);
+                thread_pool->push_task(process_tile_static, this, &tiles.entries[i]);
             }
         }
 
-        rasterizer_threads.run_tasks_and_wait();
+        thread_pool->run_tasks_and_wait();
         tiles.clear_tiles();
     }
 #else  /* SWR_ENABLE_MULTI_THREADING */
@@ -128,20 +129,15 @@ class sweep_rasterizer : public rasterizer
     }
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
-#ifdef SWR_ENABLE_MULTI_THREADING
-    /** worker threads. */
-    concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_blocking_queue<std::function<void()>>> rasterizer_threads;
-#endif /* SWR_ENABLE_MULTI_THREADING */
-
     /*
      * fragment processing.
      */
 
     /** generate a color value along with depth- and stencil flags for a single fragment. writes to the depth buffer. */
-    void process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& info, swr::impl::fragment_output& out);
+    void process_fragment(int x, int y, const swr::impl::render_states& states, const swr::program_base* in_shader, float one_over_viewport_z, fragment_info& info, swr::impl::fragment_output& out);
 
     /** generate color values along with depth- and stencil masks for a 2x2 block of fragments. writes to the depth buffer. */
-    void process_fragment_block(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z[4], fragment_info info[4], swr::impl::fragment_output_block& out);
+    void process_fragment_block(int x, int y, const swr::impl::render_states& states, const swr::program_base* in_shader, float one_over_viewport_z[4], fragment_info info[4], swr::impl::fragment_output_block& out);
 
     /*
      * fragment block processing.
@@ -198,10 +194,10 @@ class sweep_rasterizer : public rasterizer
 
 public:
     /** Constructor. */
-    sweep_rasterizer([[maybe_unused]] std::size_t in_thread_count, swr::impl::default_framebuffer* in_framebuffer)
-    : rasterizer(in_framebuffer)
+    sweep_rasterizer([[maybe_unused]] swr::impl::render_device_context::thread_pool_type* in_thread_pool, swr::impl::default_framebuffer* in_framebuffer)
+    : rasterizer{in_framebuffer}
 #ifdef SWR_ENABLE_MULTI_THREADING
-    , rasterizer_threads(in_thread_count)
+    , thread_pool{in_thread_pool}
 #endif
     {
         assert(framebuffer);

@@ -45,7 +45,7 @@ void sweep_rasterizer::draw_primitives()
 #endif
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    if(rasterizer_threads.get_thread_count() > 1)
+    if(thread_pool->get_thread_count() > 1)
     {
         draw_primitives_parallel();
     }
@@ -62,10 +62,6 @@ void sweep_rasterizer::draw_primitives_sequentially()
 {
     for(auto& it: draw_list)
     {
-        // let the (fragment-)shader know the active render states.
-        it.states->shader_info->shader->update_uniforms(&it.states->uniforms);
-        it.states->shader_info->shader->update_samplers(&it.states->texture_2d_samplers);
-
         // draw the primitive.
         if(it.type == primitive::point)
         {
@@ -89,14 +85,14 @@ void sweep_rasterizer::draw_primitives_sequentially()
 #ifdef SWR_ENABLE_MULTI_THREADING
 void sweep_rasterizer::draw_primitives_parallel()
 {
-    swr::comparison_func last_depth_func = draw_list.size() ? draw_list[0].states->depth_func : swr::comparison_func::less;
+    if(!draw_list.size())
+    {
+        return;
+    }
 
+    const swr::comparison_func* last_depth_func = nullptr;
     for(auto& it: draw_list)
     {
-        // let the (fragment-)shader know the active render states.
-        it.states->shader_info->shader->update_uniforms(&it.states->uniforms);
-        it.states->shader_info->shader->update_samplers(&it.states->texture_2d_samplers);
-
         /*
          * check if we need to draw the triangles in the queue. this is the case if:
          *
@@ -106,19 +102,17 @@ void sweep_rasterizer::draw_primitives_parallel()
          * since currently only triangles are processed in parallel, we also need
          * to execute the draw calls before drawing any other primitive.
          */
-        if(it.type != primitive::triangle)
+
+        bool process_tiles = (it.type != primitive::triangle)
+                             || it.states->blending_enabled
+                             || !it.states->depth_test_enabled
+                             || (it.states->depth_test_enabled && last_depth_func && (*last_depth_func) != it.states->depth_func);
+
+        last_depth_func = it.states->depth_test_enabled ? &it.states->depth_func : nullptr;
+
+        if(process_tiles)
         {
             process_tile_cache();
-        }
-        else if(!it.states->depth_test_enabled || it.states->blending_enabled)
-        {
-            process_tile_cache();
-        }
-        else if(it.states->depth_test_enabled && last_depth_func != it.states->depth_func)
-        {
-            // if the depth buffer mode changed, ensure that all depth operations have finished.
-            process_tile_cache();
-            last_depth_func = it.states->depth_func;
         }
 
         // draw the primitive.

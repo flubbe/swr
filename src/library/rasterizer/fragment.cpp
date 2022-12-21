@@ -37,7 +37,7 @@ static_assert(swr::fragment_shader_result::accept == 1, "swr::fragment_shader_re
  *  2) Call the fragment shader.
  *  3) Depth test (note that this cannot be done earlier, since the fragment shader may modify the depth value).
  */
-void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z, fragment_info& frag_info, swr::impl::fragment_output& out)
+void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_states& states, const swr::program_base* in_shader, float one_over_viewport_z, fragment_info& frag_info, swr::impl::fragment_output& out)
 {
     /*
      * Scissor test.
@@ -122,7 +122,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
           z};
     }
 
-    auto accept_fragment = states.shader_info->shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, depth_value, color);
+    auto accept_fragment = in_shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, depth_value, color);
     if(accept_fragment == swr::discard)
     {
         out.write_flags = 0;
@@ -147,7 +147,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
 }
 
 /** the same as above, but operates on 2x2 tiles. does not return any value. */
-void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::render_states& states, float one_over_viewport_z[4], fragment_info frag_info[4], swr::impl::fragment_output_block& out)
+void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::render_states& states, const swr::program_base* in_shader, float one_over_viewport_z[4], fragment_info frag_info[4], swr::impl::fragment_output_block& out)
 {
     /*
      * helper lambdas.
@@ -293,10 +293,10 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
     }
 
     swr::fragment_shader_result accept_mask[4] = {
-      states.shader_info->shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]),
-      states.shader_info->shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]),
-      states.shader_info->shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]),
-      states.shader_info->shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3])};
+      in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]),
+      in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]),
+      in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]),
+      in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3])};
 
     if(!(accept_mask[0] || accept_mask[1] || accept_mask[2] || accept_mask[3]))
     {

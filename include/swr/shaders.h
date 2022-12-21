@@ -1,8 +1,8 @@
 /**
  * swr - a software rasterizer
- * 
+ *
  * public interface for shader support.
- * 
+ *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
@@ -10,9 +10,12 @@
 
 #pragma once
 
+/* C++ headers. */
+#include <type_traits>
+
 /*
  * dependencies.
- * 
+ *
  * we do not include swr.h here, since it should already be included anyways. in
  * particular, "ml/all.h" and "vector" are already included.
  */
@@ -26,11 +29,11 @@
 namespace swr
 {
 
-/** 
- * uniform. 
- * 
+/**
+ * uniform.
+ *
  * from https://www.khronos.org/opengl/wiki/Uniform_(GLSL):
- * 
+ *
  * All non-array/struct types will be assigned a single location.
  */
 union uniform
@@ -151,16 +154,53 @@ enum fragment_shader_result
 
 /**
  * A complete graphics program, consisting of vertex- and fragment shader.
+ * NOTE Classes derived from this are not allowed to add member variables.
  */
-class program
+class program_base
 {
 protected:
     const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
     boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> samplers;
 
 public:
-    virtual ~program()
+    /** type information. used for validation by program<T> below. */
+    using super_type = std::nullptr_t;
+
+    program_base() = default;
+    program_base(const program_base&) = default;
+    program_base(program_base&&) = default;
+
+    program_base& operator=(const program_base&) = default;
+    program_base& operator=(program_base&&) = default;
+
+    virtual ~program_base() = default;
+
+    /** return the size (in bytes) of the program. */
+    virtual std::size_t size() const
     {
+        return sizeof(program_base);
+    }
+
+    /**
+     * create a new instance of this program.
+     *
+     * \param mem The memory to store the program object in.
+     * \param uniforms The uniforms for this program instance.
+     * \param samplers_2d The 2d texture samplers for this program instance.
+     * \return A program instance.
+     */
+    virtual program_base* create_instance(
+      void* mem,
+      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
+      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* samplers_2d = nullptr) const
+    {
+        program_base* new_program = new(mem) program_base();
+        new_program->update_uniforms(&uniforms);
+        if(samplers_2d != nullptr)
+        {
+            new_program->update_samplers(samplers_2d);
+        }
+        return new_program;
     }
 
     void update_uniforms(const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* in_uniforms)
@@ -224,6 +264,48 @@ public:
     }
 };
 
+/**
+ * A helper class providing instantiation methods to simplify program creation.
+ *
+ * @tparam T A type derived from program_base.
+ */
+template<typename T>
+class program : public program_base
+{
+public:
+    /** type information for validation. */
+    using super_type = program_base;
+
+    virtual std::size_t size() const;
+    virtual program_base* create_instance(
+      void* mem,
+      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
+      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* samplers_2d = nullptr) const override;
+};
+
+template<typename T>
+std::size_t program<T>::size() const
+{
+    static_assert(sizeof(T) >= sizeof(program_base), "Invalid program size.");
+    return sizeof(T);
+}
+
+template<typename T>
+program_base* program<T>::create_instance(
+  void* mem,
+  const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
+  const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* samplers_2d) const
+{
+    static_assert(std::is_same<typename T::super_type, program_base>::value, "Program types do not match.");
+    program_base* new_program = new(mem) T(static_cast<const T&>(*this));
+    new_program->update_uniforms(&uniforms);
+    if(samplers_2d != nullptr)
+    {
+        new_program->update_samplers(samplers_2d);
+    }
+    return new_program;
+}
+
 /*
  * Interface.
  */
@@ -233,7 +315,7 @@ public:
  * \param InShader Pointer to the shader.
  * \return On success, this returns the (positive) Id of the shader. If an error occured, the return value is 0.
  */
-uint32_t RegisterShader(program* InShader);
+uint32_t RegisterShader(const program_base* InShader);
 
 /**
  * Removes a shader from the graphics pipeline.

@@ -174,10 +174,10 @@ struct slot_map
     container data;
 
     /** list of free object slots. */
-    std::list<size_t> free_slots;
+    std::list<std::size_t> free_slots;
 
-    /** insert a new item.. */
-    size_t push(const T& item)
+    /** insert a new item. */
+    std::size_t push(const T& item)
     {
         // first fill empty slots.
         if(free_slots.size())
@@ -194,7 +194,7 @@ struct slot_map
     }
 
     /** insert a new item.. */
-    size_t push(T&& item)
+    std::size_t push(T&& item)
     {
         // first fill empty slots.
         if(free_slots.size())
@@ -211,14 +211,14 @@ struct slot_map
     }
 
     /** mark a slot as free. */
-    void free(size_t i)
+    void free(std::size_t i)
     {
         assert(i < data.size());
         free_slots.push_back(i);
     }
 
     /** check if an index is in the list of free slots. */
-    bool is_free(size_t i)
+    bool is_free(std::size_t i)
     {
         return std::find(free_slots.begin(), free_slots.end(), i) != free_slots.end();
     }
@@ -237,14 +237,14 @@ struct slot_map
     }
 
     /** query size. */
-    size_t size() const
+    std::size_t size() const
     {
         assert(data.size() - free_slots.size() >= 0);
         return data.size() - free_slots.size();
     }
 
     /** query the current capacity. */
-    size_t capacity() const
+    std::size_t capacity() const
     {
         return data.size();
     }
@@ -257,7 +257,7 @@ struct slot_map
      * element access. the caller has to take care of the validity of the index.
      * that is, we do not check if the supplied index not in the free_slots list.
      */
-    const T& operator[](size_t i) const
+    const T& operator[](std::size_t i) const
     {
         assert(i < data.size());
         return data[i];
@@ -267,7 +267,7 @@ struct slot_map
      * element access. the caller has to take care of the validity of the index.
      * that is, we do not check if the supplied index not in the free_slots list.
      */
-    T& operator[](size_t i)
+    T& operator[](std::size_t i)
     {
         assert(i < data.size());
         return data[i];

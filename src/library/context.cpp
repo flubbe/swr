@@ -30,7 +30,7 @@ thread_local render_device_context* global_context = nullptr;
  * render context implementation.
  */
 
-void render_device_context::Shutdown()
+void render_device_context::shutdown()
 {
     // empty command list.
     render_command_list.clear();
@@ -70,7 +70,7 @@ void render_device_context::Shutdown()
     framebuffer.reset();
 }
 
-void render_device_context::ClearColorBuffer()
+void render_device_context::clear_color_buffer()
 {
     // buffer clearing respects scissoring.
     if(states.scissor_test_enabled
@@ -85,7 +85,7 @@ void render_device_context::ClearColorBuffer()
     }
 }
 
-void render_device_context::ClearDepthBuffer()
+void render_device_context::clear_depth_buffer()
 {
     // buffer clearing respects scissoring.
     if(states.scissor_test_enabled
@@ -141,7 +141,7 @@ pixel_format sdl_render_context::get_window_pixel_format(Uint32* out_sdl_pixel_f
     return pixel_format::argb8888;
 }
 
-void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height)
+void sdl_render_context::initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height)
 {
     if(window == nullptr || renderer == nullptr || width <= 0 || height <= 0)
     {
@@ -161,7 +161,7 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
     states.set_scissor_box(0, width, 0, height);
 
     // Update buffers with the given width and height.
-    UpdateBuffers(width, height);
+    update_buffers(width, height);
 
     // write dimensions for the blitting rectangle.
     sdl_viewport_dimensions = {0, 0, width, height};
@@ -169,32 +169,45 @@ void sdl_render_context::Initialize(SDL_Window* window, SDL_Renderer* renderer, 
     // create default texture.
     create_default_texture(this);
 
-    // create default shader.
-    create_default_shader(this);
-
-    // create triangle rasterizer using rasterizer_thread_pool_size threads. we don't use more threads than reported by std::thread::hardware_concurrency
-    // and default to half of it.
-    if(rasterizer_thread_pool_size == 0 || rasterizer_thread_pool_size > std::thread::hardware_concurrency())
+#ifdef SWR_ENABLE_MULTI_THREADING
+    // create thread pool
+    // we don't use more threads than reported by std::thread::hardware_concurrence and default to half of it.
+    if(thread_pool_size == 0 || thread_pool_size > std::thread::hardware_concurrency())
     {
-        rasterizer_thread_pool_size = (std::thread::hardware_concurrency() > 1) ? (std::thread::hardware_concurrency() / 2) : 1;
+        thread_pool_size = (std::thread::hardware_concurrency() > 1) ? (std::thread::hardware_concurrency() / 2) : 1;
     }
+    thread_pool.reset(thread_pool_size);
 
     try
     {
-        rasterizer = std::unique_ptr<rast::sweep_rasterizer>(new rast::sweep_rasterizer(rasterizer_thread_pool_size, &framebuffer));
+        rasterizer = std::make_unique<rast::sweep_rasterizer>(&thread_pool, &framebuffer);
     }
     catch(std::bad_alloc& e)
     {
         throw std::runtime_error(fmt::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
     }
+#else
+    try
+    {
+        rasterizer = std::make_unique<rast::sweep_rasterizer>(nullptr, &framebuffer);
+    }
+    catch(std::bad_alloc& e)
+    {
+        throw std::runtime_error(fmt::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
+    }
+#endif
+
+    // create default shader. this needs to happen after the thread pool
+    // is set up, since we create one shader per thread.
+    create_default_shader(this);
 }
 
-void sdl_render_context::Shutdown()
+void sdl_render_context::shutdown()
 {
     if(framebuffer.is_color_weakly_attached())
     {
         // Unlock resets ColorBuffer.data_ptr.
-        Unlock();
+        unlock();
     }
 
     if(sdl_color_buffer)
@@ -208,10 +221,10 @@ void sdl_render_context::Shutdown()
     sdl_renderer = nullptr;
     sdl_window = nullptr;
 
-    render_device_context::Shutdown();
+    render_device_context::shutdown();
 }
 
-void sdl_render_context::UpdateBuffers(int width, int height)
+void sdl_render_context::update_buffers(int width, int height)
 {
     if(width <= 0 || height <= 0)
     {
@@ -239,7 +252,7 @@ void sdl_render_context::UpdateBuffers(int width, int height)
     framebuffer.setup(width, height, 0, swr_pixel_format, nullptr);
 }
 
-void sdl_render_context::CopyDefaultColorBuffer()
+void sdl_render_context::copy_default_color_buffer()
 {
     if(sdl_color_buffer != nullptr && sdl_renderer != nullptr && sdl_window != nullptr)
     {
@@ -249,7 +262,7 @@ void sdl_render_context::CopyDefaultColorBuffer()
     }
 }
 
-bool sdl_render_context::Lock()
+bool sdl_render_context::lock()
 {
     if(!framebuffer.is_color_weakly_attached())
     {
@@ -267,7 +280,7 @@ bool sdl_render_context::Lock()
     return framebuffer.is_color_attached();
 }
 
-void sdl_render_context::Unlock()
+void sdl_render_context::unlock()
 {
     if(framebuffer.is_color_weakly_attached())
     {
@@ -292,7 +305,7 @@ context_handle CreateSDLContext(SDL_Window* window, SDL_Renderer* renderer, uint
     int width = 0, height = 0;
     SDL_GetWindowSize(window, &width, &height);
     auto* context = new impl::sdl_render_context(thread_hint);
-    context->Initialize(window, renderer, width, height);
+    context->initialize(window, renderer, width, height);
     return context;
 }
 
@@ -318,7 +331,7 @@ bool MakeContextCurrent(context_handle context)
         // make no context the current one.
         if(impl::global_context)
         {
-            impl::global_context->Unlock();
+            impl::global_context->unlock();
             impl::global_context = nullptr;
         }
 
@@ -327,7 +340,7 @@ bool MakeContextCurrent(context_handle context)
 
     assert(!impl::global_context);
     impl::global_context = static_cast<impl::render_device_context*>(context);
-    return impl::global_context->Lock();
+    return impl::global_context->lock();
 }
 
 void CopyDefaultColorBuffer(context_handle context)
@@ -336,15 +349,15 @@ void CopyDefaultColorBuffer(context_handle context)
 
     swr::impl::render_device_context* internal_context = static_cast<swr::impl::render_device_context*>(context);
 
-    internal_context->Unlock();
-    internal_context->CopyDefaultColorBuffer();
+    internal_context->unlock();
+    internal_context->copy_default_color_buffer();
 
     // check results in debug builds.
 #ifndef NDEBUG
-    bool locked = internal_context->Lock();
+    bool locked = internal_context->lock();
     assert(locked);
 #else
-    internal_context->Lock();
+    internal_context->lock();
 #endif
 }
 

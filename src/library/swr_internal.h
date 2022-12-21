@@ -19,6 +19,9 @@
 /* use SIMD code by default. */
 #define SWR_USE_SIMD
 
+/* use multiple threads by default. */
+#define SWR_ENABLE_MULTI_THREADING
+
 /* enable the use of morton codes (for texture access) by default. */
 #define SWR_USE_MORTON_CODES
 

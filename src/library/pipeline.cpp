@@ -22,10 +22,14 @@ namespace swr
  */
 
 /** Call vertex shaders and set clipping markers. */
-static bool invoke_vertex_shader_and_clip_preprocess(impl::program_info* shader_info, impl::vertex_buffer& vb)
+static bool invoke_vertex_shader_and_clip_preprocess(impl::program_info* shader_info, const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms, impl::vertex_buffer& vb)
 {
     // check if the whole buffer should be discarded.
     bool clip_discard{true};
+
+    // create shader
+    std::vector<std::byte> shader_storage{shader_info->shader->size()};
+    swr::program_base* shader = shader_info->shader->create_instance(shader_storage.data(), uniforms);
 
     for(auto& vertex_it: vb)
     {
@@ -33,7 +37,7 @@ static bool invoke_vertex_shader_and_clip_preprocess(impl::program_info* shader_
         vertex_it.varyings.resize(shader_info->varying_count);
 
         float gl_PointSize{0}; /* currently unused */
-        shader_info->shader->vertex_shader(
+        shader->vertex_shader(
           0 /* gl_VertexID */, 0 /* gl_InstanceID */,
           vertex_it.attribs, vertex_it.coords,
           gl_PointSize, nullptr /* gl_ClipDistance */,
@@ -115,12 +119,6 @@ void Present()
     // process render commands.
     for(auto& it: context->render_command_list)
     {
-        // a draw list entry may be null.
-        if(!it)
-        {
-            continue;
-        }
-
         if(it->vertices.size() == 0
            || it->indices.size() == 0)
         {
@@ -128,16 +126,11 @@ void Present()
         }
 
         /*
-         * Let the (vertex-)shader know the active render states.
-         */
-        it->states.shader_info->shader->update_uniforms(&it->states.uniforms);
-
-        /*
          * Invoke the vertex shaders and preprocess vertices with respect to clipping.
          * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
          * The clip preprecessing sets a marker for each vertex outside the view frustum.
          */
-        bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(it->states.shader_info, it->vertices);
+        bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(it->states.shader_info, it->states.uniforms, it->vertices);
         if(discard_buffer)
         {
             continue;
@@ -196,7 +189,7 @@ void Present()
           it->states.z_near, it->states.z_far);
 
         // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
-        context->AssemblePrimitives(&it->states, it->mode, it->clipped_vertices);
+        context->assemble_primitives(&it->states, it->mode, it->clipped_vertices);
     }
 
     // invoke triangle rasterizer.
@@ -227,7 +220,7 @@ void ClearDepthBuffer()
         return;
     }
 
-    impl::global_context->ClearDepthBuffer();
+    impl::global_context->clear_depth_buffer();
 }
 
 void SetClearDepth(float z)
@@ -243,7 +236,7 @@ void SetClearDepth(float z)
 void ClearColorBuffer()
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->ClearColorBuffer();
+    impl::global_context->clear_color_buffer();
 }
 
 void SetClearColor(float r, float g, float b, float a)

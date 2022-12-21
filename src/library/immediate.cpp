@@ -109,7 +109,7 @@ void EndPrimitives()
         EnableAttributeBuffer(normal_id, default_index::normal);
 
         // add draw command to the command list.
-        auto* new_obj = context->CreateRenderObject(context->im_vertex_buf.size(), mode);
+        auto* new_obj = context->create_render_object(context->im_vertex_buf.size(), mode);
         if(new_obj != nullptr)
         {
             context->render_command_list.push_back(new_obj);

@@ -154,7 +154,7 @@ static bool face_cull_polygon(swr::cull_face_direction cull_mode, swr::front_fac
     return false;
 }
 
-void render_device_context::AssemblePrimitives(const render_states* states, vertex_buffer_mode mode, const vertex_buffer& vb)
+void render_device_context::assemble_primitives(const render_states* states, vertex_buffer_mode mode, const vertex_buffer& vb)
 {
     // choose drawing mode.
     if(mode == vertex_buffer_mode::points

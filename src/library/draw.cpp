@@ -30,7 +30,7 @@ void DrawElements(std::size_t vertex_count, vertex_buffer_mode mode)
     }
 
     // add draw command to command list.
-    context->render_command_list.push_back(context->CreateRenderObject(vertex_count, mode));
+    context->render_command_list.push_back(context->create_render_object(vertex_count, mode));
 }
 
 void DrawIndexedElements(uint32_t index_buffer_id, vertex_buffer_mode mode)
@@ -47,7 +47,7 @@ void DrawIndexedElements(uint32_t index_buffer_id, vertex_buffer_mode mode)
     if(index_buffer_id < context->index_buffers.size())
     {
         // add draw command to the command list.
-        context->render_command_list.push_back(context->CreateIndexedRenderObject(context->index_buffers[index_buffer_id], mode));
+        context->render_command_list.push_back(context->create_indexed_render_object(context->index_buffers[index_buffer_id], mode));
     }
 }
 

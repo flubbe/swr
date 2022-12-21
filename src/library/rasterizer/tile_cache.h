@@ -12,8 +12,12 @@ namespace rast
 {
 
 /** primitive data associated to a tile. currently only implemented for triangles. */
-struct tile_info
+class tile_info
 {
+    /** shader storage */
+    std::vector<std::byte> shader_storage;
+
+public:
     /** rasterization modes for this block. */
     enum class rasterization_mode
     {
@@ -27,6 +31,9 @@ struct tile_info
     /** render states. points to an entry in the context's draw list. */
     const swr::impl::render_states* states{nullptr};
 
+    /** shader. */
+    const swr::program_base* shader;
+
     /** whether this corresponding triangle is front-facing. */
     bool front_facing{true};
 
@@ -36,13 +43,24 @@ struct tile_info
     /** rasterization mode. */
     rasterization_mode mode{rasterization_mode::block};
 
-    /** default constructor. */
+    /** constructors. */
     tile_info() = default;
+    tile_info(const tile_info&) = default;
+    tile_info(tile_info&&) = default;
 
-    /** initializing constructor. */
-    tile_info(const geom::barycentric_coordinate_block& in_lambdas, const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, bool in_front_facing, rasterization_mode in_mode)
-    : lambdas{in_lambdas}
+    tile_info& operator=(const tile_info&) = default;
+    tile_info& operator=(tile_info&&) = default;
+
+    /**
+     * initializing constructor.
+     *
+     * NOTE This instantiates the shader.
+     * */
+    tile_info(const geom::barycentric_coordinate_block& in_lambdas, const swr::impl::render_states* in_states, const swr::impl::program_info* in_shader_info, const triangle_interpolator& in_attributes, bool in_front_facing, rasterization_mode in_mode)
+    : shader_storage{in_shader_info->shader->size()}
+    , lambdas{in_lambdas}
     , states{in_states}
+    , shader{in_shader_info->shader->create_instance(shader_storage.data(), in_states->uniforms, &in_states->texture_2d_samplers)}
     , front_facing{in_front_facing}
     , attributes{in_attributes}
     , mode{in_mode}
@@ -65,8 +83,13 @@ struct tile
     /** primitives associated to this tile. */
     boost::container::static_vector<tile_info, max_primitive_count> primitives;
 
-    /** default constructor. */
+    /** constructors. */
     tile() = default;
+    tile(const tile&) = default;
+    tile(tile&&) = default;
+
+    tile& operator=(const tile&) = default;
+    tile& operator=(tile&&) = default;
 
     /** initialize tile position. */
     tile(unsigned int in_x, unsigned int in_y)
@@ -85,8 +108,13 @@ struct tile_cache
     /** tiles. */
     std::vector<tile> entries;
 
-    /** default constructor. */
+    /** constructors. */
     tile_cache() = default;
+    tile_cache(const tile_cache&) = default;
+    tile_cache(tile_cache&&) = default;
+
+    tile_cache& operator=(const tile_cache&) = default;
+    tile_cache& operator=(tile_cache&&) = default;
 
     /** reset tile cache. */
     void reset(unsigned int in_tiles_x = 0, unsigned int in_tiles_y = 0)
@@ -121,7 +149,7 @@ struct tile_cache
     }
 
     /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
-    bool add_triangle(const swr::impl::render_states* in_states, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing, tile_info::rasterization_mode in_mode)
+    bool add_triangle(const swr::impl::render_states* in_states, const swr::impl::program_info* in_shader_info, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing, tile_info::rasterization_mode in_mode)
     {
         // find the tile's coordinates.
         unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
@@ -136,7 +164,7 @@ struct tile_cache
         }
 
         // add triangle to the primitives list.
-        auto& triangle_ref = tile.primitives.emplace_back(in_lambdas, in_states, in_attributes, in_front_facing, in_mode);
+        auto& triangle_ref = tile.primitives.emplace_back(in_lambdas, in_states, in_shader_info, in_attributes, in_front_facing, in_mode);
 
         // set up triangle attributes.
         triangle_ref.attributes.setup_block_processing();

@@ -39,7 +39,7 @@ namespace shader
  *   location 0: diffuse texture
  *   location 1: normal map
  */
-class normal_mapping : public swr::program
+class normal_mapping : public swr::program<normal_mapping>
 {
     const ml::vec4 light_color{0.7, 1, 1, 1};
     const ml::vec4 light_specular_color{0.25, 0.5, 0.75, 1};
@@ -180,7 +180,7 @@ public:
  * samplers:
  *   location 0: diffuse texture
  */
-class im_blend : public swr::program
+class im_blend : public swr::program<im_blend>
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override

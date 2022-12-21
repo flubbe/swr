@@ -29,7 +29,7 @@ namespace shader
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
  */
-class mesh_color : public swr::program
+class mesh_color : public swr::program<mesh_color>
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override

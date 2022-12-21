@@ -29,7 +29,7 @@ namespace shader
  * samplers:
  *   location 0: diffuse texture
  */
-class im_texture : public swr::program
+class im_texture : public swr::program<im_texture>
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
@@ -94,7 +94,7 @@ public:
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
  */
-class color : public swr::program
+class color : public swr::program<color>
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override

@@ -60,7 +60,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
               {frag_depth[3], front_facing, temp_varyings[3]}};
             swr::impl::fragment_output_block out;
 
-            process_fragment_block(x, y, *in_data.states, one_over_viewport_z, frag_info, out);
+            process_fragment_block(x, y, *in_data.states, in_data.shader, one_over_viewport_z, frag_info, out);
             in_data.states->draw_target->merge_color_block(0, x, y, out, in_data.states->blending_enabled, in_data.states->blend_src, in_data.states->blend_dst);
 
             in_data.attributes.advance_x(2);
@@ -118,7 +118,7 @@ void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int 
                   {frag_depth_block[3], front_facing, temp_varyings_block[3]}};
                 swr::impl::fragment_output_block out{(mask & 0x8) != 0, (mask & 0x4) != 0, (mask & 0x2) != 0, (mask & 0x1) != 0};
 
-                process_fragment_block(x, y, *in_data.states, one_over_viewport_z_block, frag_info, out);
+                process_fragment_block(x, y, *in_data.states, in_data.shader, one_over_viewport_z_block, frag_info, out);
                 in_data.states->draw_target->merge_color_block(0, x, y, out, in_data.states->blending_enabled, in_data.states->blend_src, in_data.states->blend_dst);
             }
 
@@ -335,9 +335,9 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             auto mode = static_cast<tile_info::rasterization_mode>(static_cast<int>(mask != 0xf));
 
             // add the triangle to the tile cache.
-            if(tiles.add_triangle(&states, attributes_row, lambdas_box, x, y, is_front_facing, mode))
+            if(tiles.add_triangle(&states, states.shader_info, attributes_row, lambdas_box, x, y, is_front_facing, mode))
             {
-                // the cache is full. process all tiles and add the triangle again.
+                // the cache is full. process all tiles.
                 process_tile_cache();
             }
 

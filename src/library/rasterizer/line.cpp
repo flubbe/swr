@@ -400,6 +400,10 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
     // initialize gradients along the line.
     rast::line_interpolator attr(*info.v1, *info.v2, v1, states.shader_info->iqs, 1.0f / info.max_absolute_delta);
 
+    // create shader instance.
+    std::vector<std::byte> shader_storage{states.shader_info->shader->size()};
+    swr::program_base* shader = states.shader_info->shader->create_instance(shader_storage.data(), states.uniforms, &states.texture_2d_samplers);
+
     // advance to pixel center and initialize end coordinate.
     if(info.is_x_major)
     {
@@ -461,7 +465,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
                 rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
                 swr::impl::fragment_output out;
 
-                process_fragment(ml::integral_part(p), ml::integral_part(v), states, attr.one_over_viewport_z.value, info, out);
+                process_fragment(ml::integral_part(p), ml::integral_part(v), states, shader, attr.one_over_viewport_z.value, info, out);
                 states.draw_target->merge_color(0, ml::integral_part(p), ml::integral_part(v), out, states.blending_enabled, states.blend_src, states.blend_dst);
             }
 
@@ -489,7 +493,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
                 rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
                 swr::impl::fragment_output out;
 
-                process_fragment(ml::integral_part(v), ml::integral_part(p), states, attr.one_over_viewport_z.value, info, out);
+                process_fragment(ml::integral_part(v), ml::integral_part(p), states, shader, attr.one_over_viewport_z.value, info, out);
                 states.draw_target->merge_color(0, ml::integral_part(v), ml::integral_part(p), out, states.blending_enabled, states.blend_src, states.blend_dst);
             }
 

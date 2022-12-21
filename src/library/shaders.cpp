@@ -30,10 +30,10 @@ void create_default_shader(render_device_context* context)
     // create default shader.
     if(!context->default_shader)
     {
-        context->default_shader = std::make_unique<program>();
+        context->default_shader = std::make_unique<program_base>();
     }
-    program* default_shader = context->default_shader.get();
-    swr::impl::program_info pi(default_shader);
+    program_base* default_shader = context->default_shader.get();
+    swr::impl::program_info pi{default_shader};
 
     // pre-link the shader and initialize varying count.
     default_shader->pre_link(pi.iqs);
@@ -47,7 +47,7 @@ void create_default_shader(render_device_context* context)
     }
 
     // Register shader.
-    auto index = context->programs.push(pi);
+    auto index = context->programs.push(std::move(pi));
     if(index != default_shader_index)
     {
         throw std::runtime_error("unable to create default shader: wrong shader location.");
@@ -63,16 +63,16 @@ void create_default_shader(render_device_context* context)
  * Public Interface
  */
 
-uint32_t RegisterShader(program* in_shader)
+uint32_t RegisterShader(const program_base* in_shader)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(!in_shader)
+    if(!in_shader || in_shader->size() < sizeof(program_base))
     {
         return 0;
     }
 
-    swr::impl::program_info pi(in_shader);
+    swr::impl::program_info pi{in_shader};
 
     // pre-link the shader and initialize varying count.
     //
@@ -84,7 +84,7 @@ uint32_t RegisterShader(program* in_shader)
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // Register shader.
-    return impl::global_context->programs.push(pi);
+    return impl::global_context->programs.push(std::move(pi));
 }
 
 void UnregisterShader(uint32_t id)

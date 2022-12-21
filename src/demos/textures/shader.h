@@ -26,7 +26,7 @@ namespace shader
 {
 
 /** A shader that applies the diffuse texture. */
-class texture : public swr::program
+class texture : public swr::program<texture>
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override

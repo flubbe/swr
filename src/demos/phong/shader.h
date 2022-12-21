@@ -31,7 +31,7 @@
 namespace shader
 {
 
-class phong : public swr::program
+class phong : public swr::program<phong>
 {
     const ml::vec4 light_color{1, 1, 1, 1};
     const ml::vec4 light_specular_color{0.7, 0.7, 0.7, 1};

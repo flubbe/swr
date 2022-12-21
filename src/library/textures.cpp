@@ -333,7 +333,7 @@ void create_default_texture(render_device_context* context)
       0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff  /* RGBA RGBA */
     };
 
-    // the memory allocated here is freed in render_device_context::Shutdown.
+    // the memory allocated here is freed in render_device_context::shutdown.
     context->texture_2d_storage.push(std::make_unique<texture_2d>(default_tex_id));
     context->default_texture_2d = context->texture_2d_storage[default_tex_id].get();
     assert(context->default_texture_2d->id == default_tex_id);
