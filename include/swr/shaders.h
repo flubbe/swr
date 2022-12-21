@@ -276,7 +276,7 @@ public:
     /** type information for validation. */
     using super_type = program_base;
 
-    virtual std::size_t size() const;
+    virtual std::size_t size() const override;
     virtual program_base* create_instance(
       void* mem,
       const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,

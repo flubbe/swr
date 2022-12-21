@@ -1,5 +1,5 @@
 os: linux
-dist: focal
+dist: jammy
 language: cpp
 
 env:
@@ -22,7 +22,7 @@ jobs:
           - cmake 
           - ninja-build
     env:
-      MATRIX_EVAL="CC=gcc-9 && CXX=g++-9"
+      MATRIX_EVAL="CC=gcc-11 && CXX=g++-11"
       TARGET=x86_64-linux-gnu
 
 before_install:
