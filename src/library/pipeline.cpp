@@ -29,7 +29,7 @@ static bool invoke_vertex_shader_and_clip_preprocess(impl::program_info* shader_
 
     // create shader
     std::vector<std::byte> shader_storage{shader_info->shader->size()};
-    swr::program_base* shader = shader_info->shader->create_instance(shader_storage.data(), uniforms);
+    swr::program_base* shader = shader_info->shader->create_vertex_shader_instance(shader_storage.data(), uniforms);
 
     for(auto& vertex_it: vb)
     {
@@ -93,6 +93,76 @@ static void transform_to_viewport_coords(impl::vertex_buffer& vb, float x, float
     }
 }
 
+static void process_vertices(swr::impl::render_object* obj)
+{
+    obj->clipped_vertices.clear();
+
+    if(obj->vertices.size() == 0 || obj->indices.size() == 0)
+    {
+        return;
+    }
+
+    /*
+     * Invoke the vertex shaders and preprocess vertices with respect to clipping.
+     * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
+     * The clip preprecessing sets a marker for each vertex outside the view frustum.
+     */
+    bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(obj->states.shader_info, obj->states.uniforms, obj->vertices);
+    if(discard_buffer)
+    {
+        return;
+    }
+
+    // check we have valid drawing and polygon modes.
+    assert(obj->mode == vertex_buffer_mode::points || obj->mode == vertex_buffer_mode::lines || obj->mode == vertex_buffer_mode::triangles);
+    assert(obj->states.poly_mode == polygon_mode::point || obj->states.poly_mode == polygon_mode::line || obj->states.poly_mode == polygon_mode::fill);
+
+    /*
+     * clip the vertex buffer.
+     *
+     * if we only want to draw a list of points, we already have enough clipping
+     * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
+     *
+     * Clipping pre-assembles the primitives, i.e. it creates triangles.
+     */
+    if(obj->mode == vertex_buffer_mode::points || obj->states.poly_mode == polygon_mode::point)
+    {
+        // copy the correct points.
+        for(const auto& index: obj->indices)
+        {
+            const auto& Vertex = obj->vertices[index];
+            if(!(Vertex.flags & geom::vf_clip_discard))
+            {
+                obj->clipped_vertices.push_back(obj->vertices[index]);
+            }
+        }
+    }
+    else if(obj->mode == vertex_buffer_mode::lines)
+    {
+        clip_line_buffer(obj->vertices, obj->indices, impl::line_list, obj->clipped_vertices);
+    }
+    else if(obj->mode == vertex_buffer_mode::triangles && obj->states.poly_mode == polygon_mode::line)
+    {
+        clip_triangle_buffer(obj->vertices, obj->indices, impl::line_list, obj->clipped_vertices);
+    }
+    else if(obj->states.poly_mode == polygon_mode::fill)
+    {
+        /* here we necessarily have list_it.Mode == triangles */
+        clip_triangle_buffer(obj->vertices, obj->indices, impl::triangle_list, obj->clipped_vertices);
+    }
+
+    // skip the rest of the pipeline if no clipped vertices were produced.
+    if(obj->clipped_vertices.size() != 0)
+    {
+        // perspective divide and viewport transformation.
+        transform_to_viewport_coords(
+            obj->clipped_vertices,
+            obj->states.x, obj->states.y,
+            obj->states.width, obj->states.height,
+            obj->states.z_near, obj->states.z_far);
+    }
+}
+
 /*
  * Execute the graphics pipeline and output an image into the frame buffer. The function operates on
  * the draw list produced by the drawing functions. For each draw list entry, execute:
@@ -117,80 +187,33 @@ void Present()
     }
 
     // process render commands.
+#ifdef SWR_ENABLE_MULTI_THREADING
+    for(auto it = context->render_command_list.begin(); it != context->render_command_list.end(); ++it)
+    {
+        context->thread_pool.push_task(process_vertices, *it);
+    }
+    context->thread_pool.run_tasks_and_wait();
+
     for(auto& it: context->render_command_list)
     {
-        if(it->vertices.size() == 0
-           || it->indices.size() == 0)
+        if(it->clipped_vertices.size() != 0)
         {
-            continue;
+            // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
+            context->assemble_primitives(&it->states, it->mode, it->clipped_vertices);
         }
-
-        /*
-         * Invoke the vertex shaders and preprocess vertices with respect to clipping.
-         * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
-         * The clip preprecessing sets a marker for each vertex outside the view frustum.
-         */
-        bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(it->states.shader_info, it->states.uniforms, it->vertices);
-        if(discard_buffer)
-        {
-            continue;
-        }
-
-        // check we have valid drawing and polygon modes.
-        assert(it->mode == vertex_buffer_mode::points || it->mode == vertex_buffer_mode::lines || it->mode == vertex_buffer_mode::triangles);
-        assert(it->states.poly_mode == polygon_mode::point || it->states.poly_mode == polygon_mode::line || it->states.poly_mode == polygon_mode::fill);
-
-        /*
-         * clip the vertex buffer.
-         *
-         * if we only want to draw a list of points, we already have enough clipping
-         * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
-         *
-         * Clipping pre-assembles the primitives, i.e. it creates triangles.
-         */
-        it->clipped_vertices.clear();
-        if(it->mode == vertex_buffer_mode::points || it->states.poly_mode == polygon_mode::point)
-        {
-            // copy the correct points.
-            for(const auto& index: it->indices)
-            {
-                const auto& Vertex = it->vertices[index];
-                if(!(Vertex.flags & geom::vf_clip_discard))
-                {
-                    it->clipped_vertices.push_back(it->vertices[index]);
-                }
-            }
-        }
-        else if(it->mode == vertex_buffer_mode::lines)
-        {
-            clip_line_buffer(it->vertices, it->indices, impl::line_list, it->clipped_vertices);
-        }
-        else if(it->mode == vertex_buffer_mode::triangles && it->states.poly_mode == polygon_mode::line)
-        {
-            clip_triangle_buffer(it->vertices, it->indices, impl::line_list, it->clipped_vertices);
-        }
-        else if(it->states.poly_mode == polygon_mode::fill)
-        {
-            /* here we necessarily have list_it.Mode == triangles */
-            clip_triangle_buffer(it->vertices, it->indices, impl::triangle_list, it->clipped_vertices);
-        }
-
-        // skip the rest of the pipeline if no clipped vertices were produced.
-        if(it->clipped_vertices.size() == 0)
-        {
-            continue;
-        }
-
-        // perspective divide and viewport transformation.
-        transform_to_viewport_coords(
-          it->clipped_vertices,
-          it->states.x, it->states.y,
-          it->states.width, it->states.height,
-          it->states.z_near, it->states.z_far);
-
-        // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
-        context->assemble_primitives(&it->states, it->mode, it->clipped_vertices);
     }
+#else
+    for(auto& it: context->render_command_list)
+    {
+        process_vertices(it);
+
+        if(it->clipped_vertices.size() != 0)
+        {
+            // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
+            context->assemble_primitives(&it->states, it->mode, it->clipped_vertices);
+        }
+    }
+#endif
 
     // invoke triangle rasterizer.
     context->rasterizer->draw_primitives();

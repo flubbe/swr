@@ -402,7 +402,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
 
     // create shader instance.
     std::vector<std::byte> shader_storage{states.shader_info->shader->size()};
-    swr::program_base* shader = states.shader_info->shader->create_instance(shader_storage.data(), states.uniforms, &states.texture_2d_samplers);
+    swr::program_base* shader = states.shader_info->shader->create_fragment_shader_instance(shader_storage.data(), states.uniforms, states.texture_2d_samplers);
 
     // advance to pixel center and initialize end coordinate.
     if(info.is_x_major)

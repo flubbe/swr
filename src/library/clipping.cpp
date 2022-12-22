@@ -77,9 +77,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
         return;
     }
 
-    // use static temporary vertex buffer to remove the need for permanent reallocation.
-    static vertex_buffer temp;
-    temp.clear();
+    vertex_buffer temp;
 
     // special case for lines.
     if(in_vb.size() == 2)
@@ -285,11 +283,8 @@ static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& ou
  */
 void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb)
 {
-    /*
-     * temporary buffers. they are static in order to do memory allocation only about once.
-     */
-    static vertex_buffer clipped_line{2};
-    static vertex_buffer temp_line{2};
+    vertex_buffer clipped_line{2};
+    vertex_buffer temp_line{2};
 
     /*
      * Algorithm:
@@ -427,15 +422,15 @@ static void clip_triangle_on_w_plane(const vertex_buffer& in_triangle, vertex_bu
 void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb)
 {
     /*
-     * temporary buffers. they are static in order to do memory allocation only about once.
+     * temporary buffers.
      *
      * a note on the initial buffer size: if a large triangle is intersected with a small enough cube,
      * it can produce a hexagonal-type polygon, i.e., 6 vertices. now if one vertex is inside
      * the cube and the triangle is "flat enough", two additional vertices appear, so 8 seems
      * to be a good guess as an initial buffer size for a clipped triangle.
      */
-    static vertex_buffer clipped_triangle{8};
-    static vertex_buffer temp_triangle{3};
+    vertex_buffer clipped_triangle{8};
+    vertex_buffer temp_triangle{3};
 
     /*
      * Algorithm:

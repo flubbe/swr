@@ -59,7 +59,7 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
 
         // create shader instance.
         std::vector<std::byte> shader_storage{states.shader_info->shader->size()};
-        swr::program_base* shader = states.shader_info->shader->create_instance(shader_storage.data(), states.uniforms, &states.texture_2d_samplers);
+        swr::program_base* shader = states.shader_info->shader->create_fragment_shader_instance(shader_storage.data(), states.uniforms, states.texture_2d_samplers);
 
         // draw the point.
         rast::fragment_info info(v.coords.z, true, temp);

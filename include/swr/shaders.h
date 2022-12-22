@@ -13,15 +13,13 @@
 /* C++ headers. */
 #include <type_traits>
 
+/* boost headers. */
+#include <boost/container/static_vector.hpp>
+
 /*
- * dependencies.
- *
  * we do not include swr.h here, since it should already be included anyways. in
  * particular, "ml/all.h" and "vector" are already included.
  */
-
-/* boost headers. */
-#include <boost/container/static_vector.hpp>
 
 /* user headers. */
 #include "geometry/limits.h"
@@ -158,14 +156,14 @@ enum fragment_shader_result
  */
 class program_base
 {
+    template<typename T>
+    friend class program;
+
 protected:
     const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
     boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> samplers;
 
 public:
-    /** type information. used for validation by program<T> below. */
-    using super_type = std::nullptr_t;
-
     program_base() = default;
     program_base(const program_base&) = default;
     program_base(program_base&&) = default;
@@ -182,40 +180,38 @@ public:
     }
 
     /**
-     * create a new instance of this program.
+     * create a new vertex shader instance from this program.
+     *
+     * \param mem The memory to store the program object in.
+     * \param uniforms The uniforms for this program instance.
+     * \return A program instance for execution as a vertex shader.
+     */
+    virtual program_base* create_vertex_shader_instance(
+      void* mem,
+      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms) const
+    {
+        program_base* new_program = new(mem) program_base();
+        new_program->uniforms = &uniforms;
+        return new_program;
+    }
+
+    /**
+     * create a new fragment shader instance from this program.
      *
      * \param mem The memory to store the program object in.
      * \param uniforms The uniforms for this program instance.
      * \param samplers_2d The 2d texture samplers for this program instance.
-     * \return A program instance.
+     * \return A program instance for execution as a fragment shader.
      */
-    virtual program_base* create_instance(
+    virtual program_base* create_fragment_shader_instance(
       void* mem,
       const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
-      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* samplers_2d = nullptr) const
+      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>& samplers_2d) const
     {
         program_base* new_program = new(mem) program_base();
-        new_program->update_uniforms(&uniforms);
-        if(samplers_2d != nullptr)
-        {
-            new_program->update_samplers(samplers_2d);
-        }
+        new_program->uniforms = &uniforms;
+        new_program->samplers = samplers_2d;
         return new_program;
-    }
-
-    void update_uniforms(const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* in_uniforms)
-    {
-        uniforms = in_uniforms;
-    }
-
-    void update_samplers(const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* in_samplers)
-    {
-        // we copy the samplers (instead of using the pointer).
-        samplers.resize(in_samplers->size());
-        for(std::size_t i = 0; i < in_samplers->size(); ++i)
-        {
-            samplers[i] = (*in_samplers)[i];
-        }
     }
 
     /** pre-link the program. */
@@ -276,11 +272,23 @@ public:
     /** type information for validation. */
     using super_type = program_base;
 
+    program() = default;
+    program(const program&) = default;
+    program(program&&) = default;
+
+    program& operator=(const program&) = default;
+    program& operator=(program&&) = default;
+
+    virtual ~program() = default;
+
     virtual std::size_t size() const override;
-    virtual program_base* create_instance(
+    virtual program_base* create_vertex_shader_instance(
+      void* mem,
+      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms) const override;
+    virtual program_base* create_fragment_shader_instance(
       void* mem,
       const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
-      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* samplers_2d = nullptr) const override;
+      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>& samplers_2d) const override;
 };
 
 template<typename T>
@@ -291,18 +299,26 @@ std::size_t program<T>::size() const
 }
 
 template<typename T>
-program_base* program<T>::create_instance(
+program_base* program<T>::create_vertex_shader_instance(
+  void* mem,
+  const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms) const
+{
+    static_assert(std::is_same<typename T::super_type, program_base>::value, "T needs to be derived from swr::program_base.");
+    program_base* new_program = new(mem) T(static_cast<const T&>(*this));
+    new_program->uniforms = &uniforms;
+    return new_program;
+}
+
+template<typename T>
+program_base* program<T>::create_fragment_shader_instance(
   void* mem,
   const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
-  const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>* samplers_2d) const
+  const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>& samplers_2d) const
 {
-    static_assert(std::is_same<typename T::super_type, program_base>::value, "Program types do not match.");
+    static_assert(std::is_same<typename T::super_type, program_base>::value, "T needs to be derived from swr::program_base.");
     program_base* new_program = new(mem) T(static_cast<const T&>(*this));
-    new_program->update_uniforms(&uniforms);
-    if(samplers_2d != nullptr)
-    {
-        new_program->update_samplers(samplers_2d);
-    }
+    new_program->uniforms = &uniforms;
+    new_program->samplers = samplers_2d;
     return new_program;
 }
 

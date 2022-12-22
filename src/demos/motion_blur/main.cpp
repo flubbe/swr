@@ -332,7 +332,7 @@ public:
         print_active_particle_time += delta_time;
         if(print_active_particle_time > 1.f)
         {
-            platform::logf("{} particles active, {} total particles (frame time: {} ms)", particle_system.get_active_particle_count(), particle_system.get_particle_count(), delta_time * 1000.f);
+            platform::logf("{} particles active, {} total particles (frame time: {:.2f} ms)", particle_system.get_active_particle_count(), particle_system.get_particle_count(), delta_time * 1000.f);
             print_active_particle_time = 0;
         }
 

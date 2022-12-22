@@ -8,10 +8,11 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/*
- * dependencies.
- */
+/* C++ headers */
 #include <mutex>
+#include <chrono>
+
+/* boost */
 #include <boost/lexical_cast.hpp>
 
 namespace swr_app
@@ -139,6 +140,9 @@ class application
     /** command line arguments. */
     std::vector<std::string> cmd_args;
 
+    /** timer. */
+    std::chrono::steady_clock timer;
+
     /** run time of the application, in seconds. */
     float run_time{0};
 
@@ -233,13 +237,13 @@ public:
     /** event loop. this only renders frames until a quit condition is met. does not process input. */
     virtual void event_loop()
     {
-        Uint32 reference_time = SDL_GetTicks();
+        std::chrono::steady_clock::time_point msec_reference_time = std::chrono::steady_clock::now();
 
         while(!quit_program && window)
         {
-            uint32_t update_time = SDL_GetTicks();
-            float delta_time = static_cast<float>(update_time + reference_time) / 1000.f;
-            reference_time = -update_time;
+            auto update_time = std::chrono::steady_clock::now();
+            float delta_time = std::chrono::duration<float>(update_time - msec_reference_time).count();
+            msec_reference_time = update_time;
 
             run_time += delta_time;
 

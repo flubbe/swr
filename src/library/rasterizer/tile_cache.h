@@ -65,7 +65,7 @@ public:
     : shader_storage{in_shader_info->shader->size()}
     , lambdas{in_lambdas}
     , states{in_states}
-    , shader{in_shader_info->shader->create_instance(shader_storage.data(), in_states->uniforms, &in_states->texture_2d_samplers)}
+    , shader{in_shader_info->shader->create_fragment_shader_instance(shader_storage.data(), in_states->uniforms, in_states->texture_2d_samplers)}
     , front_facing{in_front_facing}
     , attributes{in_attributes}
     , mode{in_mode}
