@@ -64,6 +64,8 @@ static bool invoke_vertex_shader_and_clip_preprocess(impl::program_info* shader_
         }
     }
 
+    shader->~program_base();
+
     return clip_discard;
 }
 
@@ -156,10 +158,10 @@ static void process_vertices(swr::impl::render_object* obj)
     {
         // perspective divide and viewport transformation.
         transform_to_viewport_coords(
-            obj->clipped_vertices,
-            obj->states.x, obj->states.y,
-            obj->states.width, obj->states.height,
-            obj->states.z_near, obj->states.z_far);
+          obj->clipped_vertices,
+          obj->states.x, obj->states.y,
+          obj->states.width, obj->states.height,
+          obj->states.z_near, obj->states.z_far);
     }
 }
 
