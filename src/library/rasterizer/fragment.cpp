@@ -82,7 +82,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
         {
             frag_info.varyings[i].value *= z;
 
-            //!!fixme: these need to be calculated.
+            // FIXME these need to be calculated.
             frag_info.varyings[i].dFdx *= z;
             frag_info.varyings[i].dFdy *= z;
         }
@@ -91,7 +91,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
     /*
      * Execute the fragment shader.
      */
-    //!!fixme: From docs: gl_PointCoord: contains the coordinate of a fragment within a point. currently undefined.
+    // FIXME From docs: gl_PointCoord: contains the coordinate of a fragment within a point. currently undefined.
 
     /*
      * set up the output color attachments for the fragment shader. the default color is explicitly unspecified in OpenGL, and we
@@ -259,7 +259,7 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
     /*
      * Execute the fragment shader.
      */
-    //!!fixme: From docs: gl_PointCoord: contains the coordinate of a fragment within a point. currently undefined.
+    // FIXME From docs: gl_PointCoord: contains the coordinate of a fragment within a point. currently undefined.
 
     /*
      * set up the output color attachments for the fragment shader. the default color is explicitly unspecified in OpenGL, and we
@@ -322,6 +322,7 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
         depth_value[2] = boost::algorithm::clamp(depth_value[2], 0, 1);
         depth_value[3] = boost::algorithm::clamp(depth_value[3], 0, 1);
 #endif /* SWR_USE_SIMD */
+
         states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
     }
     apply_mask(write_color, depth_mask);

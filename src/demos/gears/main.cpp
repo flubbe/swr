@@ -67,7 +67,6 @@ public:
         other.has_data = false;
     }
 
-    /* disallow copying and assignment */
     drawable_object(const drawable_object&) = default;
     drawable_object& operator=(const drawable_object&) = default;
 

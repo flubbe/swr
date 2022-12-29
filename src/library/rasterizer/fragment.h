@@ -38,9 +38,9 @@ struct fragment_info
       float depth,
       bool in_front_facing,
       boost::container::static_vector<swr::varying, geom::limits::max::varyings>& in_varyings)
-    : depth_value(depth)
-    , front_facing(in_front_facing)
-    , varyings(in_varyings)
+    : depth_value{depth}
+    , front_facing{in_front_facing}
+    , varyings{in_varyings}
     {
     }
 };

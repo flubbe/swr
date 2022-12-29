@@ -119,11 +119,8 @@ public:
      * buffers and lists.
      */
 
-    /** list of objects which may be sent to the rasterizer. */
-    std::list<render_object> objects; /* note on container: iterators have to stay valid after insertions */
-
     /** list of render commands to be processed. points into objects. */
-    std::list<render_object*> render_command_list;
+    std::list<render_object> render_object_list;
 
     /** vertex buffers. */
     utils::slot_map<vertex_buffer> vertex_buffers;
@@ -277,7 +274,7 @@ public:
      *
      * Reference: https://www.khronos.org/opengl/wiki/Primitive_Assembly
      */
-    void assemble_primitives(const render_states* states, vertex_buffer_mode mode, const vertex_buffer& vb);
+    void assemble_primitives(const render_states* states, vertex_buffer_mode mode, vertex_buffer& vb);
 
     /*
      * render_device_context interface.

@@ -5,6 +5,8 @@
 cmake_policy(VERSION 3.6.0)
 cmake_minimum_required (VERSION 3.6.0)
 
+project(swr)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 #set(CMAKE_BUILD_TYPE Debug)

@@ -132,7 +132,7 @@ void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int 
     }
 }
 
-void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3)
+void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, geom::vertex& v1, geom::vertex& v2, geom::vertex& v3)
 {
     // calculate the (signed) parallelogram area spanned by the difference vectors.
     auto v1_xy = v1.coords.xy();
@@ -175,6 +175,8 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
         v1_cw = &v2;
         v2_cw = &v1;
     }
+
+    float inv_area = 1.0f / area;
 
     // convert triangle coordinates into a fixed-point representation with 4-bit subpixel precision.
     ml::vec2_fixed<4> v1_xy_fix(v1_xy.x, v1_xy.y);
@@ -241,6 +243,65 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     }
 
     /*
+     * Per-triangle depth offset.
+     * FIXME We do the setup for floating-point depth buffers here, but we probably want the fixed-point version.
+     *
+     * Ref: https://registry.khronos.org/OpenGL/specs/gl/glspec43.core.pdf, Section 14.6.5.
+     */
+    if(states.polygon_offset_fill_enabled)
+    {
+        ml::vec3 edges[2] = {
+          (v2.coords - v1.coords).xyz(),
+          (v3.coords - v1.coords).xyz()};    // edges in window coordinates
+        ml::vec2 dz = ml::vec2{
+                        edges[1].z * edges[0].y - edges[0].z * edges[1].y,
+                        -edges[1].z * edges[0].x + edges[0].z * edges[1].x}
+                      * inv_area;
+
+        float m = std::max(std::fabsf(dz.x), std::fabsf(dz.y));    // Eq. (14.12)
+
+        /*
+         * https://registry.khronos.org/OpenGL/specs/gl/glspec43.core.pdf, Section 14.6.5,
+         * on floating-point depth buffers:
+         *
+         *     "In this case, the minimum resolvable difference for a given polygon is
+         *      dependent on the maximum exponent, e, in the range of z values spanned
+         *      by the primitive. If n is the number of bits in the floating-point mantissa,
+         *      the minimum resolvable difference, r, for the given primitive is defined as
+         *      r = 2^(e−n)."
+         *
+         * A 32-bit float has a 23-bit mantissa.
+         */
+        union float_integer
+        {
+            float f;
+            std::int32_t i;
+            std::uint32_t ui;
+
+            float_integer(float in_f)
+            : f{in_f}
+            {
+            }
+        };
+        // get the maximum exponent in the range of the z values spanned by the primitive
+        float_integer r{
+          std::max({std::fabsf(v1.coords.z), std::fabsf(v2.coords.z), std::fabsf(v3.coords.z)})};
+        r.i &= 0xff << 23;
+
+        // calculate r by subtracting the size of mantissa from exponent
+        r.ui -= 23 << 23;
+
+        // clamp to zero (this means no resolvable depth offset for very small numbers)
+        r.i = std::max(r.i, 0);
+
+        float o = m * states.polygon_offset_factor + r.f * states.polygon_offset_units;    // Eq. (14.13)
+
+        v1.coords.z = boost::algorithm::clamp(v1.coords.z + o, 0.0f, 1.0f);
+        v2.coords.z = boost::algorithm::clamp(v2.coords.z + o, 0.0f, 1.0f);
+        v3.coords.z = boost::algorithm::clamp(v3.coords.z + o, 0.0f, 1.0f);
+    }
+
+    /*
      * Loop through blocks of size (rasterizer_block_size,rasterizer_block_size), starting and ending on an aligned value.
      */
 
@@ -299,7 +360,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
      */
     const ml::vec2 screen_coords{static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f};
-    rast::triangle_interpolator attributes{screen_coords, *v1_cw, *v2_cw, v3, v1, states.shader_info->iqs, 1.0f / area};
+    rast::triangle_interpolator attributes{screen_coords, *v1_cw, *v2_cw, v3, v1, states.shader_info->iqs, inv_area};
 
     for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
     {
@@ -335,7 +396,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             auto mode = static_cast<tile_info::rasterization_mode>(static_cast<int>(mask != 0xf));
 
             // add the triangle to the tile cache.
-            if(tiles.add_triangle(&states, states.shader_info, attributes_row, lambdas_box, x, y, is_front_facing, mode))
+            if(tiles.add_triangle(x, y, {lambdas_box, &states, states.shader_info, attributes_row, is_front_facing, mode}))
             {
                 // the cache is full. process all tiles.
                 process_tile_cache();

@@ -32,7 +32,7 @@ namespace simd
 /*
  * uncomment this to test memsets for larger memory blocks
  */
-//#define DO_LARGE_MEMSIZE_TESTS
+// #define DO_LARGE_MEMSIZE_TESTS
 
 /*
  * helpers.

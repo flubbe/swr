@@ -45,8 +45,18 @@ public:
 
     /** constructors. */
     tile_info() = default;
-    tile_info(const tile_info&) = default;
     tile_info(tile_info&&) = default;
+
+    tile_info(const tile_info& other)
+    : shader_storage{other.shader->size()}
+    , lambdas{other.lambdas}
+    , states{other.states}
+    , shader{other.shader->create_fragment_shader_instance(shader_storage.data(), other.states->uniforms, other.states->texture_2d_samplers)}
+    , front_facing{other.front_facing}
+    , attributes{other.attributes}
+    , mode{other.mode}
+    {
+    }
 
     ~tile_info()
     {
@@ -61,7 +71,13 @@ public:
      *
      * NOTE This instantiates the shader.
      * */
-    tile_info(const geom::barycentric_coordinate_block& in_lambdas, const swr::impl::render_states* in_states, const swr::impl::program_info* in_shader_info, const triangle_interpolator& in_attributes, bool in_front_facing, rasterization_mode in_mode)
+    tile_info(
+      const geom::barycentric_coordinate_block& in_lambdas,
+      const swr::impl::render_states* in_states,
+      const swr::impl::program_info* in_shader_info,
+      const triangle_interpolator& in_attributes,
+      bool in_front_facing,
+      rasterization_mode in_mode)
     : shader_storage{in_shader_info->shader->size()}
     , lambdas{in_lambdas}
     , states{in_states}
@@ -154,7 +170,7 @@ struct tile_cache
     }
 
     /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
-    bool add_triangle(const swr::impl::render_states* in_states, const swr::impl::program_info* in_shader_info, const triangle_interpolator& in_attributes, const geom::barycentric_coordinate_block& in_lambdas, unsigned int in_x, unsigned int in_y, bool in_front_facing, tile_info::rasterization_mode in_mode)
+    bool add_triangle(unsigned int in_x, unsigned int in_y, const tile_info& info)
     {
         // find the tile's coordinates.
         unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
@@ -169,7 +185,8 @@ struct tile_cache
         }
 
         // add triangle to the primitives list.
-        auto& triangle_ref = tile.primitives.emplace_back(in_lambdas, in_states, in_shader_info, in_attributes, in_front_facing, in_mode);
+        // NOTE no std::move here, since the copy creates the shader instance
+        auto& triangle_ref = tile.primitives.emplace_back(info);
 
         // set up triangle attributes.
         triangle_ref.attributes.setup_block_processing();

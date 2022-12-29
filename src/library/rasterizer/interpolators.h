@@ -298,7 +298,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
 {
     /**
      * Initialize the interpolator.
-     * !!fixme: why do we need to pass one_over_span_length explicitly?
+     * FIXME why do we need to pass one_over_span_length explicitly?
      */
     line_interpolator(const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v_ref, const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs, float one_over_span_length)
     {

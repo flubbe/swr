@@ -3,7 +3,13 @@ project (swdemo)
 #
 # Set up project include directories
 #
-include_directories(../../include ../../src/library ../../deps/3rd-party/lodepng)
+include_directories(
+	../../include
+	../../src/library
+	../../deps/3rd-party/lodepng
+	../../deps/3rd-party/stb
+	../../deps/3rd-party/tinyobjloader
+)
 
 #
 # Add files
@@ -83,6 +89,12 @@ add_executable(demo_normal_map
 	normal_map/main.cpp
 )
 target_link_libraries(demo_normal_map swrast cpu_features fmt swr_app ${EXTRA_LIBS})
+
+add_executable(demo_obj_viewer
+	${COMMON_SOURCES}
+	obj_viewer/main.cpp
+)
+target_link_libraries(demo_obj_viewer swrast cpu_features fmt swr_app ${EXTRA_LIBS})
 
 add_executable(demo_phong
 	${COMMON_SOURCES}

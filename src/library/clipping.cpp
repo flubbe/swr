@@ -48,6 +48,12 @@ constexpr float W_CLIPPING_PLANE = 1e-5f;
 #endif
 
 /**
+ * We scale the calculated intersection parameter slightly to account for floating-point inaccuracies.
+ * The scaling is always towards the vertex outside the clipping region.
+ */
+constexpr float SCALE_INTERSECTION_PARAMETER = 1.0001f;
+
+/**
  * clip with respect to these axes. more precisely, clip against the
  * planes with plane equations (x=w,x=-w), (y=w,y=-w), (z=w,z=-w).
  */
@@ -101,7 +107,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
             float t = (inside_vert->coords.w - inside_vert->coords[axis]) / ((inside_vert->coords.w - inside_vert->coords[axis]) - (outside_vert->coords.w - outside_vert->coords[axis]));
             assert(t >= 0 && t <= 1);
 
-            temp.emplace_back(lerp(t, *inside_vert, *outside_vert));
+            temp.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
         }
 
         if(dot2 > 0)
@@ -133,7 +139,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
                 float t = -(inside_vert->coords.w + inside_vert->coords[axis]) / ((-inside_vert->coords.w - inside_vert->coords[axis]) + (outside_vert->coords.w + outside_vert->coords[axis]));
                 assert(t >= 0 && t <= 1);
 
-                out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
+                out_vb.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
             }
 
             if(dot2 > 0)
@@ -164,7 +170,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
             float t = (inside_vert->coords.w - inside_vert->coords[axis]) / ((inside_vert->coords.w - inside_vert->coords[axis]) - (outside_vert->coords.w - outside_vert->coords[axis]));
             assert(t >= 0 && t <= 1);
 
-            temp.emplace_back(lerp(t, *inside_vert, *outside_vert));
+            temp.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
         }
 
         if(dot > 0)
@@ -205,7 +211,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
             float t = -(inside_vert->coords.w + inside_vert->coords[axis]) / ((-inside_vert->coords.w - inside_vert->coords[axis]) + (outside_vert->coords.w + outside_vert->coords[axis]));
             assert(t >= 0 && t <= 1);
 
-            out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
+            out_vb.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
         }
 
         if(dot > 0)
@@ -260,7 +266,7 @@ static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& ou
         // to avoid dividing by zero when converting to NDC, we clip
         // against w=W_CLIPPING_PLANE.
 
-        // !!fixme? this selection could be condensed into a single comparison, since dots[0]*dots[1]<0 implies that exactly one of the dots[i] is positive.
+        // FIXME ? this selection could be condensed into a single comparison, since dots[0]*dots[1]<0 implies that exactly one of the dots[i] is positive.
         auto* inside_vert = (dots[0] < 0) ? &in_line[0] : &in_line[1];
         auto* outside_vert = (dots[1] < 0) ? &in_line[0] : &in_line[1];
 

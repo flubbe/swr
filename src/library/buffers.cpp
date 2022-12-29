@@ -74,7 +74,7 @@ void DeleteAttributeBuffer(uint32_t id)
 
     if(id < impl::global_context->vertex_attribute_buffers.size())
     {
-        impl::global_context->vertex_attribute_buffers[id].data.clear(); /* the .data member access here prevents more unification with the delete_buffer function above? */
+        impl::global_context->vertex_attribute_buffers[id].data.clear(); /* FIXME the .data member access here prevents more unification with the delete_buffer function above? */
         impl::global_context->vertex_attribute_buffers.free(id);
     }
     else

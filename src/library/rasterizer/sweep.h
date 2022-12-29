@@ -23,7 +23,7 @@ namespace rast
  *
  * This bias is used by triangle- and point rasterization code.
  */
-#define FILL_RULE_EDGE_BIAS 1
+constexpr std::uint32_t FILL_RULE_EDGE_BIAS = 1;
 
 /** Sweep rasterizer. */
 class sweep_rasterizer : public rasterizer
@@ -45,7 +45,7 @@ class sweep_rasterizer : public rasterizer
         bool is_front_facing;
 
         /** the primitive's vertices. points use v[0], lines use v[0] and v[1], and triangles use v[0], v[1] and v[2]. */
-        const geom::vertex* v[3];
+        geom::vertex* v[3];
 
         /** Points to the active render states (which are stored in the context's draw lists). */
         const swr::impl::render_states* states{nullptr};
@@ -58,7 +58,7 @@ class sweep_rasterizer : public rasterizer
         primitive() = default;
 
         /** point constructor. */
-        primitive(const swr::impl::render_states* in_states, const geom::vertex* vertex)
+        primitive(const swr::impl::render_states* in_states, geom::vertex* vertex)
         : type(point)
         , is_front_facing(true)
         , v{vertex, nullptr, nullptr}
@@ -67,7 +67,7 @@ class sweep_rasterizer : public rasterizer
         }
 
         /** line constructor. */
-        primitive(const swr::impl::render_states* in_states, const geom::vertex* v1, const geom::vertex* v2)
+        primitive(const swr::impl::render_states* in_states, geom::vertex* v1, geom::vertex* v2)
         : type(line)
         , is_front_facing(true)
         , v{v1, v2, nullptr}
@@ -76,7 +76,7 @@ class sweep_rasterizer : public rasterizer
         }
 
         /** triangle constructor. */
-        primitive(const swr::impl::render_states* in_states, bool in_is_front_facing, const geom::vertex* v1, const geom::vertex* v2, const geom::vertex* v3)
+        primitive(const swr::impl::render_states* in_states, bool in_is_front_facing, geom::vertex* v1, geom::vertex* v2, geom::vertex* v3)
         : type(triangle)
         , is_front_facing(in_is_front_facing)
         , v{v1, v2, v3}
@@ -170,13 +170,15 @@ class sweep_rasterizer : public rasterizer
      * Draw the triangle (v1,v2,v3) using a sweep algorithm with blocks of size rasterizer_block_size.
      * The triangle is rasterized regardless of its orientation.
      *
+     * NOTE Depending on the render states, the vertices may be modified.
+     *
      * \param states Active render states for this triangle.
      * \param is_front_facing Whether this triangle is front facing. Passed to the fragment shader.
      * \param v1 First triangle vertex.
      * \param v2 Second triangle vertex.
      * \param v3 Third triangle vertex.
      */
-    void draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v3);
+    void draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, geom::vertex& v1, geom::vertex& v2, geom::vertex& v3);
 
     /** draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false. */
     void draw_line(const swr::impl::render_states& states, bool draw_end_point, const geom::vertex& v1, const geom::vertex& v2);
@@ -220,9 +222,9 @@ public:
     {
         return std::string("Sweep Rasterizer");
     }
-    void add_point(const swr::impl::render_states* states, const geom::vertex* v) override;
-    void add_line(const swr::impl::render_states* states, const geom::vertex* v1, const geom::vertex* v2) override;
-    void add_triangle(const swr::impl::render_states* states, bool is_front_facing, const geom::vertex* v1, const geom::vertex* v2, const geom::vertex* v3) override;
+    void add_point(const swr::impl::render_states* states, geom::vertex* v) override;
+    void add_line(const swr::impl::render_states* states, geom::vertex* v1, geom::vertex* v2) override;
+    void add_triangle(const swr::impl::render_states* states, bool is_front_facing, geom::vertex* v1, geom::vertex* v2, geom::vertex* v3) override;
     void draw_primitives() override;
 };
 

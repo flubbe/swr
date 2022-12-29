@@ -154,7 +154,7 @@ static bool face_cull_polygon(swr::cull_face_direction cull_mode, swr::front_fac
     return false;
 }
 
-void render_device_context::assemble_primitives(const render_states* states, vertex_buffer_mode mode, const vertex_buffer& vb)
+void render_device_context::assemble_primitives(const render_states* states, vertex_buffer_mode mode, vertex_buffer& vb)
 {
     // choose drawing mode.
     if(mode == vertex_buffer_mode::points
@@ -169,8 +169,8 @@ void render_device_context::assemble_primitives(const render_states* states, ver
     else if(mode == vertex_buffer_mode::lines)
     {
         /* draw a list of lines */
-        const int size = vb.size() & ~1;
-        for(int i = 0; i < size; i += 2)
+        std::size_t size = vb.size() & ~1;
+        for(std::size_t i = 0; i < size; i += 2)
         {
             rasterizer->add_line(states, &vb[i], &vb[i + 1]);
         }
@@ -185,10 +185,6 @@ void render_device_context::assemble_primitives(const render_states* states, ver
         // depending on the polygon mode, the vertex buffer either holds a list of triangles or a list of points.
         if(states->poly_mode == polygon_mode::line)
         {
-            const auto culling_enabled = states->culling_enabled;
-            const auto cull_mode = states->cull_mode;
-            const auto front_face = states->front_face;
-
             size_t last_index = 0;
             for(size_t first_index = 0; first_index < vb.size(); first_index = last_index + 1)
             {
@@ -200,7 +196,7 @@ void render_device_context::assemble_primitives(const render_states* states, ver
                 }
 
                 // culling.
-                if(culling_enabled)
+                if(states->culling_enabled)
                 {
                     auto orientation = get_polygon_orientation(vb, first_index, last_index);
                     if(orientation == polygon_orientation::not_convex || orientation == polygon_orientation::degenerate)
@@ -209,7 +205,7 @@ void render_device_context::assemble_primitives(const render_states* states, ver
                         continue;
                     }
 
-                    if(face_cull_polygon(cull_mode, front_face, orientation))
+                    if(face_cull_polygon(states->cull_mode, states->front_face, orientation))
                     {
                         // don't draw.
                         continue;
@@ -217,12 +213,12 @@ void render_device_context::assemble_primitives(const render_states* states, ver
                 }
 
                 // add the lines to the rasterizer.
-                const auto* first_vertex = &vb[first_index];
-                const auto* prev_vertex = first_vertex;
+                auto* first_vertex = &vb[first_index];
+                auto* prev_vertex = first_vertex;
 
                 for(size_t i = first_index + 1; i <= last_index; ++i)
                 {
-                    const auto* cur_vertex = &vb[i];
+                    auto* cur_vertex = &vb[i];
 
                     // Add the current line to the rasterizer.
                     rasterizer->add_line(states, prev_vertex, cur_vertex);
@@ -235,23 +231,19 @@ void render_device_context::assemble_primitives(const render_states* states, ver
         }
         else if(states->poly_mode == polygon_mode::fill)
         {
-            const auto culling_enabled = states->culling_enabled;
-            const auto cull_mode = states->cull_mode;
-            const auto front_face = states->front_face;
-
             /* draw a list of triangles */
             for(size_t i = 0; i < vb.size(); i += 3)
             {
-                const auto& v1 = vb[i];
-                const auto& v2 = vb[i + 1];
-                const auto& v3 = vb[i + 2];
+                auto& v1 = vb[i];
+                auto& v2 = vb[i + 1];
+                auto& v3 = vb[i + 2];
 
                 // determine if triangle is front facing.
-                cull_face_direction orient = get_face_orientation(front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
+                cull_face_direction orient = get_face_orientation(states->front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
                 bool is_front_facing = (orient == cull_face_direction::front);
 
                 // check for face culling
-                if(culling_enabled && cull_reject(cull_mode, orient))
+                if(states->culling_enabled && cull_reject(states->cull_mode, orient))
                 {
                     // reject
                     continue;

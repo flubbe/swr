@@ -19,7 +19,7 @@ namespace impl
 
 /*
  * helper lambdas.
- * !!fixme: these are duplicated in fragment.cpp
+ * FIXME these are duplicated in fragment.cpp
  */
 
 static auto to_uint32_mask = [](bool b) -> std::uint32_t
@@ -570,7 +570,7 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
     }
 }
 
-//!!fixme: this is almost exactly the same as default_framebuffer::depth_compare_write.
+// FIXME this is almost exactly the same as default_framebuffer::depth_compare_write.
 void framebuffer_object::depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask)
 {
     // discard fragment if depth testing is always failing.
@@ -623,7 +623,7 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
     *depth_buffer_ptr = ml::wrap((ml::unwrap(*depth_buffer_ptr) & ~depth_write_mask) | (ml::unwrap(new_depth_value) & depth_write_mask));
 }
 
-//!!fixme: this is almost exactly the same as default_framebuffer::depth_compare_write_block.
+// FIXME this is almost exactly the same as default_framebuffer::depth_compare_write_block.
 void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4])
 {
     // discard fragment if depth testing is always failing.

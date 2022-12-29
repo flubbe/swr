@@ -117,10 +117,10 @@ enum class vertex_buffer_mode
     points,         /** A list of separate points. */
     lines,          /** A list of lines. */
     triangles,      /** A list of triangles. */
-    triangle_fan,   /** A triangle fan.     !!fixme: currently only available in immediate mode. */
-    triangle_strip, /** A triangle strip.   !!fixme: currently only available in immediate mode. */
-    quads,          /** A list of quads.    !!fixme: currently only available in immediate mode. */
-    polygon         /** A (planar) polygon. !!fixme: currently only available in immediate mode. */
+    triangle_fan,   /** A triangle fan.     FIXME currently only available in immediate mode. */
+    triangle_strip, /** A triangle strip.   FIXME currently only available in immediate mode. */
+    quads,          /** A list of quads.    FIXME currently only available in immediate mode. */
+    polygon         /** A (planar) polygon. FIXME currently only available in immediate mode. */
 };
 
 /*
@@ -346,6 +346,15 @@ void SetPolygonMode(polygon_mode Mode);
 /** Return the current polygon rasterization mode, which is applied to both front- and back-facing polygons. */
 polygon_mode GetPolygonMode();
 
+/**
+ * Set the scale and units used to calculate depth values.
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/glPolygonOffset.xhtml
+ *
+ * \param factor Specifies a scale factor that is used to create a variable depth offset for each polygon. The initial value is 0.
+ * \param units Is multiplied by an implementation-specific value to create a constant depth offset. The initial value is 0.
+ */
+void PolygonOffset(float factor, float units);
+
 /*
  * Texturing.
  */
@@ -555,12 +564,13 @@ void SetScissorBox(int x, int y, int width, int height);
 /** States of the graphics pipeline, which can be enabled or disabled. */
 enum class state
 {
-    blend,        /** Blending. Initially disabled. */
-    cull_face,    /** Face culling. Initially disabled. */
-    depth_test,   /** Depth testing. Initially enabled. */
-    depth_write,  /** Depth writing. Initially enabled. */
-    scissor_test, /** Scissor test. Initially disabled. */
-    texture,      /** Texturing. Initially disabled. */
+    blend,               /** Blending. Initially disabled. */
+    cull_face,           /** Face culling. Initially disabled. */
+    depth_test,          /** Depth testing. Initially enabled. */
+    depth_write,         /** Depth writing. Initially enabled. */
+    polygon_offset_fill, /** Apply polygon offset to filled primitives. Initially disabled. */
+    scissor_test,        /** Scissor test. Initially disabled. */
+    texture,             /** Texturing. Initially disabled. */
 };
 
 /**

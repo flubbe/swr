@@ -53,8 +53,8 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
         for(size_t i = 0; i < v.varyings.size(); ++i)
         {
             temp[i].value = v.varyings[i];
-            temp[i].dFdx = ml::vec4::zero();    // !!fixme: see comment above.
-            temp[i].dFdy = ml::vec4::zero();    // !!fixme: see comment above.
+            temp[i].dFdx = ml::vec4::zero();    // FIXME see comment above.
+            temp[i].dFdy = ml::vec4::zero();    // FIXME see comment above.
         }
 
         // create shader instance.

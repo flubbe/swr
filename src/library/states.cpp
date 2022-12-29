@@ -39,6 +39,10 @@ void SetState(state s, bool enable)
     {
         context->states.write_depth = enable;
     }
+    else if(s == state::polygon_offset_fill)
+    {
+        context->states.polygon_offset_fill_enabled = enable;
+    }
     else if(s == state::scissor_test)
     {
         context->states.scissor_test_enabled = enable;
@@ -65,6 +69,10 @@ bool GetState(state s)
     else if(s == state::depth_write)
     {
         return context->states.write_depth;
+    }
+    else if(s == state::polygon_offset_fill)
+    {
+        return context->states.polygon_offset_fill_enabled;
     }
     else if(s == state::scissor_test)
     {
@@ -163,6 +171,17 @@ polygon_mode GetPolygonMode()
 {
     ASSERT_INTERNAL_CONTEXT;
     return impl::global_context->states.poly_mode;
+}
+
+/*
+ * polygon offset.
+ */
+
+void PolygonOffset(float factor, float units)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    impl::global_context->states.polygon_offset_factor = factor;
+    impl::global_context->states.polygon_offset_units = units;
 }
 
 } /* namespace swr */

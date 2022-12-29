@@ -64,19 +64,19 @@ struct rasterizer
      * Add a point which is to be rasterized. The supplied vertices are assumed to
      * be valid pointers when the actual rasterization takes place.
      */
-    virtual void add_point(const swr::impl::render_states* s, const geom::vertex* v) = 0;
+    virtual void add_point(const swr::impl::render_states* s, geom::vertex* v) = 0;
 
     /**
      * Add a line which is to be rasterized. The supplied vertices are assumed to
      * be valid pointers when the actual rasterization takes place.
      */
-    virtual void add_line(const swr::impl::render_states* s, const geom::vertex* v1, const geom::vertex* v2) = 0;
+    virtual void add_line(const swr::impl::render_states* s, geom::vertex* v1, geom::vertex* v2) = 0;
 
     /**
      * Add a triangle which is to be rasterized. The supplied vertices are assumed to
      * be valid pointers when the actual rasterization takes place.
      */
-    virtual void add_triangle(const swr::impl::render_states* s, bool is_front_facing, const geom::vertex* v1, const geom::vertex* v2, const geom::vertex* v3) = 0;
+    virtual void add_triangle(const swr::impl::render_states* s, bool is_front_facing, geom::vertex* v1, geom::vertex* v2, geom::vertex* v3) = 0;
 
     /**
      * Draw all primitives. Operations take place with respect to the internal render context.

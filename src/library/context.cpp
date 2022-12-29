@@ -33,7 +33,7 @@ thread_local render_device_context* global_context = nullptr;
 void render_device_context::shutdown()
 {
     // empty command list.
-    render_command_list.clear();
+    render_object_list.clear();
 
     /*
      * Clean up all slot maps.
@@ -133,7 +133,7 @@ pixel_format sdl_render_context::get_window_pixel_format(Uint32* out_sdl_pixel_f
     }
 
     // this is the default case, but it is a guess.
-    //!!fixme: log a warning?
+    // FIXME log a warning?
     if(out_sdl_pixel_format)
     {
         *out_sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;

@@ -140,7 +140,7 @@ inline float fwidth(const varying& v)
 }
 
 /** maximum number of color attachments. */
-//!!fixme: this is related more to the framebuffer, which is not implemented.
+// FIXME this is related more to the framebuffer, which is not implemented.
 constexpr int max_color_attachments = 8;
 
 /** fragment shader results */

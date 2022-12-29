@@ -424,7 +424,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
         error = fix_dv * 2 - fix_dp;
 
         // set final parameter
-        end_p = ml::fixed_t(std::min(info.v2->coords.x + info.offset_v2.x, static_cast<float>(states.draw_target->properties.height - 1)));
+        end_p = ml::fixed_t(std::min(info.v2->coords.x + info.offset_v2.x, static_cast<float>(states.draw_target->properties.height)));
     }
     else
     {
@@ -445,7 +445,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
         error = fix_dv * 2 - fix_dp;
 
         // set final parameter
-        end_p = ml::fixed_t(std::min(info.v2->coords.y + info.offset_v2.y, static_cast<float>(states.draw_target->properties.height - 1)));
+        end_p = ml::fixed_t(std::min(info.v2->coords.y + info.offset_v2.y, static_cast<float>(states.draw_target->properties.height)));
     }
 
     /*
@@ -462,7 +462,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < states.draw_target->properties.height)
             {
-                rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
+                rast::fragment_info info{attr.depth_value.value, true, temp_varyings};
                 swr::impl::fragment_output out;
 
                 process_fragment(ml::integral_part(p), ml::integral_part(v), states, shader, attr.one_over_viewport_z.value, info, out);
@@ -490,7 +490,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < states.draw_target->properties.width)
             {
-                rast::fragment_info info(attr.depth_value.value, true, temp_varyings);
+                rast::fragment_info info{attr.depth_value.value, true, temp_varyings};
                 swr::impl::fragment_output out;
 
                 process_fragment(ml::integral_part(v), ml::integral_part(p), states, shader, attr.one_over_viewport_z.value, info, out);

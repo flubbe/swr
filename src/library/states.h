@@ -45,6 +45,10 @@ struct render_states
 
     polygon_mode poly_mode{polygon_mode::fill};
 
+    bool polygon_offset_fill_enabled{false};
+    float polygon_offset_factor{0.0f};
+    float polygon_offset_units{0.0f};
+
     /* blending */
     bool blending_enabled{false};
     blend_func blend_src{blend_func::one};
@@ -100,6 +104,10 @@ struct render_states
         cull_mode = cull_face_direction::back;
 
         poly_mode = polygon_mode::fill;
+
+        polygon_offset_fill_enabled = false;
+        polygon_offset_factor = 0.0f;
+        polygon_offset_units = 0.0f;
 
         blending_enabled = false;
         blend_src = blend_func::one;

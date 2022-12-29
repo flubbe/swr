@@ -183,36 +183,36 @@ void Present()
     auto context = impl::global_context;
 
     // immediately return if there is nothing to do.
-    if(context->render_command_list.size() == 0)
+    if(context->render_object_list.size() == 0)
     {
         return;
     }
 
     // process render commands.
 #ifdef SWR_ENABLE_MULTI_THREADING
-    for(auto it = context->render_command_list.begin(); it != context->render_command_list.end(); ++it)
+    for(auto it = context->render_object_list.begin(); it != context->render_object_list.end(); ++it)
     {
-        context->thread_pool.push_task(process_vertices, *it);
+        context->thread_pool.push_task(process_vertices, &(*it));
     }
     context->thread_pool.run_tasks_and_wait();
 
-    for(auto& it: context->render_command_list)
+    for(auto& it: context->render_object_list)
     {
-        if(it->clipped_vertices.size() != 0)
+        if(it.clipped_vertices.size() != 0)
         {
             // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
-            context->assemble_primitives(&it->states, it->mode, it->clipped_vertices);
+            context->assemble_primitives(&it.states, it.mode, it.clipped_vertices);
         }
     }
 #else
-    for(auto& it: context->render_command_list)
+    for(auto& it: context->render_object_list)
     {
-        process_vertices(it);
+        process_vertices(&it);
 
-        if(it->clipped_vertices.size() != 0)
+        if(it.clipped_vertices.size() != 0)
         {
             // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
-            context->assemble_primitives(&it->states, it->mode, it->clipped_vertices);
+            context->assemble_primitives(&it.states, it.mode, it.clipped_vertices);
         }
     }
 #endif
@@ -227,8 +227,7 @@ void Present()
 #endif
 
     // flush all lists.
-    context->render_command_list.clear();
-    context->objects.clear();
+    context->render_object_list.clear();
 }
 
 /*

@@ -358,7 +358,7 @@ struct default_framebuffer : public framebuffer_draw_target
     }
 };
 
-/** maximum number of color attachments. !!fixme: this should probably be put somewhere else? */
+/** maximum number of color attachments. FIXME this should probably be put somewhere else? */
 // this must be compatible with the values in framebuffer_attachment.
 constexpr int max_color_attachments = 8;
 
