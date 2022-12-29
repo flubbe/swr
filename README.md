@@ -35,6 +35,8 @@ For the other dependencies:
 - put [fmt](https://github.com/fmtlib/fmt), release 8.1.1, into `deps/3rd-party/fmt`
 - if you use [Morton Codes](https://en.wikipedia.org/wiki/Z-order_curve) (enabled by default), put [libmorton](https://github.com/Forceflow/libmorton) into `deps/3rd-party/libmorton`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
+- clone [stb](https://github.com/nothings/stb) into `deps/3rd-party/stb`
+- clone [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) into `deps/3rd-party/tinyobjloader`
 - clone [ml](https://github.com/flubbe/ml) into `deps/ml`
 - clone [concurrency_utils](https://github.com/flubbe/concurrency_utils) into `deps/concurrency_utils`
 
