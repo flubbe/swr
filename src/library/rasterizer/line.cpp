@@ -394,8 +394,8 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
     ml::fixed_t end_p;
 
     // get line values.
-    ml::fixed_t start_x = info.v1->coords.x + info.offset_v1.x;
-    ml::fixed_t start_y = info.v1->coords.y + info.offset_v1.y;
+    ml::fixed_t start_x{info.v1->coords.x + info.offset_v1.x};
+    ml::fixed_t start_y{info.v1->coords.y + info.offset_v1.y};
 
     // initialize gradients along the line.
     rast::line_interpolator attr(*info.v1, *info.v2, v1, states.shader_info->iqs, 1.0f / info.max_absolute_delta);
@@ -498,13 +498,12 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
             }
 
             // update error variable.
-            error += fix_dv * 2;
-
             if(error > 0)
             {
                 v += inc_v;
                 error -= fix_dp * 2;
             }
+            error += fix_dv * 2;
 
             ++p;
             attr.advance();

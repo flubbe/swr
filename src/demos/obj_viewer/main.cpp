@@ -556,8 +556,16 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                 // Invaid material ID. Use default material.
                 current_material_id =
                   materials.size() - 1;    // Default material is added to the last item in `materials`.
-                fmt::print("WARN Invalid material ID for shape [{}], tri [{} {} {}]\n", s, 3 * f, 3 * f + 1, 3 * f + 2);
-                fmt::print("     Using default material.\n");
+
+                static bool warned = false;
+                if(!warned)
+                {
+                    fmt::print("WARN Invalid material ID for shape [{}], tri [{} {} {}]\n", s, 3 * f, 3 * f + 1, 3 * f + 2);
+                    fmt::print("     Using default material.\n");
+
+                    fmt::print("INFO Further invalid material ID warnings are suppressed.\n");
+                    warned = true;
+                }
             }
             ml::vec3 diffuse;
             for(size_t i = 0; i < 3; i++)
@@ -805,8 +813,14 @@ public:
         swr::SetClearDepth(1.0f);
         swr::SetViewport(0, 0, width, height);
 
-        swr::SetState(swr::state::cull_face, true);
-        swr::SetState(swr::state::depth_test, true);
+        int cmd_cull_face = swr_app::application::get_instance().get_argument("--cull_face", 1);
+        swr::SetState(swr::state::cull_face, cmd_cull_face==1);
+
+        int cmd_depth_test = swr_app::application::get_instance().get_argument("--depth_test", 1);
+        swr::SetState(swr::state::depth_test, cmd_depth_test==1);
+
+        int cmd_show_wireframe = swr_app::application::get_instance().get_argument("--wireframe", 1);
+        show_wireframe = cmd_show_wireframe==1;
 
         flat_shader_id = swr::RegisterShader(&flat_shader);
         wireframe_shader_id = swr::RegisterShader(&wireframe_shader);
