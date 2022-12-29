@@ -277,7 +277,11 @@ static void computeAllSmoothingNormals(tinyobj::attrib_t& attrib,
         tinyobj::real_t& nx = attrib.normals[3 * i];
         tinyobj::real_t& ny = attrib.normals[3 * i + 1];
         tinyobj::real_t& nz = attrib.normals[3 * i + 2];
+#ifdef __GNUC__
+        tinyobj::real_t len = sqrtf(nx * nx + ny * ny + nz * nz);
+#else
         tinyobj::real_t len = std::sqrtf(nx * nx + ny * ny + nz * nz);
+#endif
         tinyobj::real_t scale = len == 0 ? 0 : 1 / len;
         nx *= scale;
         ny *= scale;
