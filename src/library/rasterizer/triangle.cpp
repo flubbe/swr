@@ -258,7 +258,11 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
                         -edges[1].z * edges[0].x + edges[0].z * edges[1].x}
                       * inv_area;
 
+#ifdef __GNUC__
+        float m = std::max(fabsf(dz.x), fabsf(dz.y));    // Eq. (14.12)
+#else
         float m = std::max(std::fabsf(dz.x), std::fabsf(dz.y));    // Eq. (14.12)
+#endif
 
         /*
          * https://registry.khronos.org/OpenGL/specs/gl/glspec43.core.pdf, Section 14.6.5,
@@ -284,8 +288,13 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             }
         };
         // get the maximum exponent in the range of the z values spanned by the primitive
+#ifdef __GNUC__
+        float_integer r{
+          std::max({fabsf(v1.coords.z), fabsf(v2.coords.z), fabsf(v3.coords.z)})};
+#else
         float_integer r{
           std::max({std::fabsf(v1.coords.z), std::fabsf(v2.coords.z), std::fabsf(v3.coords.z)})};
+#endif
         r.i &= 0xff << 23;
 
         // calculate r by subtracting the size of mantissa from exponent
