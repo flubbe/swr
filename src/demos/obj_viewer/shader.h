@@ -37,7 +37,7 @@ public:
     {
         // set varying count and interpolation qualifiers.
         iqs.resize(1);
-        iqs[0] = swr::interpolation_qualifier::flat; /* color */
+        iqs[0] = swr::interpolation_qualifier::smooth; /* color */
     }
 
     void vertex_shader(
