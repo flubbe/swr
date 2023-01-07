@@ -4,7 +4,7 @@
  * interpolators for quantities on lines and triangles.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -27,8 +27,13 @@ struct varying_interpolator : public swr::varying
     /** Value at the start of a row. */
     ml::vec4 row_start;
 
-    /** Constructors. */
+    /** constructors. */
     varying_interpolator() = default;
+    varying_interpolator(const varying_interpolator&) = default;
+    varying_interpolator(varying_interpolator&&) = default;
+
+    /** assignment. */
+    varying_interpolator& operator=(const varying_interpolator&) = default;
 
     varying_interpolator(const varying& in_attrib, const ml::tvec2<ml::vec4>& in_step)
     : varying(in_attrib)
@@ -91,59 +96,22 @@ struct basic_interpolation_data
     /** varyings from the shader. */
     boost::container::static_vector<varying_interpolator, geom::limits::max::varyings> varyings;
 
-    /** default constructor. */
+    /** constructors. */
     basic_interpolation_data() = default;
-
-    /** default copy constructor. */
     basic_interpolation_data(const basic_interpolation_data&) = default;
-
-    /** default move constructor. */
     basic_interpolation_data(basic_interpolation_data&&) = default;
 
+    /** assignment. */
+    basic_interpolation_data<T>& operator=(const basic_interpolation_data<T>&) = default;
+
     /** get the varyings' values. */
-    template<int offs_x = 0, int offs_y = 0>
     void get_varyings(boost::container::static_vector<swr::varying, geom::limits::max::varyings>& out_varyings) const
     {
-        out_varyings.resize(varyings.size());
-        auto out_it = out_varyings.begin();
-
-        if(offs_x == 0 && offs_y == 0)
+        out_varyings.clear();
+        out_varyings.reserve(varyings.size());
+        for(auto& it: varyings)
         {
-            for(auto& it: varyings)
-            {
-                *out_it = it;
-                ++out_it;
-            }
-        }
-        else if(offs_x == 0)
-        {
-            for(auto it: varyings)
-            {
-                it.setup_block_processing();
-                it.advance_y(offs_y);
-                *out_it = it;
-                ++out_it;
-            }
-        }
-        else if(offs_y == 0)
-        {
-            for(auto it: varyings)
-            {
-                it.advance_x(offs_x);
-                *out_it = it;
-                ++out_it;
-            }
-        }
-        else
-        {
-            for(auto it: varyings)
-            {
-                it.setup_block_processing();
-                it.advance_y(offs_y);
-                it.advance_x(offs_x);
-                *out_it = it;
-                ++out_it;
-            }
+            out_varyings.push_back(it);
         }
     }
 
@@ -151,9 +119,13 @@ struct basic_interpolation_data
     void get_varyings_block(boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4]) const
     {
         out_varyings[0].clear();
+        out_varyings[0].reserve(varyings.size());
         out_varyings[1].clear();
+        out_varyings[1].reserve(varyings.size());
         out_varyings[2].clear();
+        out_varyings[2].reserve(varyings.size());
         out_varyings[3].clear();
+        out_varyings[3].reserve(varyings.size());
 
         for(auto it: varyings)
         {
@@ -173,37 +145,6 @@ struct basic_interpolation_data
             // store value at (x+1,y+1)
             it.advance_x();
             out_varyings[3].push_back(it);
-        }
-    }
-
-    /** get the depth value. */
-    template<int offs_x = 0, int offs_y = 0>
-    void get_depth(float& out_depth) const
-    {
-        if(offs_x == 0 && offs_y == 0)
-        {
-            out_depth = depth_value.value;
-        }
-        else if(offs_x == 0)
-        {
-            auto depth = depth_value;
-            depth.setup_block_processing();
-            depth.advance_y(offs_y);
-            out_depth = depth.value;
-        }
-        else if(offs_y == 0)
-        {
-            auto depth = depth_value;
-            depth.advance_x(offs_x);
-            out_depth = depth.value;
-        }
-        else
-        {
-            auto depth = depth_value;
-            depth.setup_block_processing();
-            depth.advance_y(offs_y);
-            depth.advance_x(offs_x);
-            out_depth = depth.value;
         }
     }
 
@@ -229,37 +170,6 @@ struct basic_interpolation_data
         out_depth[3] = depth.value;
     }
 
-    /** get one over viewport z. */
-    template<int offs_x = 0, int offs_y = 0>
-    void get_one_over_viewport_z(float& out_one_over_viewport_z) const
-    {
-        if(offs_x == 0 && offs_y == 0)
-        {
-            out_one_over_viewport_z = one_over_viewport_z.value;
-        }
-        else if(offs_x == 0)
-        {
-            auto one_over_z = one_over_viewport_z;
-            one_over_z.setup_block_processing();
-            one_over_z.advance_y(offs_y);
-            out_one_over_viewport_z = one_over_z.value;
-        }
-        else if(offs_y == 0)
-        {
-            auto one_over_z = one_over_viewport_z;
-            one_over_z.advance_x(offs_x);
-            out_one_over_viewport_z = one_over_z.value;
-        }
-        else
-        {
-            auto one_over_z = one_over_viewport_z;
-            one_over_z.setup_block_processing();
-            one_over_z.advance_y(offs_y);
-            one_over_z.advance_x(offs_x);
-            out_one_over_viewport_z = one_over_z.value;
-        }
-    }
-
     /** get all one over viewport z values for a 2x2 block. */
     void get_one_over_viewport_z_block(float out_one_over_viewport_z[4]) const
     {
@@ -281,21 +191,19 @@ struct basic_interpolation_data
         one_over_z.advance_x();
         out_one_over_viewport_z[3] = one_over_z.value;
     }
-
-    /** assignment. */
-    basic_interpolation_data<T>& operator=(const basic_interpolation_data<T>& other)
-    {
-        depth_value = other.depth_value;
-        one_over_viewport_z = other.one_over_viewport_z;
-        varyings = other.varyings;
-
-        return *this;
-    }
 };
 
 /** Interpolate vertex varyings along lines. */
 struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d<float>>
 {
+    /** constructors */
+    line_interpolator() = default;
+    line_interpolator(const line_interpolator&) = default;
+    line_interpolator(line_interpolator&&) = default;
+
+    /** assignment. */
+    line_interpolator& operator=(const line_interpolator&) = default;
+
     /**
      * Initialize the interpolator.
      * FIXME why do we need to pass one_over_span_length explicitly?
@@ -303,14 +211,14 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
     line_interpolator(const geom::vertex& v1, const geom::vertex& v2, const geom::vertex& v_ref, const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs, float one_over_span_length)
     {
         // depth interpolation.
-        auto depth_diff = v2.coords.z - v1.coords.z;
-        auto depth_step = depth_diff * one_over_span_length;
+        float depth_diff = v2.coords.z - v1.coords.z;
+        float depth_step = depth_diff * one_over_span_length;
         depth_value = geom::linear_interpolator_1d<float>{v1.coords.z, depth_step};
         depth_value.set_value(v1.coords.z);
 
         // viewport z interpolation
-        auto one_over_viewport_z_diff = v2.coords.w - v1.coords.w;
-        auto one_over_viewport_z_step = one_over_viewport_z_diff * one_over_span_length;
+        float one_over_viewport_z_diff = v2.coords.w - v1.coords.w;
+        float one_over_viewport_z_step = one_over_viewport_z_diff * one_over_span_length;
         one_over_viewport_z = geom::linear_interpolator_1d<float>{v1.coords.w, one_over_viewport_z_step};
         one_over_viewport_z.set_value(v1.coords.w);
 
@@ -322,7 +230,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
         assert(v1.varyings.size() == v2.varyings.size());
         assert(v1.varyings.size() == iqs.size());
 
-        const auto varying_count = v1.varyings.size();
+        std::size_t varying_count = v1.varyings.size();
 
         // initialize varying interpolation.
         varyings.resize(varying_count);
@@ -330,14 +238,14 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
         {
             if(iqs[i] == swr::interpolation_qualifier::smooth)
             {
-                auto varying_v1 = v1.varyings[i];
-                auto varying_v2 = v2.varyings[i];
+                ml::vec4 varying_v1 = v1.varyings[i];
+                ml::vec4 varying_v2 = v2.varyings[i];
 
                 varying_v1 *= v1.coords.w;
                 varying_v2 *= v2.coords.w;
 
-                auto dir = varying_v2 - varying_v1;
-                auto step = dir * one_over_span_length;
+                ml::vec4 dir = varying_v2 - varying_v1;
+                ml::vec4 step = dir * one_over_span_length;
 
                 varyings[i] = varying_interpolator(
                   swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero()},
@@ -379,14 +287,13 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
  */
 struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolator_2d<float>>
 {
-    /** default constructor. */
+    /** constructors. */
     triangle_interpolator() = default;
-
-    /** default copy constructor. */
     triangle_interpolator(const triangle_interpolator&) = default;
-
-    /** default move constructor. */
     triangle_interpolator(triangle_interpolator&&) = default;
+
+    /** assignment. */
+    triangle_interpolator& operator=(const triangle_interpolator&) = default;
 
     /**
      * Initialize the interpolator along the x-direction and along the y-direction with respect to the triangle edges.
@@ -405,20 +312,20 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
       float one_over_area)
     {
         // the two triangle edge functions
-        const geom::edge_function edge_v0v1{v0.coords.xy(), v1.coords.xy()}, edge_v0v2{v0.coords.xy(), v2.coords.xy()};
+        geom::edge_function edge_v0v1{v0.coords.xy(), v1.coords.xy()}, edge_v0v2{v0.coords.xy(), v2.coords.xy()};
 
         // set up vertex attribute interpolation
-        const ml::vec2 normalized_diff_v0v1 = edge_v0v1.v_diff * one_over_area;
-        const ml::vec2 normalized_diff_v0v2 = edge_v0v2.v_diff * one_over_area;
+        ml::vec2 normalized_diff_v0v1 = edge_v0v1.v_diff * one_over_area;
+        ml::vec2 normalized_diff_v0v2 = edge_v0v2.v_diff * one_over_area;
 
         // calculate floating-point normalized barycentric coordinates.
-        const auto lambda2 = -edge_v0v1.evaluate(screen_coords) * one_over_area;
-        const auto lambda0 = edge_v0v2.evaluate(screen_coords) * one_over_area;
+        float lambda2 = -edge_v0v1.evaluate(screen_coords) * one_over_area;
+        float lambda0 = edge_v0v2.evaluate(screen_coords) * one_over_area;
 
         // depth value interpolation.
-        const auto depth_diff_v0v1 = v1.coords.z - v0.coords.z;
-        const auto depth_diff_v0v2 = v2.coords.z - v0.coords.z;
-        const ml::vec2 depth_steps =
+        float depth_diff_v0v1 = v1.coords.z - v0.coords.z;
+        float depth_diff_v0v2 = v2.coords.z - v0.coords.z;
+        ml::vec2 depth_steps =
           {
             depth_diff_v0v1 * normalized_diff_v0v2.y - depth_diff_v0v2 * normalized_diff_v0v1.y,
             -depth_diff_v0v1 * normalized_diff_v0v2.x + depth_diff_v0v2 * normalized_diff_v0v1.x,
@@ -429,9 +336,9 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         depth_value.set_value(v0.coords.z + depth_diff_v0v1 * lambda0 + depth_diff_v0v2 * lambda2);
 
         // viewport z interpolation.
-        const auto viewport_z_diff_v0v1 = v1.coords.w - v0.coords.w;
-        const auto viewport_z_diff_v0v2 = v2.coords.w - v0.coords.w;
-        const ml::vec2 viewport_z_steps =
+        float viewport_z_diff_v0v1 = v1.coords.w - v0.coords.w;
+        float viewport_z_diff_v0v2 = v2.coords.w - v0.coords.w;
+        ml::vec2 viewport_z_steps =
           {
             viewport_z_diff_v0v1 * normalized_diff_v0v2.y - viewport_z_diff_v0v2 * normalized_diff_v0v1.y,
             -viewport_z_diff_v0v1 * normalized_diff_v0v2.x + viewport_z_diff_v0v2 * normalized_diff_v0v1.x};
@@ -449,26 +356,26 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         assert(v1.varyings.size() == v2.varyings.size());
 
         assert(iqs.size() == v0.varyings.size());
-        const auto varying_count = iqs.size();
+        std::size_t varying_count = iqs.size();
 
         varyings.resize(varying_count);
         for(size_t i = 0; i < varying_count; ++i)
         {
             if(iqs[i] == swr::interpolation_qualifier::smooth)
             {
-                auto varying_v0 = v0.varyings[i];
-                auto varying_v1 = v1.varyings[i];
-                auto varying_v2 = v2.varyings[i];
+                ml::vec4 varying_v0 = v0.varyings[i];
+                ml::vec4 varying_v1 = v1.varyings[i];
+                ml::vec4 varying_v2 = v2.varyings[i];
 
                 varying_v0 *= v0.coords.w;
                 varying_v1 *= v1.coords.w;
                 varying_v2 *= v2.coords.w;
 
-                auto diff_v0v1 = varying_v1 - varying_v0;
-                auto diff_v0v2 = varying_v2 - varying_v0;
+                ml::vec4 diff_v0v1 = varying_v1 - varying_v0;
+                ml::vec4 diff_v0v2 = varying_v2 - varying_v0;
 
-                auto step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
-                auto step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
+                ml::vec4 step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
+                ml::vec4 step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
 
                 varyings[i] = varying_interpolator(
                   {varying_v0, step_x, step_y},
@@ -547,13 +454,6 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         {
             it.setup_block_processing();
         }
-    }
-
-    /** assignment. */
-    triangle_interpolator& operator=(const triangle_interpolator& other)
-    {
-        static_cast<basic_interpolation_data<geom::linear_interpolator_2d<float>>>(*this) = basic_interpolation_data<geom::linear_interpolator_2d<float>>(other);
-        return *this;
     }
 };
 

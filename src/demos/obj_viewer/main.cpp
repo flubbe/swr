@@ -7,7 +7,7 @@
  * NOTE The viewer currently only displays a non-textured version of the model.
  *
  * Copyright (c) 2012-Present, Syoyo Fujita and many contributors.
- * Copyright (c) 2022, Felix Lubbe
+ * Copyright (c) 2022-Present, Felix Lubbe
  *
  * \author Syoyo Fujita and contributors.
  * \author Felix Lubbe
@@ -814,13 +814,13 @@ public:
         swr::SetViewport(0, 0, width, height);
 
         int cmd_cull_face = swr_app::application::get_instance().get_argument("--cull_face", 1);
-        swr::SetState(swr::state::cull_face, cmd_cull_face==1);
+        swr::SetState(swr::state::cull_face, cmd_cull_face == 1);
 
         int cmd_depth_test = swr_app::application::get_instance().get_argument("--depth_test", 1);
-        swr::SetState(swr::state::depth_test, cmd_depth_test==1);
+        swr::SetState(swr::state::depth_test, cmd_depth_test == 1);
 
         int cmd_show_wireframe = swr_app::application::get_instance().get_argument("--wireframe", 1);
-        show_wireframe = cmd_show_wireframe==1;
+        show_wireframe = cmd_show_wireframe == 1;
 
         flat_shader_id = swr::RegisterShader(&flat_shader);
         wireframe_shader_id = swr::RegisterShader(&wireframe_shader);

@@ -11,7 +11,7 @@
  * [4] Pineda, “A Parallel Algorithm for Polygon Rasterization”, https://people.csail.mit.edu/ericchan/bib/pdf/p17-pineda.pdf
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -405,7 +405,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
             auto mode = static_cast<tile_info::rasterization_mode>(static_cast<int>(mask != 0xf));
 
             // add the triangle to the tile cache.
-            if(tiles.add_triangle(x, y, {lambdas_box, &states, states.shader_info, attributes_row, is_front_facing, mode}))
+            if(tiles.add_triangle(x, y, {&states, lambdas_box, attributes_row, is_front_facing, mode}))
             {
                 // the cache is full. process all tiles.
                 process_tile_cache();

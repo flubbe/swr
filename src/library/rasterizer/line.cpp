@@ -13,7 +13,7 @@
  *  [6] Mesa 3D: https://github.com/anholt/mesa/blob/master/src/gallium/drivers/llvmpipe/lp_setup_line.c
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -452,12 +452,12 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
      * Execute Bresenham's line drawing algorithm.
      */
 
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings(attr.varyings.size());
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings{attr.varyings.size()};
     if(info.is_x_major)
     {
         while(p < end_p)
         {
-            attr.get_varyings<0, 0>(temp_varyings);
+            attr.get_varyings(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < states.draw_target->properties.height)
@@ -485,7 +485,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
     {
         while(p < end_p)
         {
-            attr.get_varyings<0, 0>(temp_varyings);
+            attr.get_varyings(temp_varyings);
 
             // only draw the fragment if it is inside the viewport.
             if(p >= 0 && v >= 0 && v < states.draw_target->properties.width)

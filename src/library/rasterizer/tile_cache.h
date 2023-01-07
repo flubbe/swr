@@ -25,14 +25,14 @@ public:
         checked = 1 /** we need to check each pixel if it belongs to the primitive. */
     };
 
-    /** barycentric coordinates and steps for this block. */
-    geom::barycentric_coordinate_block lambdas;
-
     /** render states. points to an entry in the context's draw list. */
     const swr::impl::render_states* states{nullptr};
 
     /** shader. */
     const swr::program_base* shader;
+
+    /** barycentric coordinates and steps for this block. */
+    geom::barycentric_coordinate_block lambdas;
 
     /** whether this corresponding triangle is front-facing. */
     bool front_facing{true};
@@ -49,9 +49,9 @@ public:
 
     tile_info(const tile_info& other)
     : shader_storage{other.shader->size()}
-    , lambdas{other.lambdas}
     , states{other.states}
     , shader{other.shader->create_fragment_shader_instance(shader_storage.data(), other.states->uniforms, other.states->texture_2d_samplers)}
+    , lambdas{other.lambdas}
     , front_facing{other.front_facing}
     , attributes{other.attributes}
     , mode{other.mode}
@@ -70,18 +70,17 @@ public:
      * initializing constructor.
      *
      * NOTE This instantiates the shader.
-     * */
+     */
     tile_info(
-      const geom::barycentric_coordinate_block& in_lambdas,
       const swr::impl::render_states* in_states,
-      const swr::impl::program_info* in_shader_info,
+      const geom::barycentric_coordinate_block& in_lambdas,
       const triangle_interpolator& in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
-    : shader_storage{in_shader_info->shader->size()}
-    , lambdas{in_lambdas}
+    : shader_storage{in_states->shader_info->shader->size()}
     , states{in_states}
-    , shader{in_shader_info->shader->create_fragment_shader_instance(shader_storage.data(), in_states->uniforms, in_states->texture_2d_samplers)}
+    , shader{in_states->shader_info->shader->create_fragment_shader_instance(shader_storage.data(), in_states->uniforms, in_states->texture_2d_samplers)}
+    , lambdas{in_lambdas}
     , front_facing{in_front_facing}
     , attributes{in_attributes}
     , mode{in_mode}
