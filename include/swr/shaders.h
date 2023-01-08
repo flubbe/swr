@@ -4,7 +4,7 @@
  * public interface for shader support.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -36,39 +36,46 @@ namespace swr
  */
 union uniform
 {
-    int i;
     float f;
+    int i;
 
     ml::vec4 v4;
     ml::mat4x4 m4;
 
-    /** default constructor. sets f to zero. */
+    /** default constructor. does not initialize the data. */
     uniform()
-    : f(0)
+    {
+    }
+
+    /** default copy/move constructors. */
+    uniform(const uniform&) = default;
+    uniform(uniform&&) = default;
+
+    /** assignment. */
+    uniform& operator=(const uniform&) = default;
+    uniform& operator=(uniform&&) = default;
+
+    /** float constructor. */
+    uniform(float in_f)
+    : f{in_f}
     {
     }
 
     /** integer constructor. */
     uniform(int in_i)
-    : i(in_i)
-    {
-    }
-
-    /** float constructor. */
-    uniform(float in_f)
-    : f(in_f)
+    : i{in_i}
     {
     }
 
     /** vector constructor. */
     uniform(ml::vec4 in_v4)
-    : v4(in_v4)
+    : v4{in_v4}
     {
     }
 
     /** matrix constructor. */
     uniform(const ml::mat4x4& in_m4)
-    : m4(in_m4)
+    : m4{in_m4}
     {
     }
 };
@@ -96,8 +103,14 @@ struct varying
     /** approximation of the partial derivative with respect to x. */
     ml::vec4 dFdy;
 
-    /** default constructor. */
+    /** constructors. */
     varying() = default;
+    varying(const varying&) = default;
+    varying(varying&&) = default;
+
+    /** assignment. */
+    varying& operator=(const varying&) = default;
+    varying& operator=(varying&&) = default;
 
     /** initializing constructor. */
     varying(const ml::vec4& in_value, const ml::vec4& in_dFdx, const ml::vec4& in_dFdy)
@@ -228,7 +241,7 @@ public:
 
         iqs.clear();
 
-        // !!todo: Also see https://www.khronos.org/opengl/wiki/Shader_Compilation for pre-linking setup.
+        // TODO Also see https://www.khronos.org/opengl/wiki/Shader_Compilation for pre-linking setup.
     }
 
     /**
