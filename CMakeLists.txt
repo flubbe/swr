@@ -64,9 +64,9 @@ message(STATUS ${EXTRA_LIBS})
 #
 # Thread library.
 #
-set(CMAKE_THREAD_PREFER_PTHREAD ON)                                                                                                                                                                                                           
-set(THREADS_PREFER_PTHREAD_FLAG ON)                                                                                                                                                                                                           
-find_package(Threads REQUIRED)    
+set(CMAKE_THREAD_PREFER_PTHREAD ON)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 #
 # Set up output directories

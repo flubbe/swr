@@ -238,18 +238,15 @@ void render_device_context::assemble_primitives(const render_states* states, ver
                 auto& v2 = vb[i + 1];
                 auto& v3 = vb[i + 2];
 
-                // determine if triangle is front facing.
+                // triangle culling.
                 cull_face_direction orient = get_face_orientation(states->front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
-                bool is_front_facing = (orient == cull_face_direction::front);
-
-                // check for face culling
                 if(states->culling_enabled && cull_reject(states->cull_mode, orient))
                 {
                     // reject
                     continue;
                 }
 
-                rasterizer->add_triangle(states, is_front_facing, &v1, &v2, &v3);
+                rasterizer->add_triangle(states, orient == cull_face_direction::front, &v1, &v2, &v3);
             }
         }
         else

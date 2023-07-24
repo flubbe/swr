@@ -57,6 +57,12 @@ void render_device_context::shutdown()
     index_buffers.shrink_to_fit();
 
     // delete shaders.
+    program_instances.clear();
+    program_instances.shrink_to_fit();
+
+    program_storage.clear();
+    program_storage.shrink_to_fit();
+
     programs.clear();
     programs.shrink_to_fit();
 

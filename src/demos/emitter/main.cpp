@@ -217,8 +217,14 @@ public:
 
     void destroy()
     {
-        swr::ReleaseTexture(cube_normal_map);
-        swr::ReleaseTexture(cube_tex);
+        if(cube_normal_map)
+        {
+            swr::ReleaseTexture(cube_normal_map);
+        }
+        if(cube_tex)
+        {
+            swr::ReleaseTexture(cube_tex);
+        }
         swr::DeleteAttributeBuffer(cube_bitangents);
         swr::DeleteAttributeBuffer(cube_tangents);
         swr::DeleteAttributeBuffer(cube_normals);
@@ -389,7 +395,10 @@ public:
         platform::set_log(&log);
 
         window = std::make_unique<demo_emitter>();
-        window->create();
+        if(!window->create())
+        {
+            throw std::runtime_error("Initialization failed.");
+        }
     }
 
     /** destroy the window. */

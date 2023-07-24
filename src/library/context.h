@@ -50,12 +50,20 @@ struct program_info
     /** (pointer to) the graphics program/shader. */
     const program_base* shader{nullptr};
 
+    /** shader size. */
+    std::size_t program_size;
+
+    /** shader instance. */
+    std::vector<std::byte> storage;
+
     /** default constructor. */
     program_info() = default;
 
     /** constructor. */
     program_info(const program_base* in_shader)
-    : shader(in_shader)
+    : shader{in_shader}
+    , program_size{in_shader->size()}
+    , storage{program_size}
     {
     }
 
@@ -83,6 +91,27 @@ struct program_info
 /*
  * render contexts.
  */
+
+/** convenience vertex shader instance container. */
+class vertex_shader_instance_container
+{
+    const swr::program_base* shader;
+
+public:
+    vertex_shader_instance_container(std::byte* storage, impl::program_info* shader_info, const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms)
+    : shader{shader_info->shader->create_vertex_shader_instance(storage, uniforms)}
+    {
+    }
+    ~vertex_shader_instance_container()
+    {
+        shader->~program_base();
+    }
+
+    const swr::program_base* get() const
+    {
+        return shader;
+    }
+};
 
 /** a general render device context (not associated to any output device/window). */
 class render_device_context
@@ -141,6 +170,14 @@ public:
     /** the registered shaders, together with their program information. */
     utils::slot_map<program_info> programs;
 
+#ifdef SWR_ENABLE_MULTI_THREADING
+    /** storage for the shader instances. */
+    std::vector<std::byte> program_storage;
+
+    /** render object with their associated program instances, to avoid reallocations. */
+    std::vector<std::pair<swr::impl::render_object*, impl::vertex_shader_instance_container>> program_instances;
+#endif /* SWR_ENDABLE_MULTI_THREADING */
+
     /** default shader. */
     std::unique_ptr<program_base> default_shader;
 
@@ -191,7 +228,7 @@ public:
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** thread pool type to use. */
-    typedef concurrency_utils::deferred_thread_pool<concurrency_utils::spmc_blocking_queue<std::function<void()>>> thread_pool_type;
+    typedef concurrency_utils::deferred_thread_pool<concurrency_utils::mpmc_blocking_queue<std::function<void()>>> thread_pool_type;
 
     /** processing threads. */
     uint32_t thread_pool_size{0};
