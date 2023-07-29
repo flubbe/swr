@@ -341,10 +341,9 @@ static void process_vertices(impl::render_device_context* context)
         total_shader_size = utils::align(utils::alignment::sse, total_shader_size);
     }
 
-    context->program_storage.resize(total_shader_size);
+    std::byte* storage = utils::align_vector(utils::alignment::sse, total_shader_size, context->program_storage);
     context->program_instances.reserve(context->render_object_list.size());
 
-    std::byte* storage = context->program_storage.data();
     for(auto& obj: context->render_object_list)
     {
         context->program_instances.emplace_back(
