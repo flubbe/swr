@@ -4,7 +4,7 @@
  * general render context and SDL render context implementation.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -57,11 +57,13 @@ void render_device_context::shutdown()
     index_buffers.shrink_to_fit();
 
     // delete shaders.
+#ifdef SWR_ENABLE_MULTI_THREADING
     program_instances.clear();
     program_instances.shrink_to_fit();
 
     program_storage.clear();
     program_storage.shrink_to_fit();
+#endif /* SWR_ENABLE_MULTI_THREADING */
 
     programs.clear();
     programs.shrink_to_fit();

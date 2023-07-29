@@ -30,18 +30,15 @@ namespace st
 {
 
 /** Call vertex shaders and set clipping markers. */
-static bool invoke_vertex_shader_and_clip_preprocess(impl::program_info* shader_info, const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms, impl::vertex_buffer& vb)
+static bool invoke_vertex_shader_and_clip_preprocess(impl::vertex_shader_instance_container& shader_instance, impl::vertex_buffer& vb)
 {
     // check if the whole buffer should be discarded.
     bool clip_discard{true};
 
-    // create shader instance.
-    impl::vertex_shader_instance_container shader_instance{shader_info->storage.data(), shader_info, uniforms};
-
     for(auto& vertex_it: vb)
     {
         // allocate space for varyings and invoke the vertex shader.
-        vertex_it.varyings.resize(shader_info->varying_count);
+        vertex_it.varyings.resize(shader_instance.get_varying_count());
 
         float gl_PointSize{0}; /* currently unused */
         shader_instance.get()->vertex_shader(
@@ -109,12 +106,15 @@ static void process_vertices(swr::impl::render_object* obj)
         return;
     }
 
+    // create shader instance.
+    impl::vertex_shader_instance_container shader_instance{obj->states.shader_info->storage.data(), obj->states.shader_info, obj->states.uniforms};
+
     /*
      * Invoke the vertex shaders and preprocess vertices with respect to clipping.
      * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
      * The clip preprecessing sets a marker for each vertex outside the view frustum.
      */
-    bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(obj->states.shader_info, obj->states.uniforms, obj->vertices);
+    bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(shader_instance, obj->vertices);
     if(discard_buffer)
     {
         return;
@@ -172,7 +172,7 @@ static void process_vertices(swr::impl::render_object* obj)
 
 } /* namespace st */
 
-#else /* SWR_ENABLE_MULTI_THREADING */
+#else /* !SWR_ENABLE_MULTI_THREADING */
 
 /*
  * multi-threaded vertex processing functions
@@ -180,15 +180,14 @@ static void process_vertices(swr::impl::render_object* obj)
 namespace mt
 {
 
-static void vertex_shader_task(impl::vertex_buffer* vb, std::size_t offset, std::size_t end, impl::vertex_shader_instance_container* shader_instance, impl::program_info* shader_info)
+static void vertex_shader_task(impl::vertex_buffer* vb, std::size_t offset, std::size_t end, impl::vertex_shader_instance_container* shader_instance)
 {
-    end = std::min(end, vb->size());
     for(std::size_t i = offset; i < end; ++i)
     {
         geom::vertex& v = (*vb)[i];
 
         // allocate space for varyings and invoke the vertex shader.
-        v.varyings.resize(shader_info->varying_count);
+        v.varyings.resize(shader_instance->get_varying_count());
 
         float gl_PointSize{0}; /* currently unused */
         shader_instance->get()->vertex_shader(
@@ -215,13 +214,21 @@ static void vertex_shader_task(impl::vertex_buffer* vb, std::size_t offset, std:
     }
 }
 
-static void invoke_vertex_shader_and_clip_preprocess(impl::sdl_render_context::thread_pool_type& thread_pool, impl::vertex_shader_instance_container& shader_instance, impl::program_info* shader_info, impl::vertex_buffer& vb)
+static void invoke_vertex_shader_and_clip_preprocess(impl::sdl_render_context::thread_pool_type& thread_pool, impl::vertex_shader_instance_container& shader_instance, impl::vertex_buffer& vb)
 {
-    std::size_t thread_vertex_count = 1 + vb.size() / thread_pool.get_thread_count();
-    for(std::size_t i = 0; i < thread_pool.get_thread_count(); ++i)
+    auto thread_count = thread_pool.get_thread_count();
+    std::size_t thread_vertex_count = vb.size() / thread_count;
+
+    std::size_t offset = 0;
+    for(std::size_t i = 0; i < thread_count; ++i)
     {
-        std::size_t offset = i * thread_vertex_count;
-        thread_pool.push_immediate_task(vertex_shader_task, &vb, offset, offset + thread_vertex_count, &shader_instance, shader_info);
+        thread_pool.push_immediate_task(vertex_shader_task, &vb, offset, offset + thread_vertex_count, &shader_instance);
+        offset += thread_vertex_count;
+    }
+
+    if(offset < vb.size())
+    {
+        thread_pool.push_immediate_task(vertex_shader_task, &vb, offset, vb.size(), &shader_instance);
     }
 }
 
@@ -268,14 +275,14 @@ static void transform_to_viewport_coords(swr::impl::sdl_render_context::thread_p
     auto thread_count = thread_pool.get_thread_count();
     std::size_t thread_vertex_count = vb.size() / thread_count;
 
-    std::size_t i = 0, offset = 0;
-    for(; i < thread_count; ++i, offset += thread_vertex_count)
+    std::size_t offset = 0;
+    for(std::size_t i=0; i < thread_count; ++i, offset += thread_vertex_count)
     {
         thread_pool.push_immediate_task(transform_to_viewport_coords_task, &vb, offset, offset + thread_vertex_count, x, y, width, height, z_near, z_far);
     }
 
     // push remaining vertices.
-    if(offset != vb.size())
+    if(offset < vb.size())
     {
         thread_pool.push_immediate_task(transform_to_viewport_coords_task, &vb, offset, vb.size(), x, y, width, height, z_near, z_far);
     }
@@ -328,19 +335,24 @@ static void process_vertices(impl::render_device_context* context)
 {
     // create shaders.
     std::size_t total_shader_size = 0;
-    for(auto& it: context->render_object_list)
+    for(const auto& obj: context->render_object_list)
     {
-        total_shader_size += it.states.shader_info->shader->size();
+        total_shader_size += obj.states.shader_info->shader->size();
     }
 
     context->program_storage.resize(total_shader_size);
     context->program_instances.reserve(context->render_object_list.size());
 
     std::byte* storage = context->program_storage.data();
-    for(auto& it: context->render_object_list)
+    for(auto& obj: context->render_object_list)
     {
-        context->program_instances.push_back(std::make_pair(&it, impl::vertex_shader_instance_container{storage, it.states.shader_info, it.states.uniforms}));
-        storage += it.states.shader_info->shader->size();
+        context->program_instances.emplace_back(
+            std::make_pair(
+                &obj, 
+                std::move(impl::vertex_shader_instance_container{storage, obj.states.shader_info, obj.states.uniforms})
+            ));
+
+        storage += obj.states.shader_info->shader->size();
     }
 
     // invoke vertex shaders.
@@ -348,7 +360,7 @@ static void process_vertices(impl::render_device_context* context)
     {
         if(obj->vertices.size() != 0 && obj->indices.size() != 0)
         {
-            mt::invoke_vertex_shader_and_clip_preprocess(context->thread_pool, shader, obj->states.shader_info, obj->vertices);
+            invoke_vertex_shader_and_clip_preprocess(context->thread_pool, shader, obj->vertices);
         }
     }
     context->thread_pool.run_tasks_and_wait();
@@ -356,7 +368,7 @@ static void process_vertices(impl::render_device_context* context)
     // clipping.
     for(auto& [obj, shader]: context->program_instances)
     {
-        context->thread_pool.push_task(mt::clip_vertex_buffer, obj);
+        context->thread_pool.push_task(clip_vertex_buffer, obj);
     }
     context->thread_pool.run_tasks_and_wait();
 
@@ -367,7 +379,7 @@ static void process_vertices(impl::render_device_context* context)
         if(obj->clipped_vertices.size() != 0)
         {
             // perspective divide and viewport transformation.
-            mt::transform_to_viewport_coords(
+            transform_to_viewport_coords(
               context->thread_pool,
               obj->clipped_vertices,
               obj->states.x, obj->states.y,

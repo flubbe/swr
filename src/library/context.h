@@ -4,7 +4,7 @@
  * general render context and SDL render context.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -53,8 +53,10 @@ struct program_info
     /** shader size. */
     std::size_t program_size;
 
+#ifndef SWR_ENABLE_MULTI_THREADING
     /** shader instance. */
     std::vector<std::byte> storage;
+#endif
 
     /** default constructor. */
     program_info() = default;
@@ -63,7 +65,9 @@ struct program_info
     program_info(const program_base* in_shader)
     : shader{in_shader}
     , program_size{in_shader->size()}
+#ifndef SWR_ENABLE_MULTI_THREADING
     , storage{program_size}
+#endif
     {
     }
 
@@ -96,20 +100,42 @@ struct program_info
 class vertex_shader_instance_container
 {
     const swr::program_base* shader;
+    const std::size_t varying_count;
 
 public:
     vertex_shader_instance_container(std::byte* storage, impl::program_info* shader_info, const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms)
     : shader{shader_info->shader->create_vertex_shader_instance(storage, uniforms)}
+    , varying_count{shader_info->varying_count}
     {
     }
+
+    vertex_shader_instance_container(const vertex_shader_instance_container&) = delete;
+    vertex_shader_instance_container(vertex_shader_instance_container&& other)
+    : shader{other.shader}
+    , varying_count{other.varying_count}
+    {
+        other.shader = nullptr;
+    }
+
     ~vertex_shader_instance_container()
     {
-        shader->~program_base();
+        if(shader != nullptr)
+        {
+            shader->~program_base();
+        }
     }
+
+    vertex_shader_instance_container& operator=(const vertex_shader_instance_container&) = delete;
+    vertex_shader_instance_container& operator=(vertex_shader_instance_container&& other) = delete;
 
     const swr::program_base* get() const
     {
         return shader;
+    }
+
+    std::size_t get_varying_count() const
+    {
+        return varying_count;
     }
 };
 

@@ -317,9 +317,9 @@ program_base* program<T>::create_vertex_shader_instance(
   const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms) const
 {
     static_assert(std::is_same<typename T::super_type, program_base>::value, "T needs to be derived from swr::program_base.");
-    program_base* new_program = new(mem) T(static_cast<const T&>(*this));
+    T* new_program = new(mem) T{static_cast<const T&>(*this)};
     new_program->uniforms = &uniforms;
-    return new_program;
+    return static_cast<program_base*>(new_program);
 }
 
 template<typename T>
@@ -329,10 +329,10 @@ program_base* program<T>::create_fragment_shader_instance(
   const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>& samplers_2d) const
 {
     static_assert(std::is_same<typename T::super_type, program_base>::value, "T needs to be derived from swr::program_base.");
-    program_base* new_program = new(mem) T(static_cast<const T&>(*this));
+    T* new_program = new(mem) T{static_cast<const T&>(*this)};
     new_program->uniforms = &uniforms;
     new_program->samplers = samplers_2d;
-    return new_program;
+    return static_cast<program_base*>(new_program);
 }
 
 /*
