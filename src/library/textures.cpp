@@ -375,7 +375,7 @@ uint32_t CreateTexture()
     impl::texture_2d* new_texture = context->texture_2d_storage[slot].get();
     new_texture->id = slot;
 
-    //!!todo: this should set the last used texture filters
+    // TODO this should set the last used texture filters
     new_texture->set_filter_mag(texture_filter::nearest);
     new_texture->set_filter_min(texture_filter::nearest);
 
@@ -389,7 +389,7 @@ uint32_t CreateTexture()
         }                              \
     }
 
-    //!!todo: this should set the last used wrap modes.
+    // TODO this should set the last used wrap modes.
     CHECK(new_texture->set_wrap_s(wrap_mode::repeat));
     CHECK(new_texture->set_wrap_t(wrap_mode::repeat));
 

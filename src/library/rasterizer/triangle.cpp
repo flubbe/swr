@@ -29,29 +29,25 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
 
-    const auto varying_count = in_data.attributes.varyings.size();
-    temp_varyings[0].resize(varying_count);
-    temp_varyings[1].resize(varying_count);
-    temp_varyings[2].resize(varying_count);
-    temp_varyings[3].resize(varying_count);
-
     const bool front_facing = in_data.front_facing;
 
     const auto end_x = block_x + swr::impl::rasterizer_block_size;
     const auto end_y = block_y + swr::impl::rasterizer_block_size;
+
+    float frag_depth[4];
+    float one_over_viewport_z[4];
 
     // process block.
     for(unsigned int y = block_y; y < end_y; y += 2)
     {
         for(unsigned int x = block_x; x < end_x; x += 2)
         {
-            in_data.attributes.get_varyings_block(temp_varyings);
+            temp_varyings[0].clear();
+            temp_varyings[1].clear();
+            temp_varyings[2].clear();
+            temp_varyings[3].clear();
 
-            float frag_depth[4];
-            in_data.attributes.get_depth_block(frag_depth);
-
-            float one_over_viewport_z[4];
-            in_data.attributes.get_one_over_viewport_z_block(one_over_viewport_z);
+            in_data.attributes.get_data_block(temp_varyings, frag_depth, one_over_viewport_z);
 
             rast::fragment_info frag_info[4] = {
               {frag_depth[0], front_facing, temp_varyings[0]},
@@ -71,13 +67,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
 
 void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int block_y, tile_info& in_data)
 {
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings_block[4];
-
-    const auto varying_count = in_data.attributes.varyings.size();
-    temp_varyings_block[0].resize(varying_count);
-    temp_varyings_block[1].resize(varying_count);
-    temp_varyings_block[2].resize(varying_count);
-    temp_varyings_block[3].resize(varying_count);
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
 
     const bool front_facing = in_data.front_facing;
 
@@ -106,16 +96,19 @@ void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int 
 
             if(mask)
             {
+                temp_varyings[0].clear();
+                temp_varyings[1].clear();
+                temp_varyings[2].clear();
+                temp_varyings[3].clear();
+
                 // the block is at least partially covered.
-                in_data.attributes.get_varyings_block(temp_varyings_block);
-                in_data.attributes.get_depth_block(frag_depth_block);
-                in_data.attributes.get_one_over_viewport_z_block(one_over_viewport_z_block);
+                in_data.attributes.get_data_block(temp_varyings, frag_depth_block, one_over_viewport_z_block);
 
                 rast::fragment_info frag_info[4] = {
-                  {frag_depth_block[0], front_facing, temp_varyings_block[0]},
-                  {frag_depth_block[1], front_facing, temp_varyings_block[1]},
-                  {frag_depth_block[2], front_facing, temp_varyings_block[2]},
-                  {frag_depth_block[3], front_facing, temp_varyings_block[3]}};
+                  {frag_depth_block[0], front_facing, temp_varyings[0]},
+                  {frag_depth_block[1], front_facing, temp_varyings[1]},
+                  {frag_depth_block[2], front_facing, temp_varyings[2]},
+                  {frag_depth_block[3], front_facing, temp_varyings[3]}};
                 swr::impl::fragment_output_block out{(mask & 0x8) != 0, (mask & 0x4) != 0, (mask & 0x2) != 0, (mask & 0x1) != 0};
 
                 process_fragment_block(x, y, *in_data.states, in_data.shader, one_over_viewport_z_block, frag_info, out);
@@ -316,6 +309,15 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
      */
     if(states.polygon_offset_fill_enabled)
     {
+        /*
+         * FIXME This potentially gets applied multiple times per vertex ?!
+         *
+         *       A solution would be make a copy of the (z-)coordinate(s) somewhere in the pipeline.
+         *
+         *       Check: The vertices are only passed through to the interpolator and then written,
+         *              which means the coordinates could be copied.
+         */
+
         setup_polygon_offset(states, v1, v2, v3, inv_area);
     }
 
@@ -378,7 +380,11 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
      */
     const ml::vec2 screen_coords{static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f};
-    rast::triangle_interpolator attributes{screen_coords, *v1_cw, *v2_cw, v3, v1, states.shader_info->iqs, inv_area};
+    rast::triangle_interpolator attributes{
+      screen_coords,
+      v1_cw->coords, v2_cw->coords, v3.coords,
+      v1_cw->varyings, v2_cw->varyings, v3.varyings, v1.varyings,
+      states.shader_info->iqs, inv_area};
 
     for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
     {

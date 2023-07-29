@@ -108,13 +108,13 @@ uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src, blen
         }
         else
         {
-            //!!todo: unimplemented.
+            // TODO unimplemented.
             impl::global_context->last_error = error::unimplemented;
         }
     }
     else
     {
-        //!!todo: unimplemented.
+        // TODO unimplemented.
         impl::global_context->last_error = error::unimplemented;
     }
 
@@ -175,13 +175,13 @@ void blend_block(const pixel_format_converter& pf_conv, blend_func blend_src, bl
         }
         else
         {
-            //!!todo: unimplemented.
+            // TODO unimplemented.
             impl::global_context->last_error = error::unimplemented;
         }
     }
     else
     {
-        //!!todo: unimplemented.
+        // TODO unimplemented.
         impl::global_context->last_error = error::unimplemented;
     }
 
@@ -221,7 +221,7 @@ ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& src, 
     }
     else
     {
-        //!!todo: unimplemented.
+        // TODO unimplemented.
         impl::global_context->last_error = error::unimplemented;
     }
 
@@ -274,7 +274,7 @@ void blend_block(blend_func blend_src, blend_func blend_dst, const ml::vec4 src[
     }
     else
     {
-        //!!todo: unimplemented.
+        // TODO unimplemented.
         impl::global_context->last_error = error::unimplemented;
 
         copy_to_out(src);

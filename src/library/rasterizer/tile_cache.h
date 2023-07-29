@@ -130,11 +130,11 @@ struct tile_cache
 
     /** constructors. */
     tile_cache() = default;
-    tile_cache(const tile_cache&) = default;
-    tile_cache(tile_cache&&) = default;
+    tile_cache(const tile_cache&) = delete;
+    tile_cache(tile_cache&&) = delete;
 
-    tile_cache& operator=(const tile_cache&) = default;
-    tile_cache& operator=(tile_cache&&) = default;
+    tile_cache& operator=(const tile_cache&) = delete;
+    tile_cache& operator=(tile_cache&&) = delete;
 
     /** reset tile cache. */
     void reset(unsigned int in_tiles_x = 0, unsigned int in_tiles_y = 0)

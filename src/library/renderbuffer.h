@@ -296,7 +296,7 @@ struct default_framebuffer : public framebuffer_draw_target
     /** default depth attachment. */
     attachment_depth depth_buffer;
 
-    //!!todo: add stencil attachment.
+    // TODO add stencil attachment.
 
     /** default constructor. */
     default_framebuffer() = default;
@@ -377,7 +377,7 @@ class framebuffer_object : public framebuffer_draw_target
     /** depth attachment. */
     attachment_depth* depth_attachment{nullptr};
 
-    //!!todo: add stencil attachment.
+    // TODO add stencil attachment.
 
     /** calculate effective width and height. */
     void calculate_effective_dimensions()

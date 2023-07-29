@@ -452,7 +452,7 @@ void sweep_rasterizer::draw_line(const swr::impl::render_states& states, [[maybe
      * Execute Bresenham's line drawing algorithm.
      */
 
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings{attr.varyings.size()};
+    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings;
     if(info.is_x_major)
     {
         while(p < end_p)

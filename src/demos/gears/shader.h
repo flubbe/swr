@@ -42,9 +42,9 @@ public:
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
     {
-        // set varying count and interpolation qualifiers.
-        iqs.resize(1);
-        iqs[0] = swr::interpolation_qualifier::flat; /* color */
+        // set interpolation qualifiers for all varyings.
+        iqs = {
+          swr::interpolation_qualifier::flat};
     }
 
     void vertex_shader(
@@ -101,10 +101,11 @@ public:
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
     {
-        // set varying count and interpolation qualifiers.
-        iqs.resize(2);
-        iqs[0] = swr::interpolation_qualifier::smooth; /* normal */
-        iqs[1] = swr::interpolation_qualifier::flat;   /* light direction */
+        // set interpolation qualifiers for all varyings.
+        iqs = {
+          swr::interpolation_qualifier::smooth, /* normal */
+          swr::interpolation_qualifier::flat,   /* light direction */
+        };
     }
 
     void vertex_shader(

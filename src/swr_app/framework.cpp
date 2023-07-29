@@ -122,7 +122,7 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) co
             }
             else if(surface->format->BytesPerPixel == 3)
             {
-                //!!todo: this needs to be tested.
+                // TODO this needs to be tested.
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
                 pixel = p[0] << 16 | p[1] << 8 | p[2];
 #else

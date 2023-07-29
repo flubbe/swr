@@ -34,14 +34,14 @@ class mesh_color : public swr::program<mesh_color>
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
     {
-        // set varying count and interpolation qualifiers.
-        iqs.resize(6);
-        iqs[0] = swr::interpolation_qualifier::smooth;
-        iqs[1] = swr::interpolation_qualifier::smooth;
-        iqs[2] = swr::interpolation_qualifier::smooth;
-        iqs[3] = swr::interpolation_qualifier::smooth;
-        iqs[4] = swr::interpolation_qualifier::smooth;
-        iqs[5] = swr::interpolation_qualifier::smooth;
+        // set interpolation qualifiers for all varyings.
+        iqs = {
+          swr::interpolation_qualifier::smooth,
+          swr::interpolation_qualifier::smooth,
+          swr::interpolation_qualifier::smooth,
+          swr::interpolation_qualifier::smooth,
+          swr::interpolation_qualifier::smooth,
+          swr::interpolation_qualifier::smooth};
     }
 
     void vertex_shader(

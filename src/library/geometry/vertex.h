@@ -80,12 +80,12 @@ inline const vertex lerp(float t, const vertex& v1, const vertex& v2)
 
     // interpolate varyings
     const auto varying_count = v1.varyings.size();
-    r.varyings.resize(varying_count);
+    r.varyings.reserve(varying_count);
     for(size_t i = 0; i < varying_count; ++i)
     {
         // Depending on the interpolation type, Value stores either a the value of the attribute
         // itself or a weighted value, so that the equation does the correct interpolation.
-        r.varyings[i] = ml::lerp(t, v1.varyings[i], v2.varyings[i]);
+        r.varyings.emplace_back(ml::lerp(t, v1.varyings[i], v2.varyings[i]));
     }
 
     // mark interpolated vertex.

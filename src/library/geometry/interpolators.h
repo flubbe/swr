@@ -23,8 +23,10 @@ struct linear_interpolator_1d
     /** Unit step size. */
     T step;
 
-    /** default constructor. */
+    /** default constructors. */
     linear_interpolator_1d() = default;
+    linear_interpolator_1d(const linear_interpolator_1d&) = default;
+    linear_interpolator_1d(linear_interpolator_1d&&) = default;
 
     /** initializing constructor. */
     linear_interpolator_1d(const T& in_value, const T& in_step)
@@ -32,6 +34,9 @@ struct linear_interpolator_1d
     , step(in_step)
     {
     }
+
+    linear_interpolator_1d& operator=(const linear_interpolator_1d&) = default;
+    linear_interpolator_1d& operator=(linear_interpolator_1d&&) = default;
 
     void set_value(const T& in_value)
     {
@@ -69,6 +74,8 @@ struct linear_interpolator_2d
 
     /** Constructors. */
     linear_interpolator_2d() = default;
+    linear_interpolator_2d(const linear_interpolator_2d&) = default;
+    linear_interpolator_2d(linear_interpolator_2d&&) = default;
 
     linear_interpolator_2d(const T& in_value, const ml::tvec2<T>& in_step)
     : value{in_value}
@@ -76,6 +83,8 @@ struct linear_interpolator_2d
     , row_start{in_value}
     {
     }
+
+    linear_interpolator_2d& operator=(const linear_interpolator_2d&) = default;
 
     /** blocks are processed in rows, so we need to store the value of the interpolated value at the start of each row in order to use advance_y, which jumps to the next row. */
     void setup_block_processing()

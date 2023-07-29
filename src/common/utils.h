@@ -299,7 +299,7 @@ struct slot_map
  *  3) OS context switches may affect the output.
  *  4) Thread execution may shift to a different CPU core with a different TSC.
  *
- * !!todo: non-GNUC code is untested.
+ * TODO non-GNUC code is untested.
  */
 
 #if defined(__GNUC__)
