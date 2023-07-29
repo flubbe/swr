@@ -8,9 +8,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* boost headers */
-#include <boost/range/adaptor/indexed.hpp>
-
 /* user headers. */
 #include "swr_internal.h"
 
@@ -31,21 +28,30 @@ static void copy_attributes(
     [](uint32_t i) -> uint32_t
   { return i; })
 {
-    // copy the active attribute slots.
-    for(auto [slot, id]: active_vabs | boost::adaptors::indexed())
+    if(active_vabs.size() == 0)
     {
-        // skip empty attribute slots.
-        if(id == static_cast<int>(impl::vertex_attribute_index::invalid))
-        {
-            continue;
-        }
+        return;
+    }
 
-        // copy attributes.
-        for(auto [i, vertex]: obj.vertices | boost::adaptors::indexed())
+    int max_slot_index = *std::max_element(active_vabs.begin(), active_vabs.end());
+    if(max_slot_index < 0)
+    {
+        return;
+    }
+    ++max_slot_index;
+
+    for(std::size_t i = 0; i < obj.vertices.size(); ++i)
+    {
+        geom::vertex& vertex = obj.vertices[i];
+        vertex.attribs.resize(max_slot_index);
+
+        for(std::size_t slot = 0; slot < active_vabs.size(); ++slot)
         {
-            if(vertex.attribs.size() <= static_cast<std::size_t>(slot))
+            const int& id = active_vabs[slot];
+            
+            if(id == static_cast<int>(impl::vertex_attribute_index::invalid))
             {
-                vertex.attribs.resize(slot + 1);
+                continue;
             }
 
             vertex.attribs[slot] = vertex_attribute_buffers[id].data[transform_fn(i)];
