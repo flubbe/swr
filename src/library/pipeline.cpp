@@ -276,7 +276,7 @@ static void transform_to_viewport_coords(swr::impl::sdl_render_context::thread_p
     std::size_t thread_vertex_count = vb.size() / thread_count;
 
     std::size_t offset = 0;
-    for(std::size_t i=0; i < thread_count; ++i, offset += thread_vertex_count)
+    for(std::size_t i = 0; i < thread_count; ++i, offset += thread_vertex_count)
     {
         thread_pool.push_immediate_task(transform_to_viewport_coords_task, &vb, offset, offset + thread_vertex_count, x, y, width, height, z_near, z_far);
     }
@@ -338,6 +338,7 @@ static void process_vertices(impl::render_device_context* context)
     for(const auto& obj: context->render_object_list)
     {
         total_shader_size += obj.states.shader_info->shader->size();
+        total_shader_size = utils::align(utils::alignment::sse, total_shader_size);
     }
 
     context->program_storage.resize(total_shader_size);
@@ -347,12 +348,12 @@ static void process_vertices(impl::render_device_context* context)
     for(auto& obj: context->render_object_list)
     {
         context->program_instances.emplace_back(
-            std::make_pair(
-                &obj, 
-                std::move(impl::vertex_shader_instance_container{storage, obj.states.shader_info, obj.states.uniforms})
-            ));
+          std::make_pair(
+            &obj,
+            impl::vertex_shader_instance_container{storage, obj.states.shader_info, obj.states.uniforms}));
 
         storage += obj.states.shader_info->shader->size();
+        storage = utils::align(utils::alignment::sse, storage);
     }
 
     // invoke vertex shaders.

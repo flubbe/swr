@@ -155,6 +155,19 @@ inline T* align_vector(std::size_t alignment, std::size_t size, std::vector<T>& 
     return reinterpret_cast<T*>(std::align(alignment, size, reinterpret_cast<void*&>(buffer_ptr), buffer_size));
 }
 
+/**
+ * Align a parameter according to the specified alignment.
+ *
+ * @param alignment The alignment to use. Has to be a power of two.
+ * @param p The parameter to align.
+ * @returns A number bigger or equal to p, satisfying the alignment requirement.
+ */
+template<typename T>
+inline T align(std::size_t alignment, T p)
+{
+    return reinterpret_cast<T>((reinterpret_cast<uintptr_t>(p) + (alignment - 1)) & ~(alignment - 1));
+}
+
 /*
  * simple slot map.
  */
