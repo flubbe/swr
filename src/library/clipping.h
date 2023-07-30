@@ -27,14 +27,14 @@ enum clip_output
  * to contain a line list, i.e., if i is divisible by 2, then in_ib[i] and in_ib[i+1] need to be indices into in_vb
  * forming a line.
  */
-void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb);
+void clip_line_buffer(render_object& obj, clip_output output_type);
 
 /**
  * Clip a vertex buffer/index buffer pair against the view frustum. the index buffer/vertex buffer pair is assumed
  * to contain a triangle list, i.e., if i is divisible by 3, then in_ib[i], in_ib[i+1] and in_ib[i+2] need to
  * be indices into in_vb forming a triangle.
  */
-void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb);
+void clip_triangle_buffer(render_object& obj, clip_output output_type);
 
 } /* namespace impl */
 

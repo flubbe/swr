@@ -30,22 +30,41 @@ namespace st
 {
 
 /** Call vertex shaders and set clipping markers. */
-static bool invoke_vertex_shader_and_clip_preprocess(impl::vertex_shader_instance_container& shader_instance, impl::vertex_buffer& vb)
+static bool invoke_vertex_shader_and_clip_preprocess(impl::vertex_shader_instance_container& shader_instance, impl::render_object& obj)
 {
     // check if the whole buffer should be discarded.
     bool clip_discard{true};
 
-    for(auto& vertex_it: vb)
+    // allocate varyings.
+    obj.allocate_varyings(shader_instance.get_varying_count());
+
+    // TODO temporary.
+    boost::container::static_vector<ml::vec4, geom::limits::max::attributes> temp_attribs;
+    boost::container::static_vector<ml::vec4, geom::limits::max::varyings> temp_varyings;
+
+    temp_attribs.resize(obj.attrib_count);
+    temp_varyings.resize(shader_instance.get_varying_count());
+
+    for(std::size_t i = 0; i < obj.coord_count; ++i)
     {
-        // allocate space for varyings and invoke the vertex shader.
-        vertex_it.varyings.resize(shader_instance.get_varying_count());
+        // TODO temporary.
+        for(std::size_t j = 0; j < obj.attrib_count; ++j)
+        {
+            temp_attribs[j] = obj.attribs[i * obj.attrib_count + j];
+        }
 
         float gl_PointSize{0}; /* currently unused */
         shader_instance.get()->vertex_shader(
           0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          vertex_it.attribs, vertex_it.coords,
+          temp_attribs, obj.coords[i],
           gl_PointSize, nullptr /* gl_ClipDistance */,
-          vertex_it.varyings);
+          temp_varyings);
+
+        // TODO temporary.
+        for(std::size_t j = 0; j < shader_instance.get_varying_count(); ++j)
+        {
+            obj.varyings[i * shader_instance.get_varying_count() + j] = temp_varyings[j];
+        }
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
@@ -55,12 +74,12 @@ static bool invoke_vertex_shader_and_clip_preprocess(impl::vertex_shader_instanc
          *    -w <= z <= w
          *      0 < w.
          */
-        if(vertex_it.coords.x < -vertex_it.coords.w || vertex_it.coords.x > vertex_it.coords.w
-           || vertex_it.coords.y < -vertex_it.coords.w || vertex_it.coords.y > vertex_it.coords.w
-           || vertex_it.coords.z < -vertex_it.coords.w || vertex_it.coords.z > vertex_it.coords.w
-           || vertex_it.coords.w <= 0)
+        if(obj.coords[i].x < -obj.coords[i].w || obj.coords[i].x > obj.coords[i].w
+           || obj.coords[i].y < -obj.coords[i].w || obj.coords[i].y > obj.coords[i].w
+           || obj.coords[i].z < -obj.coords[i].w || obj.coords[i].z > obj.coords[i].w
+           || obj.coords[i].w <= 0)
         {
-            vertex_it.flags |= geom::vf_clip_discard;
+            obj.flags[i] |= geom::vf_clip_discard;
         }
         else
         {
@@ -97,32 +116,32 @@ static void transform_to_viewport_coords(impl::vertex_buffer& vb, float x, float
     }
 }
 
-static void process_vertices(swr::impl::render_object* obj)
+static void process_vertices(swr::impl::render_object& obj)
 {
-    obj->clipped_vertices.clear();
+    obj.clipped_vertices.clear();
 
-    if(obj->vertices.size() == 0 || obj->indices.size() == 0)
+    if(obj.coord_count == 0 || obj.indices.size() == 0)
     {
         return;
     }
 
     // create shader instance.
-    impl::vertex_shader_instance_container shader_instance{obj->states.shader_info->storage.data(), obj->states.shader_info, obj->states.uniforms};
+    impl::vertex_shader_instance_container shader_instance{obj.states.shader_info->storage.data(), obj.states.shader_info, obj.states.uniforms};
 
     /*
      * Invoke the vertex shaders and preprocess vertices with respect to clipping.
      * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
      * The clip preprecessing sets a marker for each vertex outside the view frustum.
      */
-    bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(shader_instance, obj->vertices);
+    bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(shader_instance, obj);
     if(discard_buffer)
     {
         return;
     }
 
     // check we have valid drawing and polygon modes.
-    assert(obj->mode == vertex_buffer_mode::points || obj->mode == vertex_buffer_mode::lines || obj->mode == vertex_buffer_mode::triangles);
-    assert(obj->states.poly_mode == polygon_mode::point || obj->states.poly_mode == polygon_mode::line || obj->states.poly_mode == polygon_mode::fill);
+    assert(obj.mode == vertex_buffer_mode::points || obj.mode == vertex_buffer_mode::lines || obj.mode == vertex_buffer_mode::triangles);
+    assert(obj.states.poly_mode == polygon_mode::point || obj.states.poly_mode == polygon_mode::line || obj.states.poly_mode == polygon_mode::fill);
 
     /*
      * clip the vertex buffer.
@@ -132,41 +151,55 @@ static void process_vertices(swr::impl::render_object* obj)
      *
      * Clipping pre-assembles the primitives, i.e. it creates triangles.
      */
-    if(obj->mode == vertex_buffer_mode::points || obj->states.poly_mode == polygon_mode::point)
+    if(obj.mode == vertex_buffer_mode::points || obj.states.poly_mode == polygon_mode::point)
     {
         // copy the correct points.
-        for(const auto& index: obj->indices)
+        for(const auto& i: obj.indices)
         {
-            const auto& Vertex = obj->vertices[index];
-            if(!(Vertex.flags & geom::vf_clip_discard))
+            if(!(obj.flags[i] & geom::vf_clip_discard))
             {
-                obj->clipped_vertices.push_back(obj->vertices[index]);
+                // TODO temporary.
+                geom::vertex v;
+                v.attribs.reserve(obj.attrib_count);
+                for(std::size_t j = 0; j < obj.attrib_count; ++j)
+                {
+                    v.attribs.emplace_back(obj.attribs[i * obj.attrib_count + j]);
+                }
+                v.coords = obj.coords[i];
+                v.flags = obj.flags[i];
+                v.varyings.reserve(obj.states.shader_info->varying_count);
+                for(std::size_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                {
+                    v.varyings.emplace_back(obj.varyings[i * obj.states.shader_info->varying_count + j]);
+                }
+
+                obj.clipped_vertices.emplace_back(v);
             }
         }
     }
-    else if(obj->mode == vertex_buffer_mode::lines)
+    else if(obj.mode == vertex_buffer_mode::lines)
     {
-        clip_line_buffer(obj->vertices, obj->indices, impl::line_list, obj->clipped_vertices);
+        clip_line_buffer(obj, impl::line_list);
     }
-    else if(obj->mode == vertex_buffer_mode::triangles && obj->states.poly_mode == polygon_mode::line)
+    else if(obj.mode == vertex_buffer_mode::triangles && obj.states.poly_mode == polygon_mode::line)
     {
-        clip_triangle_buffer(obj->vertices, obj->indices, impl::line_list, obj->clipped_vertices);
+        clip_triangle_buffer(obj, impl::line_list);
     }
-    else if(obj->states.poly_mode == polygon_mode::fill)
+    else if(obj.states.poly_mode == polygon_mode::fill)
     {
         /* here we necessarily have list_it.Mode == triangles */
-        clip_triangle_buffer(obj->vertices, obj->indices, impl::triangle_list, obj->clipped_vertices);
+        clip_triangle_buffer(obj, impl::triangle_list);
     }
 
     // skip the rest of the pipeline if no clipped vertices were produced.
-    if(obj->clipped_vertices.size() != 0)
+    if(obj.clipped_vertices.size() != 0)
     {
         // perspective divide and viewport transformation.
         transform_to_viewport_coords(
-          obj->clipped_vertices,
-          obj->states.x, obj->states.y,
-          obj->states.width, obj->states.height,
-          obj->states.z_near, obj->states.z_far);
+          obj.clipped_vertices,
+          obj.states.x, obj.states.y,
+          obj.states.width, obj.states.height,
+          obj.states.z_near, obj.states.z_far);
     }
 }
 
@@ -180,21 +213,37 @@ static void process_vertices(swr::impl::render_object* obj)
 namespace mt
 {
 
-static void vertex_shader_task(impl::vertex_buffer* vb, std::size_t offset, std::size_t end, impl::vertex_shader_instance_container* shader_instance)
+constexpr std::size_t min_tasks_per_thread = 4;
+
+static void vertex_shader_task(impl::render_object* obj, std::size_t offset, std::size_t end, impl::vertex_shader_instance_container* shader_instance)
 {
+    // TODO temporary.
+    boost::container::static_vector<ml::vec4, geom::limits::max::attributes> temp_attribs;
+    boost::container::static_vector<ml::vec4, geom::limits::max::varyings> temp_varyings;
+
+    temp_attribs.resize(obj->attrib_count);
+    temp_varyings.resize(shader_instance->get_varying_count());
+
     for(std::size_t i = offset; i < end; ++i)
     {
-        geom::vertex& v = (*vb)[i];
-
-        // allocate space for varyings and invoke the vertex shader.
-        v.varyings.resize(shader_instance->get_varying_count());
+        // TODO temporary.
+        for(std::size_t j = 0; j < obj->attrib_count; ++j)
+        {
+            temp_attribs[j] = obj->attribs[i * obj->attrib_count + j];
+        }
 
         float gl_PointSize{0}; /* currently unused */
         shader_instance->get()->vertex_shader(
           0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          v.attribs, v.coords,
+          temp_attribs, obj->coords[i],
           gl_PointSize, nullptr /* gl_ClipDistance */,
-          v.varyings);
+          temp_varyings);
+
+        // TODO temporary.
+        for(std::size_t j = 0; j < shader_instance->get_varying_count(); ++j)
+        {
+            obj->varyings[i * shader_instance->get_varying_count() + j] = temp_varyings[j];
+        }
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
@@ -204,31 +253,34 @@ static void vertex_shader_task(impl::vertex_buffer* vb, std::size_t offset, std:
          *    -w <= z <= w
          *      0 < w.
          */
-        if(v.coords.x < -v.coords.w || v.coords.x > v.coords.w
-           || v.coords.y < -v.coords.w || v.coords.y > v.coords.w
-           || v.coords.z < -v.coords.w || v.coords.z > v.coords.w
-           || v.coords.w <= 0)
+        if(obj->coords[i].x < -obj->coords[i].w || obj->coords[i].x > obj->coords[i].w
+           || obj->coords[i].y < -obj->coords[i].w || obj->coords[i].y > obj->coords[i].w
+           || obj->coords[i].z < -obj->coords[i].w || obj->coords[i].z > obj->coords[i].w
+           || obj->coords[i].w <= 0)
         {
-            v.flags |= geom::vf_clip_discard;
+            obj->flags[i] |= geom::vf_clip_discard;
         }
     }
 }
 
-static void invoke_vertex_shader_and_clip_preprocess(impl::sdl_render_context::thread_pool_type& thread_pool, impl::vertex_shader_instance_container& shader_instance, impl::vertex_buffer& vb)
+static void invoke_vertex_shader_and_clip_preprocess(impl::sdl_render_context::thread_pool_type& thread_pool, impl::vertex_shader_instance_container& shader_instance, impl::render_object& obj)
 {
     auto thread_count = thread_pool.get_thread_count();
-    std::size_t thread_vertex_count = vb.size() / thread_count;
+    std::size_t thread_vertex_count = std::max(min_tasks_per_thread, obj.coord_count / thread_count);
 
+    // allocate varyings.
+    obj.allocate_varyings(shader_instance.get_varying_count());
+
+    // push shader tasks to thread pool.
     std::size_t offset = 0;
-    for(std::size_t i = 0; i < thread_count; ++i)
+    for(; offset < obj.coord_count - thread_vertex_count; offset += thread_vertex_count)
     {
-        thread_pool.push_immediate_task(vertex_shader_task, &vb, offset, offset + thread_vertex_count, &shader_instance);
-        offset += thread_vertex_count;
+        thread_pool.push_immediate_task(vertex_shader_task, &obj, offset, offset + thread_vertex_count, &shader_instance);
     }
 
-    if(offset < vb.size())
+    if(offset < obj.coord_count)
     {
-        thread_pool.push_immediate_task(vertex_shader_task, &vb, offset, vb.size(), &shader_instance);
+        thread_pool.push_immediate_task(vertex_shader_task, &obj, offset, obj.coord_count, &shader_instance);
     }
 }
 
@@ -273,10 +325,10 @@ static void transform_to_viewport_coords_task(impl::vertex_buffer* vb, std::size
 static void transform_to_viewport_coords(swr::impl::sdl_render_context::thread_pool_type& thread_pool, impl::vertex_buffer& vb, float x, float y, float width, float height, float z_near, float z_far)
 {
     auto thread_count = thread_pool.get_thread_count();
-    std::size_t thread_vertex_count = vb.size() / thread_count;
+    std::size_t thread_vertex_count = std::max(min_tasks_per_thread, vb.size() / thread_count);
 
     std::size_t offset = 0;
-    for(std::size_t i = 0; i < thread_count; ++i, offset += thread_vertex_count)
+    for(; offset < vb.size() - thread_vertex_count; offset += thread_vertex_count)
     {
         thread_pool.push_immediate_task(transform_to_viewport_coords_task, &vb, offset, offset + thread_vertex_count, x, y, width, height, z_near, z_far);
     }
@@ -307,27 +359,41 @@ static void clip_vertex_buffer(swr::impl::render_object* obj)
     if(obj->mode == vertex_buffer_mode::points || obj->states.poly_mode == polygon_mode::point)
     {
         // copy the correct points.
-        for(const auto& index: obj->indices)
+        for(const auto& i: obj->indices)
         {
-            const auto& Vertex = obj->vertices[index];
-            if(!(Vertex.flags & geom::vf_clip_discard))
+            if(!(obj->flags[i] & geom::vf_clip_discard))
             {
-                obj->clipped_vertices.push_back(obj->vertices[index]);
+                // TODO temporary.
+                geom::vertex v;
+                v.attribs.reserve(obj->attrib_count);
+                for(std::size_t j = 0; j < obj->attrib_count; ++j)
+                {
+                    v.attribs.emplace_back(obj->attribs[i * obj->attrib_count + j]);
+                }
+                v.coords = obj->coords[i];
+                v.flags = obj->flags[i];
+                v.varyings.reserve(obj->states.shader_info->varying_count);
+                for(std::size_t j = 0; j < obj->states.shader_info->varying_count; ++j)
+                {
+                    v.varyings.emplace_back(obj->varyings[i * obj->states.shader_info->varying_count + j]);
+                }
+
+                obj->clipped_vertices.emplace_back(v);
             }
         }
     }
     else if(obj->mode == vertex_buffer_mode::lines)
     {
-        clip_line_buffer(obj->vertices, obj->indices, impl::line_list, obj->clipped_vertices);
+        clip_line_buffer(*obj, impl::line_list);
     }
     else if(obj->mode == vertex_buffer_mode::triangles && obj->states.poly_mode == polygon_mode::line)
     {
-        clip_triangle_buffer(obj->vertices, obj->indices, impl::line_list, obj->clipped_vertices);
+        clip_triangle_buffer(*obj, impl::line_list);
     }
     else if(obj->states.poly_mode == polygon_mode::fill)
     {
         /* here we necessarily have list_it.Mode == triangles */
-        clip_triangle_buffer(obj->vertices, obj->indices, impl::triangle_list, obj->clipped_vertices);
+        clip_triangle_buffer(*obj, impl::triangle_list);
     }
 }
 
@@ -358,9 +424,9 @@ static void process_vertices(impl::render_device_context* context)
     // invoke vertex shaders.
     for(auto& [obj, shader]: context->program_instances)
     {
-        if(obj->vertices.size() != 0 && obj->indices.size() != 0)
+        if(obj->attrib_count != 0 && obj->indices.size() != 0)
         {
-            invoke_vertex_shader_and_clip_preprocess(context->thread_pool, shader, obj->vertices);
+            invoke_vertex_shader_and_clip_preprocess(context->thread_pool, shader, *obj);
         }
     }
     context->thread_pool.run_tasks_and_wait();
@@ -437,7 +503,7 @@ void Present()
     // process render commands.
     for(auto& it: context->render_object_list)
     {
-        st::process_vertices(&it);
+        st::process_vertices(it);
 
         if(it.clipped_vertices.size() != 0)
         {

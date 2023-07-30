@@ -145,14 +145,19 @@ const int sse = 16;
 
 /**
  * Create aligned memory by resizing a std::vector.
+ * 
+ * @param alignment The alignment to use.
+ * @param count The count of T's to align the memory for (i.e., count*sizeof(T) is the byte size of the requested buffer).
+ * @param v The vector that will hold the buffer.
+ * @returns Aligned memory for holding 'count' elements of type T.
  */
 template<typename T>
-inline T* align_vector(std::size_t alignment, std::size_t size, std::vector<T>& v)
+inline T* align_vector(std::size_t alignment, std::size_t count, std::vector<T>& v)
 {
-    v.resize(size + alignment - 1);
+    v.resize(count + alignment - 1);
     auto buffer_ptr = v.data();
-    std::size_t buffer_size = v.size();
-    return reinterpret_cast<T*>(std::align(alignment, size, reinterpret_cast<void*&>(buffer_ptr), buffer_size));
+    std::size_t buffer_size = v.size() * sizeof(T);
+    return reinterpret_cast<T*>(std::align(alignment, count*sizeof(T), reinterpret_cast<void*&>(buffer_ptr), buffer_size));
 }
 
 /**

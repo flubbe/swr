@@ -41,6 +41,7 @@ public:
           swr::interpolation_qualifier::smooth,
           swr::interpolation_qualifier::smooth,
           swr::interpolation_qualifier::smooth,
+          swr::interpolation_qualifier::smooth,
           swr::interpolation_qualifier::smooth};
     }
 

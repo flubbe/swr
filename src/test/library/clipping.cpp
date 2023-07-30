@@ -32,36 +32,31 @@ BOOST_AUTO_TEST_SUITE(clipping)
 
 BOOST_AUTO_TEST_CASE(empty_input)
 {
-    // input data.
-    swr::impl::vertex_buffer points;
-    swr::impl::index_buffer indices;
-
-    // output data.
-    swr::impl::vertex_buffer out;
+    swr::impl::render_object obj;
 
     /*
      * test empty input for line clipping.
      */
-    swr::impl::clip_line_buffer(points, indices, swr::impl::clip_output::point_list, out);
-    BOOST_TEST(out.size() == 0);
+    swr::impl::clip_line_buffer(obj, swr::impl::clip_output::point_list);
+    BOOST_TEST(obj.clipped_vertices.size() == 0);
 
-    swr::impl::clip_line_buffer(points, indices, swr::impl::clip_output::line_list, out);
-    BOOST_TEST(out.size() == 0);
+    swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
+    BOOST_TEST(obj.clipped_vertices.size() == 0);
 
-    swr::impl::clip_line_buffer(points, indices, swr::impl::clip_output::triangle_list, out);
-    BOOST_TEST(out.size() == 0);
+    swr::impl::clip_line_buffer(obj, swr::impl::clip_output::triangle_list);
+    BOOST_TEST(obj.clipped_vertices.size() == 0);
 
     /*
      * test empty input for triangle clipping.
      */
-    swr::impl::clip_triangle_buffer(points, indices, swr::impl::clip_output::point_list, out);
-    BOOST_TEST(out.size() == 0);
+    swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::point_list);
+    BOOST_TEST(obj.clipped_vertices.size() == 0);
 
-    swr::impl::clip_triangle_buffer(points, indices, swr::impl::clip_output::line_list, out);
-    BOOST_TEST(out.size() == 0);
+    swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::line_list);
+    BOOST_TEST(obj.clipped_vertices.size() == 0);
 
-    swr::impl::clip_triangle_buffer(points, indices, swr::impl::clip_output::triangle_list, out);
-    BOOST_TEST(out.size() == 0);
+    swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::triangle_list);
+    BOOST_TEST(obj.clipped_vertices.size() == 0);
 }
 
 /* get bits of float type. note: in C++20, one should use std::bit_cast. */
@@ -84,8 +79,24 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
      * clip_line_buffer does not check if the supplied indices are valid - we have to ensure that they are.
      */
 
+    // render_object setup.
+    swr::impl::render_object obj;
+
+    constexpr std::uint32_t COORD_COUNT = 14;
+    constexpr std::uint32_t INDEX_COUNT = 14;
+
+    obj.allocate_coords(COORD_COUNT);
+    obj.indices.reserve(INDEX_COUNT);
+    for(std::uint32_t i=0;i<INDEX_COUNT;++i)
+    {
+        obj.indices.push_back(i);
+    }
+    obj.flags.resize(INDEX_COUNT);
+    swr::impl::program_info info;
+    obj.states.shader_info = &info;
+
     // input data.
-    swr::impl::vertex_buffer points = {
+    ml::vec4 coords[COORD_COUNT] = {
       ml::vec4{0, 0, 0, 1}, ml::vec4{1, 0, 0, 1},
       ml::vec4{0, 1, 0, 1}, ml::vec4{0, 0, 1, 1},
       ml::vec4{0.123, -0.456, 0.789, 1.234}, ml::vec4{-0.123, -0.456, -0.789, 12.34},
@@ -93,31 +104,25 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
       ml::vec4{0.9, -0.1, -0.2, 1.234}, ml::vec4{-0.3, -0.4, -0.5, 0.6},
       ml::vec4{-0.7, -0.8, -0.9, 1.234}, ml::vec4{-10, -20, -30, 40},
       ml::vec4{0.0001, 0.0002, 0.0003, 0.0004}, ml::vec4{-12345.67, -12345.67, -0.789, 23456.98}};
-    swr::impl::index_buffer indices = {
-      0, 1,
-      2, 3,
-      4, 5,
-      6, 7,
-      8, 9,
-      10, 11,
-      12, 13};
 
-    // output data.
-    swr::impl::vertex_buffer out;
+    for(std::uint32_t i=0;i<COORD_COUNT;++i)
+    {
+        obj.coords[i] = coords[i];
+    }
 
     // clip lines.
-    BOOST_REQUIRE((indices.size() & 1) == 0);
-    swr::impl::clip_line_buffer(points, indices, swr::impl::clip_output::line_list, out);
-    BOOST_TEST(out.size() == points.size());
+    BOOST_REQUIRE((INDEX_COUNT & 1) == 0);
+    swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
+    BOOST_TEST(obj.clipped_vertices.size() == COORD_COUNT);
 
-    BOOST_REQUIRE(out.size() == points.size());
-    for(size_t i = 0; i < points.size(); ++i)
+    BOOST_REQUIRE(obj.clipped_vertices.size() == COORD_COUNT);
+    for(size_t i = 0; i < COORD_COUNT; ++i)
     {
         // compare bits.
-        BOOST_TEST(get_bits(points[i].coords.x) == get_bits(out[i].coords.x));
-        BOOST_TEST(get_bits(points[i].coords.y) == get_bits(out[i].coords.y));
-        BOOST_TEST(get_bits(points[i].coords.z) == get_bits(out[i].coords.z));
-        BOOST_TEST(get_bits(points[i].coords.w) == get_bits(out[i].coords.w));
+        BOOST_TEST(get_bits(coords[i].x) == get_bits(obj.clipped_vertices[i].coords.x));
+        BOOST_TEST(get_bits(coords[i].y) == get_bits(obj.clipped_vertices[i].coords.y));
+        BOOST_TEST(get_bits(coords[i].z) == get_bits(obj.clipped_vertices[i].coords.z));
+        BOOST_TEST(get_bits(coords[i].w) == get_bits(obj.clipped_vertices[i].coords.w));
     }
 
     /*
@@ -138,38 +143,52 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
         return (v.w > 0) && (-v.w <= v.x) && (v.x <= v.w) && (-v.w <= v.y) && (v.y <= v.w) && (-v.w <= v.z) && (v.z <= v.w);
     };
 
-    indices.clear();
-    indices.push_back(0);
-    indices.push_back(1);
+    obj.indices = {0, 1};
+    obj.flags.resize(2);
+
     for(int k = 0; k < 10000; ++k)
     {
+        ml::vec4 points[2];
         do
         {
-            points.clear();
-            points.emplace_back(vec_rnd());
-            points.emplace_back(vec_rnd());
-        } while(!in_frustum(points[0].coords) || !in_frustum(points[1].coords));
+            points[0] = vec_rnd();
+            points[1] = vec_rnd();
+        } while(!in_frustum(points[0]) || !in_frustum(points[1]));
 
-        out.clear();
-        swr::impl::clip_line_buffer(points, indices, swr::impl::clip_output::line_list, out);
-        BOOST_TEST(out.size() == 2);
+        obj.allocate_coords(2);
+        obj.coords[0] = points[0];
+        obj.coords[1] = points[1];
 
-        BOOST_TEST(get_bits(points[0].coords.x) == get_bits(out[0].coords.x));
-        BOOST_TEST(get_bits(points[0].coords.y) == get_bits(out[0].coords.y));
-        BOOST_TEST(get_bits(points[0].coords.z) == get_bits(out[0].coords.z));
-        BOOST_TEST(get_bits(points[0].coords.w) == get_bits(out[0].coords.w));
+        obj.clipped_vertices.clear();
+        swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
+        BOOST_TEST(obj.clipped_vertices.size() == 2);
 
-        BOOST_TEST(get_bits(points[1].coords.x) == get_bits(out[1].coords.x));
-        BOOST_TEST(get_bits(points[1].coords.y) == get_bits(out[1].coords.y));
-        BOOST_TEST(get_bits(points[1].coords.z) == get_bits(out[1].coords.z));
-        BOOST_TEST(get_bits(points[1].coords.w) == get_bits(out[1].coords.w));
+        BOOST_TEST(get_bits(points[0].x) == get_bits(obj.clipped_vertices[0].coords.x));
+        BOOST_TEST(get_bits(points[0].y) == get_bits(obj.clipped_vertices[0].coords.y));
+        BOOST_TEST(get_bits(points[0].z) == get_bits(obj.clipped_vertices[0].coords.z));
+        BOOST_TEST(get_bits(points[0].w) == get_bits(obj.clipped_vertices[0].coords.w));
+
+        BOOST_TEST(get_bits(points[1].x) == get_bits(obj.clipped_vertices[1].coords.x));
+        BOOST_TEST(get_bits(points[1].y) == get_bits(obj.clipped_vertices[1].coords.y));
+        BOOST_TEST(get_bits(points[1].z) == get_bits(obj.clipped_vertices[1].coords.z));
+        BOOST_TEST(get_bits(points[1].w) == get_bits(obj.clipped_vertices[1].coords.w));
     }
 }
 
 BOOST_AUTO_TEST_CASE(line_clip)
 {
-    swr::impl::vertex_buffer points;
-    swr::impl::index_buffer indices = {0, 1};
+    // render_object setup.
+    const std::uint32_t VERTEX_COUNT = 2;
+    swr::impl::render_object obj;    
+    obj.allocate_coords(VERTEX_COUNT);
+    obj.indices.reserve(VERTEX_COUNT);
+    for(std::uint32_t i=0;i<VERTEX_COUNT;++i)
+    {
+        obj.indices.push_back(i);
+    }
+    obj.flags.resize(VERTEX_COUNT);
+    swr::impl::program_info info;
+    obj.states.shader_info = &info;
 
     swr::impl::vertex_buffer out1, out2;
 
@@ -207,43 +226,43 @@ BOOST_AUTO_TEST_CASE(line_clip)
         bool v1_inside = in_frustum(v1);
         bool v2_inside = in_frustum(v2);
 
-        points.clear();
-        points.emplace_back(v1);
-        points.emplace_back(v2);
+        obj.coords[0] = v1;
+        obj.coords[1] = v2;
 
         /*
          * clip_line_buffer does not do frustum checks, but relies on the vf_clip_discard flag being set.
          */
         if(!v1_inside)
         {
-            points[0].flags |= geom::vf_clip_discard;
+            obj.flags[0] |= geom::vf_clip_discard;
         }
         if(!v2_inside)
         {
-            points[1].flags |= geom::vf_clip_discard;
+            obj.flags[1] |= geom::vf_clip_discard;
         }
 
         out1.clear();
-        swr::impl::clip_line_buffer(points, indices, swr::impl::clip_output::line_list, out1);
+        swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
+        out1 = obj.clipped_vertices;
 
-        points.clear();
-        points.emplace_back(v2);
-        points.emplace_back(v1);
+        obj.coords[0] = v2;
+        obj.coords[1] = v1;
 
         /*
          * clip_line_buffer does not do frustum checks, but relies on the vf_clip_discard flag being set.
          */
         if(!v1_inside)
         {
-            points[1].flags |= geom::vf_clip_discard;
+            obj.flags[1] |= geom::vf_clip_discard;
         }
         if(!v2_inside)
         {
-            points[0].flags |= geom::vf_clip_discard;
+            obj.flags[0] |= geom::vf_clip_discard;
         }
 
         out2.clear();
-        swr::impl::clip_line_buffer(points, indices, swr::impl::clip_output::line_list, out2);
+        swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
+        out2 = obj.clipped_vertices;
 
         if(v1_inside || v2_inside)
         {

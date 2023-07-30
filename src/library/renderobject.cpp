@@ -33,18 +33,17 @@ static void copy_attributes(
         return;
     }
 
-    int max_slot_index = *std::max_element(active_vabs.begin(), active_vabs.end());
-    if(max_slot_index < 0)
+    int attrib_stride = active_vabs.size();
+    if(attrib_stride == 0)
     {
         return;
     }
-    ++max_slot_index;
 
-    for(std::size_t i = 0; i < obj.vertices.size(); ++i)
+    obj.allocate_attribs(attrib_stride);
+    ml::vec4* attribs = obj.attribs;
+
+    for(std::size_t i = 0; i < obj.coord_count; ++i)
     {
-        geom::vertex& vertex = obj.vertices[i];
-        vertex.attribs.resize(max_slot_index);
-
         for(std::size_t slot = 0; slot < active_vabs.size(); ++slot)
         {
             const int& id = active_vabs[slot];
@@ -54,8 +53,10 @@ static void copy_attributes(
                 continue;
             }
 
-            vertex.attribs[slot] = vertex_attribute_buffers[id].data[transform_fn(i)];
+            attribs[slot] = vertex_attribute_buffers[id].data[transform_fn(i)];
         }
+
+        attribs += attrib_stride;
     }
 }
 

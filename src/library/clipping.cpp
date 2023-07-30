@@ -287,7 +287,7 @@ static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& ou
  * to contain a line list, i.e., if i is divisible by 2, then in_ib[i] and in_ib[i+1] need to be indices into in_vb
  * forming a line.
  */
-void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb)
+void clip_line_buffer(render_object& obj, clip_output output_type)
 {
     vertex_buffer clipped_line{2};
     vertex_buffer temp_line{2};
@@ -300,25 +300,39 @@ void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, cli
      *  iii) Copy all temporary lines to the output vertex buffer.
      */
 
-    out_vb.clear();
-    out_vb.reserve(in_vb.size());
+    obj.clipped_vertices.clear();
+    obj.clipped_vertices.reserve(obj.coord_count);
 
-    for(size_t index_it = 0; index_it < in_ib.size(); index_it += 2)
+    for(size_t index_it = 0; index_it < obj.indices.size(); index_it += 2)
     {
-        const auto i1 = in_ib[index_it];
-        const auto i2 = in_ib[index_it + 1];
-
-        const auto& v1 = in_vb[i1];
-        const auto& v2 = in_vb[i2];
+        const std::uint32_t indices[2] = {
+          obj.indices[index_it],
+          obj.indices[index_it + 1]};
 
         // perform clipping.
-        if((v1.flags & geom::vf_clip_discard)
-           || (v2.flags & geom::vf_clip_discard))
+        if((obj.flags[indices[0]] & geom::vf_clip_discard)
+           || (obj.flags[indices[1]] & geom::vf_clip_discard))
         {
             // fill temporary vertex buffer.
             temp_line.clear();
-            temp_line.push_back(v1);
-            temp_line.push_back(v2);
+
+            // TODO temporary
+            geom::vertex v;
+            v.varyings.reserve(obj.states.shader_info->varying_count);
+            for(std::size_t i = 0; i < 2; ++i)
+            {
+                v.coords = obj.coords[indices[i]];
+
+                v.varyings.clear();
+                for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                {
+                    v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
+                }
+
+                v.flags = obj.flags[indices[i]];
+
+                temp_line.push_back(v);
+            }
 
             // perform clipping.
             clipped_line.clear();
@@ -333,12 +347,12 @@ void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, cli
             if(output_type == point_list)
             {
                 // write a list of points.
-                out_vb.insert(std::end(out_vb), std::begin(clipped_line), std::end(clipped_line));
+                obj.clipped_vertices.insert(std::end(obj.clipped_vertices), std::begin(clipped_line), std::end(clipped_line));
             }
             else if(output_type == line_list)
             {
                 // store vertex list.
-                out_vb.insert(std::end(out_vb), std::begin(clipped_line), std::end(clipped_line));
+                obj.clipped_vertices.insert(std::end(obj.clipped_vertices), std::begin(clipped_line), std::end(clipped_line));
             }
         }
         else
@@ -347,14 +361,46 @@ void clip_line_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, cli
             if(output_type == point_list)
             {
                 // write a list of points.
-                out_vb.push_back(v1);
-                out_vb.push_back(v2);
+
+                // TODO temporary
+                geom::vertex v;
+                v.varyings.reserve(obj.states.shader_info->varying_count);
+                for(std::size_t i = 0; i < 2; ++i)
+                {
+                    v.coords = obj.coords[indices[i]];
+
+                    v.varyings.clear();
+                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                    {
+                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
+                    }
+
+                    v.flags = obj.flags[indices[i]];
+
+                    obj.clipped_vertices.push_back(v);
+                }
             }
             else if(output_type == line_list)
             {
                 // construct lines.
-                out_vb.push_back(v1);
-                out_vb.push_back(v2);
+
+                // TODO temporary
+                geom::vertex v;
+                v.varyings.reserve(obj.states.shader_info->varying_count);
+                for(std::size_t i = 0; i < 2; ++i)
+                {
+                    v.coords = obj.coords[indices[i]];
+
+                    v.varyings.clear();
+                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                    {
+                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
+                    }
+
+                    v.flags = obj.flags[indices[i]];
+
+                    obj.clipped_vertices.push_back(v);
+                }
             }
         }
     }
@@ -425,7 +471,7 @@ static void clip_triangle_on_w_plane(const vertex_buffer& in_triangle, vertex_bu
  * to contain a triangle list, i.e., if i is divisible by 3, then in_ib[i], in_ib[i+1] and in_ib[i+2] need to
  * be indices into in_vb forming a triangle.
  */
-void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib, clip_output output_type, vertex_buffer& out_vb)
+void clip_triangle_buffer(render_object& obj, clip_output output_type)
 {
     /*
      * temporary buffers.
@@ -446,29 +492,41 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
      *  iii) Copy all temporary triangles to the output vertex buffer.
      */
 
-    out_vb.clear();
-    out_vb.reserve(in_vb.size());
+    obj.clipped_vertices.clear();
+    obj.clipped_vertices.reserve(obj.clipped_vertices.size());
 
-    for(size_t index_it = 0; index_it < in_ib.size(); index_it += 3)
+    for(size_t index_it = 0; index_it < obj.indices.size(); index_it += 3)
     {
-        const auto i1 = in_ib[index_it];
-        const auto i2 = in_ib[index_it + 1];
-        const auto i3 = in_ib[index_it + 2];
-
-        const auto& v1 = in_vb[i1];
-        const auto& v2 = in_vb[i2];
-        const auto& v3 = in_vb[i3];
+        const std::uint32_t indices[3] = {
+          obj.indices[index_it],
+          obj.indices[index_it + 1],
+          obj.indices[index_it + 2]};
 
         // perform clipping.
-        if((v1.flags & geom::vf_clip_discard)
-           || (v2.flags & geom::vf_clip_discard)
-           || (v3.flags & geom::vf_clip_discard))
+        if((obj.flags[indices[0]] & geom::vf_clip_discard)
+           || (obj.flags[indices[1]] & geom::vf_clip_discard)
+           || (obj.flags[indices[2]] & geom::vf_clip_discard))
         {
             // fill temporary vertex buffer.
             temp_triangle.clear();
-            temp_triangle.push_back(v1);
-            temp_triangle.push_back(v2);
-            temp_triangle.push_back(v3);
+
+            // TODO temporary
+            geom::vertex v;
+            v.varyings.reserve(obj.states.shader_info->varying_count);
+            for(std::size_t i = 0; i < 3; ++i)
+            {
+                v.coords = obj.coords[indices[i]];
+
+                v.varyings.clear();
+                for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                {
+                    v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
+                }
+
+                v.flags = obj.flags[indices[i]];
+
+                temp_triangle.push_back(v);
+            }
 
             // perform clipping.
             clipped_triangle.clear();
@@ -483,31 +541,31 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
             if(output_type == point_list)
             {
                 // write a list of points.
-                out_vb.insert(std::end(out_vb), std::begin(clipped_triangle), std::end(clipped_triangle));
+                obj.clipped_vertices.insert(std::end(obj.clipped_vertices), std::begin(clipped_triangle), std::end(clipped_triangle));
             }
             else if(output_type == line_list
                     && clipped_triangle.size() >= 2)
             {
                 // store vertex list. mark last vertex of the line,
                 // so that the polygons can all be reconstructed.
-                out_vb.insert(std::end(out_vb), std::begin(clipped_triangle), std::end(clipped_triangle));
-                out_vb.back().flags |= geom::vf_line_strip_end;
+                obj.clipped_vertices.insert(std::end(obj.clipped_vertices), std::begin(clipped_triangle), std::end(clipped_triangle));
+                obj.clipped_vertices.back().flags |= geom::vf_line_strip_end;
             }
             else if(output_type == triangle_list && clipped_triangle.size() >= 3)
             {
                 // By construction a clipped triangle forms a convex polygon.
                 // Thus, we can construct it as a triangle fan by selecting an arbitrary vertex as its center.
 
-                const auto& center = clipped_triangle.front();
-                const auto* previous = &clipped_triangle[1];
+                const geom::vertex& center = clipped_triangle.front();
+                const geom::vertex* previous = &clipped_triangle[1];
 
                 for(size_t i = 2; i < clipped_triangle.size(); ++i)
                 {
-                    const auto* current = &clipped_triangle[i];
+                    const geom::vertex* current = &clipped_triangle[i];
 
-                    out_vb.push_back(center);
-                    out_vb.push_back(*previous);
-                    out_vb.push_back(*current);
+                    obj.clipped_vertices.push_back(center);
+                    obj.clipped_vertices.push_back(*previous);
+                    obj.clipped_vertices.push_back(*current);
 
                     previous = current;
                 }
@@ -518,27 +576,68 @@ void clip_triangle_buffer(const vertex_buffer& in_vb, const index_buffer& in_ib,
             // copy clipped vertices to output buffer.
             if(output_type == point_list)
             {
-                // write a list of points.
-                out_vb.push_back(v1);
-                out_vb.push_back(v2);
-                out_vb.push_back(v3);
+                // TODO temporary
+                geom::vertex v;
+                v.varyings.reserve(obj.states.shader_info->varying_count);
+                for(std::size_t i = 0; i < 3; ++i)
+                {
+                    v.coords = obj.coords[indices[i]];
+
+                    v.varyings.clear();
+                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                    {
+                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
+                    }
+
+                    v.flags = obj.flags[indices[i]];
+
+                    obj.clipped_vertices.push_back(v);
+                }
             }
             else if(output_type == line_list)
             {
                 // construct lines.
-                out_vb.push_back(v1);
-                out_vb.push_back(v2);
-                out_vb.push_back(v3);
+                // TODO temporary
+                geom::vertex v;
+                v.varyings.reserve(obj.states.shader_info->varying_count);
+                for(std::size_t i = 0; i < 3; ++i)
+                {
+                    v.coords = obj.coords[indices[i]];
+
+                    v.varyings.clear();
+                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                    {
+                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
+                    }
+
+                    v.flags = obj.flags[indices[i]];
+
+                    obj.clipped_vertices.push_back(v);
+                }
 
                 // mark last index as end of line strip.
-                out_vb.back().flags |= geom::vf_line_strip_end;
+                obj.clipped_vertices.back().flags |= geom::vf_line_strip_end;
             }
             else if(output_type == triangle_list)
             {
                 // copy triangle.
-                out_vb.push_back(v1);
-                out_vb.push_back(v2);
-                out_vb.push_back(v3);
+                // TODO temporary
+                geom::vertex v;
+                v.varyings.reserve(obj.states.shader_info->varying_count);
+                for(std::size_t i = 0; i < 3; ++i)
+                {
+                    v.coords = obj.coords[indices[i]];
+
+                    v.varyings.clear();
+                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                    {
+                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
+                    }
+
+                    v.flags = obj.flags[indices[i]];
+
+                    obj.clipped_vertices.push_back(v);
+                }
             }
         }
     }
