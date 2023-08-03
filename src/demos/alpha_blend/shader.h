@@ -37,11 +37,11 @@ public:
     void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
-      const boost::container::static_vector<ml::vec4, geom::limits::max::attributes>& attribs,
+      const ml::vec4* attribs,
       ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
       [[maybe_unused]] float* gl_ClipDistance,
-      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const override
+      ml::vec4* varyings) const override
     {
         ml::mat4x4 proj = (*uniforms)[0].m4;
         ml::mat4x4 view = (*uniforms)[1].m4;
@@ -101,11 +101,11 @@ public:
     void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
-      const boost::container::static_vector<ml::vec4, geom::limits::max::attributes>& attribs,
+      const ml::vec4* attribs,
       ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
       [[maybe_unused]] float* gl_ClipDistance,
-      boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const override
+      ml::vec4* varyings) const override
     {
         ml::mat4x4 proj = (*uniforms)[0].m4;
         ml::mat4x4 view = (*uniforms)[1].m4;

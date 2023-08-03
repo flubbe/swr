@@ -38,33 +38,14 @@ static bool invoke_vertex_shader_and_clip_preprocess(impl::vertex_shader_instanc
     // allocate varyings.
     obj.allocate_varyings(shader_instance.get_varying_count());
 
-    // TODO temporary.
-    boost::container::static_vector<ml::vec4, geom::limits::max::attributes> temp_attribs;
-    boost::container::static_vector<ml::vec4, geom::limits::max::varyings> temp_varyings;
-
-    temp_attribs.resize(obj.attrib_count);
-    temp_varyings.resize(shader_instance.get_varying_count());
-
     for(std::size_t i = 0; i < obj.coord_count; ++i)
     {
-        // TODO temporary.
-        for(std::size_t j = 0; j < obj.attrib_count; ++j)
-        {
-            temp_attribs[j] = obj.attribs[i * obj.attrib_count + j];
-        }
-
         float gl_PointSize{0}; /* currently unused */
         shader_instance.get()->vertex_shader(
           0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          temp_attribs, obj.coords[i],
+          &obj.attribs[i * obj.attrib_count], obj.coords[i],
           gl_PointSize, nullptr /* gl_ClipDistance */,
-          temp_varyings);
-
-        // TODO temporary.
-        for(std::size_t j = 0; j < shader_instance.get_varying_count(); ++j)
-        {
-            obj.varyings[i * shader_instance.get_varying_count() + j] = temp_varyings[j];
-        }
+          &obj.varyings[i * shader_instance.get_varying_count()]);
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
@@ -217,33 +198,14 @@ constexpr std::size_t min_tasks_per_thread = 4;
 
 static void vertex_shader_task(impl::render_object* obj, std::size_t offset, std::size_t end, impl::vertex_shader_instance_container* shader_instance)
 {
-    // TODO temporary.
-    boost::container::static_vector<ml::vec4, geom::limits::max::attributes> temp_attribs;
-    boost::container::static_vector<ml::vec4, geom::limits::max::varyings> temp_varyings;
-
-    temp_attribs.resize(obj->attrib_count);
-    temp_varyings.resize(shader_instance->get_varying_count());
-
     for(std::size_t i = offset; i < end; ++i)
     {
-        // TODO temporary.
-        for(std::size_t j = 0; j < obj->attrib_count; ++j)
-        {
-            temp_attribs[j] = obj->attribs[i * obj->attrib_count + j];
-        }
-
         float gl_PointSize{0}; /* currently unused */
         shader_instance->get()->vertex_shader(
           0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          temp_attribs, obj->coords[i],
+          &obj->attribs[i * obj->attrib_count], obj->coords[i],
           gl_PointSize, nullptr /* gl_ClipDistance */,
-          temp_varyings);
-
-        // TODO temporary.
-        for(std::size_t j = 0; j < shader_instance->get_varying_count(); ++j)
-        {
-            obj->varyings[i * shader_instance->get_varying_count() + j] = temp_varyings[j];
-        }
+          &obj->varyings[i * shader_instance->get_varying_count()]);
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations

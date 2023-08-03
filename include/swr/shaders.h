@@ -250,11 +250,11 @@ public:
     virtual void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
-      [[maybe_unused]] const boost::container::static_vector<ml::vec4, geom::limits::max::attributes>& attribs,
+      [[maybe_unused]] const ml::vec4* attribs,
       [[maybe_unused]] ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
       [[maybe_unused]] float* gl_ClipDistance,
-      [[maybe_unused]] boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& varyings) const
+      [[maybe_unused]] ml::vec4* varyings) const
     {
     }
 
