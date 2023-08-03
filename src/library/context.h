@@ -198,7 +198,7 @@ public:
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** storage for the shader instances. */
-    std::vector<std::byte> program_storage;
+    std::vector<std::byte, utils::allocator<std::byte>> program_storage;
 
     /** render object with their associated program instances, to avoid reallocations. */
     std::vector<std::pair<swr::impl::render_object*, impl::vertex_shader_instance_container>> program_instances;

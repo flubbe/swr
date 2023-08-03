@@ -4,16 +4,18 @@
  * utility functions.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 // include dependencies
 #include <list>
-#include <memory>    /* std::align */
+#include <memory>    /* std::align, std::allocator_traits */
 #include <cstring>   /* std::memcpy */
 #include <algorithm> /* std::find */
 #include <cassert>   /* assert */
+#include <limits>    /* std::numeric_limits<std::size_t>::max() */
+#include <new>       /* operator new[], operator delete[] */
 
 /*
  * thread pool support.
@@ -145,19 +147,19 @@ const int sse = 16;
 
 /**
  * Create aligned memory by resizing a std::vector.
- * 
+ *
  * @param alignment The alignment to use.
  * @param count The count of T's to align the memory for (i.e., count*sizeof(T) is the byte size of the requested buffer).
  * @param v The vector that will hold the buffer.
  * @returns Aligned memory for holding 'count' elements of type T.
  */
-template<typename T>
-inline T* align_vector(std::size_t alignment, std::size_t count, std::vector<T>& v)
+template<typename T, typename Allocator>
+inline T* align_vector(std::size_t alignment, std::size_t count, std::vector<T, Allocator>& v)
 {
     v.resize(count + alignment - 1);
     auto buffer_ptr = v.data();
     std::size_t buffer_size = v.size() * sizeof(T);
-    return reinterpret_cast<T*>(std::align(alignment, count*sizeof(T), reinterpret_cast<void*&>(buffer_ptr), buffer_size));
+    return reinterpret_cast<T*>(std::align(alignment, count * sizeof(T), reinterpret_cast<void*&>(buffer_ptr), buffer_size));
 }
 
 /**
@@ -172,6 +174,56 @@ inline T align(std::size_t alignment, T p)
 {
     return reinterpret_cast<T>((reinterpret_cast<uintptr_t>(p) + (alignment - 1)) & ~(alignment - 1));
 }
+
+/**
+ * References:
+ *  1. https://en.cppreference.com/w/cpp/container/vector/resize
+ *  2. https://stackoverflow.com/questions/21028299/is-this-behavior-of-vectorresizesize-type-n-under-c11-and-boost-container/21028912#21028912
+ *
+ * Allocator adaptor that interposes construct() calls to
+ * convert value initialization into default initialization.
+ */
+template<typename T, typename A = std::allocator<T>>
+class default_init_allocator : public A
+{
+    using traits = std::allocator_traits<A>;
+
+public:
+    template<typename U>
+    struct rebind
+    {
+        using other = default_init_allocator<U, typename traits::template rebind_alloc<U>>;
+    };
+
+    using A::A;
+
+    template<typename U>
+    void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value)
+    {
+        ::new(static_cast<void*>(ptr)) U;
+    }
+    template<typename U, typename... Args>
+    void construct(U* ptr, Args&&... args)
+    {
+        traits::construct(static_cast<A&>(*this), ptr, std::forward<Args>(args)...);
+    }
+};
+
+template<typename T1, typename A1, typename T2, typename A2>
+bool operator==([[maybe_unused]] const default_init_allocator<T1, A1>& lhs, [[maybe_unused]] const default_init_allocator<T2, A2>& rhs) noexcept
+{
+    return true;
+}
+
+template<typename T1, typename A1, typename T2, typename A2>
+bool operator!=([[maybe_unused]] const default_init_allocator<T1, A1>& lhs, [[maybe_unused]] const default_init_allocator<T2, A2>& rhs) noexcept
+{
+    return false;
+}
+
+/** Default allocator. */
+template<typename T>
+using allocator = utils::default_init_allocator<T>;
 
 /*
  * simple slot map.

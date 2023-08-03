@@ -4,7 +4,7 @@
  * render objects for draw lists.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -20,17 +20,19 @@ namespace impl
  */
 class render_object
 {
+    using storage_type = std::vector<std::byte, utils::allocator<std::byte>>;
+
     /** Storage for the object's vertex attributes. */
-    std::vector<std::byte> attrib_storage;
+    storage_type attrib_storage;
 
     /** Storage for the vertex coordinates. */
-    std::vector<std::byte> coord_storage;
+    storage_type coord_storage;
 
     /** Storage for the varyings. */
-    std::vector<std::byte> varying_storage;
+    storage_type varying_storage;
 
     /** Allocate a buffer. */
-    void allocate_buffer(std::size_t count, std::vector<std::byte>& storage, ml::vec4** buffer)
+    void allocate_buffer(std::size_t count, storage_type& storage, ml::vec4** buffer)
     {
         *buffer = reinterpret_cast<ml::vec4*>(utils::align_vector(utils::alignment::sse, count * sizeof(ml::vec4), storage));
         assert(*buffer != nullptr);

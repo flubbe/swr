@@ -4,7 +4,7 @@
  * rasterizer tile cache.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -126,7 +126,7 @@ struct tile_cache
     int pitch{0};
 
     /** tiles. */
-    std::vector<tile> entries;
+    std::vector<tile, utils::allocator<tile>> entries;
 
     /** constructors. */
     tile_cache() = default;

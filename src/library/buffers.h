@@ -4,7 +4,7 @@
  * vertex-, index- and attribute buffers.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2021-Present.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -15,7 +15,7 @@ namespace impl
 {
 
 /** vertex buffer. */
-typedef std::vector<geom::vertex> vertex_buffer;
+typedef std::vector<geom::vertex, utils::allocator<geom::vertex>> vertex_buffer;
 
 /** index buffer. */
 typedef std::vector<uint32_t> index_buffer;
