@@ -60,7 +60,7 @@ static bool invoke_vertex_shader_and_clip_preprocess(impl::vertex_shader_instanc
            || obj.coords[i].z < -obj.coords[i].w || obj.coords[i].z > obj.coords[i].w
            || obj.coords[i].w <= 0)
         {
-            obj.flags[i] |= geom::vf_clip_discard;
+            obj.vertex_flags[i] |= geom::vf_clip_discard;
         }
         else
         {
@@ -137,7 +137,7 @@ static void process_vertices(swr::impl::render_object& obj)
         // copy the correct points.
         for(const auto& i: obj.indices)
         {
-            if(!(obj.flags[i] & geom::vf_clip_discard))
+            if(!(obj.vertex_flags[i] & geom::vf_clip_discard))
             {
                 // TODO temporary.
                 geom::vertex v;
@@ -147,7 +147,7 @@ static void process_vertices(swr::impl::render_object& obj)
                     v.attribs.emplace_back(obj.attribs[i * obj.attrib_count + j]);
                 }
                 v.coords = obj.coords[i];
-                v.flags = obj.flags[i];
+                v.flags = obj.vertex_flags[i];
                 v.varyings.reserve(obj.states.shader_info->varying_count);
                 for(std::size_t j = 0; j < obj.states.shader_info->varying_count; ++j)
                 {
