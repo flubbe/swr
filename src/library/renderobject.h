@@ -52,7 +52,7 @@ public:
     std::size_t coord_count{0};
 
     /** Buffer holding all vertex flags. */
-    std::vector<uint32_t> flags;
+    std::vector<uint32_t> vertex_flags;
 
     /** Aligned pointer into the varying storage. */
     ml::vec4* varyings{nullptr};
@@ -80,11 +80,11 @@ public:
     , states{in_states}
     {
         allocate_coords(count);
-        flags.resize(count);
+        vertex_flags.resize(count);
 
         // populate index buffer with consecutive numbers.
         indices.reserve(count);
-        for(std::size_t i=0; i < count; ++i)
+        for(std::size_t i = 0; i < count; ++i)
         {
             indices.emplace_back(i);
         }
@@ -97,12 +97,12 @@ public:
     , states{in_states}
     {
         allocate_coords(in_indices.size());
-        flags.resize(in_indices.size());
+        vertex_flags.resize(in_indices.size());
     }
 
     /**
-     * Allocate attributes. 
-     * 
+     * Allocate attributes.
+     *
      * @param count Attribute count per vertex.
      */
     void allocate_attribs(std::size_t count)
@@ -111,9 +111,9 @@ public:
         attrib_count = count;
     }
 
-    /** 
-     * Allocate coordinates. 
-     * 
+    /**
+     * Allocate coordinates.
+     *
      * @param count Vertex count.
      */
     void allocate_coords(std::size_t count)
@@ -123,8 +123,8 @@ public:
     }
 
     /**
-     * Allocate varying storage. 
-     * 
+     * Allocate varying storage.
+     *
      * @param count Varying count per vertex.
      */
     void allocate_varyings(std::size_t count)

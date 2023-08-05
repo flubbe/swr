@@ -87,11 +87,11 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
 
     obj.allocate_coords(COORD_COUNT);
     obj.indices.reserve(INDEX_COUNT);
-    for(std::uint32_t i=0;i<INDEX_COUNT;++i)
+    for(std::uint32_t i = 0; i < INDEX_COUNT; ++i)
     {
         obj.indices.push_back(i);
     }
-    obj.flags.resize(INDEX_COUNT);
+    obj.vertex_flags.resize(INDEX_COUNT);
     swr::impl::program_info info;
     obj.states.shader_info = &info;
 
@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
       ml::vec4{-0.7, -0.8, -0.9, 1.234}, ml::vec4{-10, -20, -30, 40},
       ml::vec4{0.0001, 0.0002, 0.0003, 0.0004}, ml::vec4{-12345.67, -12345.67, -0.789, 23456.98}};
 
-    for(std::uint32_t i=0;i<COORD_COUNT;++i)
+    for(std::uint32_t i = 0; i < COORD_COUNT; ++i)
     {
         obj.coords[i] = coords[i];
     }
@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     };
 
     obj.indices = {0, 1};
-    obj.flags.resize(2);
+    obj.vertex_flags.resize(2);
 
     for(int k = 0; k < 10000; ++k)
     {
@@ -179,14 +179,14 @@ BOOST_AUTO_TEST_CASE(line_clip)
 {
     // render_object setup.
     const std::uint32_t VERTEX_COUNT = 2;
-    swr::impl::render_object obj;    
+    swr::impl::render_object obj;
     obj.allocate_coords(VERTEX_COUNT);
     obj.indices.reserve(VERTEX_COUNT);
-    for(std::uint32_t i=0;i<VERTEX_COUNT;++i)
+    for(std::uint32_t i = 0; i < VERTEX_COUNT; ++i)
     {
         obj.indices.push_back(i);
     }
-    obj.flags.resize(VERTEX_COUNT);
+    obj.vertex_flags.resize(VERTEX_COUNT);
     swr::impl::program_info info;
     obj.states.shader_info = &info;
 
@@ -234,11 +234,11 @@ BOOST_AUTO_TEST_CASE(line_clip)
          */
         if(!v1_inside)
         {
-            obj.flags[0] |= geom::vf_clip_discard;
+            obj.vertex_flags[0] |= geom::vf_clip_discard;
         }
         if(!v2_inside)
         {
-            obj.flags[1] |= geom::vf_clip_discard;
+            obj.vertex_flags[1] |= geom::vf_clip_discard;
         }
 
         out1.clear();
@@ -253,11 +253,11 @@ BOOST_AUTO_TEST_CASE(line_clip)
          */
         if(!v1_inside)
         {
-            obj.flags[1] |= geom::vf_clip_discard;
+            obj.vertex_flags[1] |= geom::vf_clip_discard;
         }
         if(!v2_inside)
         {
-            obj.flags[0] |= geom::vf_clip_discard;
+            obj.vertex_flags[0] |= geom::vf_clip_discard;
         }
 
         out2.clear();

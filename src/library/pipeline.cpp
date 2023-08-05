@@ -220,7 +220,7 @@ static void vertex_shader_task(impl::render_object* obj, std::size_t offset, std
            || obj->coords[i].z < -obj->coords[i].w || obj->coords[i].z > obj->coords[i].w
            || obj->coords[i].w <= 0)
         {
-            obj->flags[i] |= geom::vf_clip_discard;
+            obj->vertex_flags[i] |= geom::vf_clip_discard;
         }
     }
 }
@@ -320,21 +320,24 @@ static void clip_vertex_buffer(swr::impl::render_object* obj)
      */
     if(obj->mode == vertex_buffer_mode::points || obj->states.poly_mode == polygon_mode::point)
     {
+        // TODO temporary.
+        geom::vertex v;
+        v.attribs.reserve(obj->attrib_count);
+        v.varyings.reserve(obj->states.shader_info->varying_count);
+
         // copy the correct points.
         for(const auto& i: obj->indices)
         {
-            if(!(obj->flags[i] & geom::vf_clip_discard))
+            if(!(obj->vertex_flags[i] & geom::vf_clip_discard))
             {
-                // TODO temporary.
-                geom::vertex v;
-                v.attribs.reserve(obj->attrib_count);
+                v.attribs.clear();
                 for(std::size_t j = 0; j < obj->attrib_count; ++j)
                 {
                     v.attribs.emplace_back(obj->attribs[i * obj->attrib_count + j]);
                 }
                 v.coords = obj->coords[i];
-                v.flags = obj->flags[i];
-                v.varyings.reserve(obj->states.shader_info->varying_count);
+                v.flags = obj->vertex_flags[i];
+                v.varyings.clear();
                 for(std::size_t j = 0; j < obj->states.shader_info->varying_count; ++j)
                 {
                     v.varyings.emplace_back(obj->varyings[i * obj->states.shader_info->varying_count + j]);

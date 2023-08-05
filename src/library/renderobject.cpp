@@ -47,7 +47,7 @@ static void copy_attributes(
         for(std::size_t slot = 0; slot < active_vabs.size(); ++slot)
         {
             const int& id = active_vabs[slot];
-            
+
             if(id == static_cast<int>(impl::vertex_attribute_index::invalid))
             {
                 continue;

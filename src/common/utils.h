@@ -223,7 +223,7 @@ bool operator!=([[maybe_unused]] const default_init_allocator<T1, A1>& lhs, [[ma
 
 /** Default allocator. */
 template<typename T>
-using allocator = utils::default_init_allocator<T>;
+using allocator = default_init_allocator<T>;
 
 /*
  * simple slot map.
