@@ -9,8 +9,8 @@
  */
 
 /* cpu info */
-#include "cpu_features_macros.h"
-#include "cpuinfo_x86.h"
+// #include "cpu_features_macros.h"
+// #include "cpuinfo_x86.h"
 
 #include "platform.h"
 
@@ -22,7 +22,7 @@ namespace platform
  */
 void get_cpu_info()
 {
-    log_device::get().logf("");
+/*    log_device::get().logf("");
     log_device::get().logf("CPU info:");
 
     const cpu_features::X86Info info = cpu_features::GetX86Info();
@@ -32,6 +32,7 @@ void get_cpu_info()
     log_device::get().logf("model:    {:#x}", info.model);
     log_device::get().logf("stepping: {:#x}", info.stepping);
     log_device::get().logf("uarch:    {:s}", GetX86MicroarchitectureName(cpu_features::GetX86Microarchitecture(&info)));
+*/
 }
 
 } /* namespace platform */

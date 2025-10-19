@@ -361,10 +361,10 @@ struct slot_map
 
 #if defined(__GNUC__)
 
-#    include <x86intrin.h> /* for __rdtsc */
+// #    include <x86intrin.h> /* for __rdtsc */
 
-#    define lfence _mm_lfence
-#    define rdtsc  __rdtsc
+// #    define lfence _mm_lfence
+// #    define rdtsc  __rdtsc
 
 #elif defined(_MSC_VER)
 

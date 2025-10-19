@@ -17,7 +17,7 @@
  */
 
 /* use SIMD code by default. */
-#define SWR_USE_SIMD
+// #define SWR_USE_SIMD
 
 /* use multiple threads by default. */
 #define SWR_ENABLE_MULTI_THREADING
