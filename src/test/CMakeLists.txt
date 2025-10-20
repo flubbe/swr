@@ -21,14 +21,17 @@ target_link_libraries(test_clipping
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
     )
 
-# add_executable(test_coverage_mask library/coverage_mask.cpp)
-# target_link_libraries(test_coverage_mask
-#     fmt
-#    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
-#    )
+add_executable(test_coverage_mask library/coverage_mask.cpp)
+target_link_libraries(test_coverage_mask
+    fmt
+   ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+   )
+
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    add_executable(test_utils library/utils.cpp)
+    target_link_libraries(test_utils
+        ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+        )
+endif()
     
-# add_executable(test_utils library/utils.cpp)
-# target_link_libraries(test_utils
-#     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
-#     )
     

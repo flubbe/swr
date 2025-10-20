@@ -30,13 +30,17 @@
 
 #include "geometry/barycentric_coords.h"
 
+#if defined(__x86_64__) || defined(_M_X64)
+
 /* include SIMD code. */
 namespace simd
 {
-#define SWR_USE_SIMD
-#include "geometry/barycentric_coords.h"
-#undef SWR_USE_SIMD
+#    define SWR_USE_SIMD
+#    include "geometry/barycentric_coords.h"
+#    undef SWR_USE_SIMD
 } /* namespace simd */
+
+#endif /* defined(__x86_64__) || defined(_M_X64) */
 
 /*
  * tests.
@@ -626,6 +630,8 @@ BOOST_AUTO_TEST_CASE(step_hit3)
  * test SIMD code.
  */
 
+#if defined(__x86_64__) || defined(_M_X64)
+
 BOOST_AUTO_TEST_CASE(init_simd)
 {
     ml::fixed_24_8_t lambda0{0};
@@ -1114,6 +1120,8 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
     block.step_x(1);
     BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
 }
+
+#endif /* defined(__x86_64__) || defined(_M_X64) */
 
 template<typename T, size_t N>
 size_t countof([[maybe_unused]] T const (&array)[N])
