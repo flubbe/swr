@@ -18,12 +18,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     
-    - name: Ubuntu update
-      run: sudo apt-get update && sudo apt-get full-upgrade
-      shell: bash
-      
     - name: Install additional packages
       run: sudo apt-get install libbenchmark-dev libboost-dev libboost-test-dev libsdl2-dev
       shell: bash
