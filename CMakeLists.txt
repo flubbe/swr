@@ -3,6 +3,7 @@
 #
 
 cmake_policy(VERSION 3.22.0)
+cmake_policy(SET CMP0167 OLD)
 cmake_minimum_required (VERSION 3.22.0)
 
 project(swr)
@@ -33,18 +34,30 @@ endif()
 #
 # Set compiler specific options.
 #
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
-	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized")
-	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -Og")
+add_compile_options(-std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        add_compile_options(-stdlib=libc++)
+    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        add_compile_options(-Og)
 	endif()
 else()
-	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -O3")
+    add_compile_options(-O3)
+	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        add_compile_options(-stdlib=libc++)
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -O3 -fno-omit-frame-pointer")
+        add_compile_options(-fno-omit-frame-pointer)
 	endif()
+endif()
+
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    message(STATUS "Detected ARM64 architecture")
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    message(STATUS "Detected x86_64 architecture")
+    add_compile_options( -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse)
+else()
+    message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
 #
