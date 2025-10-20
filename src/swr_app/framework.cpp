@@ -61,7 +61,13 @@ bool renderwindow::create()
         return false;
     }
 
-    sdl_window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
+#ifdef NDEBUG
+    std::string title_with_info = title + " [Release]";
+#else
+    std::string title_with_info = title + " [Debug]";
+#endif
+
+    sdl_window = SDL_CreateWindow(title_with_info.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
     if(!sdl_window)
     {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Window creation failed: %s\n", SDL_GetError());

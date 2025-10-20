@@ -34,7 +34,7 @@ endif()
 #
 # Set compiler specific options.
 #
-add_compile_options(-std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized)
+add_compile_options(-Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -107,7 +107,7 @@ include_directories(
 	deps/concurrency_utils/include
 	deps/ml/include
 	deps/3rd-party/lodepng 
-#	deps/3rd-party/cpu_features/include 
+	deps/3rd-party/cpu_features/include 
 	deps/3rd-party/cnl/include
 	deps/3rd-party/fmt/include
 	deps/3rd-party/libmorton/include
@@ -118,7 +118,7 @@ include_directories(
 #
 # Add subdirectories
 #
-# add_subdirectory(deps/3rd-party/cpu_features)
+add_subdirectory(deps/3rd-party/cpu_features)
 add_subdirectory(deps/3rd-party/fmt)
 add_subdirectory(src/demos)
 add_subdirectory(src/library)
