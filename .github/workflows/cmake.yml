@@ -20,6 +20,10 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     
+    - name: Ubuntu update
+      run: sudo apt-get update
+      shell: bash
+      
     - name: Install additional packages
       run: sudo apt-get install libbenchmark-dev libboost-dev libboost-test-dev libsdl2-dev
       shell: bash
