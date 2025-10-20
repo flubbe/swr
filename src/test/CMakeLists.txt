@@ -1,3 +1,5 @@
+cmake_policy(SET CMP0167 OLD)
+
 project(swrtest)
 
 # add support for boost test framework
