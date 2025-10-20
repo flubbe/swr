@@ -31,7 +31,7 @@ framework. If you'd like to run the benchmarks, you also need [Google's benchmar
 
 For the other dependencies:
 - put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release 1.1.2, in `deps/3rd-party/cnl`.
-- put [cpu_features](https://github.com/google/cpu_features), release 0.7.0, into `deps/3rd-party/cpu_features`
+- put [cpu_features](https://github.com/google/cpu_features), release 0.10.1, into `deps/3rd-party/cpu_features`
 - put [fmt](https://github.com/fmtlib/fmt), release 8.1.1, into `deps/3rd-party/fmt`
 - if you use [Morton Codes](https://en.wikipedia.org/wiki/Z-order_curve) (enabled by default), put [libmorton](https://github.com/Forceflow/libmorton) into `deps/3rd-party/libmorton`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
