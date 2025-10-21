@@ -63,7 +63,7 @@ public:
         shader->~program_base();
     }
 
-    tile_info& operator=(const tile_info&) = default;
+    tile_info& operator=(const tile_info&) = delete;
     tile_info& operator=(tile_info&&) = default;
 
     /**

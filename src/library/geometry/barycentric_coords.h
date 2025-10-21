@@ -157,8 +157,12 @@ struct barycentric_coordinate_block
 
         fixed_24_8_array_4() = default;
         fixed_24_8_array_4(const fixed_24_8_array_4&) = default;
+        fixed_24_8_array_4(fixed_24_8_array_4&&) = default;
 
-        fixed_24_8_array_4(const ml::fixed_24_8_t& f)
+        fixed_24_8_array_4& operator=(const fixed_24_8_array_4&) = default;
+        fixed_24_8_array_4& operator=(fixed_24_8_array_4&&) = default;
+
+        explicit fixed_24_8_array_4(const ml::fixed_24_8_t& f)
         : f0{f}
         , f1{f}
         , f2{f}
@@ -215,8 +219,9 @@ struct barycentric_coordinate_block
     /** default constructor. */
     barycentric_coordinate_block() = default;
 
-    /** default copy constructor. */
+    /** default copy and move constructors. */
     barycentric_coordinate_block(const barycentric_coordinate_block&) = default;
+    barycentric_coordinate_block(barycentric_coordinate_block&&) = default;
 
     /** initializes all block corners with the same values. */
     barycentric_coordinate_block(
@@ -224,26 +229,29 @@ struct barycentric_coordinate_block
       const ml::fixed_24_8_t& lambda1, const ml::tvec2<ml::fixed_24_8_t>& step1,
       const ml::fixed_24_8_t& lambda2, const ml::tvec2<ml::fixed_24_8_t>& step2)
     {
-        corners[0] = {lambda0};
-        corners[1] = {lambda1};
-        corners[2] = {lambda2};
+        corners[0] = fixed_24_8_array_4{lambda0};
+        corners[1] = fixed_24_8_array_4{lambda1};
+        corners[2] = fixed_24_8_array_4{lambda2};
 
-        steps_x[0] = {step0.x};
-        steps_x[1] = {step1.x};
-        steps_x[2] = {step2.x};
+        steps_x[0] = fixed_24_8_array_4{step0.x};
+        steps_x[1] = fixed_24_8_array_4{step1.x};
+        steps_x[2] = fixed_24_8_array_4{step2.x};
 
-        steps_y[0] = {step0.y};
-        steps_y[1] = {step1.y};
-        steps_y[2] = {step2.y};
+        steps_y[0] = fixed_24_8_array_4{step0.y};
+        steps_y[1] = fixed_24_8_array_4{step1.y};
+        steps_y[2] = fixed_24_8_array_4{step2.y};
     }
 
+    barycentric_coordinate_block& operator=(const barycentric_coordinate_block&) = default;
+    barycentric_coordinate_block& operator=(barycentric_coordinate_block&&) = default;
+    
     /** set up the block size from given that corners contain the values the top-left corner. */
     void setup(int block_size_x, int block_size_y)
     {
         // .f3 contains the values for the top-left corner. we reset all values to the top-left corner.
-        corners[0] = {corners[0].f3};
-        corners[1] = {corners[1].f3};
-        corners[2] = {corners[2].f3};
+        corners[0] = fixed_24_8_array_4{corners[0].f3};
+        corners[1] = fixed_24_8_array_4{corners[1].f3};
+        corners[2] = fixed_24_8_array_4{corners[2].f3};
 
         // .f2 is the top-right and .f0 the bottom-right corner.
         fixed_24_8_array_4 block_step_x[3] = {
