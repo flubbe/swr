@@ -10,11 +10,11 @@
 
 /* C++ headers */
 #include <chrono>
+#include <format>
+#include <print>
 
 /* boost */
 #include <boost/container/static_vector.hpp>
-
-#include "fmt/format.h"
 
 /* software rasterizer headers. */
 #include "swr/swr.h"
@@ -233,7 +233,7 @@ public:
         auto err = lodepng::decode(image_data, font_tex_width, font_tex_height, "../textures/fonts/cp437_16x16_alpha.png");
         if(err != 0)
         {
-            throw std::runtime_error(fmt::format("lodepng error: {}", lodepng_error_text(err)));
+            throw std::runtime_error(std::format("lodepng error: {}", lodepng_error_text(err)));
         }
         font_tex_id = load_texture(font_tex_width, font_tex_height, image_data);
 
@@ -395,12 +395,12 @@ public:
         swr::BindUniform(0, ml::matrices::orthographic_projection(0, width, height, 0, -1000, 1000));
         swr::BindUniform(1, ml::mat4x4::identity());
 
-        std::string str = fmt::format("msec: {: #6.2f}", display_msec);
+        std::string str = std::format("msec: {: #6.2f}", display_msec);
         font_rend.draw_string(font::renderer::string_alignment::right | font::renderer::string_alignment::top, str);
 
         uint32_t w{0}, h{0};
         font.get_string_dimensions(str, w, h);
-        str = fmt::format(" fps: {: #6.1f}", 1000.0f / display_msec);
+        str = std::format(" fps: {: #6.1f}", 1000.0f / display_msec);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
 
 #ifdef SWR_ENABLE_STATS
@@ -413,12 +413,12 @@ public:
         uint32_t temp = h + 10;
         font.get_string_dimensions(str, w, h);
         h += temp;
-        str = fmt::format("threads:    {:2}", rast_data.available_threads);
+        str = std::format("threads:    {:2}", rast_data.available_threads);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
 
         font.get_string_dimensions(str, w, temp);
         h += temp;
-        str = fmt::format("jobs:  {:4}", rast_data.jobs);
+        str = std::format("jobs:  {:4}", rast_data.jobs);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
 #endif /* SWR_ENABLE_STATS */
     }
@@ -429,20 +429,20 @@ public:
     }
 };
 
-/** Logging to stdout using fmt::print. */
-class log_fmt : public platform::log_device
+/** Logging to stdout using std::print. */
+class log_std : public platform::log_device
 {
 protected:
     void log_n(const std::string& message)
     {
-        fmt::print("{}\n", message);
+        std::println("{}", message);
     }
 };
 
 /** demo application class. */
 class demo_app : public swr_app::application
 {
-    log_fmt log;
+    log_std log;
 
 public:
     /** create a window. */

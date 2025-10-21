@@ -8,8 +8,7 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* format library */
-#include "fmt/format.h"
+#include <format>
 
 /* user headers. */
 #include "swr_internal.h"
@@ -192,7 +191,7 @@ void sdl_render_context::initialize(SDL_Window* window, SDL_Renderer* renderer, 
     }
     catch(std::bad_alloc& e)
     {
-        throw std::runtime_error(fmt::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
+        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
     }
 #else
     try
@@ -201,7 +200,7 @@ void sdl_render_context::initialize(SDL_Window* window, SDL_Renderer* renderer, 
     }
     catch(std::bad_alloc& e)
     {
-        throw std::runtime_error(fmt::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
+        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
     }
 #endif
 

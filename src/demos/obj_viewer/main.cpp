@@ -16,16 +16,15 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <limits>
 #include <map>
+#include <print>
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <chrono>
-#include <filesystem>
-
-#include "fmt/core.h"
 
 /* software rasterizer headers. */
 #include "swr/swr.h"
@@ -132,7 +131,7 @@ static void check_errors(std::string desc)
     swr::error e = swr::GetLastError();
     if(e != swr::error::none)
     {
-        fmt::print(stderr, "SWR error in \"{}\": {}\n", desc, static_cast<int>(e));
+        std::println(stderr, "SWR error in \"{}\": {}", desc, static_cast<int>(e));
         std::exit(1);
     }
 }
@@ -407,35 +406,35 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                                 base_dir.c_str());
     if(!warn.empty())
     {
-        fmt::print("WARN: {}\n", warn);
+        std::println("WARN: {}", warn);
     }
     if(!err.empty())
     {
-        fmt::print(stderr, "{}\n", err);
+        std::println(stderr, "{}", err);
     }
 
     auto timer_end = std::chrono::high_resolution_clock::now();
 
     if(!ret)
     {
-        fmt::print(stderr, "Failed to load {}\n", filename);
+        std::println(stderr, "Failed to load {}", filename);
         return false;
     }
 
-    fmt::print("Parsing time: {:.2f} [ms]\n", std::chrono::duration<float>(timer_end - timer_start).count());
+    std::println("Parsing time: {:.2f} [ms]", std::chrono::duration<float>(timer_end - timer_start).count());
 
-    fmt::print("# of vertices  = {}\n", (int)(inattrib.vertices.size()) / 3);
-    fmt::print("# of normals   = {}\n", (int)(inattrib.normals.size()) / 3);
-    fmt::print("# of texcoords = {}\n", (int)(inattrib.texcoords.size()) / 2);
-    fmt::print("# of materials = {}\n", (int)materials.size());
-    fmt::print("# of shapes    = {}\n", (int)inshapes.size());
+    std::println("# of vertices  = {}", (int)(inattrib.vertices.size()) / 3);
+    std::println("# of normals   = {}", (int)(inattrib.normals.size()) / 3);
+    std::println("# of texcoords = {}", (int)(inattrib.texcoords.size()) / 2);
+    std::println("# of materials = {}", (int)materials.size());
+    std::println("# of shapes    = {}", (int)inshapes.size());
 
     // Append `default` material
     materials.push_back(tinyobj::material_t());
 
     for(size_t i = 0; i < materials.size(); i++)
     {
-        fmt::print("material[{}].diffuse_texname = {}\n", int(i),
+        std::println("material[{}].diffuse_texname = {}", int(i),
                    materials[i].diffuse_texname.c_str());
     }
 
@@ -458,7 +457,7 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                     texture_filename = base_dir + material.diffuse_texname;
                     if(!std::filesystem::exists(texture_filename))
                     {
-                        fmt::print(stderr, "Unable to find file: {}\n", material.diffuse_texname);
+                        std::println(stderr, "Unable to find file: {}", material.diffuse_texname);
                         std::exit(1);
                     }
                 }
@@ -467,10 +466,10 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                   stbi_load(texture_filename.c_str(), &w, &h, &comp, STBI_default);
                 if(!image)
                 {
-                    fmt::print(stderr, "Unable to load texture: {}", texture_filename);
+                    std::println(stderr, "Unable to load texture: {}", texture_filename);
                     std::exit(1);
                 }
-                fmt::print("Loaded texture: {}, w = {}, h = {}, comp = {}\n", texture_filename, w, h, comp);
+                std::println("Loaded texture: {}, w = {}, h = {}, comp = {}", texture_filename, w, h, comp);
 
                 texture_id = swr::CreateTexture();
                 swr::BindTexture(swr::texture_target::texture_2d, texture_id);
@@ -539,7 +538,7 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
         std::map<int, ml::vec3> smoothVertexNormals;
         if(!regen_all_normals && (hasSmoothingGroup(shape) > 0))
         {
-            fmt::print("Compute smoothingNormal for shape [{}]\n", s);
+            std::println("Compute smoothingNormal for shape [{}]", s);
             computeSmoothingNormals(attrib, shape, smoothVertexNormals);
         }
 
@@ -560,10 +559,10 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                 static bool warned = false;
                 if(!warned)
                 {
-                    fmt::print("WARN Invalid material ID for shape [{}], tri [{} {} {}]\n", s, 3 * f, 3 * f + 1, 3 * f + 2);
-                    fmt::print("     Using default material.\n");
+                    std::println("WARN Invalid material ID for shape [{}], tri [{} {} {}]", s, 3 * f, 3 * f + 1, 3 * f + 2);
+                    std::println("     Using default material.");
 
-                    fmt::print("INFO Further invalid material ID warnings are suppressed.\n");
+                    std::println("INFO Further invalid material ID warnings are suppressed.");
                     warned = true;
                 }
             }
@@ -700,13 +699,13 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
         {
             o.material_id = materials.size() - 1;    // = ID for default material.
         }
-        fmt::print("shape[{}] name: {}\n", int(s), shape.name);
-        fmt::print("shape[{}] material_id {}\n", int(s), int(o.material_id));
+        std::println("shape[{}] name: {}", int(s), shape.name);
+        std::println("shape[{}] material_id {}", int(s), int(o.material_id));
 
-        fmt::print("shape[{}] vertices {}\n", int(s), pos_buffer.size());
-        fmt::print("shape[{}] normals {}\n", int(s), normal_buffer.size());
-        fmt::print("shape[{}] colors {}\n", int(s), color_buffer.size());
-        fmt::print("shape[{}] tex coords {}\n", int(s), tex_buffer.size());
+        std::println("shape[{}] vertices {}", int(s), pos_buffer.size());
+        std::println("shape[{}] normals {}", int(s), normal_buffer.size());
+        std::println("shape[{}] colors {}", int(s), color_buffer.size());
+        std::println("shape[{}] tex coords {}", int(s), tex_buffer.size());
 
         if(pos_buffer.size() > 0 && normal_buffer.size() > 0 && color_buffer.size() > 0 && tex_buffer.size() > 0)
         {
@@ -717,14 +716,14 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
 
             o.triangle_count = pos_buffer.size() / 3;
 
-            fmt::print("shape[{}] # of triangles = {}\n", static_cast<int>(s), o.triangle_count);
+            std::println("shape[{}] # of triangles = {}", static_cast<int>(s), o.triangle_count);
         }
 
         drawObjects->emplace_back(o);
     }
 
-    fmt::print("bmin = {}, {}, {}\n", bmin[0], bmin[1], bmin[2]);
-    fmt::print("bmax = {}, {}, {}\n", bmax[0], bmax[1], bmax[2]);
+    std::println("bmin = {}, {}, {}", bmin[0], bmin[1], bmin[2]);
+    std::println("bmax = {}, {}, {}", bmax[0], bmax[1], bmax[2]);
 
     return true;
 }
@@ -832,7 +831,7 @@ public:
         std::string filename = swr_app::application::get_instance().get_argument("--file", std::string());
         if(filename.length() == 0)
         {
-            fmt::print("No file specified. Use --file=filename to load a file.\n");
+            std::println("No file specified. Use --file=filename to load a file.");
             throw std::runtime_error("No file specified.");
         }
 
@@ -1007,20 +1006,20 @@ public:
     }
 };
 
-/** Logging to stdout using fmt::print. */
-class log_fmt : public platform::log_device
+/** Logging to stdout using std::print. */
+class log_std : public platform::log_device
 {
 protected:
     void log_n(const std::string& message)
     {
-        fmt::print("{}\n", message);
+        std::println("{}", message);
     }
 };
 
 /** demo application class. */
 class demo_app : public swr_app::application
 {
-    log_fmt log;
+    log_std log;
 
 public:
     /** create a window. */

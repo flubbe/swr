@@ -106,7 +106,7 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) co
 
     if(surface->format->BytesPerPixel < 1 || surface->format->BytesPerPixel > 4)
     {
-        throw std::runtime_error(fmt::format("cannot handle pixel format with {} bytes per pixel", surface->format->BytesPerPixel));
+        throw std::runtime_error(std::format("cannot handle pixel format with {} bytes per pixel", surface->format->BytesPerPixel));
     }
 
     /* read and convert pixels. */

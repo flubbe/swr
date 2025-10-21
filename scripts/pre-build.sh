@@ -18,12 +18,6 @@ tar -xf v0.10.1.tar.gz
 rm v0.10.1.tar.gz
 mv cpu_features-0.10.1 cpu_features
 
-# Download fmt 8.1.1 and put it in deps/3rd-party/fmt
-wget https://github.com/fmtlib/fmt/archive/refs/tags/8.1.1.tar.gz
-tar -xf 8.1.1.tar.gz
-rm 8.1.1.tar.gz
-mv fmt-8.1.1 fmt
-
 # Download libmorton
 git clone https://github.com/Forceflow/libmorton.git
 

@@ -17,13 +17,11 @@ include_directories(../../include ../../src/library)
 add_executable(test_clipping library/clipping.cpp)
 target_link_libraries(test_clipping
     swrast
-    fmt
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
     )
 
 add_executable(test_coverage_mask library/coverage_mask.cpp)
 target_link_libraries(test_coverage_mask
-    fmt
    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
    )
 

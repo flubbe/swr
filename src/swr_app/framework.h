@@ -49,7 +49,7 @@ public:
     {
         if(in_width <= 0 || in_height <= 0)
         {
-            throw std::runtime_error(fmt::format("invalid window dimensions: ({},{})", in_width, in_height));
+            throw std::runtime_error(std::format("invalid window dimensions: ({},{})", in_width, in_height));
         }
     }
 
@@ -91,7 +91,7 @@ public:
         SDL_Surface* surface = SDL_CreateRGBSurface(0, width, height, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0);
         if(!surface)
         {
-            throw std::runtime_error(fmt::format("SDL_CreateRGBSurface failed: {}", SDL_GetError()));
+            throw std::runtime_error(std::format("SDL_CreateRGBSurface failed: {}", SDL_GetError()));
         }
         SDL_RenderReadPixels(sdl_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
         return surface;
@@ -265,7 +265,7 @@ public:
     template<typename T>
     const T get_argument(const std::string& name, const T& default_value) const
     {
-        std::string opt = fmt::format("{}=", name);
+        std::string opt = std::format("{}=", name);
         std::vector<std::string>::const_reverse_iterator it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
                                                                            [opt](const std::string& p)
                                                                            { return p.substr(0, opt.length()) == opt; });
@@ -301,7 +301,7 @@ public:
     {
         values.clear();
 
-        std::string opt = fmt::format("{}=", name);
+        std::string opt = std::format("{}=", name);
         std::vector<std::string>::const_iterator it = cmd_args.begin();
         while(true)
         {

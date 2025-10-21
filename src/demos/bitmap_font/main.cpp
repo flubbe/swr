@@ -8,10 +8,10 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <format>
+
 /* boost */
 #include <boost/container/static_vector.hpp>
-
-#include "fmt/format.h"
 
 /* software rasterizer headers. */
 #include "swr/swr.h"
@@ -223,7 +223,7 @@ public:
         auto err = lodepng::decode(image_data, font_tex_width, font_tex_height, "../textures/fonts/cp437_16x16_alpha.png");
         if(err != 0)
         {
-            throw std::runtime_error(fmt::format("lodepng error: {}", lodepng_error_text(err)));
+            throw std::runtime_error(std::format("lodepng error: {}", lodepng_error_text(err)));
         }
         font_tex_id = load_texture(font_tex_width, font_tex_height, image_data);
 
@@ -375,20 +375,20 @@ public:
     }
 };
 
-/** Logging to stdout using fmt::print. */
-class log_fmt : public platform::log_device
+/** Logging to stdout using std::print. */
+class log_std : public platform::log_device
 {
 protected:
     void log_n(const std::string& message)
     {
-        fmt::print("{}\n", message);
+        std::println("{}", message);
     }
 };
 
 /** demo application class. */
 class demo_app : public swr_app::application
 {
-    log_fmt log;
+    log_std log;
 
 public:
     /** create a window. */

@@ -11,8 +11,6 @@
 #include <vector>
 #include <cstring>
 
-#include "fmt/format.h"
-
 /* Google benchmark */
 #include <benchmark/benchmark.h>
 

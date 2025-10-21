@@ -11,9 +11,6 @@
 /* C++ headers */
 #include <random>
 
-/* format library */
-#include "fmt/format.h"
-
 /* boost test framework. */
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_ALTERNATIVE_INIT_API

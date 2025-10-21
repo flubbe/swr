@@ -23,7 +23,7 @@ if(NOT CMAKE_BUILD_TYPE)
 	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Test if linux
@@ -109,7 +109,6 @@ include_directories(
 	deps/3rd-party/lodepng 
 	deps/3rd-party/cpu_features/include 
 	deps/3rd-party/cnl/include
-	deps/3rd-party/fmt/include
 	deps/3rd-party/libmorton/include
 	/opt/homebrew/include
 	/opt/homebrew/include/SDL2
@@ -119,7 +118,6 @@ include_directories(
 # Add subdirectories
 #
 add_subdirectory(deps/3rd-party/cpu_features)
-add_subdirectory(deps/3rd-party/fmt)
 add_subdirectory(src/demos)
 add_subdirectory(src/library)
 add_subdirectory(src/swr_app)

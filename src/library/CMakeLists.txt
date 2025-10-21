@@ -32,4 +32,4 @@ set(SOURCES
 )
 
 add_library(swrast SHARED ${SOURCES})
-target_link_libraries(swrast fmt ${EXTRA_LIBS})
+target_link_libraries(swrast ${EXTRA_LIBS})
