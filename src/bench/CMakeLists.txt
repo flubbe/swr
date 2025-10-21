@@ -1,7 +1,9 @@
-project(swbench)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    project(swbench)
 
-find_package(benchmark REQUIRED)
+    find_package(benchmark REQUIRED)
 
-# memset benchmark
-add_executable(bench_memset memset/main.cpp)
-target_link_libraries(bench_memset fmt benchmark::benchmark)
+    # memset benchmark
+    add_executable(bench_memset memset/main.cpp)
+    target_link_libraries(bench_memset benchmark::benchmark)
+endif()

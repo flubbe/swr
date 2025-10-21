@@ -3,6 +3,7 @@
 #
 
 cmake_policy(VERSION 3.22.0)
+cmake_policy(SET CMP0167 OLD)
 cmake_minimum_required (VERSION 3.22.0)
 
 project(swr)
@@ -22,7 +23,7 @@ if(NOT CMAKE_BUILD_TYPE)
 	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Test if linux
@@ -33,18 +34,30 @@ endif()
 #
 # Set compiler specific options.
 #
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
-	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
-	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -Og -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+add_compile_options(-Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        add_compile_options(-stdlib=libc++)
+    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        add_compile_options(-Og)
 	endif()
 else()
-	if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++ -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -O3 -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse")
+    add_compile_options(-O3)
+	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        add_compile_options(-stdlib=libc++)
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized -O3 -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse -fno-omit-frame-pointer")
+        add_compile_options(-fno-omit-frame-pointer)
 	endif()
+endif()
+
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    message(STATUS "Detected ARM64 architecture")
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    message(STATUS "Detected x86_64 architecture")
+    add_compile_options( -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse)
+else()
+    message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
 #
@@ -69,6 +82,11 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 #
+# Boost
+#
+find_package(Boost CONFIG REQUIRED)
+
+#
 # Set up output directories
 #
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
@@ -91,15 +109,15 @@ include_directories(
 	deps/3rd-party/lodepng 
 	deps/3rd-party/cpu_features/include 
 	deps/3rd-party/cnl/include
-	deps/3rd-party/fmt/include
 	deps/3rd-party/libmorton/include
+	/opt/homebrew/include
+	/opt/homebrew/include/SDL2
 	)
 
 #
 # Add subdirectories
 #
 add_subdirectory(deps/3rd-party/cpu_features)
-add_subdirectory(deps/3rd-party/fmt)
 add_subdirectory(src/demos)
 add_subdirectory(src/library)
 add_subdirectory(src/swr_app)

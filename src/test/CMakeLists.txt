@@ -1,3 +1,5 @@
+cmake_policy(SET CMP0167 OLD)
+
 project(swrtest)
 
 # add support for boost test framework
@@ -15,18 +17,19 @@ include_directories(../../include ../../src/library)
 add_executable(test_clipping library/clipping.cpp)
 target_link_libraries(test_clipping
     swrast
-    fmt
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
     )
 
 add_executable(test_coverage_mask library/coverage_mask.cpp)
 target_link_libraries(test_coverage_mask
-    fmt
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
-    )
+   ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+   )
+
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    add_executable(test_utils library/utils.cpp)
+    target_link_libraries(test_utils
+        ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+        )
+endif()
     
-add_executable(test_utils library/utils.cpp)
-target_link_libraries(test_utils
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
-    )
     

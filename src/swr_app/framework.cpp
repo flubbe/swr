@@ -61,7 +61,13 @@ bool renderwindow::create()
         return false;
     }
 
-    sdl_window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
+#ifdef NDEBUG
+    std::string title_with_info = title + " [Release]";
+#else
+    std::string title_with_info = title + " [Debug]";
+#endif
+
+    sdl_window = SDL_CreateWindow(title_with_info.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
     if(!sdl_window)
     {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Window creation failed: %s\n", SDL_GetError());
@@ -100,7 +106,7 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) co
 
     if(surface->format->BytesPerPixel < 1 || surface->format->BytesPerPixel > 4)
     {
-        throw std::runtime_error(fmt::format("cannot handle pixel format with {} bytes per pixel", surface->format->BytesPerPixel));
+        throw std::runtime_error(std::format("cannot handle pixel format with {} bytes per pixel", surface->format->BytesPerPixel));
     }
 
     /* read and convert pixels. */

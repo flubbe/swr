@@ -31,8 +31,7 @@ framework. If you'd like to run the benchmarks, you also need [Google's benchmar
 
 For the other dependencies:
 - put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release 1.1.2, in `deps/3rd-party/cnl`.
-- put [cpu_features](https://github.com/google/cpu_features), release 0.7.0, into `deps/3rd-party/cpu_features`
-- put [fmt](https://github.com/fmtlib/fmt), release 8.1.1, into `deps/3rd-party/fmt`
+- put [cpu_features](https://github.com/google/cpu_features), release 0.10.1, into `deps/3rd-party/cpu_features`
 - if you use [Morton Codes](https://en.wikipedia.org/wiki/Z-order_curve) (enabled by default), put [libmorton](https://github.com/Forceflow/libmorton) into `deps/3rd-party/libmorton`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
 - clone [stb](https://github.com/nothings/stb) into `deps/3rd-party/stb`
@@ -43,6 +42,8 @@ For the other dependencies:
 As a build system, the project uses [CMake](https://cmake.org/).
 
 ## Building the Library and Demos
+
+The project uses C++23.
 
 Install the dependencies listed above. In the root directory, execute:
 - `mkdir bin`
@@ -57,8 +58,6 @@ Alternatively, you can use the included build scripts:
 - Build the library and demos: `./scripts/build.sh`
 
 If everything succeeded, you should find the demo files in the `bin`-directory.
-
-Building was tested on Linux, GCC 12.2 (with C++-17 enabled), CMake 3.24.1 and [Ninja](https://ninja-build.org/) 1.11.0.
 
 ## Limitations
 

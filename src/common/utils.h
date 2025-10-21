@@ -359,19 +359,23 @@ struct slot_map
  * TODO non-GNUC code is untested.
  */
 
-#if defined(__GNUC__)
+#if defined(__x86_64__) || defined(_M_X64)
 
-#    include <x86intrin.h> /* for __rdtsc */
+#   if defined(__GNUC__)
 
-#    define lfence _mm_lfence
-#    define rdtsc  __rdtsc
+#       include <x86intrin.h> /* for __rdtsc */
 
-#elif defined(_MSC_VER)
+#       define lfence _mm_lfence
+#       define rdtsc  __rdtsc
 
-#    include <intrin.h>
+#   elif defined(_MSC_VER)
 
-#    define lfence _mm_lfence
-#    define rdtsc  __rdtsc
+#       include <intrin.h>
+
+#       define lfence _mm_lfence
+#       define rdtsc  __rdtsc
+
+#   endif
 
 #endif
 

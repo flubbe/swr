@@ -9,10 +9,8 @@
  */
 
 /* C++ headers */
+#include <format>
 #include <random>
-
-/* format library */
-#include "fmt/format.h"
 
 /* boost test framework. */
 #define BOOST_TEST_MAIN
@@ -306,7 +304,7 @@ BOOST_AUTO_TEST_CASE(line_clip)
         }
     }
 
-    BOOST_TEST_MESSAGE(fmt::format("{} lines in frustum, {} clipped", lines_in_frustum, total_lines - lines_in_frustum));
+    BOOST_TEST_MESSAGE(std::format("{} lines in frustum, {} clipped", lines_in_frustum, total_lines - lines_in_frustum));
 }
 
 BOOST_AUTO_TEST_SUITE_END();

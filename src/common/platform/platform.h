@@ -8,7 +8,7 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-#include "fmt/format.h"
+#include <format>
 
 namespace platform
 {
@@ -29,16 +29,16 @@ public:
     {
     }
 
-    void log(const char* format, fmt::format_args args)
+    void log(const char* format, std::format_args args)
     {
-        const std::string msg = fmt::vformat(format, args);
-        log_n(fmt::format("Log: {}", msg));
+        const std::string msg = std::vformat(format, args);
+        log_n(std::format("Log: {}", msg));
     }
 
     template<typename... Args>
     void logf(const char* format, const Args&... args)
     {
-        log(format, fmt::make_format_args(args...));
+        log(format, std::make_format_args(args...));
     }
 
     /** set new singleton. note that this does not clean up memory. does not check if new_singleton is valid. */
@@ -58,7 +58,7 @@ public:
 template<typename... Args>
 void logf(const char* format, const Args&... args)
 {
-    log_device::get().log(format, fmt::make_format_args(args...));
+    log_device::get().log(format, std::make_format_args(args...));
 }
 
 /** log empty line. */
