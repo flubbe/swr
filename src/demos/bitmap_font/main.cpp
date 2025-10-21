@@ -9,6 +9,7 @@
  */
 
 #include <format>
+#include <print>
 
 /* boost */
 #include <boost/container/static_vector.hpp>
