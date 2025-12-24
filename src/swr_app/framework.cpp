@@ -15,7 +15,7 @@
 #include <SDL3/SDL.h>
 
 /* platform code. */
-#include "../common/platform/platform.h"
+#include "common/platform/platform.h"
 
 /* software rasterizer. */
 #include "swr/swr.h"

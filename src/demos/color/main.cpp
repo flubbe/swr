@@ -24,7 +24,7 @@
 #include "swr_app/framework.h"
 
 /* logging. */
-#include "../common/platform/platform.h"
+#include "common/platform/platform.h"
 
 /** demo title. */
 const auto demo_title = "Colored Cube";
@@ -113,21 +113,21 @@ public:
         // load cube.
         std::vector<uint32_t> indices = {
 #define FACE_LIST(...) __VA_ARGS__
-#include "../common/cube.geom"
+#include "common/cube.geom"
 #undef FACE_LIST
         };
         cube_indices = swr::CreateIndexBuffer(indices);
 
         std::vector<ml::vec4> vertices = {
 #define VERTEX_LIST(...) __VA_ARGS__
-#include "../common/cube.geom"
+#include "common/cube.geom"
 #undef VERTEX_LIST
         };
         cube_verts = swr::CreateAttributeBuffer(vertices);
 
         std::vector<ml::vec4> colors = {
 #define COLOR_LIST(...) __VA_ARGS__
-#include "../common/cube.geom"
+#include "common/cube.geom"
 #undef COLOR_LIST
         };
         cube_colors = swr::CreateAttributeBuffer(colors);

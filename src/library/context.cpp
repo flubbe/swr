@@ -132,6 +132,7 @@ pixel_format sdl_render_context::get_window_pixel_format(SDL_PixelFormat* out_sd
             *out_sdl_pixel_format = SDL_PIXELFORMAT_RGBX8888;
         }
         return pixel_format::rgba8888;
+    default: /* fall through */;
     }
 
     // this is the default case, but it is a guess.
@@ -255,7 +256,7 @@ void sdl_render_context::update_buffers(int width, int height)
     SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER, SDL_TEXTUREACCESS_STREAMING);
     SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_WIDTH_NUMBER, width);
     SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_HEIGHT_NUMBER, height);
-    SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_COLORSPACE_NUMBER, SDL_COLORSPACE_SRGB_LINEAR);
+    SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_COLORSPACE_NUMBER, SDL_COLORSPACE_SRGB);
 
     sdl_color_buffer = SDL_CreateTextureWithProperties(sdl_renderer, p);
     SDL_DestroyProperties(p);

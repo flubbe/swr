@@ -155,8 +155,6 @@ public:
     /** convert to pixel format. */
     uint32_t to_pixel(const ml::vec4 color) const
     {
-        // FIXME srgb8_alpha8
-
         const ml::vec4 scaled_color{color * max_per_channel};
         uint8_t r{static_cast<uint8_t>(scaled_color.r)};
         uint8_t g{static_cast<uint8_t>(scaled_color.g)};
@@ -172,31 +170,6 @@ public:
         uint32_t g{(pixel & green_mask) >> pf.green_shift};
         uint32_t b{(pixel & blue_mask) >> pf.blue_shift};
         uint32_t a{(pixel & alpha_mask) >> pf.alpha_shift};
-
-        if(name == pixel_format::srgb8_alpha8)
-        {
-            /**
-             * Convert sRGB to linear.
-             * Reference: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
-             */
-            auto srgb_to_linear = [](std::uint8_t c, float channel_max) -> float
-            {
-                float norm_c = static_cast<float>(c) / channel_max;
-                if(norm_c <= 0.04045f)
-                {
-                    return c / 12.92f;
-                }
-                return std::pow((norm_c + 0.055f) / 1.055f, 2.4f);
-            };
-
-            return {
-              srgb_to_linear(r, max_per_channel.r),
-              srgb_to_linear(g, max_per_channel.g),
-              srgb_to_linear(b, max_per_channel.b),
-              static_cast<float>(a) / max_per_channel.a,
-            };
-        }
-
         return ml::vec4{static_cast<float>(r), static_cast<float>(g), static_cast<float>(b), static_cast<float>(a)} / max_per_channel;
     }
 };
