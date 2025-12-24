@@ -244,7 +244,7 @@ struct barycentric_coordinate_block
 
     barycentric_coordinate_block& operator=(const barycentric_coordinate_block&) = default;
     barycentric_coordinate_block& operator=(barycentric_coordinate_block&&) = default;
-    
+
     /** set up the block size from given that corners contain the values the top-left corner. */
     void setup(int block_size_x, int block_size_y)
     {

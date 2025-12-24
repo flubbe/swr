@@ -104,8 +104,6 @@ include_directories(
 	deps/3rd-party/cpu_features/include 
 	deps/3rd-party/cnl/include
 	deps/3rd-party/libmorton/include
-	/opt/homebrew/include
-	/opt/homebrew/include/SDL3
 	)
 
 #

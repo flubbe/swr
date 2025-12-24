@@ -361,21 +361,21 @@ struct slot_map
 
 #if defined(__x86_64__) || defined(_M_X64)
 
-#   if defined(__GNUC__)
+#    if defined(__GNUC__)
 
-#       include <x86intrin.h> /* for __rdtsc */
+#        include <x86intrin.h> /* for __rdtsc */
 
-#       define lfence _mm_lfence
-#       define rdtsc  __rdtsc
+#        define lfence _mm_lfence
+#        define rdtsc  __rdtsc
 
-#   elif defined(_MSC_VER)
+#    elif defined(_MSC_VER)
 
-#       include <intrin.h>
+#        include <intrin.h>
 
-#       define lfence _mm_lfence
-#       define rdtsc  __rdtsc
+#        define lfence _mm_lfence
+#        define rdtsc  __rdtsc
 
-#   endif
+#    endif
 
 #endif
 
