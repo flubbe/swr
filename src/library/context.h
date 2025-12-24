@@ -368,7 +368,7 @@ class sdl_render_context : public render_device_context
 {
 protected:
     /** context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
-    SDL_Rect sdl_viewport_dimensions;
+    SDL_FRect sdl_viewport_dimensions;
 
     /** color buffer. */
     SDL_Texture* sdl_color_buffer{nullptr};
@@ -380,7 +380,7 @@ protected:
     SDL_Window* sdl_window{nullptr};
 
     /** return the window's pixel format, converted to swr::pixel_format. if out_sdl_pixel_format is non-null, the SDL pixel format will be written into it. */
-    swr::pixel_format get_window_pixel_format(Uint32* out_sdl_pixel_format = nullptr) const;
+    swr::pixel_format get_window_pixel_format(SDL_PixelFormat* out_sdl_pixel_format = nullptr) const;
 
 public:
     /** default constructor. */

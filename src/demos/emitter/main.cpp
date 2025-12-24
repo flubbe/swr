@@ -125,7 +125,7 @@ public:
             throw std::runtime_error("MakeContextCurrent failed");
         }
 
-        swr::SetClearColor(0, 0, 0, 0);
+        swr::SetClearColor(0, 0, 0, 1);
         swr::SetClearDepth(1.0f);
         swr::SetViewport(0, 0, width, height);
 
@@ -265,15 +265,15 @@ public:
         SDL_Event e;
         if(SDL_PollEvent(&e))
         {
-            if(e.type == SDL_QUIT)
+            if(e.type == SDL_EVENT_QUIT)
             {
                 swr_app::application::quit();
                 return;
             }
 
-            if(e.type == SDL_KEYDOWN)
+            if(e.type == SDL_EVENT_KEY_DOWN)
             {
-                if(e.key.keysym.sym == SDLK_p)
+                if(e.key.key == SDLK_P)
                 {
                     update_particles = !update_particles;
                 }

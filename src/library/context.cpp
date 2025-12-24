@@ -10,6 +10,8 @@
 
 #include <format>
 
+#include <SDL3/SDL_pixels.h>
+
 /* user headers. */
 #include "swr_internal.h"
 
@@ -111,30 +113,23 @@ void render_device_context::clear_depth_buffer()
  * SDL render context implementation.
  */
 
-pixel_format sdl_render_context::get_window_pixel_format(Uint32* out_sdl_pixel_format) const
+pixel_format sdl_render_context::get_window_pixel_format(SDL_PixelFormat* out_sdl_pixel_format) const
 {
     switch(SDL_GetWindowPixelFormat(sdl_window))
     {
-#if defined(_WIN32)
-    case SDL_PIXELFORMAT_RGB888:
-#elif defined(__linux__)
-    case SDL_PIXELFORMAT_RGB888:
-#elif defined(__APPLE__)
-    case SDL_PIXELFORMAT_RGB888:
-#else
-#    error Check the systems default pixel format.
-#endif
+    case SDL_PIXELFORMAT_XRGB8888:
     case SDL_PIXELFORMAT_ARGB8888:
         if(out_sdl_pixel_format)
         {
-            *out_sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;
+            *out_sdl_pixel_format = SDL_PIXELFORMAT_XRGB8888;
         }
         return pixel_format::argb8888;
 
+    case SDL_PIXELFORMAT_RGBX8888:
     case SDL_PIXELFORMAT_RGBA8888:
         if(out_sdl_pixel_format)
         {
-            *out_sdl_pixel_format = SDL_PIXELFORMAT_RGBA8888;
+            *out_sdl_pixel_format = SDL_PIXELFORMAT_RGBX8888;
         }
         return pixel_format::rgba8888;
     }
@@ -143,7 +138,7 @@ pixel_format sdl_render_context::get_window_pixel_format(Uint32* out_sdl_pixel_f
     // FIXME log a warning?
     if(out_sdl_pixel_format)
     {
-        *out_sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;
+        *out_sdl_pixel_format = SDL_PIXELFORMAT_XRGB8888;
     }
     return pixel_format::argb8888;
 }
@@ -171,7 +166,9 @@ void sdl_render_context::initialize(SDL_Window* window, SDL_Renderer* renderer, 
     update_buffers(width, height);
 
     // write dimensions for the blitting rectangle.
-    sdl_viewport_dimensions = {0, 0, width, height};
+    int rw, rh;
+    SDL_GetRenderOutputSize(sdl_renderer, &rw, &rh);
+    sdl_viewport_dimensions = {0.f, 0.f, static_cast<float>(rw), static_cast<float>(rh)};
 
     // create default texture.
     create_default_texture(this);
@@ -246,14 +243,17 @@ void sdl_render_context::update_buffers(int width, int height)
     }
 
     // get pixel format.
-    Uint32 native_pixel_format{0};
+    SDL_PixelFormat native_pixel_format;
     auto swr_pixel_format = get_window_pixel_format(&native_pixel_format);
 
-    // create SDL color buffer in native pixel format.
     sdl_color_buffer = SDL_CreateTexture(sdl_renderer, native_pixel_format, SDL_TEXTUREACCESS_STREAMING, width, height);
     if(sdl_color_buffer == nullptr)
     {
         return;
+    }
+    if(!SDL_SetTextureBlendMode(sdl_color_buffer, SDL_BLENDMODE_NONE))
+    {
+        throw std::runtime_error(std::format("sdl_render_context: could not set blend mode: {}", SDL_GetError()));
     }
 
     framebuffer.setup(width, height, 0, swr_pixel_format, nullptr);
@@ -263,9 +263,16 @@ void sdl_render_context::copy_default_color_buffer()
 {
     if(sdl_color_buffer != nullptr && sdl_renderer != nullptr && sdl_window != nullptr)
     {
-        SDL_RenderCopy(sdl_renderer, sdl_color_buffer, &sdl_viewport_dimensions, nullptr);
-        SDL_RenderPresent(sdl_renderer);
-        SDL_UpdateWindowSurface(sdl_window);
+        SDL_SetRenderTarget(sdl_renderer, nullptr);
+
+        if(!SDL_RenderTexture(sdl_renderer, sdl_color_buffer, &sdl_viewport_dimensions, nullptr))
+        {
+            throw std::runtime_error(std::format("sdl_render_context: cound not render texture: {}", SDL_GetError()));
+        }
+        if(!SDL_RenderPresent(sdl_renderer))
+        {
+            throw std::runtime_error(std::format("sdl_render_context: cound not present: {}", SDL_GetError()));
+        }
     }
 }
 
@@ -276,7 +283,7 @@ bool sdl_render_context::lock()
         uint32_t* data_ptr{nullptr};
         int pitch{0};
 
-        if(SDL_LockTexture(sdl_color_buffer, nullptr, reinterpret_cast<void**>(&data_ptr), &pitch) != 0)
+        if(!SDL_LockTexture(sdl_color_buffer, nullptr, reinterpret_cast<void**>(&data_ptr), &pitch))
         {
             return false;
         }
@@ -291,8 +298,8 @@ void sdl_render_context::unlock()
 {
     if(framebuffer.is_color_weakly_attached())
     {
-        SDL_UnlockTexture(sdl_color_buffer);
         framebuffer.color_buffer.detach();
+        SDL_UnlockTexture(sdl_color_buffer);
     }
 }
 

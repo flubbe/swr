@@ -18,15 +18,7 @@
 #include <vector>
 
 /* SDL */
-#ifndef __linux__
-#    ifdef __APPLE__
-#        include <SDL.h>
-#    else
-#        include "SDL.h"
-#    endif
-#else
-#    include <SDL2/SDL.h>
-#endif
+#include <SDL3/SDL.h>
 
 /* user headers. */
 #include "ml/all.h"

@@ -15,6 +15,9 @@
 /* boost */
 #include <boost/lexical_cast.hpp>
 
+/* SDL */
+#include <SDL3/SDL_surface.h>
+
 namespace swr_app
 {
 
@@ -87,14 +90,7 @@ public:
         {
             throw std::runtime_error("sdl_renderer==0");
         }
-
-        SDL_Surface* surface = SDL_CreateRGBSurface(0, width, height, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0);
-        if(!surface)
-        {
-            throw std::runtime_error(std::format("SDL_CreateRGBSurface failed: {}", SDL_GetError()));
-        }
-        SDL_RenderReadPixels(sdl_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
-        return surface;
+        return SDL_RenderReadPixels(sdl_renderer, NULL);
     }
 
     /* get window width */

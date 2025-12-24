@@ -12,15 +12,8 @@
 #include <thread>
 
 /* SDL */
-#ifndef __linux__
-#    ifdef __APPLE__
-#        include <SDL.h>
-#    else
-#        include "SDL.h"
-#    endif
-#else
-#    include <SDL2/SDL.h>
-#endif
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_log.h>
 
 #include "platform.h"
 
@@ -57,8 +50,8 @@ void global_initialize(log_device* in_log)
     logf("std::thread::hardware_concurrency: {0}", std::thread::hardware_concurrency());
 
     /* map SDL output to log. */
-    SDL_LogGetOutputFunction(&default_sdl_log, nullptr);
-    SDL_LogSetOutputFunction(&sdl_log, nullptr);
+    SDL_GetLogOutputFunction(&default_sdl_log, nullptr);
+    SDL_SetLogOutputFunction(&sdl_log, nullptr);
 
     logf("platform initialized");
 }
@@ -68,7 +61,7 @@ void global_shutdown()
     /* reset SDL log. */
     if(default_sdl_log != nullptr)
     {
-        SDL_LogSetOutputFunction(default_sdl_log, nullptr);
+        SDL_SetLogOutputFunction(default_sdl_log, nullptr);
         default_sdl_log = nullptr;
     }
 

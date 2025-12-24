@@ -205,7 +205,7 @@ public:
         SDL_Event e;
         if(SDL_PollEvent(&e))
         {
-            if(e.type == SDL_QUIT)
+            if(e.type == SDL_EVENT_QUIT)
             {
                 swr_app::application::quit();
                 return;
@@ -231,12 +231,12 @@ public:
 
     void begin_render()
     {
-        swr::SetClearColor(0, 0, 0, 0);
+        swr::SetClearColor(0, 0, 0, 1);
         swr::SetState(swr::state::scissor_test, false);
         swr::ClearColorBuffer();
         swr::ClearDepthBuffer();
 
-        swr::SetClearColor(0.2, 0.2, 0.2, 0.2);
+        swr::SetClearColor(0.2, 0.2, 0.2, 1.0);
         swr::SetState(swr::state::scissor_test, true);
         swr::ClearColorBuffer();
     }
