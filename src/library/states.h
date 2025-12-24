@@ -9,7 +9,6 @@
  */
 
 #include <boost/container/static_vector.hpp>
-#include <boost/algorithm/clamp.hpp>
 
 namespace swr
 {
@@ -137,7 +136,7 @@ struct render_states
     /** set the current clear depth. */
     void set_clear_depth(float z)
     {
-        clear_depth = boost::algorithm::clamp(z, 0.f, 1.f);
+        clear_depth = std::clamp(z, 0.f, 1.f);
     }
 
     /** set the viewport. */
@@ -152,8 +151,8 @@ struct render_states
     /** update min and max depth values. */
     void set_depth_range(float in_z_near, float in_z_far)
     {
-        z_near = boost::algorithm::clamp(in_z_near, 0.f, 1.f);
-        z_far = boost::algorithm::clamp(in_z_far, 0.f, 1.f);
+        z_near = std::clamp(in_z_near, 0.f, 1.f);
+        z_far = std::clamp(in_z_far, 0.f, 1.f);
     }
 
     /** set scissor box. */

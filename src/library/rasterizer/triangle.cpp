@@ -189,9 +189,9 @@ static void setup_polygon_offset(const swr::impl::render_states& states, geom::v
 
     float o = m * states.polygon_offset_factor + r.f * states.polygon_offset_units;    // Eq. (14.13)
 
-    v1.coords.z = boost::algorithm::clamp(v1.coords.z + o, 0.0f, 1.0f);
-    v2.coords.z = boost::algorithm::clamp(v2.coords.z + o, 0.0f, 1.0f);
-    v3.coords.z = boost::algorithm::clamp(v3.coords.z + o, 0.0f, 1.0f);
+    v1.coords.z = std::clamp(v1.coords.z + o, 0.0f, 1.0f);
+    v2.coords.z = std::clamp(v2.coords.z + o, 0.0f, 1.0f);
+    v3.coords.z = std::clamp(v3.coords.z + o, 0.0f, 1.0f);
 }
 
 void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, geom::vertex& v1, geom::vertex& v2, geom::vertex& v3)

@@ -114,7 +114,7 @@ public:
         // Direction of the light (from the fragment to the light)
         ml::vec3 l = light_direction.xyz().normalized();
 
-        float lambertian = boost::algorithm::clamp(ml::dot(n, l), 0.f, 1.f);
+        float lambertian = std::clamp(ml::dot(n, l), 0.f, 1.f);
 
         // calculate diffuse color.
         ml::vec4 diffuse_color = light_color * material_diffuse_color * lambertian;
@@ -129,7 +129,7 @@ public:
         {
             auto reflect_dir = -(l - n * 2.f * ml::dot(l, n)); /* reflect vector w.r.t. normal */
             auto specular_angle = ml::dot(reflect_dir, eye_direction.xyz().normalized());
-            specular = std::pow(boost::algorithm::clamp(specular_angle, 0.f, 1.f), shininess / 4.f);
+            specular = std::pow(std::clamp(specular_angle, 0.f, 1.f), shininess / 4.f);
         }
 
         gl_FragColor = ambient_color + (diffuse_color + light_specular_color * specular) * falloff;

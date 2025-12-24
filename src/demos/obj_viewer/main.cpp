@@ -37,7 +37,7 @@
 #include "swr_app/framework.h"
 
 /* logging. */
-#include "../common/platform/platform.h"
+#include "common/platform/platform.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_USE_MAPBOX_EARCUT
@@ -684,7 +684,7 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                 float diffuse_factor = 1 - normal_factor;
                 ml::vec3 c = n[k] * normal_factor + diffuse * diffuse_factor;
                 c.normalize();
-                color_buffer.push_back(ml::vec4(c, 0.f) * 0.5 + 0.5);
+                color_buffer.push_back(ml::vec4(c, 1.f) * 0.5 + 0.5);
                 tex_buffer.push_back(ml::vec4{tc[k][0], tc[k][1], 0, 0});
             }
         }

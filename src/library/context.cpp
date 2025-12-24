@@ -132,6 +132,7 @@ pixel_format sdl_render_context::get_window_pixel_format(SDL_PixelFormat* out_sd
             *out_sdl_pixel_format = SDL_PIXELFORMAT_RGBX8888;
         }
         return pixel_format::rgba8888;
+    default: /* fall through */;
     }
 
     // this is the default case, but it is a guess.
@@ -246,11 +247,25 @@ void sdl_render_context::update_buffers(int width, int height)
     SDL_PixelFormat native_pixel_format;
     auto swr_pixel_format = get_window_pixel_format(&native_pixel_format);
 
-    sdl_color_buffer = SDL_CreateTexture(sdl_renderer, native_pixel_format, SDL_TEXTUREACCESS_STREAMING, width, height);
+    SDL_PropertiesID p = SDL_CreateProperties();
+    if(p == 0)
+    {
+        throw std::runtime_error(std::format("sdl_render_context: could not create properties: {}", SDL_GetError()));
+    }
+    SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_FORMAT_NUMBER, native_pixel_format);
+    SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER, SDL_TEXTUREACCESS_STREAMING);
+    SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_WIDTH_NUMBER, width);
+    SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_HEIGHT_NUMBER, height);
+    SDL_SetNumberProperty(p, SDL_PROP_TEXTURE_CREATE_COLORSPACE_NUMBER, SDL_COLORSPACE_SRGB);
+
+    sdl_color_buffer = SDL_CreateTextureWithProperties(sdl_renderer, p);
+    SDL_DestroyProperties(p);
+
     if(sdl_color_buffer == nullptr)
     {
-        return;
+        throw std::runtime_error(std::format("sdl_render_context: could not create color buffer: {}", SDL_GetError()));
     }
+
     if(!SDL_SetTextureBlendMode(sdl_color_buffer, SDL_BLENDMODE_NONE))
     {
         throw std::runtime_error(std::format("sdl_render_context: could not set blend mode: {}", SDL_GetError()));

@@ -21,7 +21,7 @@
 #include "swr_app/framework.h"
 
 /* logging. */
-#include "../common/platform/platform.h"
+#include "common/platform/platform.h"
 
 /** demo title. */
 const auto demo_title = "Clear Default Framebuffer";

@@ -136,9 +136,6 @@ class application
     /** command line arguments. */
     std::vector<std::string> cmd_args;
 
-    /** timer. */
-    std::chrono::steady_clock timer;
-
     /** run time of the application, in seconds. */
     float run_time{0};
 

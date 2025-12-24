@@ -24,7 +24,7 @@
 #include "swr_app/framework.h"
 
 /* logging. */
-#include "../common/platform/platform.h"
+#include "common/platform/platform.h"
 
 /* png loading. */
 #include "lodepng.h"
@@ -144,42 +144,42 @@ public:
         // load cube.
         std::vector<uint32_t> indices = {
 #define FACE_LIST(...) __VA_ARGS__
-#include "../common/cube_uniform_uv.geom"
+#include "common/cube_uniform_uv.geom"
 #undef FACE_LIST
         };
         cube_indices = swr::CreateIndexBuffer(indices);
 
         std::vector<ml::vec4> vertices = {
 #define VERTEX_LIST(...) __VA_ARGS__
-#include "../common/cube_uniform_uv.geom"
+#include "common/cube_uniform_uv.geom"
 #undef VERTEX_LIST
         };
         cube_verts = swr::CreateAttributeBuffer(vertices);
 
         std::vector<ml::vec4> uvs = {
 #define UV_LIST(...) __VA_ARGS__
-#include "../common/cube_uniform_uv.geom"
+#include "common/cube_uniform_uv.geom"
 #undef UV_LIST
         };
         cube_uvs = swr::CreateAttributeBuffer(uvs);
 
         std::vector<ml::vec4> normals = {
 #define NORMAL_LIST(...) __VA_ARGS__
-#include "../common/cube_uniform_uv.geom"
+#include "common/cube_uniform_uv.geom"
 #undef NORMAL_LIST
         };
         cube_normals = swr::CreateAttributeBuffer(normals);
 
         std::vector<ml::vec4> tangents = {
 #define TANGENT_LIST(...) __VA_ARGS__
-#include "../common/cube_uniform_uv.geom"
+#include "common/cube_uniform_uv.geom"
 #undef TANGENT_LIST
         };
         cube_tangents = swr::CreateAttributeBuffer(tangents);
 
         std::vector<ml::vec4> bitangents = {
 #define BITANGENT_LIST(...) __VA_ARGS__
-#include "../common/cube_uniform_uv.geom"
+#include "common/cube_uniform_uv.geom"
 #undef BITANGENT_LIST
         };
         cube_bitangents = swr::CreateAttributeBuffer(bitangents);

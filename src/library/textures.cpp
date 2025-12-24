@@ -154,7 +154,7 @@ error texture_2d::set_data(int level, int in_width, int in_height, pixel_format 
     auto pitch = width + (width >> 1);
 #endif
 
-    pixel_format_converter pfc(pixel_format_descriptor::named_format(format));
+    pixel_format_converter pfc{pixel_format_descriptor::named_format(format)};
     for(int y = 0; y < in_height; ++y)
     {
         for(int x = 0; x < in_width; ++x)

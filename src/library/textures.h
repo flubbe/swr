@@ -407,7 +407,7 @@ inline float sampler_2d_impl::calculate_mipmap_level(const ml::vec4& dFdx, const
     float lambda = 0.5f * std::log2(std::max(u_squared, v_squared));
 
     // clamp the level-of-detail parameter, roughly corresponding to eq. (8.6) on p. 216.
-    return boost::algorithm::clamp(lambda, 0.f, lod_max);
+    return std::clamp(lambda, 0.f, lod_max);
 }
 
 #ifdef SWR_USE_MORTON_CODES

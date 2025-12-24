@@ -9,7 +9,7 @@
  */
 
 /* user headers */
-#include "../common/platform/platform.h"
+#include "common/platform/platform.h"
 
 #include "swr/swr.h"
 #include "swr/shaders.h"

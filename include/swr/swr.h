@@ -357,7 +357,7 @@ enum class pixel_format
     unsupported, /** An unsupported pixel format. */
     rgba8888,    /** 32-bit with 8 bits per channel in the order red, green, blue, alpha. */
     argb8888,    /** 32-bit with 8 bits per channel in the order alpha, red, green, blue. */
-    bgra8888     /** 32-bit with 8 bits per channel in the order blue, green, red, alpha. */
+    bgra8888,    /** 32-bit with 8 bits per channel in the order blue, green, red, alpha. */
 };
 
 /*

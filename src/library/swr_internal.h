@@ -34,7 +34,7 @@
 
 #include "geometry/all.h"
 
-#include "../common/utils.h"
+#include "common/utils.h"
 
 #include "states.h"
 #include "pixelformat.h"
