@@ -19,13 +19,20 @@ jobs:
 
     steps:
     - uses: actions/checkout@v5
-    
+
     - name: Ubuntu update
       run: sudo apt-get update
       shell: bash
 
+    - uses: libsdl-org/setup-sdl@main
+      id: sdl
+      with:
+        install-linux-dependencies: true
+        version: 3-latest
+        version-sdl-image: 3-latest    
+    
     - name: Install additional packages
-      run: sudo apt-get install libbenchmark-dev libboost-dev libboost-test-dev libsdl3-dev
+      run: sudo apt-get install libbenchmark-dev libboost-dev libboost-test-dev
       shell: bash
 
     - name: Use GCC 14
