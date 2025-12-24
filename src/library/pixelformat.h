@@ -175,9 +175,13 @@ public:
 
         if(name == pixel_format::srgb8_alpha8)
         {
-            auto srgb_to_linear = [](std::uint8_t c) -> float
+            /**
+             * Convert sRGB to linear.
+             * Reference: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
+             */
+            auto srgb_to_linear = [](std::uint8_t c, float channel_max) -> float
             {
-                float norm_c = static_cast<float>(c) / 255.f;
+                float norm_c = static_cast<float>(c) / channel_max;
                 if(norm_c <= 0.04045f)
                 {
                     return c / 12.92f;
@@ -186,9 +190,9 @@ public:
             };
 
             return {
-              srgb_to_linear(r),
-              srgb_to_linear(g),
-              srgb_to_linear(b),
+              srgb_to_linear(r, max_per_channel.r),
+              srgb_to_linear(g, max_per_channel.g),
+              srgb_to_linear(b, max_per_channel.b),
               static_cast<float>(a) / max_per_channel.a,
             };
         }
