@@ -215,7 +215,7 @@ public:
             return false;
         }
         cube_tex = swr::CreateTexture();
-        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::srgb8_alpha8 img_data);
+        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::srgb8_alpha8, img_data);
         swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         // cube normal map.
