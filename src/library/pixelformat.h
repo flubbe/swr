@@ -14,6 +14,9 @@ namespace swr
 /** Pixel format descriptor. */
 struct pixel_format_descriptor
 {
+    /** pixel format name. */
+    pixel_format name{pixel_format::unsupported};
+
     /** red color bits. */
     uint32_t red_bits{0};
 
@@ -42,8 +45,18 @@ struct pixel_format_descriptor
     pixel_format_descriptor() = default;
 
     /** initializing constructor. */
-    pixel_format_descriptor(uint32_t in_red_bits, uint32_t in_red_shift, uint32_t in_green_bits, uint32_t in_green_shift, uint32_t in_blue_bits, uint32_t in_blue_shift, uint32_t in_alpha_bits, uint32_t in_alpha_shift)
-    : red_bits(in_red_bits)
+    pixel_format_descriptor(
+      pixel_format name,
+      uint32_t in_red_bits,
+      uint32_t in_red_shift,
+      uint32_t in_green_bits,
+      uint32_t in_green_shift,
+      uint32_t in_blue_bits,
+      uint32_t in_blue_shift,
+      uint32_t in_alpha_bits,
+      uint32_t in_alpha_shift)
+    : name{name}
+    , red_bits(in_red_bits)
     , red_shift(in_red_shift)
     , green_bits(in_green_bits)
     , green_shift(in_green_shift)
@@ -59,18 +72,23 @@ struct pixel_format_descriptor
     {
         if(name == pixel_format::argb8888)
         {
-            /*     {   red  green   blue   alpha */
-            return {8, 16, 8, 8, 8, 0, 8, 24};
+            /* {name, red, green, blue, alpha */
+            return {name, 8, 16, 8, 8, 8, 0, 8, 24};
         }
         else if(name == pixel_format::bgra8888)
         {
-            /*     {   red   green    blue   alpha */
-            return {8, 8, 8, 16, 8, 24, 8, 0};
+            /* {name, red, green, blue, alpha */
+            return {name, 8, 8, 8, 16, 8, 24, 8, 0};
         }
         else if(name == pixel_format::rgba8888)
         {
-            /*     {   red   green   blue   alpha */
-            return {8, 24, 8, 16, 8, 8, 8, 0};
+            /* {name, red, green, blue, alpha */
+            return {name, 8, 24, 8, 16, 8, 8, 8, 0};
+        }
+        else if(name == pixel_format::srgb8_alpha8)
+        {
+            /* {name, red, green, blue, alpha */
+            return {name, 8, 24, 8, 16, 8, 8, 8, 0};
         }
 
         // return empty pixel_format_descriptor for unknown formats.
@@ -108,22 +126,7 @@ public:
         alpha_mask = static_cast<uint32_t>(max_rgba[3] << pf.alpha_shift);
 
         // get pixel format name.
-        name = pixel_format::unsupported;
-        if(pf.red_bits == 8 && pf.green_bits == 8 && pf.blue_bits == 8 && pf.alpha_bits == 8)
-        {
-            if(pf.red_shift == 24 && pf.green_shift == 16 && pf.blue_shift == 8 && pf.alpha_shift == 0)
-            {
-                name = pixel_format::rgba8888;
-            }
-            else if(pf.red_shift == 16 && pf.green_shift == 8 && pf.blue_shift == 0 && pf.alpha_shift == 24)
-            {
-                name = pixel_format::argb8888;
-            }
-            else if(pf.red_shift == 8 && pf.green_shift == 16 && pf.blue_shift == 24 && pf.alpha_shift == 0)
-            {
-                name = pixel_format::bgra8888;
-            }
-        }
+        name = pf.name;
     }
 
     /** default constructor. */
@@ -131,7 +134,7 @@ public:
 
     /** constructor. */
     pixel_format_converter(const pixel_format_descriptor& in_pf)
-    : pf(in_pf)
+    : pf{in_pf}
     {
         update();
     }
@@ -152,6 +155,8 @@ public:
     /** convert to pixel format. */
     uint32_t to_pixel(const ml::vec4 color) const
     {
+        // FIXME srgb8_alpha8
+
         const ml::vec4 scaled_color{color * max_per_channel};
         uint8_t r{static_cast<uint8_t>(scaled_color.r)};
         uint8_t g{static_cast<uint8_t>(scaled_color.g)};
@@ -167,6 +172,26 @@ public:
         uint32_t g{(pixel & green_mask) >> pf.green_shift};
         uint32_t b{(pixel & blue_mask) >> pf.blue_shift};
         uint32_t a{(pixel & alpha_mask) >> pf.alpha_shift};
+
+        if(name == pixel_format::srgb8_alpha8)
+        {
+            auto srgb_to_linear = [](std::uint8_t c) -> float
+            {
+                float norm_c = static_cast<float>(c) / 255.f;
+                if(norm_c <= 0.04045f)
+                {
+                    return c / 12.92f;
+                }
+                return std::pow((norm_c + 0.055f) / 1.055f, 2.4f);
+            };
+
+            return {
+              srgb_to_linear(r),
+              srgb_to_linear(g),
+              srgb_to_linear(b),
+              static_cast<float>(a) / max_per_channel.a,
+            };
+        }
 
         return ml::vec4{static_cast<float>(r), static_cast<float>(g), static_cast<float>(b), static_cast<float>(a)} / max_per_channel;
     }

@@ -499,7 +499,7 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                 {
                     assert(0);    // TODO
                 }
-                swr::SetImage(texture_id, 0, w, h, swr::pixel_format::rgba8888, image_rgba);
+                swr::SetImage(texture_id, 0, w, h, swr::pixel_format::srgb8_alpha8, image_rgba);
                 swr::BindTexture(swr::texture_target::texture_2d, 0);
 
                 stbi_image_free(image);
