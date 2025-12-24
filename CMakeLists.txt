@@ -61,17 +61,11 @@ else()
 endif()
 
 #
-# Set system specific options.
+# SDL3.
 #
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	include_directories(/Library/Frameworks/SDL2.framework/Headers /opt/local/include)
-	find_library(SDL_LIBRARY SDL2)
-	set(EXTRA_LIBS ${SDL_LIBRARY})
-elseif(LINUX)
-	find_library(SDL_LIBRARY SDL2)
-	set(EXTRA_LIBS ${SDL_LIBRARY})
-endif()
 
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
+set(EXTRA_LIBS SDL3::SDL3)
 message(STATUS ${EXTRA_LIBS})
 
 #
@@ -111,7 +105,7 @@ include_directories(
 	deps/3rd-party/cnl/include
 	deps/3rd-party/libmorton/include
 	/opt/homebrew/include
-	/opt/homebrew/include/SDL2
+	/opt/homebrew/include/SDL3
 	)
 
 #

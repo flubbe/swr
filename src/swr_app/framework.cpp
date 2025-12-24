@@ -12,15 +12,7 @@
 #include <mutex>
 
 /* other library headers */
-#ifndef __linux__
-#    ifdef __APPLE__
-#        include <SDL.h>
-#    else
-#        include "SDL.h"
-#    endif
-#else
-#    include <SDL2/SDL.h>
-#endif
+#include <SDL3/SDL.h>
 
 /* platform code. */
 #include "../common/platform/platform.h"
@@ -67,15 +59,14 @@ bool renderwindow::create()
     std::string title_with_info = title + " [Debug]";
 #endif
 
-    sdl_window = SDL_CreateWindow(title_with_info.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
+    sdl_window = SDL_CreateWindow(title_with_info.c_str(), width, height, 0);
     if(!sdl_window)
     {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Window creation failed: %s\n", SDL_GetError());
         return false;
     }
 
-    auto surface = SDL_GetWindowSurface(sdl_window);
-    sdl_renderer = SDL_CreateSoftwareRenderer(surface);
+    sdl_renderer = SDL_CreateRenderer(sdl_window, nullptr);
     if(!sdl_renderer)
     {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation for surface failed: %s\n", SDL_GetError());
@@ -104,29 +95,32 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) co
     contents.clear();
     contents.reserve(surface->w * surface->h * 4); /* 4 bytes per pixel; RGBA */
 
-    if(surface->format->BytesPerPixel < 1 || surface->format->BytesPerPixel > 4)
+    auto pf_details = SDL_GetPixelFormatDetails(surface->format);
+    if(pf_details->bytes_per_pixel < 1 || pf_details->bytes_per_pixel > 4)
     {
-        throw std::runtime_error(std::format("cannot handle pixel format with {} bytes per pixel", surface->format->BytesPerPixel));
+        throw std::runtime_error(std::format("cannot handle pixel format with {} bytes per pixel", pf_details->bytes_per_pixel));
     }
+
+    auto palette = SDL_GetSurfacePalette(surface);
 
     /* read and convert pixels. */
     for(int y = 0; y < surface->h; ++y)
     {
         for(int x = 0; x < surface->w; ++x)
         {
-            Uint8* p = (Uint8*)surface->pixels + y * surface->pitch + x * surface->format->BytesPerPixel;
+            Uint8* p = (Uint8*)surface->pixels + y * surface->pitch + x * pf_details->bytes_per_pixel;
             Uint32 pixel{0};
 
             // (if speed was a concern, the branching should happen outside the for-loops)
-            if(surface->format->BytesPerPixel == 1)
+            if(pf_details->bytes_per_pixel == 1)
             {
                 pixel = *p;
             }
-            else if(surface->format->BytesPerPixel == 2)
+            else if(pf_details->bytes_per_pixel == 2)
             {
                 pixel = *reinterpret_cast<Uint16*>(p);
             }
-            else if(surface->format->BytesPerPixel == 3)
+            else if(pf_details->bytes_per_pixel == 3)
             {
                 // TODO this needs to be tested.
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -135,13 +129,13 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) co
                 pixel = p[0] | p[1] << 8 | p[2] << 16;
 #endif
             }
-            else if(surface->format->BytesPerPixel == 4)
+            else if(pf_details->bytes_per_pixel == 4)
             {
                 pixel = *reinterpret_cast<Uint32*>(p);
             }
 
             Uint8 r, g, b, a;
-            SDL_GetRGBA(pixel, surface->format, &r, &g, &b, &a);
+            SDL_GetRGBA(pixel, pf_details, palette, &r, &g, &b, &a);
             contents.push_back((r << 24) | (g << 16) | (b << 8) | a);
         }
     }
@@ -170,13 +164,13 @@ void application::initialize_instance(int argc, char* argv[])
     if(SDL_WasInit(SDL_INIT_VIDEO) == 0)
     {
         /* Enable standard application logging */
-        if(SDL_LogGetPriority(SDL_LOG_CATEGORY_APPLICATION) != SDL_LOG_PRIORITY_INFO)
+        if(SDL_GetLogPriority(SDL_LOG_CATEGORY_APPLICATION) != SDL_LOG_PRIORITY_INFO)
         {
-            SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
+            SDL_SetLogPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
         }
 
         /* Initialize SDL */
-        if(SDL_Init(SDL_INIT_VIDEO) != 0)
+        if(!SDL_Init(SDL_INIT_VIDEO))
         {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_Init fail : %s\n", SDL_GetError());
             throw std::runtime_error("SDL initialization failed.");
@@ -190,7 +184,7 @@ void application::shutdown_instance()
     const std::scoped_lock lock{global_app_mtx};
 
     // shut down SDL
-    if(SDL_WasInit(SDL_INIT_EVERYTHING) != 0)
+    if(SDL_WasInit(SDL_INIT_VIDEO) != 0)
     {
         SDL_Quit();
     }

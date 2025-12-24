@@ -25,7 +25,7 @@ jobs:
       shell: bash
 
     - name: Install additional packages
-      run: sudo apt-get install libbenchmark-dev libboost-dev libboost-test-dev libsdl2-dev
+      run: sudo apt-get install libbenchmark-dev libboost-dev libboost-test-dev libsdl3-dev
       shell: bash
 
     - name: Use GCC 14

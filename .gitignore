@@ -37,3 +37,6 @@ bin
 build
 models
 scripts/run_all.sh
+
+.VSCodeCounter
+.DS_Store

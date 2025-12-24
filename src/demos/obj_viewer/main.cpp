@@ -435,7 +435,7 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
     for(size_t i = 0; i < materials.size(); i++)
     {
         std::println("material[{}].diffuse_texname = {}", int(i),
-                   materials[i].diffuse_texname.c_str());
+                     materials[i].diffuse_texname.c_str());
     }
 
     // Load diffuse textures
@@ -808,7 +808,7 @@ public:
             throw std::runtime_error("MakeContextCurrent failed");
         }
 
-        swr::SetClearColor(0, 0, 0, 0);
+        swr::SetClearColor(0, 0, 0, 1);
         swr::SetClearDepth(1.0f);
         swr::SetViewport(0, 0, width, height);
 
@@ -890,7 +890,7 @@ public:
         SDL_Event e;
         if(SDL_PollEvent(&e))
         {
-            if(e.type == SDL_QUIT)
+            if(e.type == SDL_EVENT_QUIT)
             {
                 swr_app::application::quit();
                 return;

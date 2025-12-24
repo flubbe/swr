@@ -26,7 +26,7 @@ Some configuration options can be set in `src/library/swr_internal.h`.
 
 ## Dependencies
 
-The project uses [boost](https://www.boost.org/) and [SDL2](https://www.libsdl.org/), and the tests rely on the [Boost.Test](https://www.boost.org/)
+The project uses [boost](https://www.boost.org/) and [SDL3](https://www.libsdl.org/), and the tests rely on the [Boost.Test](https://www.boost.org/)
 framework. If you'd like to run the benchmarks, you also need [Google's benchmark library](https://github.com/google/benchmark).
 
 For the other dependencies:
