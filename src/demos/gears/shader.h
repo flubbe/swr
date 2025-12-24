@@ -65,7 +65,7 @@ public:
 
         auto n = ml::vec4((view * attribs[1]).xyz(), 0).normalized(); /* normal in camera space */
         auto d = ml::vec4(light_dir.xyz(), 0).normalized();           /* light direction. */
-        auto l = boost::algorithm::clamp(ml::dot(n, d), 0.f, 1.f);
+        auto l = std::clamp(ml::dot(n, d), 0.f, 1.f);
 
         varyings[0] = ambient_color * 0.2f + diffuse_color * l;
     }
@@ -142,7 +142,7 @@ public:
         const ml::vec3 n = normal.xyz().normalized();
         const ml::vec3 d = direction.xyz();
 
-        auto l = boost::algorithm::clamp(ml::dot(n, d), 0.f, 1.f);
+        auto l = std::clamp(ml::dot(n, d), 0.f, 1.f);
 
         // write color.
         gl_FragColor = ambient_color * 0.2f + diffuse_color * l;

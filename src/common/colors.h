@@ -18,6 +18,8 @@ namespace colors
 /** Convert from sRGB (range 0-1) space to linear space. */
 inline float srgb_to_linear(float c)
 {
+    c = std::clamp(c, 0.0f, 1.0f);
+
     if(c <= 0.04045f)
     {
         return c / 12.92f;
@@ -41,9 +43,10 @@ inline float linear_to_srgb(float c)
     c = std::clamp(c, 0.0f, 1.0f);
 
     if(c <= 0.0031308f)
+    {
         return 12.92f * c;
-    else
-        return 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f;
+    }
+    return 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f;
 }
 
 /** Convert from linear space (range 0-1) to sRGB and keep alpha. */
