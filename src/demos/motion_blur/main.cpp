@@ -215,7 +215,7 @@ public:
             return false;
         }
         cube_tex = swr::CreateTexture();
-        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::srgb8_alpha8, img_data);
+        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         // cube normal map.
@@ -227,7 +227,7 @@ public:
             return false;
         }
         cube_normal_map = swr::CreateTexture();
-        swr::SetImage(cube_normal_map, 0, w, h, swr::pixel_format::srgb8_alpha8, img_data);
+        swr::SetImage(cube_normal_map, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(cube_normal_map, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         // create empty texture.
@@ -237,7 +237,7 @@ public:
         img_data.resize(w * h * sizeof(uint32_t));
 
         blur_texture = swr::CreateTexture();
-        swr::SetImage(blur_texture, 0, w, h, swr::pixel_format::srgb8_alpha8, img_data);
+        swr::SetImage(blur_texture, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(blur_texture, swr::wrap_mode::clamp_to_edge, swr::wrap_mode::clamp_to_edge);
 
         // create framebuffer object and attach texture.

@@ -358,7 +358,6 @@ enum class pixel_format
     rgba8888,    /** 32-bit with 8 bits per channel in the order red, green, blue, alpha. */
     argb8888,    /** 32-bit with 8 bits per channel in the order alpha, red, green, blue. */
     bgra8888,    /** 32-bit with 8 bits per channel in the order blue, green, red, alpha. */
-    srgb8_alpha8 /** 32-bit sRGBA with 8 bits per channel. */
 };
 
 /*

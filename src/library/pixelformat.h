@@ -85,11 +85,6 @@ struct pixel_format_descriptor
             /* {name, red, green, blue, alpha */
             return {name, 8, 24, 8, 16, 8, 8, 8, 0};
         }
-        else if(name == pixel_format::srgb8_alpha8)
-        {
-            /* {name, red, green, blue, alpha */
-            return {name, 8, 24, 8, 16, 8, 8, 8, 0};
-        }
 
         // return empty pixel_format_descriptor for unknown formats.
         return {};

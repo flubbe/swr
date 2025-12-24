@@ -184,7 +184,7 @@ public:
             return false;
         }
         cube_tex = swr::CreateTexture();
-        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::srgb8_alpha8, img_data);
+        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         // cube normal map.
@@ -196,7 +196,7 @@ public:
             return false;
         }
         cube_normal_map = swr::CreateTexture();
-        swr::SetImage(cube_normal_map, 0, w, h, swr::pixel_format::srgb8_alpha8, img_data);
+        swr::SetImage(cube_normal_map, 0, w, h, swr::pixel_format::rgba8888, img_data);
         swr::SetTextureWrapMode(cube_normal_map, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         return true;
