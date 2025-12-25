@@ -32,9 +32,9 @@ framework. If you'd like to run the benchmarks, you also need [Google's benchmar
 
 For the other dependencies:
 
-- put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release 1.1.2, in `deps/3rd-party/cnl`.
-- put [cpu_features](https://github.com/google/cpu_features), release 0.10.1, into `deps/3rd-party/cpu_features`
-- if you use [Morton Codes](https://en.wikipedia.org/wiki/Z-order_curve) (enabled by default), put [libmorton](https://github.com/Forceflow/libmorton) into `deps/3rd-party/libmorton`
+- put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release v1.1.2, in `deps/3rd-party/cnl`.
+- put [cpu_features](https://github.com/google/cpu_features), release v0.10.1, into `deps/3rd-party/cpu_features`
+- if you use [Morton Codes](https://en.wikipedia.org/wiki/Z-order_curve) (enabled by default), put [libmorton](https://github.com/Forceflow/libmorton), release v0.2.12, into `deps/3rd-party/libmorton`
 - clone [lodepng](https://github.com/lvandeve/lodepng) into `deps/3rd-party/lodepng`
 - clone [stb](https://github.com/nothings/stb) into `deps/3rd-party/stb`
 - extract [simdjson](https://github.com/simdjson/simdjson/releases/download/v4.2.4/singleheader.zip)'s single header version into `deps/3rd-party/simdjson/singleheader`
