@@ -1,0 +1,54 @@
+{
+  "type": "car",
+  "model": {
+    "properties": {
+      "colorspace": "linear"
+    },
+    "wheel": {
+      "front_left": {
+        "transform": [
+          [1, 0, 0, 0.712048],
+          [0, 1, 0, 0.259024],
+          [0, 0, 1, 1.14105],
+          [0, 0, 0, 1]
+        ],
+        "path": "Cop_FrontLeftWheel.obj"
+      },
+      "front_right": {
+        "transform": [
+          [1, 0, 0, -0.711618],
+          [0, 1, 0, 0.259024],
+          [0, 0, 1, 1.14105],
+          [0, 0, 0, 1]
+        ],
+        "path": "Cop_FrontRightWheel.obj"
+      },
+      "back": {
+        "transform": [
+          [1, 0, 0, 0.000215],
+          [0, 1, 0, 0.259024],
+          [0, 0, 1, -1.15459],
+          [0, 0, 0, 1]
+        ],
+        "path": "Cop_BackWheels.obj"
+      }
+    },
+    "body": {
+      "transform": [
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+      ],
+      "path": "Cop_Body.obj"
+    }
+  },
+  "license": {
+    "spdx": "CC0-1.0",
+    "license_name": "Creative Commons Zero v1.0 Universal",
+    "license_text_file": "LICENSE.txt",
+    "copyright": "Quaternius (2018)",
+    "attribution_required": false,
+    "source_url": "https://quaternius.itch.io/lowpoly-cars"
+  }
+}

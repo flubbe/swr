@@ -125,3 +125,5 @@ add_executable(demo_timings
 	timings/main.cpp
 )
 target_link_libraries(demo_timings swrast swr_app ${EXTRA_LIBS})
+
+add_subdirectory(cars)
