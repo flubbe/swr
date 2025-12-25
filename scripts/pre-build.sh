@@ -19,16 +19,26 @@ rm v0.10.1.tar.gz
 mv cpu_features-0.10.1 cpu_features
 
 # Download libmorton
-git clone https://github.com/Forceflow/libmorton.git
+wget https://github.com/Forceflow/libmorton/archive/refs/tags/v0.2.12.zip
+unzip v0.2.12.zip
+rm v0.2.12.zip
+mv libmorton-0.2.12 libmorton
 
 # Download lodepng
-git clone https://github.com/lvandeve/lodepng.git
+git clone https://github.com/lvandeve/lodepng.git --depth=1
 
 # Download stb
-git clone https://github.com/nothings/stb.git
+git clone https://github.com/nothings/stb.git --depth=1
 
 # Download tinyobjloader
-git clone https://github.com/tinyobjloader/tinyobjloader.git
+git clone https://github.com/tinyobjloader/tinyobjloader.git --depth=1
+
+# Download simdjson
+mkdir simdjson
+wget https://github.com/simdjson/simdjson/releases/download/v4.2.4/singleheader.zip
+echo "b4fd52b7e60e881050893613367516c0ebdf4aa50f18abe1a50819adfe750d9a singleheader.zip" | sha256sum -c -
+unzip singleheader.zip -d simdjson/singleheader
+rm singleheader.zip
 
 #
 # --- 1st party ---
