@@ -292,7 +292,7 @@ bool sdl_render_context::lock()
 {
     if(!framebuffer.is_color_weakly_attached())
     {
-        uint32_t* data_ptr{nullptr};
+        std::uint32_t* data_ptr{nullptr};
         int pitch{0};
 
         if(!SDL_LockTexture(sdl_color_buffer, nullptr, reinterpret_cast<void**>(&data_ptr), &pitch))
@@ -321,7 +321,7 @@ void sdl_render_context::unlock()
  * context interface.
  */
 
-context_handle CreateSDLContext(SDL_Window* window, SDL_Renderer* renderer, uint32_t thread_hint)
+context_handle CreateSDLContext(SDL_Window* window, SDL_Renderer* renderer, std::uint32_t thread_hint)
 {
     if(!window || !renderer)
     {

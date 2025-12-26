@@ -8,8 +8,6 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-#include "swr/stats.h"
-
 namespace rast
 {
 
@@ -25,18 +23,6 @@ struct rasterizer
 
     /** pointer to the default framebuffer. */
     swr::impl::default_framebuffer* framebuffer{nullptr};
-
-    /*
-     * statistics and benchmarking.
-     */
-
-#ifdef SWR_ENABLE_STATS
-    /** fragment processing stage statistics. */
-    swr::stats::fragment_data stats_frag;
-
-    /** rasterizer. */
-    swr::stats::rasterizer_data stats_rast;
-#endif
 
     /*
      * interface.

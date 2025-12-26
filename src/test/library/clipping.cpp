@@ -58,10 +58,10 @@ BOOST_AUTO_TEST_CASE(empty_input)
 }
 
 /* get bits of float type. note: in C++20, one should use std::bit_cast. */
-static_assert(sizeof(uint32_t) == sizeof(float), "Types sizes need to match for get_bits to work.");
-auto get_bits = [](float f) -> uint32_t
+static_assert(sizeof(std::uint32_t) == sizeof(float), "Types sizes need to match for get_bits to work.");
+auto get_bits = [](float f) -> std::uint32_t
 {
-    uint32_t temp;
+    std::uint32_t temp;
     std::memcpy(&temp, &f, sizeof(float));
     return temp;
 };
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     BOOST_TEST(obj.clipped_vertices.size() == COORD_COUNT);
 
     BOOST_REQUIRE(obj.clipped_vertices.size() == COORD_COUNT);
-    for(size_t i = 0; i < COORD_COUNT; ++i)
+    for(std::size_t i = 0; i < COORD_COUNT; ++i)
     {
         // compare bits.
         BOOST_TEST(get_bits(coords[i].x) == get_bits(obj.clipped_vertices[i].coords.x));
@@ -208,9 +208,9 @@ BOOST_AUTO_TEST_CASE(line_clip)
         return (v.w > 0) && (-v.w <= v.x) && (v.x <= v.w) && (-v.w <= v.y) && (v.y <= v.w) && (-v.w <= v.z) && (v.z <= v.w);
     };
 
-    size_t lines_in_frustum = 0;
-    const size_t total_lines = 100000;
-    for(size_t k = 0; k < total_lines; ++k)
+    std::size_t lines_in_frustum = 0;
+    const std::size_t total_lines = 100000;
+    for(std::size_t k = 0; k < total_lines; ++k)
     {
         ml::vec4 v1 = vec_rnd();
         ml::vec4 v2 = vec_rnd();

@@ -80,7 +80,7 @@ struct swr_attribute_buffer
     }
 };
 
-inline void swr_buffer_enable_if(bool pred, swr_attribute_buffer& buf, uint32_t slot)
+inline void swr_buffer_enable_if(bool pred, swr_attribute_buffer& buf, std::uint32_t slot)
 {
     if(pred)
     {

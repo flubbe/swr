@@ -41,7 +41,7 @@ const auto demo_title = "Bitmap Font";
  *
  * source: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
  */
-static uint32_t next_power_of_two(uint32_t n)
+static std::uint32_t next_power_of_two(std::uint32_t n)
 {
     n--;
     n |= n >> 1;
@@ -56,20 +56,20 @@ static uint32_t next_power_of_two(uint32_t n)
  * load textures, with dimensions possibly not being powers of two. data is RGBA with 8 bits per channel.
  * the largest valid texture coordinates are written to max_u and max_v.
  */
-static uint32_t load_texture(uint32_t w, uint32_t h, const std::vector<uint8_t>& data, float* max_u = nullptr, float* max_v = nullptr)
+static std::uint32_t load_texture(std::uint32_t w, std::uint32_t h, const std::vector<std::uint8_t>& data, float* max_u = nullptr, float* max_v = nullptr)
 {
     int adjusted_w = next_power_of_two(w);
     int adjusted_h = next_power_of_two(h);
 
-    std::vector<uint8_t> resized_tex;
-    resized_tex.resize(adjusted_w * adjusted_h * sizeof(uint32_t)); /* sizeof(...) for RGBA */
+    std::vector<std::uint8_t> resized_tex;
+    resized_tex.resize(adjusted_w * adjusted_h * sizeof(std::uint32_t)); /* sizeof(...) for RGBA */
 
     // copy texture.
-    for(uint32_t j = 0; j < h; ++j)
+    for(std::uint32_t j = 0; j < h; ++j)
     {
-        for(uint32_t i = 0; i < w; ++i)
+        for(std::uint32_t i = 0; i < w; ++i)
         {
-            *reinterpret_cast<uint32_t*>(&resized_tex[(j * adjusted_w + i) * sizeof(uint32_t)]) = *reinterpret_cast<const uint32_t*>(&data[(j * w + i) * sizeof(uint32_t)]);
+            *reinterpret_cast<std::uint32_t*>(&resized_tex[(j * adjusted_w + i) * sizeof(std::uint32_t)]) = *reinterpret_cast<const std::uint32_t*>(&data[(j * w + i) * sizeof(std::uint32_t)]);
         }
     }
 
@@ -100,13 +100,13 @@ class demo_bitmap_font : public swr_app::renderwindow
     shader::color cube_shader;
 
     /** font shader id. */
-    uint32_t font_shader_id{0};
+    std::uint32_t font_shader_id{0};
 
     /** cube shader id. */
-    uint32_t cube_shader_id{0};
+    std::uint32_t cube_shader_id{0};
 
     /** font texture id. */
-    uint32_t font_tex_id{0};
+    std::uint32_t font_tex_id{0};
 
     /** bitmap font. */
     font::extended_ascii_bitmap_font font;
@@ -121,19 +121,19 @@ class demo_bitmap_font : public swr_app::renderwindow
     ml::mat4x4 proj;
 
     /** the cube's vertices. */
-    uint32_t cube_verts{0};
+    std::uint32_t cube_verts{0};
 
     /** the cube's indices. */
     std::vector<std::uint32_t> cube_indices{0};
 
     /** vertex colors. */
-    uint32_t cube_colors{0};
+    std::uint32_t cube_colors{0};
 
     /** a rotation offset for the cube. */
     float cube_rotation{0};
 
     /** frame counter. */
-    uint32_t frame_count{0};
+    std::uint32_t frame_count{0};
 
     /** viewport width. */
     static const int width = 640;
@@ -197,7 +197,7 @@ public:
         proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 2, 1.f, 10.f);
 
         // load cube.
-        std::vector<uint32_t> indices = {
+        std::vector<std::uint32_t> indices = {
 #define FACE_LIST(...) __VA_ARGS__
 #include "common/cube.geom"
 #undef FACE_LIST
@@ -219,8 +219,8 @@ public:
         cube_colors = swr::CreateAttributeBuffer(colors);
 
         // load font.
-        std::vector<uint8_t> image_data;
-        uint32_t font_tex_width = 0, font_tex_height = 0;
+        std::vector<std::uint8_t> image_data;
+        std::uint32_t font_tex_width = 0, font_tex_height = 0;
         auto err = lodepng::decode(image_data, font_tex_width, font_tex_height, "../textures/fonts/cp437_16x16_alpha.png");
         if(err != 0)
         {

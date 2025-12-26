@@ -481,12 +481,6 @@ void Present()
     // invoke triangle rasterizer.
     context->rasterizer->draw_primitives();
 
-#ifdef SWR_ENABLE_STATS
-    // store statistical data.
-    context->stats_frag = context->rasterizer->stats_frag;
-    context->stats_rast = context->rasterizer->stats_rast;
-#endif
-
     // flush all lists.
     context->render_object_list.clear();
 }

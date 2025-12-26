@@ -232,7 +232,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
 
         // initialize varying interpolation.
         varyings.reserve(varying_count);
-        for(size_t i = 0; i < varying_count; ++i)
+        for(std::size_t i = 0; i < varying_count; ++i)
         {
             if(iqs[i] == swr::interpolation_qualifier::smooth)
             {
@@ -364,7 +364,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         std::size_t varying_count = iqs.size();
 
         varyings.reserve(varying_count);
-        for(size_t i = 0; i < varying_count; ++i)
+        for(std::size_t i = 0; i < varying_count; ++i)
         {
             if(iqs[i] == swr::interpolation_qualifier::smooth)
             {

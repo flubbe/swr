@@ -154,7 +154,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
     auto* prev_vert = &in_vb.back();
     int prev_dot = (prev_vert->coords[axis] <= prev_vert->coords.w) ? 1 : -1;
 
-    for(size_t i = 0; i < in_vb.size(); ++i)
+    for(std::size_t i = 0; i < in_vb.size(); ++i)
     {
         auto* vert = &in_vb[i];
         int dot = (vert->coords[axis] <= vert->coords.w) ? 1 : -1;
@@ -195,7 +195,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
     prev_vert = &temp.back();
     prev_dot = (-prev_vert->coords[axis] <= prev_vert->coords.w) ? 1 : -1;
 
-    for(size_t i = 0; i < temp.size(); ++i)
+    for(std::size_t i = 0; i < temp.size(); ++i)
     {
         auto* vert = &temp[i];
         int dot = (-vert->coords[axis] <= vert->coords.w) ? 1 : -1;
@@ -307,7 +307,7 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
     geom::vertex v;
     v.varyings.reserve(obj.states.shader_info->varying_count);
 
-    for(size_t index_it = 0; index_it < obj.indices.size(); index_it += 2)
+    for(std::size_t index_it = 0; index_it < obj.indices.size(); index_it += 2)
     {
         const std::uint32_t indices[2] = {
           obj.indices[index_it],
@@ -497,7 +497,7 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
     geom::vertex v;
     v.varyings.reserve(obj.states.shader_info->varying_count);
 
-    for(size_t index_it = 0; index_it < obj.indices.size(); index_it += 3)
+    for(std::size_t index_it = 0; index_it < obj.indices.size(); index_it += 3)
     {
         const std::uint32_t indices[3] = {
           obj.indices[index_it],
@@ -559,7 +559,7 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
                 const geom::vertex& center = clipped_triangle.front();
                 const geom::vertex* previous = &clipped_triangle[1];
 
-                for(size_t i = 2; i < clipped_triangle.size(); ++i)
+                for(std::size_t i = 2; i < clipped_triangle.size(); ++i)
                 {
                     const geom::vertex* current = &clipped_triangle[i];
 

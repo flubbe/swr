@@ -113,10 +113,10 @@ struct gear_object
     shader::color_smooth smooth_shader;
 
     /** flat shader id. */
-    uint32_t flat_shader_id{0};
+    std::uint32_t flat_shader_id{0};
 
     /** smooth shader id. */
-    uint32_t smooth_shader_id{0};
+    std::uint32_t smooth_shader_id{0};
 
     /** default constructor. */
     gear_object() = default;
@@ -163,7 +163,7 @@ struct gear_object
 
         std::vector<ml::vec4> vb;
         std::vector<ml::vec4> nb;
-        std::vector<uint32_t> ib;
+        std::vector<std::uint32_t> ib;
 
         /* draw front face */
         for(int i = 0; i <= teeth; ++i)
@@ -458,7 +458,7 @@ class demo_gears : public swr_app::renderwindow
     float gear_rotation{0};
 
     /** frame counter. */
-    uint32_t frame_count{0};
+    std::uint32_t frame_count{0};
 
     /** viewport width. */
     static const int width = 640;

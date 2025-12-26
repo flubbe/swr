@@ -26,7 +26,6 @@ set(SOURCES
 	renderobject.cpp
 	shaders.cpp
 	states.cpp
-	statistics.cpp
 	textures.cpp
 )
 

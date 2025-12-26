@@ -16,10 +16,10 @@ namespace output_merger
 {
 
 /** apply blending on pixels. */
-uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const uint32_t src, const uint32_t dest);
+std::uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const std::uint32_t src, const std::uint32_t dest);
 
 /** apply blending on a 2x2 block of pixels. when compiling with SIMD/SSE enabled, assumes that src, dest and out are aligned on 16-byte boundaries. */
-void blend_block(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const uint32_t src[4], const uint32_t dest[4], uint32_t out[4]);
+void blend_block(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const std::uint32_t src[4], const std::uint32_t dest[4], std::uint32_t out[4]);
 
 /** apply blending on colors. */
 ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& src, const ml::vec4& dest);

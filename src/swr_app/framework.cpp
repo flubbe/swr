@@ -84,7 +84,7 @@ bool renderwindow::create()
     return true;
 }
 
-bool renderwindow::get_surface_buffer_rgba32(std::vector<uint32_t>& contents) const
+bool renderwindow::get_surface_buffer_rgba32(std::vector<std::uint32_t>& contents) const
 {
     if(!sdl_window)
     {

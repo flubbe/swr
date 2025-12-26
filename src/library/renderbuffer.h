@@ -20,15 +20,15 @@ struct fragment_output
     /*
      * flag values.
      */
-    static const uint32_t fof_write_color = 1;   /** write color value. */
-    static const uint32_t fof_write_depth = 2;   /** write depth value. */
-    static const uint32_t fof_write_stencil = 4; /** write stencil value. */
+    static const std::uint32_t fof_write_color = 1;   /** write color value. */
+    static const std::uint32_t fof_write_depth = 2;   /** write depth value. */
+    static const std::uint32_t fof_write_stencil = 4; /** write stencil value. */
 
     /** color produced by the fragment shader. */
     ml::vec4 color;
 
     /** write flags. */
-    uint32_t write_flags{0};
+    std::uint32_t write_flags{0};
 
     /** default constructor. */
     fragment_output() = default;
@@ -72,7 +72,7 @@ struct attachment_info
 
     /**
      * attachment pitch. the interpretation depends on the buffer type:
-     * for uint32_t color buffers, this is the buffer width, in bytes.
+     * for std::uint32_t color buffers, this is the buffer width, in bytes.
      * for ml::vec4 textures, this is the difference between two lines, measured in sizeof(ml::vec4).
      */
     int pitch{0};
@@ -175,13 +175,13 @@ struct attachment_texture
     attachment_info<ml::vec4> info;
 
     /** attached texture id. */
-    uint32_t tex_id{default_tex_id};
+    std::uint32_t tex_id{default_tex_id};
 
     /** attached texture pointer. */
     texture_2d* tex{nullptr};
 
     /** the mipmap level we are writing to. */
-    uint32_t level{0};
+    std::uint32_t level{0};
 
     /** free resources. */
     void reset()
@@ -253,10 +253,10 @@ struct framebuffer_draw_target
     virtual ~framebuffer_draw_target() = default;
 
     /** clear a color attachment. fails silently if the attachment is not available. */
-    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color) = 0;
+    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color) = 0;
 
     /** clear part of a color attachment. fails silently if the attachment is not available or if the supplied rectangle was invalid. */
-    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) = 0;
+    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) = 0;
 
     /** clear the depth attachment. fails silently if the attachment is not available. */
     virtual void clear_depth(ml::fixed_32_t clear_depth) = 0;
@@ -265,10 +265,10 @@ struct framebuffer_draw_target
     virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) = 0;
 
     /** merge a color value while respecting blend modes, if requested. silently fails for invalid attachments. */
-    virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) = 0;
+    virtual void merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) = 0;
 
     /** merge a 2x2 block of color values while respecting blend modes, if requested. silently fails for invalid attachments. */
-    virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) = 0;
+    virtual void merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) = 0;
 
     /**
      * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write a new value to the depth buffer.
@@ -281,7 +281,7 @@ struct framebuffer_draw_target
      * if a depth test failed, correpsonding entry in write_mask is set to false, and true otherwise. sets all write_mask entries
      * to true if no depth buffer was available.
      */
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask) = 0;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask) = 0;
 };
 
 /** default framebuffer. */
@@ -305,14 +305,14 @@ struct default_framebuffer : public framebuffer_draw_target
      * framebuffer_draw_target interface.
      */
 
-    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color) override;
-    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
+    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color) override;
+    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
     virtual void clear_depth(ml::fixed_32_t clear_depth) override;
     virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) override;
-    virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
-    virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
     virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask) override;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask) override;
 
     /*
      * default_framebuffer interface.
@@ -363,13 +363,13 @@ constexpr int max_color_attachments = 8;
 class framebuffer_object : public framebuffer_draw_target
 {
     /** id of this object. */
-    uint32_t id{0};
+    std::uint32_t id{0};
 
     /** color attachments. */
     std::array<std::unique_ptr<attachment_texture>, max_color_attachments> color_attachments;
 
     /** current color attachment count. */
-    uint32_t color_attachment_count{0};
+    std::uint32_t color_attachment_count{0};
 
     /** depth attachment. */
     attachment_depth* depth_attachment{nullptr};
@@ -428,14 +428,14 @@ public:
      * framebuffer_draw_target interface.
      */
 
-    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color) override;
-    virtual void clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
+    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color) override;
+    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
     virtual void clear_depth(ml::fixed_32_t clear_depth) override;
     virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) override;
-    virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
-    virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
+    virtual void merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
     virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask) override;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask) override;
 
     /*
      * framebuffer_object interface.

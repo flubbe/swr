@@ -47,7 +47,7 @@ struct texture_storage
     std::vector<T*> data_ptrs;
 
     /** Allocate the texture data and set um the entries. */
-    void allocate(size_t width, size_t height, bool mipmapping = true);
+    void allocate(std::size_t width, std::size_t height, bool mipmapping = true);
 
     /** Clear data. */
     void clear()
@@ -58,7 +58,7 @@ struct texture_storage
 };
 
 template<typename T>
-void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
+void texture_storage<T>::allocate(std::size_t width, std::size_t height, bool mipmapping)
 {
     // check that width and height are a power of two (this is probably not strictly necessary, but the other texture code has that restriction).
     assert(utils::is_power_of_two(width));
@@ -93,15 +93,15 @@ void texture_storage<T>::allocate(size_t width, size_t height, bool mipmapping)
     // mipmaps.
 #ifndef SWR_USE_MORTON_CODES
     auto pitch = width + (width >> 1);
-    size_t h_offs = 0;
-    for(size_t h = height >> 1; h > 0; h >>= 1)
+    std::size_t h_offs = 0;
+    for(std::size_t h = height >> 1; h > 0; h >>= 1)
     {
         data_ptrs.push_back(base_ptr + h_offs * pitch + width);
         h_offs += h;
     }
 #else
-    size_t dims = width;    // this is the same as the height.
-    size_t offs = dims * dims;
+    std::size_t dims = width;    // this is the same as the height.
+    std::size_t offs = dims * dims;
     while(offs > 0)
     {
         data_ptrs.push_back(base_ptr + offs);
@@ -298,7 +298,7 @@ public:
 struct texture_2d
 {
     /** texture id. */
-    uint32_t id{0};
+    std::uint32_t id{0};
 
     /** texture width and height. */
     int width{0}, height{0};
@@ -316,7 +316,7 @@ struct texture_2d
     }
 
     /** constructor. */
-    texture_2d(uint32_t in_id,
+    texture_2d(std::uint32_t in_id,
                int in_width = 0, int in_height = 0,
                wrap_mode wrap_s = wrap_mode::repeat, wrap_mode wrap_t = wrap_mode::repeat,
                texture_filter filter_mag = texture_filter::nearest, texture_filter filter_min = texture_filter::nearest);
@@ -343,13 +343,13 @@ struct texture_2d
      * Set the texture data using the specified pixel format. the base texture level needs to be set up first through this call, since
      * it allocates the storage. the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    swr::error set_data(int level, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
+    swr::error set_data(int level, int width, int height, pixel_format format, const std::vector<std::uint8_t>& data);
 
     /**
      * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up.
      * the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    swr::error set_sub_data(int level, int x, int y, int width, int height, pixel_format format, const std::vector<uint8_t>& data);
+    swr::error set_sub_data(int level, int x, int y, int width, int height, pixel_format format, const std::vector<std::uint8_t>& data);
 
     /** clear all texture data. */
     void clear();
@@ -360,7 +360,7 @@ struct texture_2d
  */
 
 inline texture_2d::texture_2d(
-  uint32_t in_id,
+  std::uint32_t in_id,
   int in_width, int in_height,
   wrap_mode wrap_s, wrap_mode wrap_t,
   texture_filter filter_mag, texture_filter filter_min)

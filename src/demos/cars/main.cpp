@@ -92,8 +92,7 @@ enum class colorspace
  *
  * source: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
  */
-static uint32_t
-  next_power_of_two(uint32_t n)
+static std::uint32_t next_power_of_two(std::uint32_t n)
 {
     n--;
     n |= n >> 1;
@@ -108,20 +107,20 @@ static uint32_t
  * load textures, with dimensions possibly not being powers of two. data is RGBA with 8 bits per channel.
  * the largest valid texture coordinates are written to max_u and max_v.
  */
-static uint32_t load_texture(uint32_t w, uint32_t h, const std::vector<uint8_t>& data, float* max_u = nullptr, float* max_v = nullptr)
+static std::uint32_t load_texture(std::uint32_t w, std::uint32_t h, const std::vector<std::uint8_t>& data, float* max_u = nullptr, float* max_v = nullptr)
 {
     int adjusted_w = next_power_of_two(w);
     int adjusted_h = next_power_of_two(h);
 
-    std::vector<uint8_t> resized_tex;
-    resized_tex.resize(adjusted_w * adjusted_h * sizeof(uint32_t)); /* sizeof(...) for RGBA */
+    std::vector<std::uint8_t> resized_tex;
+    resized_tex.resize(adjusted_w * adjusted_h * sizeof(std::uint32_t)); /* sizeof(...) for RGBA */
 
     // copy texture.
-    for(uint32_t j = 0; j < h; ++j)
+    for(std::uint32_t j = 0; j < h; ++j)
     {
-        for(uint32_t i = 0; i < w; ++i)
+        for(std::uint32_t i = 0; i < w; ++i)
         {
-            *reinterpret_cast<uint32_t*>(&resized_tex[(j * adjusted_w + i) * sizeof(uint32_t)]) = *reinterpret_cast<const uint32_t*>(&data[(j * w + i) * sizeof(uint32_t)]);
+            *reinterpret_cast<std::uint32_t*>(&resized_tex[(j * adjusted_w + i) * sizeof(std::uint32_t)]) = *reinterpret_cast<const std::uint32_t*>(&data[(j * w + i) * sizeof(std::uint32_t)]);
         }
     }
 
@@ -282,7 +281,7 @@ void computeSmoothingNormals(const tinyobj::attrib_t& attrib, const tinyobj::sha
     smoothVertexNormals.clear();
     std::map<int, ml::vec3>::iterator iter;
 
-    for(size_t f = 0; f < shape.mesh.indices.size() / 3; f++)
+    for(std::size_t f = 0; f < shape.mesh.indices.size() / 3; f++)
     {
         // Get the three indexes of the face (all faces are triangular)
         tinyobj::index_t idx0 = shape.mesh.indices[3 * f + 0];
@@ -311,7 +310,7 @@ void computeSmoothingNormals(const tinyobj::attrib_t& attrib, const tinyobj::sha
         ml::vec3 normal = calc_normal(v[0], v[1], v[2]);
 
         // Add the normal to the three vertexes
-        for(size_t i = 0; i < 3; ++i)
+        for(std::size_t i = 0; i < 3; ++i)
         {
             iter = smoothVertexNormals.find(vi[i]);
             if(iter != smoothVertexNormals.end())
@@ -341,10 +340,10 @@ static void computeAllSmoothingNormals(tinyobj::attrib_t& attrib,
     ml::vec3 p[3];
     for(const auto& shape: shapes)
     {
-        size_t facecount = shape.mesh.num_face_vertices.size();
+        std::size_t facecount = shape.mesh.num_face_vertices.size();
         assert(shape.mesh.smoothing_group_ids.size());
 
-        for(size_t f = 0; f < facecount; ++f)
+        for(std::size_t f = 0; f < facecount; ++f)
         {
             for(unsigned int v = 0; v < 3; ++v)
             {
@@ -368,7 +367,7 @@ static void computeAllSmoothingNormals(tinyobj::attrib_t& attrib,
     }
 
     assert(attrib.normals.size() % 3 == 0);
-    for(size_t i = 0, nlen = attrib.normals.size() / 3; i < nlen; ++i)
+    for(std::size_t i = 0, nlen = attrib.normals.size() / 3; i < nlen; ++i)
     {
         tinyobj::real_t& nx = attrib.normals[3 * i];
         tinyobj::real_t& ny = attrib.normals[3 * i + 1];
@@ -481,7 +480,7 @@ static bool LoadObjAndConvert(
   colorspace cs,
   std::vector<drawable_object>* drawObjects,
   std::vector<tinyobj::material_t>& materials,
-  std::map<std::string, uint32_t>& textures,
+  std::map<std::string, std::uint32_t>& textures,
   const char* filename)
 {
     tinyobj::attrib_t inattrib;
@@ -532,7 +531,7 @@ static bool LoadObjAndConvert(
     // Append `default` material
     materials.push_back(tinyobj::material_t());
 
-    for(size_t i = 0; i < materials.size(); i++)
+    for(std::size_t i = 0; i < materials.size(); i++)
     {
         std::println("material[{}].diffuse_texname = {}", int(i),
                      materials[i].diffuse_texname.c_str());
@@ -546,7 +545,7 @@ static bool LoadObjAndConvert(
             // Only load the texture if it is not already loaded
             if(textures.find(material.diffuse_texname) == textures.end())
             {
-                uint32_t texture_id;
+                std::uint32_t texture_id;
                 int w, h;
                 int comp;
 
@@ -576,7 +575,7 @@ static bool LoadObjAndConvert(
                 swr::SetTextureMagnificationFilter(swr::texture_filter::linear);
                 swr::SetTextureMinificationFilter(swr::texture_filter::linear);
 
-                std::vector<uint8_t> image_rgba(4 * w * h);
+                std::vector<std::uint8_t> image_rgba(4 * w * h);
                 if(comp == 3)
                 {
                     // convert to rgba
@@ -644,7 +643,7 @@ static bool LoadObjAndConvert(
             computeSmoothingNormals(attrib, shape, smoothVertexNormals);
         }
 
-        for(size_t f = 0; f < shape.mesh.indices.size() / 3; f++)
+        for(std::size_t f = 0; f < shape.mesh.indices.size() / 3; f++)
         {
             tinyobj::index_t idx0 = shape.mesh.indices[3 * f + 0];
             tinyobj::index_t idx1 = shape.mesh.indices[3 * f + 1];
@@ -699,9 +698,9 @@ static bool LoadObjAndConvert(
                 }
                 else
                 {
-                    assert(attrib.texcoords.size() > size_t(2 * idx0.texcoord_index + 1));
-                    assert(attrib.texcoords.size() > size_t(2 * idx1.texcoord_index + 1));
-                    assert(attrib.texcoords.size() > size_t(2 * idx2.texcoord_index + 1));
+                    assert(attrib.texcoords.size() > std::size_t(2 * idx0.texcoord_index + 1));
+                    assert(attrib.texcoords.size() > std::size_t(2 * idx1.texcoord_index + 1));
+                    assert(attrib.texcoords.size() > std::size_t(2 * idx2.texcoord_index + 1));
 
                     // Flip Y coord.
                     tc[0] = ml::vec2{
@@ -754,9 +753,9 @@ static bool LoadObjAndConvert(
                 {
                     for(int k = 0; k < 3; k++)
                     {
-                        assert(size_t(3 * nf0 + k) < attrib.normals.size());
-                        assert(size_t(3 * nf1 + k) < attrib.normals.size());
-                        assert(size_t(3 * nf2 + k) < attrib.normals.size());
+                        assert(std::size_t(3 * nf0 + k) < attrib.normals.size());
+                        assert(std::size_t(3 * nf1 + k) < attrib.normals.size());
+                        assert(std::size_t(3 * nf2 + k) < attrib.normals.size());
                         n[0][k] = attrib.normals[3 * nf0 + k];
                         n[1][k] = attrib.normals[3 * nf1 + k];
                         n[2][k] = attrib.normals[3 * nf2 + k];
@@ -858,10 +857,10 @@ class demo_viewer : public swr_app::renderwindow
     shader::texture font_shader;
 
     /** flat shader id. */
-    uint32_t flat_shader_id{0};
+    std::uint32_t flat_shader_id{0};
 
     /** wireframe shader id. */
-    uint32_t wireframe_shader_id{0};
+    std::uint32_t wireframe_shader_id{0};
 
     /** projection matrix. */
     ml::mat4x4 proj;
@@ -870,10 +869,10 @@ class demo_viewer : public swr_app::renderwindow
     ml::mat4x4 view;
 
     /** font texture id. */
-    uint32_t font_tex_id{0};
+    std::uint32_t font_tex_id{0};
 
     /** font shader id. */
-    uint32_t font_shader_id{0};
+    std::uint32_t font_shader_id{0};
 
     /** bitmap font. */
     font::extended_ascii_bitmap_font font;
@@ -885,7 +884,7 @@ class demo_viewer : public swr_app::renderwindow
     std::chrono::steady_clock::time_point msec_reference_time;
 
     /** frame counter. */
-    uint32_t frame_count{0};
+    std::uint32_t frame_count{0};
 
     /** whether to show an overlayed wireframe (currently non-interactive). */
     bool show_wireframe{true};
@@ -897,7 +896,7 @@ class demo_viewer : public swr_app::renderwindow
     std::vector<tinyobj::material_t> materials;
 
     /** textures. */
-    std::map<std::string, uint32_t> textures;
+    std::map<std::string, std::uint32_t> textures;
 
     /** scale factor of the model. */
     float scale_factor{1.0f};
@@ -1072,7 +1071,7 @@ public:
         {
             ml::mat4x4 mat;
 
-            size_t row = 0;
+            std::size_t row = 0;
             for(auto inner_val: json_array)
             {
                 if(row >= 4)
@@ -1081,7 +1080,7 @@ public:
                 }
 
                 auto inner = inner_val.get_array();
-                size_t col = 0;
+                std::size_t col = 0;
 
                 for(double v: inner)
                 {
@@ -1149,7 +1148,7 @@ public:
             std::make_tuple(base_model_path + body_model_path, car_part::body, body_transform)};
 
         std::vector<tinyobj::material_t> materials;
-        std::map<std::string, uint32_t> textures;
+        std::map<std::string, std::uint32_t> textures;
         ml::vec3 bmin = {1000, 1000, 1000}, bmax = {-1000, -1000, -1000};    // FIXME
 
         for(const auto& data: model_data)
@@ -1195,8 +1194,8 @@ public:
         std::println("scale factor: {}", scale_factor);
 
         // load font.
-        std::vector<uint8_t> image_data;
-        uint32_t font_tex_width = 0, font_tex_height = 0;
+        std::vector<std::uint8_t> image_data;
+        std::uint32_t font_tex_width = 0, font_tex_height = 0;
         auto err = lodepng::decode(image_data, font_tex_width, font_tex_height, "../textures/fonts/cp437_16x16_alpha.png");
         if(err != 0)
         {
@@ -1355,7 +1354,7 @@ public:
 
     void draw_objects(const std::vector<drawable_object>& drawObjects,
                       std::vector<tinyobj::material_t>& materials,
-                      std::map<std::string, uint32_t>& textures)
+                      std::map<std::string, std::uint32_t>& textures)
     {
         swr::SetPolygonMode(swr::polygon_mode::fill);
 
@@ -1471,7 +1470,7 @@ public:
         std::string str = std::format("msec: {: #6.2f}", display_msec);
         font_rend.draw_string(font::renderer::string_alignment::right | font::renderer::string_alignment::top, str);
 
-        uint32_t w{0}, h{0};
+        std::uint32_t w{0}, h{0};
         font.get_string_dimensions(str, w, h);
         str = std::format(" fps: {: #6.1f}", 1000.0f / display_msec);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);

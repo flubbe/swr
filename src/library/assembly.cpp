@@ -86,7 +86,7 @@ static polygon_orientation get_polygon_orientation(const vertex_buffer& vb, cons
     auto v1 = vb[start_vertex].coords.xy();
     auto v2 = vb[start_vertex + 1].coords.xy();
     ml::vec2 v3;
-    for(size_t i = start_vertex + 2; i <= end_vertex; ++i)
+    for(std::size_t i = start_vertex + 2; i <= end_vertex; ++i)
     {
         v3 = vb[i].coords.xy();
         int sign = triangle_area_sign(v1, v2, v3);
@@ -185,8 +185,8 @@ void render_device_context::assemble_primitives(const render_states* states, ver
         // depending on the polygon mode, the vertex buffer either holds a list of triangles or a list of points.
         if(states->poly_mode == polygon_mode::line)
         {
-            size_t last_index = 0;
-            for(size_t first_index = 0; first_index < vb.size(); first_index = last_index + 1)
+            std::size_t last_index = 0;
+            for(std::size_t first_index = 0; first_index < vb.size(); first_index = last_index + 1)
             {
                 // note that LastIndex gets updated here.
                 if(!next_polygon(vb, first_index, last_index))
@@ -216,7 +216,7 @@ void render_device_context::assemble_primitives(const render_states* states, ver
                 auto* first_vertex = &vb[first_index];
                 auto* prev_vertex = first_vertex;
 
-                for(size_t i = first_index + 1; i <= last_index; ++i)
+                for(std::size_t i = first_index + 1; i <= last_index; ++i)
                 {
                     auto* cur_vertex = &vb[i];
 
@@ -232,7 +232,7 @@ void render_device_context::assemble_primitives(const render_states* states, ver
         else if(states->poly_mode == polygon_mode::fill)
         {
             /* draw a list of triangles */
-            for(size_t i = 0; i < vb.size(); i += 3)
+            for(std::size_t i = 0; i < vb.size(); i += 3)
             {
                 auto& v1 = vb[i];
                 auto& v2 = vb[i + 1];

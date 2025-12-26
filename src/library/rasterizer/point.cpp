@@ -50,7 +50,7 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
     {
         // set up attributes and varyings.
         boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp(v.varyings.size());
-        for(size_t i = 0; i < v.varyings.size(); ++i)
+        for(std::size_t i = 0; i < v.varyings.size(); ++i)
         {
             temp[i].value = v.varyings[i];
             temp[i].dFdx = ml::vec4::zero();    // FIXME see comment above.

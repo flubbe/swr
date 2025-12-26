@@ -30,7 +30,7 @@ const auto demo_title = "Clear Default Framebuffer";
 class demo_clear : public swr_app::renderwindow
 {
     /** frame counter. */
-    uint32_t frame_count{0};
+    std::uint32_t frame_count{0};
 
     /** viewport width. */
     static const int width = 640;

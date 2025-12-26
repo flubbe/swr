@@ -66,7 +66,7 @@ static void bench_fill_n_32(benchmark::State& state)
 
     for(auto _: state)
     {
-        std::fill_n(reinterpret_cast<std::uint32_t*>(mem.data()), aligned_fill_size >> 2, static_cast<uint32_t>(0x30303030));
+        std::fill_n(reinterpret_cast<std::uint32_t*>(mem.data()), aligned_fill_size >> 2, static_cast<std::uint32_t>(0x30303030));
         std::fill_n(mem.begin() + aligned_fill_size, tail_size, static_cast<std::byte>(0x30));
     }
 
@@ -99,7 +99,7 @@ static void bench_memset32(benchmark::State& state)
 
     for(auto _: state)
     {
-        const uint32_t c = static_cast<uint32_t>('0') | (static_cast<uint32_t>('0') << 8) | (static_cast<uint32_t>('0') << 16) | (static_cast<uint32_t>('0') << 24);
+        const std::uint32_t c = static_cast<std::uint32_t>('0') | (static_cast<std::uint32_t>('0') << 8) | (static_cast<std::uint32_t>('0') << 16) | (static_cast<std::uint32_t>('0') << 24);
         utils::memset32(mem.data(), c, mem_size);
     }
 
@@ -116,8 +116,8 @@ static void bench_memset64(benchmark::State& state)
 
     for(auto _: state)
     {
-        const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
-        const uint64_t c2 = c1 | (c1 << 32);
+        const std::uint64_t c1 = static_cast<std::uint64_t>('0') | (static_cast<std::uint64_t>('0') << 8) | (static_cast<std::uint64_t>('0') << 16) | (static_cast<std::uint64_t>('0') << 24);
+        const std::uint64_t c2 = c1 | (c1 << 32);
         utils::memset64(mem.data(), c2, mem_size);
     }
 
@@ -134,7 +134,7 @@ static void bench_memset32_simd(benchmark::State& state)
 
     for(auto _: state)
     {
-        const uint32_t c = static_cast<uint32_t>('0') | (static_cast<uint32_t>('0') << 8) | (static_cast<uint32_t>('0') << 16) | (static_cast<uint32_t>('0') << 24);
+        const std::uint32_t c = static_cast<std::uint32_t>('0') | (static_cast<std::uint32_t>('0') << 8) | (static_cast<std::uint32_t>('0') << 16) | (static_cast<std::uint32_t>('0') << 24);
         simd::utils::memset32(mem.data(), c, mem_size);
     }
 
@@ -151,8 +151,8 @@ static void bench_memset64_simd(benchmark::State& state)
 
     for(auto _: state)
     {
-        const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
-        const uint64_t c2 = c1 | (c1 << 32);
+        const std::uint64_t c1 = static_cast<std::uint64_t>('0') | (static_cast<std::uint64_t>('0') << 8) | (static_cast<std::uint64_t>('0') << 16) | (static_cast<std::uint64_t>('0') << 24);
+        const std::uint64_t c2 = c1 | (c1 << 32);
         simd::utils::memset64(mem.data(), c2, mem_size);
     }
 
@@ -169,8 +169,8 @@ static void bench_memset128_simd(benchmark::State& state)
 
     for(auto _: state)
     {
-        const uint64_t c1 = static_cast<uint64_t>('0') | (static_cast<uint64_t>('0') << 8) | (static_cast<uint64_t>('0') << 16) | (static_cast<uint64_t>('0') << 24);
-        const uint64_t c2 = c1 | (c1 << 32);
+        const std::uint64_t c1 = static_cast<std::uint64_t>('0') | (static_cast<std::uint64_t>('0') << 8) | (static_cast<std::uint64_t>('0') << 16) | (static_cast<std::uint64_t>('0') << 24);
+        const std::uint64_t c2 = c1 | (c1 << 32);
         simd::utils::memset128(mem.data(), _mm_set_epi64x(c2, c2), mem_size);
     }
 

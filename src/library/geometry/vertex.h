@@ -42,7 +42,7 @@ struct vertex
     boost::container::static_vector<ml::vec4, limits::max::varyings> varyings;
 
     /** vertex flags. */
-    uint32_t flags{vf_none};
+    std::uint32_t flags{vf_none};
 
     /* default constructor. */
     vertex() = default;
@@ -72,7 +72,7 @@ inline const vertex lerp(float t, const vertex& v1, const vertex& v2)
     // interpolate varyings
     const auto varying_count = v1.varyings.size();
     r.varyings.reserve(varying_count);
-    for(size_t i = 0; i < varying_count; ++i)
+    for(std::size_t i = 0; i < varying_count; ++i)
     {
         // Depending on the interpolation type, Value stores either a the value of the attribute
         // itself or a weighted value, so that the equation does the correct interpolation.

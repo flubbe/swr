@@ -39,11 +39,6 @@ void sweep_rasterizer::add_triangle(const swr::impl::render_states* states, bool
 
 void sweep_rasterizer::draw_primitives()
 {
-#ifdef SWR_ENABLE_STATS
-    stats_frag.reset_counters();
-    stats_rast.reset_counters();
-#endif
-
 #ifdef SWR_ENABLE_MULTI_THREADING
     if(thread_pool->get_thread_count() > 1)
     {

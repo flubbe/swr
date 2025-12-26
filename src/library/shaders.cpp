@@ -63,7 +63,7 @@ void create_default_shader(render_device_context* context)
  * Public Interface
  */
 
-uint32_t RegisterShader(const program_base* in_shader)
+std::uint32_t RegisterShader(const program_base* in_shader)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -87,7 +87,7 @@ uint32_t RegisterShader(const program_base* in_shader)
     return impl::global_context->programs.push(std::move(pi));
 }
 
-void UnregisterShader(uint32_t id)
+void UnregisterShader(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -104,7 +104,7 @@ void UnregisterShader(uint32_t id)
     }
 }
 
-bool BindShader(uint32_t id)
+bool BindShader(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -123,7 +123,7 @@ bool BindShader(uint32_t id)
  * uniforms.
  */
 
-void BindUniform(uint32_t id, int value)
+void BindUniform(std::uint32_t id, int value)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -140,7 +140,7 @@ void BindUniform(uint32_t id, int value)
     }
 }
 
-void BindUniform(uint32_t id, float value)
+void BindUniform(std::uint32_t id, float value)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -157,7 +157,7 @@ void BindUniform(uint32_t id, float value)
     }
 }
 
-void BindUniform(uint32_t id, ml::mat4x4 value)
+void BindUniform(std::uint32_t id, ml::mat4x4 value)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -174,7 +174,7 @@ void BindUniform(uint32_t id, ml::mat4x4 value)
     }
 }
 
-void BindUniform(uint32_t id, ml::vec4 value)
+void BindUniform(std::uint32_t id, ml::vec4 value)
 {
     ASSERT_INTERNAL_CONTEXT;
 

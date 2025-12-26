@@ -39,13 +39,13 @@ enum class vertex_attribute_index
 struct program_info
 {
     /** varying count. has to match iqs.size(). */
-    uint32_t varying_count{0};
+    std::uint32_t varying_count{0};
 
     /** interpolation qualifiers for varyings. */
     boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings> iqs;
 
     /** flags. */
-    uint32_t flags{program_flags::none};
+    std::uint32_t flags{program_flags::none};
 
     /** (pointer to) the graphics program/shader. */
     const program_base* shader{nullptr};
@@ -178,7 +178,7 @@ public:
     std::list<render_object> render_object_list;
 
     /** index buffers. */
-    utils::slot_map<std::vector<uint32_t>> index_buffers;
+    utils::slot_map<std::vector<std::uint32_t>> index_buffers;
 
     /** vertex attribute buffers. */
     utils::slot_map<vertex_attribute_buffer> vertex_attribute_buffers;
@@ -223,7 +223,7 @@ public:
     typedef concurrency_utils::deferred_thread_pool<concurrency_utils::mpmc_blocking_queue<std::function<void()>>> thread_pool_type;
 
     /** processing threads. */
-    uint32_t thread_pool_size{0};
+    std::uint32_t thread_pool_size{0};
 
     /** worker threads. */
     thread_pool_type thread_pool;
@@ -238,17 +238,6 @@ public:
 
     /** rasterizes points, lines and triangles. */
     std::unique_ptr<rast::rasterizer> rasterizer;
-
-    /*
-     * statistics and benchmarking.
-     */
-#ifdef SWR_ENABLE_STATS
-    /** statistics collected during fragment processing. */
-    stats::fragment_data stats_frag;
-
-    /** rasterizer info and collected data. */
-    stats::rasterizer_data stats_rast;
-#endif
 
     /*
      * render_device_context implementation.
@@ -276,7 +265,7 @@ public:
      * @param index_buffer The index buffer to use.
      * @returns Returns a pointer to the render object on success and `nullptr` on failure.
      */
-    render_object* create_render_object(vertex_buffer_mode mode, size_t count);
+    render_object* create_render_object(vertex_buffer_mode mode, std::size_t count);
 
     /**
      * Create render object from (indexed) vertex buffer.
@@ -287,7 +276,7 @@ public:
      * @param index_buffer The index buffer to use.
      * @returns Returns a pointer to the render object on success and `nullptr` on failure.
      */
-    render_object* create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<uint32_t>& index_buffer);
+    render_object* create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer);
 
     /*
      * buffer management.
@@ -356,7 +345,7 @@ protected:
 
 public:
     /** default constructor. */
-    sdl_render_context([[maybe_unused]] uint32_t thread_hint)
+    sdl_render_context([[maybe_unused]] std::uint32_t thread_hint)
     {
 #ifdef SWR_ENABLE_MULTI_THREADING
         if(thread_hint > 0)

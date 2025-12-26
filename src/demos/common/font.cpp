@@ -23,7 +23,7 @@ namespace font
  * extended ascii fonts.
  */
 
-extended_ascii_bitmap_font extended_ascii_bitmap_font::create_uniform_font(uint32_t in_texture_id, uint32_t in_tex_width, uint32_t in_tex_height, uint32_t in_font_map_width, uint32_t in_font_map_height, uint32_t glyph_width, uint32_t glyph_height)
+extended_ascii_bitmap_font extended_ascii_bitmap_font::create_uniform_font(std::uint32_t in_texture_id, std::uint32_t in_tex_width, std::uint32_t in_tex_height, std::uint32_t in_font_map_width, std::uint32_t in_font_map_height, std::uint32_t glyph_width, std::uint32_t glyph_height)
 {
     // create ascii font.
     extended_ascii_bitmap_font font;
@@ -37,8 +37,8 @@ extended_ascii_bitmap_font extended_ascii_bitmap_font::create_uniform_font(uint3
     font.tex_height = in_tex_height;
 
     // create glyphs for each ASCII character.
-    uint32_t chars_x = in_font_map_width / glyph_width;
-    uint32_t chars_y = in_font_map_height / glyph_height;
+    std::uint32_t chars_x = in_font_map_width / glyph_width;
+    std::uint32_t chars_y = in_font_map_height / glyph_height;
 
     if(chars_x * chars_y != 256)
     {
@@ -47,13 +47,13 @@ extended_ascii_bitmap_font extended_ascii_bitmap_font::create_uniform_font(uint3
         return font;
     }
 
-    for(uint32_t j = 0; j < chars_y; ++j)
+    for(std::uint32_t j = 0; j < chars_y; ++j)
     {
-        for(uint32_t i = 0; i < chars_x; ++i)
+        for(std::uint32_t i = 0; i < chars_x; ++i)
         {
             // calculate the glyph's position in the texture.
-            uint32_t x = i * glyph_width;
-            uint32_t y = j * glyph_height;
+            std::uint32_t x = i * glyph_width;
+            std::uint32_t y = j * glyph_height;
 
             // do not add this glyph if its dimensions are outside the texture.
             if(x + glyph_width > in_font_map_width || y + glyph_height > in_font_map_height)
@@ -72,7 +72,7 @@ extended_ascii_bitmap_font extended_ascii_bitmap_font::create_uniform_font(uint3
     return font;
 }
 
-void extended_ascii_bitmap_font::get_string_dimensions(const std::string& s, uint32_t& w, uint32_t& h) const
+void extended_ascii_bitmap_font::get_string_dimensions(const std::string& s, std::uint32_t& w, std::uint32_t& h) const
 {
     w = 0;
     h = 0;
@@ -87,7 +87,7 @@ void extended_ascii_bitmap_font::get_string_dimensions(const std::string& s, uin
  * font rendering.
  */
 
-void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) const
+void renderer::draw_string_at(const std::string& s, std::uint32_t x, std::uint32_t y) const
 {
     // store renderer state
     bool bDepthTest = swr::GetState(swr::state::depth_test);
@@ -105,7 +105,7 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
     // render string.
     swr::BindShader(shader_id);
     swr::BindTexture(swr::texture_target::texture_2d, font.tex_id);
-    uint32_t cur_x = x;
+    std::uint32_t cur_x = x;
 
     float inv_w = 1.f / static_cast<float>(font.tex_width);
     float inv_h = 1.f / static_cast<float>(font.tex_height);
@@ -176,9 +176,9 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
     swr::SetState(swr::state::depth_test, bDepthTest);
 }
 
-void renderer::draw_string(unsigned int alignment, const std::string& s, uint32_t x, uint32_t y) const
+void renderer::draw_string(unsigned int alignment, const std::string& s, std::uint32_t x, std::uint32_t y) const
 {
-    uint32_t w{0}, h{0};
+    std::uint32_t w{0}, h{0};
     font.get_string_dimensions(s, w, h);
 
     if((alignment & string_alignment::center_horz) == string_alignment::center_horz)

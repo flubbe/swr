@@ -13,7 +13,7 @@ The color rendering is based on 32-bit floats.
 
 The project directory layout consists of:
 
-1.  the public header files `include/swr/swr.h`, `include/swr/shader.h`, `include/swr/stats.h`,
+1.  the public header files `include/swr/swr.h`, `include/swr/shader.h`,
 2.  the graphics library implementation part in `src/library/`,
 3.  the demo applications in `src/demos/`,
 4.  a support framework for quickly generating applications in `src/swr_app/`,

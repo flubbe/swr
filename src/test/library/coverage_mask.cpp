@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(init)
       lambda1, step1,
       lambda2, step2};
 
-    int32_t c0[4], c1[4], c2[4];
+    std::int32_t c0[4], c1[4], c2[4];
 
     std::memcpy(c0, &block.corners[0], sizeof(c0));
     std::memcpy(c1, &block.corners[1], sizeof(c1));
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(init)
     BOOST_TEST(c2[2] == cnl::unwrap(lambda2));
     BOOST_TEST(c2[3] == cnl::unwrap(lambda2));
 
-    int32_t sx0[4], sx1[4], sx2[4];
+    std::int32_t sx0[4], sx1[4], sx2[4];
 
     std::memcpy(sx0, &block.steps_x[0], sizeof(sx0));
     std::memcpy(sx1, &block.steps_x[1], sizeof(sx1));
@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(init)
     BOOST_TEST(sx2[2] == cnl::unwrap(step2.x));
     BOOST_TEST(sx2[3] == cnl::unwrap(step2.x));
 
-    int32_t sy0[4], sy1[4], sy2[4];
+    std::int32_t sy0[4], sy1[4], sy2[4];
 
     std::memcpy(sy0, &block.steps_y[0], sizeof(sy0));
     std::memcpy(sy1, &block.steps_y[1], sizeof(sy1));
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(setup1)
       lambda2 + (step2.x + step2.y) * block_size_fixed};
 
     // compare.
-    int32_t q0[4], q1[4], q2[4];
+    std::int32_t q0[4], q1[4], q2[4];
 
     std::memcpy(q0, &block.corners[0], sizeof(q0));
     std::memcpy(q1, &block.corners[1], sizeof(q1));
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(setup2)
       lambda2 + step2.x * block_size_large_fixed + (step2.x + step2.y) * block_size_fixed};
 
     // compare.
-    int32_t q0[4], q1[4], q2[4];
+    std::int32_t q0[4], q1[4], q2[4];
 
     std::memcpy(q0, &block.corners[0], sizeof(q0));
     std::memcpy(q1, &block.corners[1], sizeof(q1));
@@ -644,7 +644,7 @@ BOOST_AUTO_TEST_CASE(init_simd)
       lambda1, step1,
       lambda2, step2};
 
-    int32_t c0[4], c1[4], c2[4];
+    std::int32_t c0[4], c1[4], c2[4];
 
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(c0), block.corners[0]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(c1), block.corners[1]);
@@ -665,7 +665,7 @@ BOOST_AUTO_TEST_CASE(init_simd)
     BOOST_TEST(c2[2] == cnl::unwrap(lambda2));
     BOOST_TEST(c2[3] == cnl::unwrap(lambda2));
 
-    int32_t sx0[4], sx1[4], sx2[4];
+    std::int32_t sx0[4], sx1[4], sx2[4];
 
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sx0), block.steps_x[0]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sx1), block.steps_x[1]);
@@ -686,7 +686,7 @@ BOOST_AUTO_TEST_CASE(init_simd)
     BOOST_TEST(sx2[2] == cnl::unwrap(step2.x));
     BOOST_TEST(sx2[3] == cnl::unwrap(step2.x));
 
-    int32_t sy0[4], sy1[4], sy2[4];
+    std::int32_t sy0[4], sy1[4], sy2[4];
 
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sy0), block.steps_y[0]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sy1), block.steps_y[1]);
@@ -745,7 +745,7 @@ BOOST_AUTO_TEST_CASE(setup1_simd)
       lambda2 + (step2.x + step2.y) * block_size_fixed};
 
     // compare.
-    int32_t q0[4], q1[4], q2[4];
+    std::int32_t q0[4], q1[4], q2[4];
 
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q0), block.corners[0]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q1), block.corners[1]);
@@ -809,7 +809,7 @@ BOOST_AUTO_TEST_CASE(setup2_simd)
       lambda2 + step2.x * block_size_large_fixed + (step2.x + step2.y) * block_size_fixed};
 
     // compare.
-    int32_t q0[4], q1[4], q2[4];
+    std::int32_t q0[4], q1[4], q2[4];
 
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q0), block.corners[0]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q1), block.corners[1]);
@@ -1120,8 +1120,8 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
 
 #endif /* defined(__x86_64__) || defined(_M_X64) */
 
-template<typename T, size_t N>
-size_t countof([[maybe_unused]] T const (&array)[N])
+template<typename T, std::size_t N>
+std::size_t countof([[maybe_unused]] T const (&array)[N])
 {
     return N;
 }

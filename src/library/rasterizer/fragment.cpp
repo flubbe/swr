@@ -64,7 +64,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
     }
 
     // initialize write flags.
-    uint32_t write_flags = swr::impl::fragment_output::fof_write_color;
+    std::uint32_t write_flags = swr::impl::fragment_output::fof_write_color;
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
@@ -76,7 +76,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
      * and with respect to the notation found there, we compute w_f here.
      */
     float z = 1.0f / one_over_viewport_z;
-    for(size_t i = 0; i < states.shader_info->iqs.size(); ++i)
+    for(std::size_t i = 0; i < states.shader_info->iqs.size(); ++i)
     {
         if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
         {
@@ -139,7 +139,7 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
         states.draw_target->depth_compare_write(x, y, depth_value, states.depth_func, states.write_depth, depth_write_mask);
     }
 
-    auto to_mask = [](bool b) -> uint32_t
+    auto to_mask = [](bool b) -> std::uint32_t
     { return ~(static_cast<std::uint32_t>(b) - 1); };
 
     out.color = color;
@@ -161,11 +161,11 @@ void sweep_rasterizer::process_fragment_block(
   swr::impl::fragment_output_block& out)
 {
     // initialize masks.
-    uint8_t depth_mask = 0xF;
+    std::uint8_t depth_mask = 0xF;
     depth_mask &= states.write_depth ? 0xF : 0;
 
-    uint8_t write_color = 0xF;
-    uint8_t write_stencil = 0x0; /* unimplemented */
+    std::uint8_t write_color = 0xF;
+    std::uint8_t write_stencil = 0x0; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
@@ -190,7 +190,7 @@ void sweep_rasterizer::process_fragment_block(
 
         auto scissor_check = [y_min, y_max, &states](int _x, int _y) -> bool
         { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= y_min && _y < y_max; };
-        uint8_t scissor_mask =
+        std::uint8_t scissor_mask =
           (scissor_check(coords[0].x, coords[0].y) << 3)
           | (scissor_check(coords[1].x, coords[1].y) << 2)
           | (scissor_check(coords[2].x, coords[2].y) << 1)
@@ -220,7 +220,7 @@ void sweep_rasterizer::process_fragment_block(
     const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
 #endif /* SWR_USE_SIMD */
 
-    for(size_t i = 0; i < states.shader_info->iqs.size(); ++i)
+    for(std::size_t i = 0; i < states.shader_info->iqs.size(); ++i)
     {
         if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
         {
@@ -281,7 +281,7 @@ void sweep_rasterizer::process_fragment_block(
         frag_coord[3].y = framebuffer->properties.height - frag_coord[3].y;
     }
 
-    uint8_t accept_mask = 0;
+    std::uint8_t accept_mask = 0;
     accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
     accept_mask |= in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
     accept_mask |= in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
@@ -332,7 +332,7 @@ void sweep_rasterizer::process_fragment_block(
 void sweep_rasterizer::process_fragment_block(
   int x,
   int y,
-  uint8_t mask,
+  std::uint8_t mask,
   const swr::impl::render_states& states,
   const swr::program_base* in_shader,
   const ml::vec4& one_over_viewport_z,
@@ -340,11 +340,11 @@ void sweep_rasterizer::process_fragment_block(
   swr::impl::fragment_output_block& out)
 {
     // initialize masks.
-    uint8_t depth_mask = mask;
+    std::uint8_t depth_mask = mask;
     depth_mask &= states.write_depth ? 0xF : 0;
 
-    uint8_t write_color = mask;
-    uint8_t write_stencil = 0x0; /* unimplemented */
+    std::uint8_t write_color = mask;
+    std::uint8_t write_stencil = 0x0; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to 0. */
 
@@ -369,7 +369,7 @@ void sweep_rasterizer::process_fragment_block(
 
         auto scissor_check = [y_min, y_max, &states](int _x, int _y) -> bool
         { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= y_min && _y < y_max; };
-        uint8_t scissor_mask =
+        std::uint8_t scissor_mask =
           (scissor_check(coords[0].x, coords[0].y) << 3)
           | (scissor_check(coords[1].x, coords[1].y) << 2)
           | (scissor_check(coords[2].x, coords[2].y) << 1)
@@ -399,7 +399,7 @@ void sweep_rasterizer::process_fragment_block(
     const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
 #endif /* SWR_USE_SIMD */
 
-    for(size_t i = 0; i < states.shader_info->iqs.size(); ++i)
+    for(std::size_t i = 0; i < states.shader_info->iqs.size(); ++i)
     {
         if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
         {
@@ -460,7 +460,7 @@ void sweep_rasterizer::process_fragment_block(
         frag_coord[3].y = framebuffer->properties.height - frag_coord[3].y;
     }
 
-    uint8_t accept_mask = 0;
+    std::uint8_t accept_mask = 0;
     if(mask == 0xF)
     {
         accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;

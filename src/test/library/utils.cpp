@@ -38,13 +38,13 @@ namespace simd
  * helpers.
  */
 
-/** pack bytes into uint32_t, a=hi, d=lo */
+/** pack bytes into std::uint32_t, a=hi, d=lo */
 static std::uint32_t pack32(std::uint8_t a, std::uint8_t b, std::uint8_t c, std::uint8_t d)
 {
     return (a << 24) | (b << 16) | (c << 8) | d;
 }
 
-/** pack uint32_t into uint64_t */
+/** pack std::uint32_t into std::uint64_t */
 static std::uint64_t pack64(std::uint32_t hi, std::uint32_t lo)
 {
     return (static_cast<std::uint64_t>(hi) << 32) | lo;
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(internal_pack)
     BOOST_TEST((out32 & 0x0000ff00) == 0x1100);
     BOOST_TEST((out32 & 0x000000ff) == 0xcc);
 
-    std::uint8_t* out_ptr = reinterpret_cast<uint8_t*>(&out32);
+    std::uint8_t* out_ptr = reinterpret_cast<std::uint8_t*>(&out32);
     BOOST_TEST(out_ptr[3] == 0);
     BOOST_TEST(out_ptr[2] == 0xaa);
     BOOST_TEST(out_ptr[1] == 0x11);
@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(internal_pack)
     BOOST_TEST((out64 & 0xffffffff00000000) == 0xaa11cc00000000);
 
     __m128i out128 = pack128(pack64(0xaa11cc, 0xffeeddbb), pack64(0xaa11cc, 0xaabbccaa));
-    uint32_t* ptr128 = reinterpret_cast<uint32_t*>(&out128);
+    std::uint32_t* ptr128 = reinterpret_cast<std::uint32_t*>(&out128);
     BOOST_TEST(ptr128[3] == 0xaa11cc);
     BOOST_TEST(ptr128[2] == 0xffeeddbb);
     BOOST_TEST(ptr128[1] == 0xaa11cc);
@@ -230,8 +230,8 @@ BOOST_AUTO_TEST_CASE(simd_memset64)
 {
     std::vector<std::byte> mem;
 
-    const uint64_t c1 = pack64(pack32('1', '2', '3', '4'), pack32('5', '6', '7', '8'));
-    const uint64_t c2 = pack64(pack32('8', '7', '6', '5'), pack32('4', '3', '2', '1'));
+    const std::uint64_t c1 = pack64(pack32('1', '2', '3', '4'), pack32('5', '6', '7', '8'));
+    const std::uint64_t c2 = pack64(pack32('8', '7', '6', '5'), pack32('4', '3', '2', '1'));
 
     for(int k = 0; k < 16; ++k)
     {

@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include <boost/container/static_vector.hpp>
 
 /*
@@ -79,13 +81,17 @@ constexpr std::uint32_t rasterizer_block_size{1 << rasterizer_block_shift};
 static_assert(utils::is_power_of_two(rasterizer_block_size), "rasterizer_block_size has to be a power of 2");
 
 /** round down to block size. */
-inline int lower_align_on_block_size(int v)
+template<typename T>
+    requires(std::is_integral_v<T>)
+inline T lower_align_on_block_size(const T& v)
 {
     return v & ~(rasterizer_block_size - 1);
 };
 
 /** round up to block size. */
-inline int upper_align_on_block_size(int v)
+template<typename T>
+    requires(std::is_integral_v<T>)
+inline T upper_align_on_block_size(const T& v)
 {
     return (v + (rasterizer_block_size - 1)) & ~(rasterizer_block_size - 1);
 }

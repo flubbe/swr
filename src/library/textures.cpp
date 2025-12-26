@@ -99,7 +99,7 @@ error texture_2d::allocate(int in_level, int in_width, int in_height)
         return error::invalid_value;
     }
 
-    auto uLevel = static_cast<size_t>(in_level);
+    auto uLevel = static_cast<std::size_t>(in_level);
     if(uLevel == 0)
     {
         if(width != in_width || height != in_height)
@@ -123,9 +123,9 @@ error texture_2d::allocate(int in_level, int in_width, int in_height)
     return error::none;
 }
 
-error texture_2d::set_data(int level, int in_width, int in_height, pixel_format format, const std::vector<uint8_t>& in_data)
+error texture_2d::set_data(int level, int in_width, int in_height, pixel_format format, const std::vector<std::uint8_t>& in_data)
 {
-    constexpr auto component_size = sizeof(uint32_t);
+    constexpr auto component_size = sizeof(std::uint32_t);
 
     // allocate the texture. this verifies that level is non-negative, and also sets width and height.
     auto ret = allocate(level, in_width, in_height);
@@ -159,8 +159,8 @@ error texture_2d::set_data(int level, int in_width, int in_height, pixel_format 
     {
         for(int x = 0; x < in_width; ++x)
         {
-            const uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
-            uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
+            const std::uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
+            std::uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
 #ifdef SWR_USE_MORTON_CODES
             data_ptr[libmorton::morton2D_32_encode(x, y)] = pfc.to_color(color);
 #else
@@ -172,10 +172,10 @@ error texture_2d::set_data(int level, int in_width, int in_height, pixel_format 
     return error::none;
 }
 
-error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int in_height, pixel_format format, const std::vector<uint8_t>& in_data)
+error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int in_height, pixel_format format, const std::vector<std::uint8_t>& in_data)
 {
     ASSERT_INTERNAL_CONTEXT;
-    constexpr auto component_size = sizeof(uint32_t);
+    constexpr auto component_size = sizeof(std::uint32_t);
 
     if(in_width == 0 || in_height == 0 || in_data.size() == 0)
     {
@@ -199,16 +199,16 @@ error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int 
     auto pitch = width + (width >> 1);
 #endif
 
-    uint32_t max_width = std::max(std::min(in_x + in_width, width >> level) - in_x, 0);
-    uint32_t max_height = std::max(std::min(in_y + in_height, height >> level) - in_y, 0);
+    std::uint32_t max_width = std::max(std::min(in_x + in_width, width >> level) - in_x, 0);
+    std::uint32_t max_height = std::max(std::min(in_y + in_height, height >> level) - in_y, 0);
 
     pixel_format_converter pfc(pixel_format_descriptor::named_format(format));
-    for(size_t y = 0; y < max_height; ++y)
+    for(std::size_t y = 0; y < max_height; ++y)
     {
-        for(size_t x = 0; x < max_width; ++x)
+        for(std::size_t x = 0; x < max_width; ++x)
         {
-            const uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
-            uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
+            const std::uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
+            std::uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
 #ifdef SWR_USE_MORTON_CODES
             data_ptr[libmorton::morton2D_32_encode(in_x + x, in_y + y)] = pfc.to_color(color);
 #else
@@ -240,7 +240,7 @@ void texture_2d::clear()
  * \param id the id of the texture to be bound to the 2d texture pointer
  * \return true if the bind was successful and false otherwise. In the latter case, global_context->last_error is set.
  */
-bool bind_texture_pointer(texture_target target, uint32_t id)
+bool bind_texture_pointer(texture_target target, std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -328,7 +328,7 @@ void create_default_texture(render_device_context* context)
         return;
     }
 
-    const std::vector<uint8_t> default_texture_data = {
+    const std::vector<std::uint8_t> default_texture_data = {
       0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0xff, /* RGBA RGBA */
       0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff  /* RGBA RGBA */
     };
@@ -364,7 +364,7 @@ void create_default_texture(render_device_context* context)
  * texture interface.
  */
 
-uint32_t CreateTexture()
+std::uint32_t CreateTexture()
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -398,7 +398,7 @@ uint32_t CreateTexture()
     return slot;
 }
 
-void ReleaseTexture(uint32_t id)
+void ReleaseTexture(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -425,7 +425,7 @@ void ReleaseTexture(uint32_t id)
     }
 }
 
-void ActiveTexture(uint32_t unit)
+void ActiveTexture(std::uint32_t unit)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -449,7 +449,7 @@ void ActiveTexture(uint32_t unit)
     context->states.texture_2d_active_unit = unit;
 }
 
-void BindTexture(texture_target target, uint32_t id)
+void BindTexture(texture_target target, std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -463,7 +463,7 @@ void BindTexture(texture_target target, uint32_t id)
     impl::bind_texture_pointer(target, id);
 }
 
-void AllocateImage(uint32_t texture_id, size_t width, size_t height)
+void AllocateImage(std::uint32_t texture_id, std::size_t width, std::size_t height)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -484,7 +484,7 @@ void AllocateImage(uint32_t texture_id, size_t width, size_t height)
     CHECK_AND_SET_LAST_ERROR(texture_2d->allocate(0, width, height));
 }
 
-void SetImage(uint32_t texture_id, uint32_t level, size_t width, size_t height, pixel_format format, const std::vector<uint8_t>& data)
+void SetImage(std::uint32_t texture_id, std::uint32_t level, std::size_t width, std::size_t height, pixel_format format, const std::vector<std::uint8_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -505,7 +505,7 @@ void SetImage(uint32_t texture_id, uint32_t level, size_t width, size_t height, 
     CHECK_AND_SET_LAST_ERROR(texture_2d->set_data(level, width, height, format, data));
 }
 
-void SetSubImage(uint32_t texture_id, uint32_t level, size_t offset_x, size_t offset_y, size_t width, size_t height, pixel_format format, const std::vector<uint8_t>& data)
+void SetSubImage(std::uint32_t texture_id, std::uint32_t level, std::size_t offset_x, std::size_t offset_y, std::size_t width, std::size_t height, pixel_format format, const std::vector<std::uint8_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -526,7 +526,7 @@ void SetSubImage(uint32_t texture_id, uint32_t level, size_t offset_x, size_t of
     CHECK_AND_SET_LAST_ERROR(texture_2d->set_sub_data(level, offset_x, offset_y, width, height, format, data));
 }
 
-void SetTextureWrapMode(uint32_t id, wrap_mode s, wrap_mode t)
+void SetTextureWrapMode(std::uint32_t id, wrap_mode s, wrap_mode t)
 {
     if(impl::bind_texture_pointer(texture_target::texture_2d, id))
     {
@@ -546,7 +546,7 @@ void SetTextureWrapMode(uint32_t id, wrap_mode s, wrap_mode t)
     }
 }
 
-void GetTextureWrapMode(uint32_t id, wrap_mode* s, wrap_mode* t)
+void GetTextureWrapMode(std::uint32_t id, wrap_mode* s, wrap_mode* t)
 {
     if(impl::bind_texture_pointer(texture_target::texture_2d, id))
     {

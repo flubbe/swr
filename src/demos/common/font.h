@@ -15,17 +15,17 @@ namespace font
 class glyph
 {
     /** x and y positions in bitmap. */
-    uint32_t x{0}, y{0};
+    std::uint32_t x{0}, y{0};
 
     /** glyph width and height. */
-    uint32_t width{0}, height{0};
+    std::uint32_t width{0}, height{0};
 
 public:
     /** default constructor. */
     glyph() = default;
 
     /** initializing constructor. */
-    glyph(uint32_t in_x, uint32_t in_y, uint32_t in_width, uint32_t in_height)
+    glyph(std::uint32_t in_x, std::uint32_t in_y, std::uint32_t in_width, std::uint32_t in_height)
     : x{in_x}
     , y{in_y}
     , width{in_width}
@@ -37,22 +37,22 @@ public:
      * getters.
      */
 
-    uint32_t get_x() const
+    std::uint32_t get_x() const
     {
         return x;
     }
 
-    uint32_t get_y() const
+    std::uint32_t get_y() const
     {
         return y;
     }
 
-    uint32_t get_width() const
+    std::uint32_t get_width() const
     {
         return width;
     }
 
-    uint32_t get_height() const
+    std::uint32_t get_height() const
     {
         return height;
     }
@@ -64,22 +64,22 @@ class extended_ascii_bitmap_font
     friend class renderer;
 
     /** font texture id. */
-    uint32_t tex_id{0};
+    std::uint32_t tex_id{0};
 
     /** font map dimension. */
-    uint32_t font_map_width{0}, font_map_height{0};
+    std::uint32_t font_map_width{0}, font_map_height{0};
 
     /** font texture dimensions. */
-    uint32_t tex_width{0}, tex_height{0};
+    std::uint32_t tex_width{0}, tex_height{0};
 
     /** glyph list. */
     glyph font_glyphs[256];
 
 public:
-    static extended_ascii_bitmap_font create_uniform_font(uint32_t in_texture_id, uint32_t in_tex_width, uint32_t in_tex_height, uint32_t in_font_map_width, uint32_t in_font_map_height, uint32_t glyph_width, uint32_t glyph_height);
+    static extended_ascii_bitmap_font create_uniform_font(std::uint32_t in_texture_id, std::uint32_t in_tex_width, std::uint32_t in_tex_height, std::uint32_t in_font_map_width, std::uint32_t in_font_map_height, std::uint32_t glyph_width, std::uint32_t glyph_height);
 
     /** get string dimensions. */
-    void get_string_dimensions(const std::string& s, uint32_t& w, uint32_t& h) const;
+    void get_string_dimensions(const std::string& s, std::uint32_t& w, std::uint32_t& h) const;
 };
 
 /** font rendering. */
@@ -92,16 +92,16 @@ class renderer
     mutable std::vector<std::uint32_t> ib;
 
     /** index buffer id. */
-    uint32_t text_index_buffer{static_cast<std::uint32_t>(-1)};
+    std::uint32_t text_index_buffer{static_cast<std::uint32_t>(-1)};
 
     /** vertex buffer id. */
-    uint32_t text_vertex_buffer{static_cast<std::uint32_t>(-1)};
+    std::uint32_t text_vertex_buffer{static_cast<std::uint32_t>(-1)};
 
     /** attributes buffer id. */
-    uint32_t text_texcoord_buffer{static_cast<std::uint32_t>(-1)};
+    std::uint32_t text_texcoord_buffer{static_cast<std::uint32_t>(-1)};
 
     /** the shader used for font rendering. */
-    uint32_t shader_id{0};
+    std::uint32_t shader_id{0};
 
     /** font description. */
     extended_ascii_bitmap_font font;
@@ -116,7 +116,7 @@ public:
     /**
      * Initialize the font renderer.
      */
-    void initialize(uint32_t in_shader_id, const extended_ascii_bitmap_font& in_font, int in_viewport_width, int in_viewport_height)
+    void initialize(std::uint32_t in_shader_id, const extended_ascii_bitmap_font& in_font, int in_viewport_width, int in_viewport_height)
     {
         text_index_buffer = swr::CreateIndexBuffer({});
         text_vertex_buffer = swr::CreateAttributeBuffer({});
@@ -151,7 +151,7 @@ public:
     }
 
     /** draw a string at position (x,y). */
-    void draw_string_at(const std::string& s, uint32_t x, uint32_t y) const;
+    void draw_string_at(const std::string& s, std::uint32_t x, std::uint32_t y) const;
 
     /** string alignment */
     enum string_alignment
@@ -167,7 +167,7 @@ public:
     };
 
     /** draw a string. */
-    void draw_string(unsigned int alignment, const std::string& s, uint32_t x = 0, uint32_t y = 0) const;
+    void draw_string(unsigned int alignment, const std::string& s, std::uint32_t x = 0, std::uint32_t y = 0) const;
 };
 
 } /* namespace font */

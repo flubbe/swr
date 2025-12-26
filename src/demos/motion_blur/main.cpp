@@ -48,61 +48,61 @@ class demo_emitter : public swr_app::renderwindow
     shader::blend blend_shader;
 
     /** normal mapping shader id. */
-    uint32_t shader_id{0};
+    std::uint32_t shader_id{0};
 
     /** projection matrix. */
     ml::mat4x4 proj;
 
     /** the cube's vertices. */
-    uint32_t cube_verts{0};
+    std::uint32_t cube_verts{0};
 
     /** the cube's indices. */
     std::vector<std::uint32_t> cube_indices;
 
     /** texture coordinates. */
-    uint32_t cube_uvs{0};
+    std::uint32_t cube_uvs{0};
 
     /** normals. */
-    uint32_t cube_normals{0};
+    std::uint32_t cube_normals{0};
 
     /** tangents. */
-    uint32_t cube_tangents{0};
+    std::uint32_t cube_tangents{0};
 
     /** bitangents. */
-    uint32_t cube_bitangents{0};
+    std::uint32_t cube_bitangents{0};
 
     /** texture. */
-    uint32_t cube_tex{0};
+    std::uint32_t cube_tex{0};
 
     /** normal map. */
-    uint32_t cube_normal_map{0};
+    std::uint32_t cube_normal_map{0};
 
     /** particle system. */
     particles::particle_system particle_system;
 
     /** blur framebuffer object. */
-    uint32_t blur_fbo{0};
+    std::uint32_t blur_fbo{0};
 
     /** blur texture associated to the framebuffer object. */
-    uint32_t blur_texture{0};
+    std::uint32_t blur_texture{0};
 
     /** blur depth buffer associated to the framebuffer object. */
-    uint32_t blur_depth_id{0};
+    std::uint32_t blur_depth_id{0};
 
     /** vertex buffer for blur. */
-    uint32_t blur_vb_id{0};
+    std::uint32_t blur_vb_id{0};
 
     /** tex coords for blur. */
-    uint32_t blur_tc_id{0};
+    std::uint32_t blur_tc_id{0};
 
     /** texture shader for blur. */
-    uint32_t blend_shader_id{0};
+    std::uint32_t blend_shader_id{0};
 
     /** light position. */
     ml::vec4 light_position{0, 3, -3, 1};
 
     /** frame counter. */
-    uint32_t frame_count{0};
+    std::uint32_t frame_count{0};
 
     /** whether to update the particle system paused. */
     bool update_particles{true};
@@ -169,7 +169,7 @@ public:
         proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 2, 1.f, 10.f);
 
         // load cube.
-        std::vector<uint32_t> indices = {
+        std::vector<std::uint32_t> indices = {
 #define FACE_LIST(...) __VA_ARGS__
 #include "common/cube_uniform_uv.geom"
 #undef FACE_LIST
@@ -212,9 +212,9 @@ public:
         cube_bitangents = swr::CreateAttributeBuffer(bitangents);
 
         // cube texture.
-        std::vector<uint8_t> img_data;
-        uint32_t w = 0, h = 0;
-        uint32_t ret = lodepng::decode(img_data, w, h, "../textures/stone/32/ft_stone01_c.png");
+        std::vector<std::uint8_t> img_data;
+        std::uint32_t w = 0, h = 0;
+        std::uint32_t ret = lodepng::decode(img_data, w, h, "../textures/stone/32/ft_stone01_c.png");
         if(ret != 0)
         {
             platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));
@@ -240,7 +240,7 @@ public:
         img_data.clear();
         w = 1024;
         h = 1024;
-        img_data.resize(w * h * sizeof(uint32_t));
+        img_data.resize(w * h * sizeof(std::uint32_t));
 
         blur_texture = swr::CreateTexture();
         swr::SetImage(blur_texture, 0, w, h, swr::pixel_format::rgba8888, img_data);

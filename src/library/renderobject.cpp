@@ -24,8 +24,8 @@ static void copy_attributes(
   render_object& obj,
   const boost::container::static_vector<int, geom::limits::max::attributes>& active_vabs,
   const utils::slot_map<vertex_attribute_buffer>& vertex_attribute_buffers,
-  std::function<uint32_t(uint32_t)> transform_fn =
-    [](uint32_t i) -> uint32_t
+  std::function<std::uint32_t(std::uint32_t)> transform_fn =
+    [](std::uint32_t i) -> std::uint32_t
   { return i; })
 {
     if(active_vabs.size() == 0)
@@ -79,7 +79,7 @@ render_object* render_device_context::create_render_object(vertex_buffer_mode mo
     return &new_object;
 }
 
-render_object* render_device_context::create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<uint32_t>& index_buffer)
+render_object* render_device_context::create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer)
 {
     if(index_buffer.empty())
     {
@@ -98,7 +98,7 @@ render_object* render_device_context::create_indexed_render_object(vertex_buffer
     auto& new_object = render_object_list.back();
 
     copy_attributes(new_object, active_vabs, vertex_attribute_buffers,
-                    [&index_buffer](uint32_t i) -> uint32_t
+                    [&index_buffer](std::uint32_t i) -> std::uint32_t
                     {
                         return index_buffer[i];
                     });

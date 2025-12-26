@@ -81,7 +81,7 @@ public:
     }
 
     /** get the contents of the window as RGBA 32-bit values. */
-    bool get_surface_buffer_rgba32(std::vector<uint32_t>& contents) const;
+    bool get_surface_buffer_rgba32(std::vector<std::uint32_t>& contents) const;
 
     /** get the contents of the window as an SDL surface. SDL_FreeSurface needs to be invoked by the caller. */
     SDL_Surface* get_surface()

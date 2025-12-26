@@ -163,10 +163,7 @@ enum fragment_shader_result
     accept
 };
 
-/**
- * A complete graphics program, consisting of vertex- and fragment shader.
- * NOTE Classes derived from this are not allowed to add member variables.
- */
+/** A complete graphics program, consisting of vertex- and fragment shader. */
 class program_base
 {
     template<typename T>
@@ -276,7 +273,7 @@ public:
 /**
  * A helper class providing instantiation methods to simplify program creation.
  *
- * @tparam T A type derived from program_base.
+ * @tparam T A type derived from `program`.
  */
 template<typename T>
 class program : public program_base
@@ -285,7 +282,11 @@ public:
     /** type information for validation. */
     using super_type = program_base;
 
-    program() = default;
+    program()
+    : program_base{}
+    {
+        static_assert(std::is_base_of_v<program<T>, T>, "Invalid program base.");
+    }
     program(const program&) = default;
     program(program&&) = default;
 
@@ -307,7 +308,6 @@ public:
 template<typename T>
 std::size_t program<T>::size() const
 {
-    static_assert(sizeof(T) >= sizeof(program_base), "Invalid program size.");
     return sizeof(T);
 }
 
@@ -344,14 +344,14 @@ program_base* program<T>::create_fragment_shader_instance(
  * \param InShader Pointer to the shader.
  * \return On success, this returns the (positive) Id of the shader. If an error occured, the return value is 0.
  */
-uint32_t RegisterShader(const program_base* InShader);
+std::uint32_t RegisterShader(const program_base* InShader);
 
 /**
  * Removes a shader from the graphics pipeline.
  *
  * \param Id The (positive) Id of the shader. If 0 is passed, the function sets last_error to invalid_value.
  */
-void UnregisterShader(uint32_t Id);
+void UnregisterShader(std::uint32_t Id);
 
 /**
  * Bind a shader.
@@ -359,6 +359,6 @@ void UnregisterShader(uint32_t Id);
  * \param Id The Id of the shader. If zero is passed, an empty shader is selected.
  * \return Returns false if the Id was invalid.
  */
-bool BindShader(uint32_t Id);
+bool BindShader(std::uint32_t Id);
 
 }    // namespace swr

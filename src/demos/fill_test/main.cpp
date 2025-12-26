@@ -36,7 +36,7 @@ class demo_fill : public swr_app::renderwindow
     shader::mesh_color mesh_shader;
 
     /** mesh shader id. */
-    uint32_t mesh_shader_id{0};
+    std::uint32_t mesh_shader_id{0};
 
     /** projection matrix. */
     ml::mat4x4 proj;
@@ -51,7 +51,7 @@ class demo_fill : public swr_app::renderwindow
     mesh::mesh example_mesh;
 
     /** frame counter. */
-    uint32_t frame_count{0};
+    std::uint32_t frame_count{0};
 
     /** viewport width. */
     static const int width = 640;

@@ -39,25 +39,25 @@ class demo_cube : public swr_app::renderwindow
     shader::phong shader;
 
     /** color shader id. */
-    uint32_t shader_id{0};
+    std::uint32_t shader_id{0};
 
     /** projection matrix. */
     ml::mat4x4 proj;
 
     /** the cube's vertices. */
-    uint32_t cube_verts{0};
+    std::uint32_t cube_verts{0};
 
     /** the cube's indices. */
     std::vector<std::uint32_t> cube_indices;
 
     /** texture coordinates. */
-    uint32_t cube_uvs{0};
+    std::uint32_t cube_uvs{0};
 
     /** vertex normals. */
-    uint32_t cube_normals{0};
+    std::uint32_t cube_normals{0};
 
     /** texture. */
-    uint32_t cube_tex{0};
+    std::uint32_t cube_tex{0};
 
     /** a rotation offset for the cube. */
     float cube_rotation{0};
@@ -66,7 +66,7 @@ class demo_cube : public swr_app::renderwindow
     ml::vec4 light_position{0, 0, 0, 1};
 
     /** frame counter. */
-    uint32_t frame_count{0};
+    std::uint32_t frame_count{0};
 
     /** viewport width. */
     static const int width = 640;
@@ -124,7 +124,7 @@ public:
         proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 2, 1.f, 10.f);
 
         // load cube.
-        std::vector<uint32_t> indices = {
+        std::vector<std::uint32_t> indices = {
 #define FACE_LIST(...) __VA_ARGS__
 #include "common/cube.geom"
 #undef FACE_LIST
@@ -153,9 +153,9 @@ public:
         cube_normals = swr::CreateAttributeBuffer(normals);
 
         // cube texture.
-        std::vector<uint8_t> img_data;
-        uint32_t w = 0, h = 0;
-        uint32_t ret = lodepng::decode(img_data, w, h, "../textures/crate1/crate1_diffuse.png");
+        std::vector<std::uint8_t> img_data;
+        std::uint32_t w = 0, h = 0;
+        std::uint32_t ret = lodepng::decode(img_data, w, h, "../textures/crate1/crate1_diffuse.png");
         if(ret != 0)
         {
             platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));

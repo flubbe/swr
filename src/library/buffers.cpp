@@ -18,19 +18,19 @@ namespace swr
  * buffer management.
  */
 
-uint32_t CreateIndexBuffer(const std::vector<uint32_t>& ib)
+std::uint32_t CreateIndexBuffer(const std::vector<std::uint32_t>& ib)
 {
     ASSERT_INTERNAL_CONTEXT;
     return impl::global_context->index_buffers.push(ib);
 }
 
-uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
+std::uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
 {
     ASSERT_INTERNAL_CONTEXT;
     return impl::global_context->vertex_attribute_buffers.push(attribs);
 }
 
-void UpdateIndexBuffer(uint32_t id, const std::vector<uint32_t>& data)
+void UpdateIndexBuffer(std::uint32_t id, const std::vector<std::uint32_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
     if(id >= impl::global_context->index_buffers.size())
@@ -42,7 +42,7 @@ void UpdateIndexBuffer(uint32_t id, const std::vector<uint32_t>& data)
     ib.assign(data.begin(), data.end());
 }
 
-void UpdateAttributeBuffer(uint32_t id, const std::vector<ml::vec4>& data)
+void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
     if(id >= impl::global_context->vertex_attribute_buffers.size())
@@ -55,7 +55,7 @@ void UpdateAttributeBuffer(uint32_t id, const std::vector<ml::vec4>& data)
 }
 
 template<typename T>
-static void delete_buffer(uint32_t id, utils::slot_map<T>& buffers, error& last_error)
+static void delete_buffer(std::uint32_t id, utils::slot_map<T>& buffers, error& last_error)
 {
     if(id < buffers.size())
     {
@@ -68,13 +68,13 @@ static void delete_buffer(uint32_t id, utils::slot_map<T>& buffers, error& last_
     }
 }
 
-void DeleteIndexBuffer(uint32_t id)
+void DeleteIndexBuffer(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     delete_buffer(id, impl::global_context->index_buffers, impl::global_context->last_error);
 }
 
-void DeleteAttributeBuffer(uint32_t id)
+void DeleteAttributeBuffer(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -89,7 +89,7 @@ void DeleteAttributeBuffer(uint32_t id)
     }
 }
 
-void EnableAttributeBuffer(uint32_t id, uint32_t slot)
+void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -112,7 +112,7 @@ void EnableAttributeBuffer(uint32_t id, uint32_t slot)
     }
 }
 
-void DisableAttributeBuffer(uint32_t id)
+void DisableAttributeBuffer(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -121,7 +121,7 @@ void DisableAttributeBuffer(uint32_t id)
     if(id < context->vertex_attribute_buffers.size())
     {
         auto& buf = context->vertex_attribute_buffers[id];
-        if(buf.slot >= 0 && static_cast<size_t>(buf.slot) < context->active_vabs.size())
+        if(buf.slot >= 0 && static_cast<std::size_t>(buf.slot) < context->active_vabs.size())
         {
             context->active_vabs[buf.slot] = -1;
             buf.slot = impl::vertex_attribute_buffer::no_slot_associated;

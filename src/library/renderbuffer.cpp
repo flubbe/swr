@@ -106,7 +106,7 @@ static void scissor_clear_buffer_morton(T clear_value, attachment_info<T>& info,
  * default framebuffer.
  */
 
-void default_framebuffer::clear_color(uint32_t attachment, ml::vec4 clear_color)
+void default_framebuffer::clear_color(std::uint32_t attachment, ml::vec4 clear_color)
 {
     if(attachment == 0)
     {
@@ -115,7 +115,7 @@ void default_framebuffer::clear_color(uint32_t attachment, ml::vec4 clear_color)
     }
 }
 
-void default_framebuffer::clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect)
+void default_framebuffer::clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect)
 {
     if(attachment == 0)
     {
@@ -126,12 +126,12 @@ void default_framebuffer::clear_color(uint32_t attachment, ml::vec4 clear_color,
         int y_min = std::min(std::max(color_buffer.info.height - rect.y_max, 0), color_buffer.info.height);
         int y_max = std::max(0, std::min(color_buffer.info.height - rect.y_min, color_buffer.info.height));
 
-        const auto row_size = (x_max - x_min) * sizeof(uint32_t);
+        const auto row_size = (x_max - x_min) * sizeof(std::uint32_t);
 
-        auto ptr = reinterpret_cast<uint8_t*>(color_buffer.info.data_ptr) + y_min * color_buffer.info.pitch + x_min * sizeof(uint32_t);
+        auto ptr = reinterpret_cast<std::uint8_t*>(color_buffer.info.data_ptr) + y_min * color_buffer.info.pitch + x_min * sizeof(std::uint32_t);
         for(int y = y_min; y < y_max; ++y)
         {
-            utils::memset32(ptr, *reinterpret_cast<uint32_t*>(&clear_value), row_size);
+            utils::memset32(ptr, *reinterpret_cast<std::uint32_t*>(&clear_value), row_size);
             ptr += color_buffer.info.pitch;
         }
     }
@@ -142,7 +142,7 @@ void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth)
     auto& info = depth_buffer.info;
     if(info.data_ptr)
     {
-        utils::memset32(reinterpret_cast<uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
+        utils::memset32(reinterpret_cast<std::uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
     }
 }
 
@@ -155,15 +155,15 @@ void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth, const utils::r
 
     const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
 
-    auto ptr = reinterpret_cast<uint8_t*>(depth_buffer.info.data_ptr) + y_min * depth_buffer.info.pitch + x_min * sizeof(ml::fixed_32_t);
+    auto ptr = reinterpret_cast<std::uint8_t*>(depth_buffer.info.data_ptr) + y_min * depth_buffer.info.pitch + x_min * sizeof(ml::fixed_32_t);
     for(int y = y_min; y < y_max; ++y)
     {
-        utils::memset32(ptr, *reinterpret_cast<uint32_t*>(&clear_depth), row_size);
+        utils::memset32(ptr, *reinterpret_cast<std::uint32_t*>(&clear_depth), row_size);
         ptr += depth_buffer.info.pitch;
     }
 }
 
-void default_framebuffer::merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void default_framebuffer::merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
 {
     if(attachment != 0)
     {
@@ -173,10 +173,10 @@ void default_framebuffer::merge_color(uint32_t attachment, int x, int y, const f
     if(frag.write_flags & fragment_output::fof_write_color)
     {
         // convert color to output format.
-        uint32_t write_color = color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color));
+        std::uint32_t write_color = color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color));
 
         // alpha blending.
-        uint32_t* color_buffer_ptr = color_buffer.info.data_ptr + y * color_buffer.info.width + x;
+        std::uint32_t* color_buffer_ptr = color_buffer.info.data_ptr + y * color_buffer.info.width + x;
         if(do_blend)
         {
             write_color = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, write_color, *color_buffer_ptr);
@@ -187,7 +187,7 @@ void default_framebuffer::merge_color(uint32_t attachment, int x, int y, const f
     }
 }
 
-void default_framebuffer::merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void default_framebuffer::merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
 {
     if(attachment != 0)
     {
@@ -195,7 +195,7 @@ void default_framebuffer::merge_color_block(uint32_t attachment, int x, int y, c
     }
 
     // generate write mask.
-    uint32_t color_write_mask[4] = {
+    std::uint32_t color_write_mask[4] = {
       to_uint32_mask((frag.write_color & 0x8) >> 3),
       to_uint32_mask((frag.write_color & 0x4) >> 2),
       to_uint32_mask((frag.write_color & 0x2) >> 1),
@@ -207,20 +207,20 @@ void default_framebuffer::merge_color_block(uint32_t attachment, int x, int y, c
     if(frag.write_color)
     {
         // convert color to output format.
-        DECLARE_ALIGNED_ARRAY4(uint32_t, write_color) = {
+        DECLARE_ALIGNED_ARRAY4(std::uint32_t, write_color) = {
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[0])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[1])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[2])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[3]))};
 
         // alpha blending.
-        uint32_t* color_buffer_ptr[4] = {
+        std::uint32_t* color_buffer_ptr[4] = {
           color_buffer.info.data_ptr + coords[0].y * color_buffer.info.width + coords[0].x,
           color_buffer.info.data_ptr + coords[1].y * color_buffer.info.width + coords[1].x,
           color_buffer.info.data_ptr + coords[2].y * color_buffer.info.width + coords[2].x,
           color_buffer.info.data_ptr + coords[3].y * color_buffer.info.width + coords[3].x};
 
-        DECLARE_ALIGNED_ARRAY4(uint32_t, color_buffer_values) = {
+        DECLARE_ALIGNED_ARRAY4(std::uint32_t, color_buffer_values) = {
           *color_buffer_ptr[0], *color_buffer_ptr[1], *color_buffer_ptr[2], *color_buffer_ptr[3]};
 
         if(do_blend)
@@ -281,11 +281,11 @@ void default_framebuffer::depth_compare_write(int x, int y, float depth_value, c
     write_mask &= depth_compare[static_cast<std::uint32_t>(depth_func)];
 
     // write depth value.
-    uint32_t depth_write_mask = to_uint32_mask(write_depth && write_mask);
+    std::uint32_t depth_write_mask = to_uint32_mask(write_depth && write_mask);
     *depth_buffer_ptr = ml::wrap((ml::unwrap(*depth_buffer_ptr) & ~depth_write_mask) | (ml::unwrap(new_depth_value) & depth_write_mask));
 }
 
-void default_framebuffer::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask)
+void default_framebuffer::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -344,7 +344,7 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
     write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    uint32_t depth_write_mask[4] = {
+    std::uint32_t depth_write_mask[4] = {
       to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
@@ -360,7 +360,7 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
  * framebuffer_object
  */
 
-void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color)
+void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_color)
 {
     if(attachment < color_attachments.size() && color_attachments[attachment])
     {
@@ -374,7 +374,7 @@ void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color)
     }
 }
 
-void framebuffer_object::clear_color(uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect)
+void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect)
 {
     if(attachment < color_attachments.size() && color_attachments[attachment])
     {
@@ -432,7 +432,7 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth)
     if(depth_attachment)
     {
         auto& info = depth_attachment->info;
-        utils::memset32(reinterpret_cast<uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
+        utils::memset32(reinterpret_cast<std::uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
     }
 }
 
@@ -465,17 +465,17 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
 
         const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
 
-        auto ptr = reinterpret_cast<uint8_t*>(info.data_ptr) + y_min * info.pitch + x_min * sizeof(ml::fixed_32_t);
+        auto ptr = reinterpret_cast<std::uint8_t*>(info.data_ptr) + y_min * info.pitch + x_min * sizeof(ml::fixed_32_t);
         for(int y = y_min; y < y_max; ++y)
         {
-            utils::memset32(ptr, *reinterpret_cast<uint32_t*>(&clear_depth), row_size);
+            utils::memset32(ptr, *reinterpret_cast<std::uint32_t*>(&clear_depth), row_size);
             ptr += info.pitch;
         }
 #endif /* SWR_USE_MORTON_CODES */
     }
 }
 
-void framebuffer_object::merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void framebuffer_object::merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
 {
     if(attachment > color_attachments.size() || !color_attachments[attachment])
     {
@@ -505,7 +505,7 @@ void framebuffer_object::merge_color(uint32_t attachment, int x, int y, const fr
     }
 }
 
-void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
 {
     if(attachment > color_attachments.size() || !color_attachments[attachment])
     {
@@ -615,12 +615,12 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
     write_mask &= depth_compare[static_cast<std::uint32_t>(depth_func)];
 
     // write depth value.
-    uint32_t depth_write_mask = to_uint32_mask(write_depth && write_mask);
+    std::uint32_t depth_write_mask = to_uint32_mask(write_depth && write_mask);
     *depth_buffer_ptr = ml::wrap((ml::unwrap(*depth_buffer_ptr) & ~depth_write_mask) | (ml::unwrap(new_depth_value) & depth_write_mask));
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write_block.
-void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask)
+void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -687,7 +687,7 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
     write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    uint32_t depth_write_mask[4] = {
+    std::uint32_t depth_write_mask[4] = {
       to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
@@ -706,7 +706,7 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
  */
 
 /** the default framebuffer has id 0. this constant is mostly here to make the code below more readable. */
-constexpr uint32_t default_framebuffer_id = 0;
+constexpr std::uint32_t default_framebuffer_id = 0;
 
 /** two more functions for handling the default_framebuffer_id case. */
 static auto id_to_slot = [](std::uint32_t id) -> std::uint32_t
@@ -714,7 +714,7 @@ static auto id_to_slot = [](std::uint32_t id) -> std::uint32_t
 static auto slot_to_id = [](std::uint32_t slot) -> std::uint32_t
 { return slot + 1; };
 
-uint32_t CreateFramebufferObject()
+std::uint32_t CreateFramebufferObject()
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -727,7 +727,7 @@ uint32_t CreateFramebufferObject()
     return slot_to_id(slot);
 }
 
-void ReleaseFramebufferObject(uint32_t id)
+void ReleaseFramebufferObject(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -753,7 +753,7 @@ void ReleaseFramebufferObject(uint32_t id)
     }
 }
 
-void BindFramebufferObject(framebuffer_target target, uint32_t id)
+void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -793,7 +793,7 @@ void BindFramebufferObject(framebuffer_target target, uint32_t id)
     }
 }
 
-void FramebufferTexture(uint32_t id, framebuffer_attachment attachment, uint32_t attachment_id, uint32_t level)
+void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id, std::uint32_t level)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -837,7 +837,7 @@ void FramebufferTexture(uint32_t id, framebuffer_attachment attachment, uint32_t
     }
 }
 
-uint32_t CreateDepthRenderbuffer(uint32_t width, uint32_t height)
+std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -848,7 +848,7 @@ uint32_t CreateDepthRenderbuffer(uint32_t width, uint32_t height)
     return slot;
 }
 
-void ReleaseDepthRenderbuffer(uint32_t id)
+void ReleaseDepthRenderbuffer(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
@@ -859,7 +859,7 @@ void ReleaseDepthRenderbuffer(uint32_t id)
     }
 }
 
-void FramebufferRenderbuffer(uint32_t id, framebuffer_attachment attachment, uint32_t attachment_id)
+void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;
