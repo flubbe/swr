@@ -99,8 +99,7 @@ class sweep_rasterizer : public rasterizer
     void process_tile_cache()
     {
         // for each non-empty tile, add a job to the thread pool.
-        const auto tile_count = tiles.entries.size();
-        for(std::size_t i = 0; i < tile_count; ++i)
+        for(std::size_t i = 0; i < tiles.entries.size(); ++i)
         {
             if(tiles.entries[i].primitives.size())
             {
@@ -116,8 +115,7 @@ class sweep_rasterizer : public rasterizer
     void process_tile_cache()
     {
         // for each non-empty tile, add a job to the thread pool.
-        const auto tile_count = tiles.entries.size();
-        for(std::size_t i = 0; i < tile_count; ++i)
+        for(std::size_t i = 0; i < tiles.entries.size(); ++i)
         {
             if(tiles.entries[i].primitives.size())
             {

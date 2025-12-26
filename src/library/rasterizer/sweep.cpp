@@ -90,29 +90,15 @@ void sweep_rasterizer::draw_primitives_parallel()
         return;
     }
 
-    const swr::comparison_func* last_depth_func = nullptr;
+    std::size_t triangles_in_tile_cache = 0;
     for(auto& it: draw_list)
     {
-        /*
-         * check if we need to draw the triangles in the queue. this is the case if:
-         *
-         *  *) the depth test is disabled or has changed, or
-         *  *) blending is enabled.
-         *
-         * since currently only triangles are processed in parallel, we also need
-         * to execute the draw calls before drawing any other primitive.
-         */
-
-        bool process_tiles = (it.type != primitive::triangle)
-                             || it.states->blending_enabled
-                             || !it.states->depth_test_enabled
-                             || (it.states->depth_test_enabled && last_depth_func && (*last_depth_func) != it.states->depth_func);
-
-        last_depth_func = it.states->depth_test_enabled ? &it.states->depth_func : nullptr;
-
-        if(process_tiles)
+        if(it.type != primitive::triangle
+           && triangles_in_tile_cache > 0)
         {
+            // process triangles.
             process_tile_cache();
+            triangles_in_tile_cache = 0;
         }
 
         // draw the primitive.
@@ -127,12 +113,14 @@ void sweep_rasterizer::draw_primitives_parallel()
         else if(it.type == primitive::triangle)
         {
             draw_filled_triangle(*it.states, it.is_front_facing, *it.v[0], *it.v[1], *it.v[2]);
+            ++triangles_in_tile_cache;
         }
     }
 
-    // run possibly waiting tasks.
-    process_tile_cache();
-    tiles.clear_tiles();
+    if(triangles_in_tile_cache > 0)
+    {
+        process_tile_cache();
+    }
 
     draw_list.clear();
 }
