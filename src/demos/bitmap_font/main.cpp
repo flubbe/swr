@@ -124,7 +124,7 @@ class demo_bitmap_font : public swr_app::renderwindow
     uint32_t cube_verts{0};
 
     /** the cube's indices. */
-    uint32_t cube_indices{0};
+    std::vector<std::uint32_t> cube_indices{0};
 
     /** vertex colors. */
     uint32_t cube_colors{0};
@@ -202,7 +202,7 @@ public:
 #include "common/cube.geom"
 #undef FACE_LIST
         };
-        cube_indices = swr::CreateIndexBuffer(indices);
+        cube_indices = std::move(indices);
 
         std::vector<ml::vec4> vertices = {
 #define VERTEX_LIST(...) __VA_ARGS__
@@ -245,11 +245,10 @@ public:
 
         swr::DeleteAttributeBuffer(cube_colors);
         swr::DeleteAttributeBuffer(cube_verts);
-        swr::DeleteIndexBuffer(cube_indices);
 
         cube_colors = 0;
         cube_verts = 0;
-        cube_indices = 0;
+        cube_indices.clear();
 
         if(cube_shader_id)
         {
@@ -346,7 +345,7 @@ public:
         swr::BindUniform(1, view);
 
         // draw the buffer.
-        swr::DrawIndexedElements(cube_indices, swr::vertex_buffer_mode::triangles);
+        swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, cube_indices.size(), cube_indices);
 
         swr::DisableAttributeBuffer(cube_colors);
         swr::DisableAttributeBuffer(cube_verts);

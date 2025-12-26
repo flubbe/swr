@@ -48,7 +48,7 @@ class demo_cube : public swr_app::renderwindow
     uint32_t cube_verts{0};
 
     /** the cube's indices. */
-    uint32_t cube_indices{0};
+    std::vector<std::uint32_t> cube_indices;
 
     /** texture coordinates. */
     uint32_t cube_uvs{0};
@@ -137,7 +137,7 @@ public:
 #include "common/cube_uniform_uv.geom"
 #undef FACE_LIST
         };
-        cube_indices = swr::CreateIndexBuffer(indices);
+        cube_indices = std::move(indices);
 
         std::vector<ml::vec4> vertices = {
 #define VERTEX_LIST(...) __VA_ARGS__
@@ -211,7 +211,6 @@ public:
         swr::DeleteAttributeBuffer(cube_normals);
         swr::DeleteAttributeBuffer(cube_uvs);
         swr::DeleteAttributeBuffer(cube_verts);
-        swr::DeleteIndexBuffer(cube_indices);
 
         cube_normal_map = 0;
         cube_tex = 0;
@@ -220,7 +219,7 @@ public:
         cube_normals = 0;
         cube_uvs = 0;
         cube_verts = 0;
-        cube_indices = 0;
+        cube_indices.clear();
 
         if(shader_id)
         {
@@ -309,7 +308,7 @@ public:
         swr::BindTexture(swr::texture_target::texture_2d, cube_normal_map);
 
         // draw the buffer.
-        swr::DrawIndexedElements(cube_indices, swr::vertex_buffer_mode::triangles);
+        swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, cube_indices.size(), cube_indices);
 
         swr::DisableAttributeBuffer(cube_uvs);
         swr::DisableAttributeBuffer(cube_bitangents);

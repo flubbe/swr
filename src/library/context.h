@@ -178,7 +178,7 @@ public:
     std::list<render_object> render_object_list;
 
     /** index buffers. */
-    utils::slot_map<index_buffer> index_buffers;
+    utils::slot_map<std::vector<uint32_t>> index_buffers;
 
     /** vertex attribute buffers. */
     utils::slot_map<vertex_attribute_buffer> vertex_attribute_buffers;
@@ -271,17 +271,23 @@ public:
      * Create render object for vertex_count vertices.
      * Needs render context to copy the active render states (and buffers) over.
      *
-     * Returns nullptr on failure.
+     * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
+     * @param count Number of elements to use from `index_buffer`.
+     * @param index_buffer The index buffer to use.
+     * @returns Returns a pointer to the render object on success and `nullptr` on failure.
      */
-    render_object* create_render_object(size_t vertex_count, vertex_buffer_mode mode);
+    render_object* create_render_object(vertex_buffer_mode mode, size_t count);
 
     /**
      * Create render object from (indexed) vertex buffer.
      * Needs render context to copy the active render states (and buffers) over.
      *
-     * Returns nullptr on failure.
+     * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
+     * @param count Number of elements to use from `index_buffer`.
+     * @param index_buffer The index buffer to use.
+     * @returns Returns a pointer to the render object on success and `nullptr` on failure.
      */
-    render_object* create_indexed_render_object(const index_buffer& ib, vertex_buffer_mode mode);
+    render_object* create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<uint32_t>& index_buffer);
 
     /*
      * buffer management.

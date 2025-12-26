@@ -80,57 +80,6 @@ struct swr_attribute_buffer
     }
 };
 
-/** index buffer interface. */
-struct swr_index_buffer
-{
-    /** indices. */
-    std::vector<std::uint32_t> indices;
-
-    /** buffer id. */
-    std::int32_t id{-1};
-
-    /** default constructor. */
-    swr_index_buffer() = default;
-
-    /** destructor. */
-    ~swr_index_buffer()
-    {
-        unload();
-    }
-
-    /** upload buffer to graphics library. */
-    bool upload(bool keep = false)
-    {
-        // don't upload twice.
-        if(id != -1)
-        {
-            return false;
-        }
-
-        // upload.
-        id = swr::CreateIndexBuffer(indices);
-
-        // unload local copy
-        if(!keep)
-        {
-            indices.clear();
-            indices.shrink_to_fit();
-        }
-
-        return true;
-    }
-
-    /** unload buffer. */
-    void unload()
-    {
-        if(id != -1)
-        {
-            swr::DeleteIndexBuffer(id);
-            id = -1;
-        }
-    }
-};
-
 inline void swr_buffer_enable_if(bool pred, swr_attribute_buffer& buf, uint32_t slot)
 {
     if(pred)
@@ -177,7 +126,7 @@ struct mesh
     swr_attribute_buffer texture_coordinates;
 
     /** mesh triangle face indices. */
-    swr_index_buffer indices;
+    std::vector<std::uint32_t> indices;
 
     /** whether this mesh has normals. */
     bool has_normals{false};
@@ -212,7 +161,6 @@ struct mesh
         swr_buffer_upload_if(has_bitangents, bitangents, keep);
         swr_buffer_upload_if(has_colors, colors, keep);
         swr_buffer_upload_if(has_texture_coordinates, texture_coordinates, keep);
-        indices.upload(keep);
     }
 
     /** unload mesh. */
@@ -224,7 +172,6 @@ struct mesh
         bitangents.unload();
         colors.unload();
         texture_coordinates.unload();
-        indices.unload();
     }
 
     /** render mesh. */
@@ -238,7 +185,7 @@ struct mesh
         swr_buffer_enable_if(has_texture_coordinates, texture_coordinates, 5);
 
         // draw the buffer.
-        swr::DrawIndexedElements(indices.id, swr::vertex_buffer_mode::triangles);
+        swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, indices.size(), indices);
 
         swr_buffer_disable_if(has_texture_coordinates, texture_coordinates);
         swr_buffer_disable_if(has_colors, colors);

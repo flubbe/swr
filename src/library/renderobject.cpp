@@ -64,22 +64,22 @@ static void copy_attributes(
  * create a new render object and initialize it with its vertices, the vertex buffer mode, the render states
  * and the active attributes.
  */
-render_object* render_device_context::create_render_object(std::size_t vertex_count, vertex_buffer_mode mode)
+render_object* render_device_context::create_render_object(vertex_buffer_mode mode, std::size_t count)
 {
-    if(vertex_count == 0)
+    if(count == 0)
     {
         last_error = swr::error::invalid_value;
         return nullptr;
     }
 
     // create and initialize new object.
-    auto& new_object = render_object_list.emplace_back(vertex_count, mode, states);
+    auto& new_object = render_object_list.emplace_back(count, mode, states);
     copy_attributes(new_object, active_vabs, vertex_attribute_buffers);
 
     return &new_object;
 }
 
-render_object* render_device_context::create_indexed_render_object(const index_buffer& index_buffer, vertex_buffer_mode mode)
+render_object* render_device_context::create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<uint32_t>& index_buffer)
 {
     if(index_buffer.empty())
     {
@@ -87,8 +87,14 @@ render_object* render_device_context::create_indexed_render_object(const index_b
         return nullptr;
     }
 
+    if(count > index_buffer.size())
+    {
+        last_error = swr::error::invalid_value;
+        return nullptr;
+    }
+
     // create and initialize new object.
-    render_object_list.emplace_back(index_buffer.size(), mode, states);
+    render_object_list.emplace_back(count, mode, states);
     auto& new_object = render_object_list.back();
 
     copy_attributes(new_object, active_vabs, vertex_attribute_buffers,

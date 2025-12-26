@@ -59,13 +59,13 @@ mesh generate_tiling_mesh(float xmin, float xmax, float ymin, float ymax, std::s
     {
         for(std::size_t j = 0; j < cols; ++j)
         {
-            m.indices.indices.push_back(j * (cols + 1) + i);
-            m.indices.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.push_back(j * (cols + 1) + i);
+            m.indices.push_back(j * (cols + 1) + i + 1);
+            m.indices.push_back((j + 1) * (cols + 1) + i);
 
-            m.indices.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.indices.push_back((j + 1) * (cols + 1) + i + 1);
-            m.indices.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.push_back(j * (cols + 1) + i + 1);
+            m.indices.push_back((j + 1) * (cols + 1) + i + 1);
+            m.indices.push_back((j + 1) * (cols + 1) + i);
         }
     }
 
@@ -148,17 +148,17 @@ mesh generate_random_tiling_mesh(float xmin, float xmax, float ymin, float ymax,
             assert(j * (cols + 1) + i + 1 < m.vertices.attribs.size());
             assert((j + 1) * (cols + 1) + i < m.vertices.attribs.size());
 
-            m.indices.indices.push_back(j * (cols + 1) + i);
-            m.indices.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.push_back(j * (cols + 1) + i);
+            m.indices.push_back(j * (cols + 1) + i + 1);
+            m.indices.push_back((j + 1) * (cols + 1) + i);
 
             assert(j * (cols + 1) + i + 1 < m.vertices.attribs.size());
             assert((j + 1) * (cols + 1) + i + 1 < m.vertices.attribs.size());
             assert((j + 1) * (cols + 1) + i < m.vertices.attribs.size());
 
-            m.indices.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.indices.push_back((j + 1) * (cols + 1) + i + 1);
-            m.indices.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.push_back(j * (cols + 1) + i + 1);
+            m.indices.push_back((j + 1) * (cols + 1) + i + 1);
+            m.indices.push_back((j + 1) * (cols + 1) + i);
         }
     }
 

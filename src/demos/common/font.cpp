@@ -158,11 +158,10 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
 
     swr::UpdateAttributeBuffer(text_vertex_buffer, vb);
     swr::UpdateAttributeBuffer(text_texcoord_buffer, tc);
-    swr::UpdateIndexBuffer(text_index_buffer, ib);
 
     swr::EnableAttributeBuffer(text_vertex_buffer, 0);
     swr::EnableAttributeBuffer(text_texcoord_buffer, 1);
-    swr::DrawIndexedElements(text_index_buffer, swr::vertex_buffer_mode::triangles);
+    swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, ib.size(), ib);
     swr::DisableAttributeBuffer(text_texcoord_buffer);
     swr::DisableAttributeBuffer(text_vertex_buffer);
 

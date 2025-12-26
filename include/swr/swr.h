@@ -93,17 +93,20 @@ enum class vertex_buffer_mode
 
 /**
  * Add a vertex_count vertices to the list of objects to be rendered.
- * @param vertex_count The vertex count.
+ *
  * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
+ * @param count The vertex count.
  */
-void DrawElements(std::size_t vertex_count, vertex_buffer_mode mode);
+void DrawElements(vertex_buffer_mode mode, std::size_t count);
 
 /**
  * Add a subset of a vertex buffer (as specified by the index buffer) to the list of objects to be rendered.
- * @param index_buffer_id Specifies an (ordered) subset of the vertex buffer which should be used.
+ *
  * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
+ * @param count Number of elements to use from `index_buffer`.
+ * @param index_buffer The index buffer to use.
  */
-void DrawIndexedElements(uint32_t index_buffer_id, vertex_buffer_mode mode);
+void DrawIndexedElements(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t> index_buffer);
 
 /*
  * Vertex attribute buffers.

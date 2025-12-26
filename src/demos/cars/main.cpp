@@ -1396,7 +1396,7 @@ public:
                 }
             }
 
-            swr::DrawElements(3 * o.triangle_count, swr::vertex_buffer_mode::triangles);
+            swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
 
             check_errors("DrawElements");
 
@@ -1430,7 +1430,7 @@ public:
                     }
                 }
 
-                swr::DrawElements(3 * o.triangle_count, swr::vertex_buffer_mode::triangles);
+                swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
 
                 check_errors("DrawElements");
 
@@ -1480,7 +1480,7 @@ public:
         font_rend.draw_string(font::renderer::string_alignment::left | font::renderer::string_alignment::top, str);
 
         font.get_string_dimensions(str, w, h);
-        str = std::format("Accel    [U/D]. {:.2f}", wheel_angular_speed);
+        str = std::format("Accel    [U/D]: {:.2f}", wheel_angular_speed);
         font_rend.draw_string(font::renderer::string_alignment::left, str, 0 /* ignored */, h);
 
         str = "Stop     [SPACE]";
