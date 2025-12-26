@@ -72,7 +72,7 @@ namespace impl
 {
 
 /** block size for triangle rasterization. */
-constexpr std::uint32_t rasterizer_block_shift{4};
+constexpr std::uint32_t rasterizer_block_shift{5};
 
 /** Block size for triangle rasterization. The context buffer sizes have to be aligned on this value. */
 constexpr std::uint32_t rasterizer_block_size{1 << rasterizer_block_shift};
