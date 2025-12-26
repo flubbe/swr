@@ -294,12 +294,12 @@ void default_framebuffer::depth_compare_write(int x, int y, float depth_value, c
     *depth_buffer_ptr = ml::wrap((ml::unwrap(*depth_buffer_ptr) & ~depth_write_mask) | (ml::unwrap(new_depth_value) & depth_write_mask));
 }
 
-void default_framebuffer::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4])
+void default_framebuffer::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
     {
-        set_uniform_mask(write_mask, false);
+        write_mask = 0;
         return;
     }
 
@@ -349,10 +349,15 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
       depth_compare[static_cast<std::uint32_t>(depth_func)][1],
       depth_compare[static_cast<std::uint32_t>(depth_func)][2],
       depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
-    apply_mask(write_mask, depth_mask);
+
+    write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    uint32_t depth_write_mask[4] = {to_uint32_mask(write_mask[0] && write_depth), to_uint32_mask(write_mask[1] && write_depth), to_uint32_mask(write_mask[2] && write_depth), to_uint32_mask(write_mask[3] && write_depth)};
+    uint32_t depth_write_mask[4] = {
+      to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x1) != 0 && write_depth)};
 
     *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
     *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));
@@ -624,12 +629,12 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write_block.
-void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4])
+void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
     {
-        set_uniform_mask(write_mask, false);
+        write_mask = 0;
         return;
     }
 
@@ -684,10 +689,15 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
 
     bool depth_mask[4] = {
       depth_compare[static_cast<std::uint32_t>(depth_func)][0], depth_compare[static_cast<std::uint32_t>(depth_func)][1], depth_compare[static_cast<std::uint32_t>(depth_func)][2], depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
-    apply_mask(write_mask, depth_mask);
+
+    write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    uint32_t depth_write_mask[4] = {to_uint32_mask(write_mask[0] && write_depth), to_uint32_mask(write_mask[1] && write_depth), to_uint32_mask(write_mask[2] && write_depth), to_uint32_mask(write_mask[3] && write_depth)};
+    uint32_t depth_write_mask[4] = {
+      to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x1) != 0 && write_depth)};
 
     *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
     *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));

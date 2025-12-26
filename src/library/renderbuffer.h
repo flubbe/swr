@@ -284,7 +284,7 @@ struct framebuffer_draw_target
      * if a depth test failed, correpsonding entry in write_mask is set to false, and true otherwise. sets all write_mask entries
      * to true if no depth buffer was available.
      */
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4]) = 0;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask) = 0;
 };
 
 /** default framebuffer. */
@@ -315,7 +315,7 @@ struct default_framebuffer : public framebuffer_draw_target
     virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
     virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
     virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4]) override;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask) override;
 
     /*
      * default_framebuffer interface.
@@ -438,7 +438,7 @@ public:
     virtual void merge_color(uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
     virtual void merge_color_block(uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
     virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4]) override;
+    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask) override;
 
     /*
      * framebuffer_object interface.
