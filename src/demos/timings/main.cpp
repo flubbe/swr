@@ -97,7 +97,7 @@ static uint32_t load_texture(uint32_t w, uint32_t h, const std::vector<uint8_t>&
 class demo_timings : public swr_app::renderwindow
 {
     /** font shader */
-    shader::im_texture font_shader;
+    shader::texture font_shader;
 
     /** cube shader */
     shader::color cube_shader;
@@ -243,7 +243,7 @@ public:
 
         // create font. the image has to have dimensions 256x256 with 16x16 glyphs.
         font = font::extended_ascii_bitmap_font::create_uniform_font(font_tex_id, font_tex_width, font_tex_height, 256, 256, 16, 16);
-        font_rend.update(font_shader_id, font, width, height);
+        font_rend.initialize(font_shader_id, font, width, height);
 
         // set reference time for fps measurements.
         msec_reference_time = timer.now();
@@ -253,6 +253,8 @@ public:
 
     void destroy()
     {
+        font_rend.shutdown();
+
         swr::DeleteAttributeBuffer(cube_colors);
         swr::DeleteAttributeBuffer(cube_verts);
         swr::DeleteIndexBuffer(cube_indices);

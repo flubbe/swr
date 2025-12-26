@@ -855,7 +855,7 @@ class demo_viewer : public swr_app::renderwindow
 {
     shader::color_flat flat_shader;
     shader::wireframe wireframe_shader;
-    shader::im_texture font_shader;
+    shader::texture font_shader;
 
     /** flat shader id. */
     uint32_t flat_shader_id{0};
@@ -1210,7 +1210,7 @@ public:
 
         // create font. the image has to have dimensions 256x256 with 16x16 glyphs.
         font = font::extended_ascii_bitmap_font::create_uniform_font(font_tex_id, font_tex_width, font_tex_height, 256, 256, 16, 16);
-        font_rend.update(font_shader_id, font, width, height);
+        font_rend.initialize(font_shader_id, font, width, height);
 
         // set reference time for fps measurements.
         msec_reference_time = std::chrono::steady_clock::now();
@@ -1222,6 +1222,8 @@ public:
     {
         if(context)
         {
+            font_rend.shutdown();
+
             for(auto& it: objects)
             {
                 it.release();

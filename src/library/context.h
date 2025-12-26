@@ -177,9 +177,6 @@ public:
     /** list of render commands to be processed. points into objects. */
     std::list<render_object> render_object_list;
 
-    /** vertex buffers. */
-    utils::slot_map<vertex_buffer> vertex_buffers;
-
     /** index buffers. */
     utils::slot_map<index_buffer> index_buffers;
 
@@ -206,37 +203,6 @@ public:
 
     /** default shader. */
     std::unique_ptr<program_base> default_shader;
-
-    /*
-     * immediate mode support.
-     */
-
-    /** whether we are currently drawing primitives, i.e., if BeginPrimitives had been called. */
-    bool im_declaring_primitives{false};
-
-    /** the mode BeginPrimitives was called with. */
-    vertex_buffer_mode im_mode{vertex_buffer_mode::points};
-
-    /** the texture coordinate set by SetTexCoord. */
-    ml::vec4 im_tex_coord;
-
-    /** vertex normal (currently unused). */
-    ml::vec4 im_normal;
-
-    /** vertex color, set by SetColor. */
-    ml::vec4 im_color{1.0f, 1.0f, 1.0f, 1.0f};
-
-    /** temporary immediate mode vertex buffer. vertices in this buffer are drawn in the stored order. */
-    std::vector<ml::vec4> im_vertex_buf;
-
-    /** temporary immediate mode color buffer. */
-    std::vector<ml::vec4> im_color_buf;
-
-    /** temporary immediate mode texture coordinate buffer. */
-    std::vector<ml::vec4> im_tex_coord_buf;
-
-    /** temporary immediate mode normal buffer. */
-    std::vector<ml::vec4> im_normal_buf;
 
     /*
      * texture management.

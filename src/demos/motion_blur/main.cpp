@@ -45,7 +45,7 @@ class demo_emitter : public swr_app::renderwindow
     shader::normal_mapping shader;
 
     /** shader used for blurring. */
-    shader::im_blend blend_shader;
+    shader::blend blend_shader;
 
     /** normal mapping shader id. */
     uint32_t shader_id{0};
@@ -88,6 +88,12 @@ class demo_emitter : public swr_app::renderwindow
 
     /** blur depth buffer associated to the framebuffer object. */
     uint32_t blur_depth_id{0};
+
+    /** vertex buffer for blur. */
+    uint32_t blur_vb_id{0};
+
+    /** tex coords for blur. */
+    uint32_t blur_tc_id{0};
 
     /** texture shader for blur. */
     uint32_t blend_shader_id{0};
@@ -248,6 +254,25 @@ public:
         blur_depth_id = swr::CreateDepthRenderbuffer(w, h);
         swr::FramebufferRenderbuffer(blur_fbo, swr::framebuffer_attachment::depth_attachment, blur_depth_id);
 
+        blur_vb_id = swr::CreateAttributeBuffer({
+          ml::vec4{0, 0, 1, 1},
+          ml::vec4{width, height, 1, 1},
+          ml::vec4{width, 0, 1, 1},
+
+          ml::vec4{0, 0, 1, 1},
+          ml::vec4{0, height, 1, 1},
+          ml::vec4{width, height, 1, 1},
+        });
+        blur_tc_id = swr::CreateAttributeBuffer({
+          ml::vec4{0, 0, 0, 0},
+          ml::vec4{width / 1024.f, height / 1024.f, 0, 0},
+          ml::vec4{width / 1024.f, 0, 0, 0},
+
+          ml::vec4{0, 0, 0, 0},
+          ml::vec4{0, height / 1024.f, 0, 0},
+          ml::vec4{width / 1024.f, height / 1024.f, 0, 0},
+        });
+
         // create particles.
         particle_system.delay_add(0.1f, max_particles);
 
@@ -256,6 +281,9 @@ public:
 
     void destroy()
     {
+        swr::DeleteAttributeBuffer(blur_tc_id);
+        swr::DeleteAttributeBuffer(blur_vb_id);
+
         swr::ReleaseFramebufferObject(blur_fbo);
         swr::ReleaseTexture(blur_texture);
         swr::ReleaseDepthRenderbuffer(blur_depth_id);
@@ -435,21 +463,11 @@ public:
         swr::SetState(swr::state::blend, true);
         swr::SetBlendFunc(swr::blend_func::src_alpha, swr::blend_func::one_minus_src_alpha);
 
-        swr::BeginPrimitives(swr::vertex_buffer_mode::quads);
-
-        swr::SetTexCoord(0, 0);
-        swr::InsertVertex(0, 0, 1, 1);
-
-        swr::SetTexCoord(0, static_cast<float>(height) / 1024.f);
-        swr::InsertVertex(0, height, 1, 1);
-
-        swr::SetTexCoord(static_cast<float>(width) / 1024.f, static_cast<float>(height) / 1024.f);
-        swr::InsertVertex(width, height, 1, 1);
-
-        swr::SetTexCoord(static_cast<float>(width) / 1024.f, 0);
-        swr::InsertVertex(width, 0, 1, 1);
-
-        swr::EndPrimitives();
+        swr::EnableAttributeBuffer(blur_vb_id, 0);
+        swr::EnableAttributeBuffer(blur_tc_id, 1);
+        swr::DrawElements(6, swr::vertex_buffer_mode::triangles);
+        swr::DisableAttributeBuffer(blur_tc_id);
+        swr::DisableAttributeBuffer(blur_vb_id);
 
         swr::SetState(swr::state::blend, false);
 

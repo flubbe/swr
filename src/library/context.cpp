@@ -48,9 +48,6 @@ void render_device_context::shutdown()
     depth_attachments.shrink_to_fit();
 
     // delete all geometry data.
-    vertex_buffers.clear();
-    vertex_buffers.shrink_to_fit();
-
     vertex_attribute_buffers.clear();
     vertex_attribute_buffers.shrink_to_fit();
 

@@ -50,54 +50,30 @@ enum class wrap_mode
     clamp_to_edge    /** Clamp the texture coordinates to [0,1] */
 };
 
-/**
- * default positions of color, normal and texture coordinates inside the vertex attributes.
- */
-namespace default_index
-{
-
-enum
-{
-    position = 0,
-    color = 1,
-    tex_coord = 2,
-    normal = 3,
-    max = 4
-};
-
-} /* namespace default_index */
-
 /*
- * Vertex buffers.
+ * Index buffers.
  */
-
-/**
- * Create a vertex buffer from a std::vector of vertices.
- * \param vb Contains all vertices that should make up the vertex buffer.
- * \return Returns the unique ID of the newly created vertex buffer.
- */
-uint32_t CreateVertexBuffer(const std::vector<ml::vec4>& vb);
 
 /**
  * Create an index buffer from a std::vector of indices.
- * \param ib Contains all indices that should make up the index buffer.
- * \return Returns the unique ID of the newly created index buffer.
+ * @param ib Contains all indices that should make up the index buffer.
+ * @return Returns the unique ID of the newly created index buffer.
  */
 uint32_t CreateIndexBuffer(const std::vector<uint32_t>& ib);
 
 /**
- * Free the memory of a vertex buffer. If the supplied id does
- * not represent such a buffer, the function sets last_error to invalid_value.
+ * Update an index buffer from a std::vector of indices.
  *
- * \param id Unique ID representing a vertex buffer;
+ * @param id The buffer id.
+ * @param data Contains all indices that should make up the index buffer.
  */
-void DeleteVertexBuffer(uint32_t id);
+void UpdateIndexBuffer(uint32_t id, const std::vector<uint32_t>& data);
 
 /**
  * Free the memory of a vertex buffer. If the supplied id does
  * not represent such a buffer, the function sets last_error to invalid_value.
  *
- * \param id Unique ID representing an index buffer.
+ * @param id Unique ID representing an index buffer.
  */
 void DeleteIndexBuffer(uint32_t id);
 
@@ -106,13 +82,9 @@ void DeleteIndexBuffer(uint32_t id);
  */
 enum class vertex_buffer_mode
 {
-    points,         /** A list of separate points. */
-    lines,          /** A list of lines. */
-    triangles,      /** A list of triangles. */
-    triangle_fan,   /** A triangle fan.     FIXME currently only available in immediate mode. */
-    triangle_strip, /** A triangle strip.   FIXME currently only available in immediate mode. */
-    quads,          /** A list of quads.    FIXME currently only available in immediate mode. */
-    polygon         /** A (planar) polygon. FIXME currently only available in immediate mode. */
+    points,    /** A list of separate points. */
+    lines,     /** A list of lines. */
+    triangles, /** A list of triangles. */
 };
 
 /*
@@ -121,15 +93,15 @@ enum class vertex_buffer_mode
 
 /**
  * Add a vertex_count vertices to the list of objects to be rendered.
- * \param vertex_count The vertex count.
- * \param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
+ * @param vertex_count The vertex count.
+ * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
  */
 void DrawElements(std::size_t vertex_count, vertex_buffer_mode mode);
 
 /**
  * Add a subset of a vertex buffer (as specified by the index buffer) to the list of objects to be rendered.
- * \param index_buffer_id Specifies an (ordered) subset of the vertex buffer which should be used.
- * \param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
+ * @param index_buffer_id Specifies an (ordered) subset of the vertex buffer which should be used.
+ * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
  */
 void DrawIndexedElements(uint32_t index_buffer_id, vertex_buffer_mode mode);
 
@@ -140,7 +112,15 @@ void DrawIndexedElements(uint32_t index_buffer_id, vertex_buffer_mode mode);
 /**
  * Create an attribute buffer from std::vector of ml::vec4's.
  */
-uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& Data);
+uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& data);
+
+/**
+ * Update an attribute buffer.
+ *
+ * @param id The buffer id.
+ * @param data The attribute data.
+ */
+void UpdateAttributeBuffer(uint32_t id, const std::vector<ml::vec4>& data);
 
 /**
  * Delete an attribute buffer.
@@ -164,47 +144,6 @@ void BindUniform(uint32_t UniformId, int Value);
 void BindUniform(uint32_t UniformId, float Value);
 void BindUniform(uint32_t UniformId, ml::mat4x4 Value);
 void BindUniform(uint32_t UniformId, ml::vec4 Value);
-
-/*
- * Immediate mode support.
- */
-
-/**
- * Begin the specification of new primitives.
- * \param Mode Specifies how the vertices in this primitive should be interpretted.
- */
-void BeginPrimitives(vertex_buffer_mode Mode);
-
-/**
- * End the primitive specification.
- */
-void EndPrimitives();
-
-/**
- * Set the current color. All components are internally clamped to [0,1].
- * \param r Red component.
- * \param g Green component.
- * \param b Blue compoment.
- * \param a Alpha component.
- */
-void SetColor(float r, float g, float b, float a);
-
-/**
- * Set the current texture coordinates.
- * \param u U component.
- * \param v V component.
- */
-void SetTexCoord(float u, float v);
-
-/**
- * Insert a vertex (with the current color and the current texture coordinates as additional data) at
- * a position (x,y,z,w) into the current primitive.
- * \param x X component.
- * \param y Y component.
- * \param z Z component.
- * \param w W component.
- */
-void InsertVertex(float x, float y, float z = 0.0f, float w = 1.0f);
 
 /*
  * Rasterization.
@@ -237,19 +176,19 @@ enum class comparison_func
 
 /**
  * Specify a new depth test.
- * \param func The new depth test.
+ * @param func The new depth test.
  */
 void SetDepthTest(comparison_func func);
 
 /**
  * Return the current depth test.
- * \return The current depth test.
+ * @return The current depth test.
  */
 comparison_func GetDepthTest();
 
 /**
  * Specify the clear value for the depth buffer. The value is clamped to [0,1].
- * \param z The clear value.
+ * @param z The clear value.
  */
 void SetClearDepth(float z);
 
@@ -266,10 +205,10 @@ void ClearDepthBuffer();
  * Specify clear values for the color buffers.
  * See also https://www.opengl.org/sdk/docs/man4/html/glClearColor.xhtml
  *
- * \param r red component of clear color
- * \param g green component of clear color
- * \param b blue component of clear color
- * \param a alpha component of clear color
+ * @param r red component of clear color
+ * @param g green component of clear color
+ * @param b blue component of clear color
+ * @param a alpha component of clear color
  */
 void SetClearColor(float r, float g, float b, float a);
 
@@ -293,7 +232,7 @@ enum class front_face_orientation
  * Define front- and back-facing polygons.
  * See also https://www.opengl.org/sdk/docs/man2/xhtml/glFrontFace.xml
  *
- * \param Mode Specifies the orientation of front-facing polygons. The initial value is ccw.
+ * @param Mode Specifies the orientation of front-facing polygons. The initial value is ccw.
  */
 void SetFrontFace(front_face_orientation Mode);
 
@@ -312,7 +251,7 @@ enum class cull_face_direction
  * Specify whether front- or back-facing facets can be culled.
  * See also https://www.opengl.org/sdk/docs/man/docbook4/xhtml/glCullFace.xml
  *
- * \param Face Specifies whether front- or back-facing facets are candidates for culling.
+ * @param Face Specifies whether front- or back-facing facets are candidates for culling.
  */
 void SetCullMode(cull_face_direction face);
 
@@ -331,7 +270,7 @@ enum class polygon_mode
  * Select a polygon rasterization mode (for both front- and back-facing polygons).
  * See also https://www.opengl.org/sdk/docs/man/html/glPolygonMode.xhtml
  *
- * \param Mode Specifies the rasterization mode. Must be one of the modes specified by EPolygonMode.
+ * @param Mode Specifies the rasterization mode. Must be one of the modes specified by EPolygonMode.
  */
 void SetPolygonMode(polygon_mode Mode);
 
@@ -342,8 +281,8 @@ polygon_mode GetPolygonMode();
  * Set the scale and units used to calculate depth values.
  * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/glPolygonOffset.xhtml
  *
- * \param factor Specifies a scale factor that is used to create a variable depth offset for each polygon. The initial value is 0.
- * \param units Is multiplied by an implementation-specific value to create a constant depth offset. The initial value is 0.
+ * @param factor Specifies a scale factor that is used to create a variable depth offset for each polygon. The initial value is 0.
+ * @param units Is multiplied by an implementation-specific value to create a constant depth offset. The initial value is 0.
  */
 void PolygonOffset(float factor, float units);
 
@@ -366,13 +305,13 @@ enum class pixel_format
 
 /**
  * Allocate a texture and return its id.
- * \return If successful, a positive texture id of the newly created texture. Zero if an error occured.
+ * @return If successful, a positive texture id of the newly created texture. Zero if an error occured.
  */
 uint32_t CreateTexture();
 
 /**
  * Free texture memory. If the texture is currently bound, it is unbound and then freed.
- * \param TextureId The id of the texture to be freed.
+ * @param TextureId The id of the texture to be freed.
  */
 void ReleaseTexture(uint32_t TextureId);
 
@@ -405,55 +344,55 @@ enum texture_unit
 
 /**
  * Select active texture unit.
- * \param unit specifies which texture unit to activate.
+ * @param unit specifies which texture unit to activate.
  */
 void ActiveTexture(uint32_t unit);
 
 /**
  * Make the specified texture the active one. This also makes the texture parameters available for request.
- * \param target The texture target to bind the texture to.
- * \param id The id of the texture that should be bound to the texture unit.
+ * @param target The texture target to bind the texture to.
+ * @param id The id of the texture that should be bound to the texture unit.
  */
 void BindTexture(texture_target target, uint32_t id);
 
 /**
  * Allocate texture storage.
- * \param texture_id id of the texture
- * \param width the width of base level of the texture
- * \param height the height of base level of the texture
+ * @param texture_id id of the texture
+ * @param width the width of base level of the texture
+ * @param height the height of base level of the texture
  */
 void AllocateImage(uint32_t texture_id, size_t width, size_t height);
 
 /**
  * Allocate texture storage and, if data is non-empty, set the image data of a texture.
- * \param texture_id id of the texture
- * \param level the mipmap level of data
- * \param width the width of the texture
- * \param height the height of the texture
- * \param format the pixel format of the pixel data
- * \param data if non-empty, this contains the pixel data.
+ * @param texture_id id of the texture
+ * @param level the mipmap level of data
+ * @param width the width of the texture
+ * @param height the height of the texture
+ * @param format the pixel format of the pixel data
+ * @param data if non-empty, this contains the pixel data.
  */
 void SetImage(uint32_t texture_id, uint32_t level, size_t width, size_t height, pixel_format format, const std::vector<uint8_t>& data);
 
 /**
  * Update part of a texture.
- * \param texture_id id of the texture to be updated.
- * \param level mipmap level.
- * \param offset_x x-offset
- * \param offset_y y-offset
- * \param width width of the data
- * \param height height of the data
- * \param format pixel format of the data
- * \param data image data
+ * @param texture_id id of the texture to be updated.
+ * @param level mipmap level.
+ * @param offset_x x-offset
+ * @param offset_y y-offset
+ * @param width width of the data
+ * @param height height of the data
+ * @param format pixel format of the data
+ * @param data image data
  */
 void SetSubImage(uint32_t texture_id, uint32_t level, size_t offset_x, size_t offset_y, size_t width, size_t height, pixel_format format, const std::vector<uint8_t>& data);
 
 /**
  * Specify the texture wrapping mode with respect to a direction.
  *
- * \param id The unique texture id, as returned by CreateTexture.
- * \param s Wrapping mode in s direction
- * \param t Wrapping mode in t direction
+ * @param id The unique texture id, as returned by CreateTexture.
+ * @param s Wrapping mode in s direction
+ * @param t Wrapping mode in t direction
  *
  * \note Currently only 2d textures are handled. If debugging and if an error occures while binding the texture, an assertion is raised.
  */
@@ -462,9 +401,9 @@ void SetTextureWrapMode(uint32_t id, wrap_mode s, wrap_mode t);
 /**
  * Get the current texture wrapping mode with respect to a direction.
  *
- * \param id The unique texture id, as returned by CreateTexture.
- * \param s output for wrapping mode in s direction. may be set to null for no output.
- * \param t output for wrapping mode in s direction. may be set to null for no output.
+ * @param id The unique texture id, as returned by CreateTexture.
+ * @param s output for wrapping mode in s direction. may be set to null for no output.
+ * @param t output for wrapping mode in s direction. may be set to null for no output.
  */
 void GetTextureWrapMode(uint32_t id, wrap_mode* s, wrap_mode* t);
 
@@ -477,7 +416,7 @@ enum class texture_filter
 
 /**
  * Set the filter for the currently active texture which is used for minification.
- * \param Filter nearest or linear.
+ * @param Filter nearest or linear.
  */
 void SetTextureMinificationFilter(texture_filter Filter);
 
@@ -486,7 +425,7 @@ texture_filter GetTextureMinificationFilter();
 
 /**
  * Set the filter for the currently active texture which is used for magnification.
- * \param Filter nearest or linear.
+ * @param Filter nearest or linear.
  */
 void SetTextureMagnificationFilter(texture_filter Filter);
 
@@ -523,8 +462,8 @@ enum class blend_func
 
 /**
  * Specify pixel arithmetic.
- * \param SourceFactor Can be one of the EBlendFunc values. The initial value is Blend_One.
- * \param DestinationFactor Can be one of the EBlendFunc values. The initial value is Blend_Zero.
+ * @param SourceFactor Can be one of the EBlendFunc values. The initial value is Blend_One.
+ * @param DestinationFactor Can be one of the EBlendFunc values. The initial value is Blend_Zero.
  */
 void SetBlendFunc(blend_func SourceFactor, blend_func DestinationFactor);
 
@@ -542,10 +481,10 @@ blend_func GetDestinationBlendFunc();
  * Set the scissor box, in viewport coordinates.
  * See also https://www.opengl.org/sdk/docs/man2/xhtml/glScissor.xml
  *
- * \param x X coordinate of the scissor box.
- * \param y Y coordinate of the scissor box.
- * \param width Width of the scissor box.
- * \param height Height of the scissor box.
+ * @param x X coordinate of the scissor box.
+ * @param y Y coordinate of the scissor box.
+ * @param width Width of the scissor box.
+ * @param height Height of the scissor box.
  */
 void SetScissorBox(int x, int y, int width, int height);
 
@@ -567,14 +506,14 @@ enum class state
 
 /**
  * Enable or disable a specific state.
- * \param State The state to modify.
- * \param bNewState _true_ enables the state, _false_ disables it.
+ * @param State The state to modify.
+ * @param bNewState _true_ enables the state, _false_ disables it.
  */
 void SetState(state s, bool new_state);
 
 /**
  * Return the value of a given state.
- * \param State A state.
+ * @param State A state.
  */
 bool GetState(state s);
 
@@ -584,10 +523,10 @@ bool GetState(state s);
 
 /**
  * Set the current viewport's dimensions.
- * \param x x coordinate of top-left corner of viewport rectangle.
- * \param y y coordinate of top-left corner of viewport rectangle.
- * \param width Width of viewport rectangle.
- * \param height Height of viewport rectangle.
+ * @param x x coordinate of top-left corner of viewport rectangle.
+ * @param y y coordinate of top-left corner of viewport rectangle.
+ * @param width Width of viewport rectangle.
+ * @param height Height of viewport rectangle.
  */
 void SetViewport(int x, int y, unsigned int width, unsigned int height);
 
@@ -595,8 +534,8 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height);
  * Specify mapping of depth values from normalized device coordinates to window coordinates.
  * See also https://www.opengl.org/sdk/docs/man2/xhtml/glDepthRange.xml
  *
- * \param zNear Specifies the mapping of the near clipping plane to window coordinates. The initial value is 0.
- * \param zFar Specifies the mapping of the far clipping plane to window coordinates. The initial value is 1.
+ * @param zNear Specifies the mapping of the near clipping plane to window coordinates. The initial value is 0.
+ * @param zFar Specifies the mapping of the far clipping plane to window coordinates. The initial value is 1.
  */
 void DepthRange(float zNear, float zFar);
 
@@ -606,13 +545,13 @@ void DepthRange(float zNear, float zFar);
 
 /**
  * Create a framebuffer object.
- * \return If successful, returns a positive id of the newly created framebuffer object. Returns zero if an error occured.
+ * @return If successful, returns a positive id of the newly created framebuffer object. Returns zero if an error occured.
  */
 uint32_t CreateFramebufferObject();
 
 /**
  * Release a framebuffer object.
- * \param id The id of the framebuffer object to be freed.
+ * @param id The id of the framebuffer object to be freed.
  */
 void ReleaseFramebufferObject(uint32_t id);
 
@@ -626,8 +565,8 @@ enum class framebuffer_target
 
 /**
  * Bind a framebuffer object to a target.
- * \param target The target of the binding operation. Zero is reserved for the default framebuffer.
- * \param id The id of the framebuffer to be bound.
+ * @param target The target of the binding operation. Zero is reserved for the default framebuffer.
+ * @param id The id of the framebuffer to be bound.
  */
 void BindFramebufferObject(framebuffer_target target, uint32_t id);
 
@@ -647,32 +586,32 @@ enum class framebuffer_attachment
 
 /**
  * Attach a texture or a depth buffer to a framebuffer object.
- * \param id The id of the framebuffer object.
- * \param attachment The attachment name in the framebuffer object.
- * \param attachment_id The id of the attached texture.
- * \param level Mipmap level to be attached.
+ * @param id The id of the framebuffer object.
+ * @param attachment The attachment name in the framebuffer object.
+ * @param attachment_id The id of the attached texture.
+ * @param level Mipmap level to be attached.
  */
 void FramebufferTexture(uint32_t id, framebuffer_attachment attachment, uint32_t attachment_id, uint32_t level);
 
 /**
  * Generate a depth render buffer of (at least) the requested size.
- * \param width the width of the depth buffer.
- * \param height the height of the depth buffer.
- * \return Returns the id of the created depth buffer, and 0 on failure.
+ * @param width the width of the depth buffer.
+ * @param height the height of the depth buffer.
+ * @return Returns the id of the created depth buffer, and 0 on failure.
  */
 uint32_t CreateDepthRenderbuffer(uint32_t width, uint32_t height);
 
 /**
  * Release a depth renderbuffer.
- * \param id the id of the depth renderbuffer to be released.
+ * @param id the id of the depth renderbuffer to be released.
  */
 void ReleaseDepthRenderbuffer(uint32_t id);
 
 /**
  * Attach a texture or a depth buffer to a framebuffer object.
- * \param id The id of the framebuffer object.
- * \param attachment The attachment name in the framebuffer object. Currently only accepts framebuffer_attachment::depth_attachment.
- * \param attachment_id The id of the attached texture.
+ * @param id The id of the framebuffer object.
+ * @param attachment The attachment name in the framebuffer object. Currently only accepts framebuffer_attachment::depth_attachment.
+ * @param attachment_id The id of the attached texture.
  */
 void FramebufferRenderbuffer(uint32_t id, framebuffer_attachment attachment, uint32_t attachment_id);
 
@@ -684,10 +623,10 @@ void FramebufferRenderbuffer(uint32_t id, framebuffer_attachment attachment, uin
  * Create a rendering context from an SDL window and an SDL renderer. The context has the same
  * internal dimension as the supplied window.
  *
- * \param Window A valid SDL window.
- * \param Renderer A valid SDL renderer.
- * \param thread_hint A hint to the rasterizer how many threads to use.
- * \return A rendering context that may be used for software rasterization.
+ * @param Window A valid SDL window.
+ * @param Renderer A valid SDL renderer.
+ * @param thread_hint A hint to the rasterizer how many threads to use.
+ * @return A rendering context that may be used for software rasterization.
  */
 context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, uint32_t thread_hint = 0);
 
@@ -695,20 +634,20 @@ context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, uint
  * Destroy a context created with CreateSDLContext. Frees all memory associated to the context
  * (e.g. color buffers, depth buffers, texture memory).
  *
- * \param Context A context to destroy.
+ * @param Context A context to destroy.
  */
 void DestroyContext(context_handle Context);
 
 /**
  * Make the supplied context active.
- * \param Context The context to be made active.
- * \return _true_ on success, and _false_ on failure.
+ * @param Context The context to be made active.
+ * @return _true_ on success, and _false_ on failure.
  */
 bool MakeContextCurrent(context_handle Context);
 
 /**
  * Copies the contents of the default color buffer of the context into the active window.
- * \param Context The context to use for color buffer copying.
+ * @param Context The context to use for color buffer copying.
  */
 void CopyDefaultColorBuffer(context_handle Context);
 

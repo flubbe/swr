@@ -499,12 +499,6 @@ void ClearDepthBuffer()
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(impl::global_context->im_declaring_primitives)
-    {
-        impl::global_context->last_error = error::invalid_operation;
-        return;
-    }
-
     impl::global_context->clear_depth_buffer();
 }
 
@@ -545,12 +539,6 @@ void SetScissorBox(int x, int y, int width, int height)
         return;
     }
 
-    if(context->im_declaring_primitives)
-    {
-        context->last_error = error::invalid_operation;
-        return;
-    }
-
     context->states.set_scissor_box(x, x + width, y, y + height);
 }
 
@@ -563,12 +551,6 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height)
     ASSERT_INTERNAL_CONTEXT;
     auto context = impl::global_context;
 
-    if(context->im_declaring_primitives)
-    {
-        context->last_error = error::invalid_operation;
-        return;
-    }
-
     context->states.set_viewport(x, y, width, height);
 }
 
@@ -576,12 +558,6 @@ void DepthRange(float zNear, float zFar)
 {
     ASSERT_INTERNAL_CONTEXT;
     auto context = impl::global_context;
-
-    if(context->im_declaring_primitives)
-    {
-        context->last_error = error::invalid_operation;
-        return;
-    }
 
     context->states.set_depth_range(zNear, zFar);
 }

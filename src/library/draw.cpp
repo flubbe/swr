@@ -22,15 +22,8 @@ void DrawElements(std::size_t vertex_count, vertex_buffer_mode mode)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    auto* context = impl::global_context;
-    if(context->im_declaring_primitives)
-    {
-        context->last_error = error::invalid_operation;
-        return;
-    }
-
     // add draw command to command list.
-    context->create_render_object(vertex_count, mode);
+    impl::global_context->create_render_object(vertex_count, mode);
 }
 
 void DrawIndexedElements(uint32_t index_buffer_id, vertex_buffer_mode mode)
@@ -38,12 +31,6 @@ void DrawIndexedElements(uint32_t index_buffer_id, vertex_buffer_mode mode)
     ASSERT_INTERNAL_CONTEXT;
 
     auto* context = impl::global_context;
-    if(context->im_declaring_primitives)
-    {
-        context->last_error = error::invalid_operation;
-        return;
-    }
-
     if(index_buffer_id < context->index_buffers.size())
     {
         // add draw command to the command list.

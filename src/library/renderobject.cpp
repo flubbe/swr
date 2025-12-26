@@ -66,10 +66,14 @@ static void copy_attributes(
  */
 render_object* render_device_context::create_render_object(std::size_t vertex_count, vertex_buffer_mode mode)
 {
-    // create and initialize new object.
-    render_object_list.emplace_back(vertex_count, mode, states);
-    auto& new_object = render_object_list.back();
+    if(vertex_count == 0)
+    {
+        last_error = swr::error::invalid_value;
+        return nullptr;
+    }
 
+    // create and initialize new object.
+    auto& new_object = render_object_list.emplace_back(vertex_count, mode, states);
     copy_attributes(new_object, active_vabs, vertex_attribute_buffers);
 
     return &new_object;
@@ -77,6 +81,12 @@ render_object* render_device_context::create_render_object(std::size_t vertex_co
 
 render_object* render_device_context::create_indexed_render_object(const index_buffer& index_buffer, vertex_buffer_mode mode)
 {
+    if(index_buffer.empty())
+    {
+        last_error = swr::error::invalid_value;
+        return nullptr;
+    }
+
     // create and initialize new object.
     render_object_list.emplace_back(index_buffer.size(), mode, states);
     auto& new_object = render_object_list.back();
