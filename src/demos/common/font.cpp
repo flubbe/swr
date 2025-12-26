@@ -113,13 +113,11 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
 
     vb.clear();
     tc.clear();
-    ib.clear();
 
     vb.reserve(4 * s.size());
     tc.reserve(4 * s.size());
     ib.reserve(6 * s.size());
 
-    std::size_t quad_start_index = 0;
     for(auto& it: s)
     {
         const glyph& cur_glyph = font.font_glyphs[static_cast<std::uint8_t>(it)];
@@ -142,6 +140,14 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
         vb.emplace_back(ml::vec4{static_cast<float>(cur_x + cur_glyph.get_width()), static_cast<float>(y + cur_glyph.get_height()), 1.f, 1.f});
         vb.emplace_back(ml::vec4{static_cast<float>(cur_x + cur_glyph.get_width()), static_cast<float>(y), 1.f, 1.f});
 
+        // advance x position.
+        cur_x += cur_glyph.get_width();
+    }
+
+    // update index buffer if necessary.
+    std::size_t quad_start_index = 2 * ib.size() / 3;
+    while(ib.size() < 6 * s.size())
+    {
         ib.emplace_back(quad_start_index);
         ib.emplace_back(quad_start_index + 1);
         ib.emplace_back(quad_start_index + 3);
@@ -151,9 +157,6 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
         ib.emplace_back(quad_start_index + 3);
 
         quad_start_index += 4;
-
-        // advance x position.
-        cur_x += cur_glyph.get_width();
     }
 
     swr::UpdateAttributeBuffer(text_vertex_buffer, vb);
@@ -161,7 +164,7 @@ void renderer::draw_string_at(const std::string& s, uint32_t x, uint32_t y) cons
 
     swr::EnableAttributeBuffer(text_vertex_buffer, 0);
     swr::EnableAttributeBuffer(text_texcoord_buffer, 1);
-    swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, ib.size(), ib);
+    swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, 6 * s.size(), ib);
     swr::DisableAttributeBuffer(text_texcoord_buffer);
     swr::DisableAttributeBuffer(text_vertex_buffer);
 
