@@ -156,7 +156,7 @@ void sweep_rasterizer::process_fragment_block(
   int y,
   const swr::impl::render_states& states,
   const swr::program_base* in_shader,
-  float one_over_viewport_z[4],
+  const ml::vec4& one_over_viewport_z,
   fragment_info frag_info[4],
   swr::impl::fragment_output_block& out)
 {
@@ -335,7 +335,7 @@ void sweep_rasterizer::process_fragment_block(
   uint8_t mask,
   const swr::impl::render_states& states,
   const swr::program_base* in_shader,
-  float one_over_viewport_z[4],
+  const ml::vec4& one_over_viewport_z,
   fragment_info frag_info[4],
   swr::impl::fragment_output_block& out)
 {

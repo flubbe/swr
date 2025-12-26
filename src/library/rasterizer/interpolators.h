@@ -117,7 +117,10 @@ struct basic_interpolation_data
      * @param out_depth Depth values for the block.
      * @param out_one_over_viewport_z Inverse of viewport z for the block.
      */
-    void get_data_block(boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4], float out_depth[4], float out_one_over_viewport_z[4]) const
+    void get_data_block(
+      boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4],
+      ml::vec4& out_depth,
+      ml::vec4& out_one_over_viewport_z) const
     {
         /*
          * depth.

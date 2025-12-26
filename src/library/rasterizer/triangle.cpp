@@ -34,8 +34,9 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
     const auto end_x = block_x + swr::impl::rasterizer_block_size;
     const auto end_y = block_y + swr::impl::rasterizer_block_size;
 
-    float frag_depth[4];
-    float one_over_viewport_z[4];
+    ml::vec4 frag_depth;
+    ml::vec4 one_over_viewport_z;
+    swr::impl::fragment_output_block out;
 
     // process block.
     for(unsigned int y = block_y; y < end_y; y += 2)
@@ -47,17 +48,31 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
             temp_varyings[2].clear();
             temp_varyings[3].clear();
 
-            in_data.attributes.get_data_block(temp_varyings, frag_depth, one_over_viewport_z);
+            in_data.attributes.get_data_block(
+              temp_varyings,
+              frag_depth,
+              one_over_viewport_z);
 
             rast::fragment_info frag_info[4] = {
               {frag_depth[0], front_facing, temp_varyings[0]},
               {frag_depth[1], front_facing, temp_varyings[1]},
               {frag_depth[2], front_facing, temp_varyings[2]},
               {frag_depth[3], front_facing, temp_varyings[3]}};
-            swr::impl::fragment_output_block out;
 
-            process_fragment_block(x, y, *in_data.states, in_data.shader, one_over_viewport_z, frag_info, out);
-            in_data.states->draw_target->merge_color_block(0, x, y, out, in_data.states->blending_enabled, in_data.states->blend_src, in_data.states->blend_dst);
+            process_fragment_block(
+              x, y,
+              *in_data.states,
+              in_data.shader,
+              one_over_viewport_z,
+              frag_info,
+              out);
+            in_data.states->draw_target->merge_color_block(
+              0,
+              x, y,
+              out,
+              in_data.states->blending_enabled,
+              in_data.states->blend_src,
+              in_data.states->blend_dst);
 
             in_data.attributes.advance_x(2);
         }
@@ -78,8 +93,9 @@ void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int 
     geom::barycentric_coordinate_block lambdas = in_data.lambdas;
     lambdas.setup(1, 1);
 
-    float frag_depth_block[4];
-    float one_over_viewport_z_block[4];
+    ml::vec4 frag_depth;
+    ml::vec4 one_over_viewport_z;
+    swr::impl::fragment_output_block out;
 
     /*
      * process in 2x2 blocks.
@@ -102,17 +118,28 @@ void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int 
                 temp_varyings[3].clear();
 
                 // the block is at least partially covered.
-                in_data.attributes.get_data_block(temp_varyings, frag_depth_block, one_over_viewport_z_block);
+                in_data.attributes.get_data_block(temp_varyings, frag_depth, one_over_viewport_z);
 
                 rast::fragment_info frag_info[4] = {
-                  {frag_depth_block[0], front_facing, temp_varyings[0]},
-                  {frag_depth_block[1], front_facing, temp_varyings[1]},
-                  {frag_depth_block[2], front_facing, temp_varyings[2]},
-                  {frag_depth_block[3], front_facing, temp_varyings[3]}};
-                swr::impl::fragment_output_block out;
+                  {frag_depth[0], front_facing, temp_varyings[0]},
+                  {frag_depth[1], front_facing, temp_varyings[1]},
+                  {frag_depth[2], front_facing, temp_varyings[2]},
+                  {frag_depth[3], front_facing, temp_varyings[3]}};
 
-                process_fragment_block(x, y, mask, *in_data.states, in_data.shader, one_over_viewport_z_block, frag_info, out);
-                in_data.states->draw_target->merge_color_block(0, x, y, out, in_data.states->blending_enabled, in_data.states->blend_src, in_data.states->blend_dst);
+                process_fragment_block(
+                  x, y, mask,
+                  *in_data.states,
+                  in_data.shader,
+                  one_over_viewport_z,
+                  frag_info,
+                  out);
+                in_data.states->draw_target->merge_color_block(
+                  0,
+                  x, y,
+                  out,
+                  in_data.states->blending_enabled,
+                  in_data.states->blend_src,
+                  in_data.states->blend_dst);
             }
 
             lambdas.step_x(2);

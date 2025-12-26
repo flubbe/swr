@@ -149,7 +149,7 @@ class sweep_rasterizer : public rasterizer
       int y,
       const swr::impl::render_states& states,
       const swr::program_base* in_shader,
-      float one_over_viewport_z[4],
+      const ml::vec4& one_over_viewport_z,
       fragment_info info[4],
       swr::impl::fragment_output_block& out);
 
@@ -170,7 +170,7 @@ class sweep_rasterizer : public rasterizer
       std::uint8_t mask,
       const swr::impl::render_states& states,
       const swr::program_base* in_shader,
-      float one_over_viewport_z[4],
+      const ml::vec4& one_over_viewport_z,
       fragment_info info[4],
       swr::impl::fragment_output_block& out);
 
