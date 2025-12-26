@@ -150,19 +150,6 @@ void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_st
  * helpers.
  */
 
-static void set_uniform_mask(bool mask[4], bool v)
-{
-    mask[0] = mask[1] = mask[2] = mask[3] = v;
-}
-
-static void copy_array4(auto to[4], const auto from[4])
-{
-    to[0] = from[0];
-    to[1] = from[1];
-    to[2] = from[2];
-    to[3] = from[3];
-}
-
 /** the same as above, but operates on 2x2 tiles. does not return any value. */
 void sweep_rasterizer::process_fragment_block(
   int x,
@@ -212,8 +199,8 @@ void sweep_rasterizer::process_fragment_block(
         if(scissor_mask == 0)
         {
             // the mask only contains 'false'.
-            set_uniform_mask(out.write_color, false);
-            set_uniform_mask(out.write_stencil, false);
+            out.write_color = 0;
+            out.write_stencil = 0;
 
             return;
         }
@@ -302,8 +289,9 @@ void sweep_rasterizer::process_fragment_block(
 
     if(accept_mask == 0)
     {
-        set_uniform_mask(out.write_color, false);
-        set_uniform_mask(out.write_stencil, false);
+        out.write_color = 0;
+        out.write_stencil = 0;
+
         return;
     }
 
@@ -332,17 +320,13 @@ void sweep_rasterizer::process_fragment_block(
     write_stencil &= depth_mask;
 
     // copy color and masks into output
-    copy_array4(out.color, color);
+    out.color[0] = color[0];
+    out.color[1] = color[1];
+    out.color[2] = color[2];
+    out.color[3] = color[3];
 
-    out.write_color[0] = (write_color & 0x8) != 0;
-    out.write_color[1] = (write_color & 0x4) != 0;
-    out.write_color[2] = (write_color & 0x2) != 0;
-    out.write_color[3] = (write_color & 0x1) != 0;
-
-    out.write_stencil[0] = (write_stencil & 0x8) != 0;
-    out.write_stencil[1] = (write_stencil & 0x4) != 0;
-    out.write_stencil[2] = (write_stencil & 0x2) != 0;
-    out.write_stencil[3] = (write_stencil & 0x1) != 0;
+    out.write_color = write_color;
+    out.write_stencil = write_stencil;
 }
 
 void sweep_rasterizer::process_fragment_block(
@@ -394,8 +378,8 @@ void sweep_rasterizer::process_fragment_block(
         if(scissor_mask == 0)
         {
             // the mask only contains 'false'.
-            set_uniform_mask(out.write_color, false);
-            set_uniform_mask(out.write_stencil, false);
+            out.write_color = 0;
+            out.write_stencil = 0;
 
             return;
         }
@@ -506,8 +490,9 @@ void sweep_rasterizer::process_fragment_block(
 
     if(accept_mask == 0)
     {
-        set_uniform_mask(out.write_color, false);
-        set_uniform_mask(out.write_stencil, false);
+        out.write_color = 0;
+        out.write_stencil = 0;
+
         return;
     }
 
@@ -536,17 +521,13 @@ void sweep_rasterizer::process_fragment_block(
     write_stencil &= depth_mask;
 
     // copy color and masks into output
-    copy_array4(out.color, color);
+    out.color[0] = color[0];
+    out.color[1] = color[1];
+    out.color[2] = color[2];
+    out.color[3] = color[3];
 
-    out.write_color[0] = (write_color & 0x8) != 0;
-    out.write_color[1] = (write_color & 0x4) != 0;
-    out.write_color[2] = (write_color & 0x2) != 0;
-    out.write_color[3] = (write_color & 0x1) != 0;
-
-    out.write_stencil[0] = (write_stencil & 0x8) != 0;
-    out.write_stencil[1] = (write_stencil & 0x4) != 0;
-    out.write_stencil[2] = (write_stencil & 0x2) != 0;
-    out.write_stencil[3] = (write_stencil & 0x1) != 0;
+    out.write_color = write_color;
+    out.write_stencil = write_stencil;
 }
 
 } /* namespace rast */
