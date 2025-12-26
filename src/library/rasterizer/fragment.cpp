@@ -293,10 +293,38 @@ void sweep_rasterizer::process_fragment_block(int x, int y, const swr::impl::ren
     }
 
     swr::fragment_shader_result accept_mask[4] = {
-      in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]),
-      in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]),
-      in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]),
-      in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3])};
+      swr::fragment_shader_result::discard,
+      swr::fragment_shader_result::discard,
+      swr::fragment_shader_result::discard,
+      swr::fragment_shader_result::discard};
+
+    std::uint8_t reduced_mask = (out.write_color[3] << 3) | (out.write_color[2] << 2) | (out.write_color[1] << 1) | out.write_color[0];
+    if(reduced_mask == 0xF)
+    {
+        accept_mask[0] = in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]);
+        accept_mask[1] = in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]);
+        accept_mask[2] = in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]);
+        accept_mask[3] = in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
+    }
+    else
+    {
+        if(reduced_mask & 1)
+        {
+            accept_mask[0] = in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]);
+        }
+        if(reduced_mask & 2)
+        {
+            accept_mask[1] = in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]);
+        }
+        if(reduced_mask & 4)
+        {
+            accept_mask[2] = in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]);
+        }
+        if(reduced_mask & 8)
+        {
+            accept_mask[3] = in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
+        }
+    }
 
     if(!(accept_mask[0] || accept_mask[1] || accept_mask[2] || accept_mask[3]))
     {
