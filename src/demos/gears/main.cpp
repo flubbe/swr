@@ -32,8 +32,8 @@ const auto demo_title = "Gears";
 /** collect a set of geometric data into a single object. */
 class drawable_object
 {
-    /** index buffer id. */
-    std::uint32_t index_buffer_id{0};
+    /** index buffer. */
+    std::vector<std::uint32_t> index_buffer;
 
     /** vertex buffer id. */
     std::uint32_t vertex_buffer_id{0};
@@ -49,8 +49,8 @@ public:
     drawable_object() = default;
 
     /** initialize the object at least with an index buffer id. */
-    drawable_object(std::uint32_t in_ib, std::uint32_t in_vb, std::uint32_t in_nb)
-    : index_buffer_id{in_ib}
+    drawable_object(std::vector<std::uint32_t> in_ib, std::uint32_t in_vb, std::uint32_t in_nb)
+    : index_buffer{std::move(in_ib)}
     , vertex_buffer_id{in_vb}
     , normal_buffer_id{in_nb}
     , has_data{true}
@@ -59,7 +59,7 @@ public:
 
     /** move data. */
     drawable_object(drawable_object&& other)
-    : index_buffer_id{other.index_buffer_id}
+    : index_buffer{std::move(other.index_buffer)}
     , vertex_buffer_id{other.vertex_buffer_id}
     , normal_buffer_id{other.normal_buffer_id}
     , has_data{other.has_data}
@@ -77,7 +77,7 @@ public:
         {
             swr::DeleteAttributeBuffer(normal_buffer_id);
             swr::DeleteAttributeBuffer(vertex_buffer_id);
-            swr::DeleteIndexBuffer(index_buffer_id);
+            index_buffer.clear();
 
             has_data = false;
         }
@@ -90,7 +90,7 @@ public:
         {
             swr::EnableAttributeBuffer(vertex_buffer_id, 0);
             swr::EnableAttributeBuffer(normal_buffer_id, 1);
-            swr::DrawIndexedElements(index_buffer_id, swr::vertex_buffer_mode::triangles);
+            swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, index_buffer.size(), index_buffer);
             swr::DisableAttributeBuffer(normal_buffer_id);
             swr::DisableAttributeBuffer(vertex_buffer_id);
         }
@@ -392,7 +392,7 @@ struct gear_object
         ib.push_back(cur_idx - 1);
 
         /* create outside of the gear. */
-        outside = {swr::CreateIndexBuffer(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+        outside = {std::move(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
 
         /* clear buffers for the inner cylinder. */
         vb.clear();
@@ -423,7 +423,7 @@ struct gear_object
         }
 
         /* create inner cylinder. */
-        cylinder = {swr::CreateIndexBuffer(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+        cylinder = {std::move(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
 
         /* create shaders. */
         smooth_shader = {color};

@@ -12,12 +12,11 @@ namespace shader
 {
 
 /*
- * An immediate-mode shader that applies the diffuse texture.
+ * An shader that applies a diffuse texture.
  *
  * vertex shader input:
  *   attribute 0: vertex position
- *   attribute 1: color
- *   attribute 2: texture coordinates
+ *   attribute 1: texture coordinates
  *
  * varyings:
  *   location 0: texture coordinates
@@ -29,7 +28,7 @@ namespace shader
  * samplers:
  *   location 0: diffuse texture
  */
-class im_texture : public swr::program<im_texture>
+class texture : public swr::program<texture>
 {
 public:
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
@@ -52,10 +51,10 @@ public:
         ml::mat4x4 view = (*uniforms)[1].m4;
 
         // transform vertex.
-        gl_Position = proj * (view * attribs[swr::default_index::position]);
+        gl_Position = proj * (view * attribs[0]);
 
         // pass texture coordinates to fragment shader.
-        varyings[0] = attribs[swr::default_index::tex_coord];
+        varyings[0] = attribs[1];
     }
 
     swr::fragment_shader_result fragment_shader(

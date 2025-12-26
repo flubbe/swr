@@ -855,7 +855,7 @@ class demo_viewer : public swr_app::renderwindow
 {
     shader::color_flat flat_shader;
     shader::wireframe wireframe_shader;
-    shader::im_texture font_shader;
+    shader::texture font_shader;
 
     /** flat shader id. */
     uint32_t flat_shader_id{0};
@@ -1210,7 +1210,7 @@ public:
 
         // create font. the image has to have dimensions 256x256 with 16x16 glyphs.
         font = font::extended_ascii_bitmap_font::create_uniform_font(font_tex_id, font_tex_width, font_tex_height, 256, 256, 16, 16);
-        font_rend.update(font_shader_id, font, width, height);
+        font_rend.initialize(font_shader_id, font, width, height);
 
         // set reference time for fps measurements.
         msec_reference_time = std::chrono::steady_clock::now();
@@ -1222,6 +1222,8 @@ public:
     {
         if(context)
         {
+            font_rend.shutdown();
+
             for(auto& it: objects)
             {
                 it.release();
@@ -1394,7 +1396,7 @@ public:
                 }
             }
 
-            swr::DrawElements(3 * o.triangle_count, swr::vertex_buffer_mode::triangles);
+            swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
 
             check_errors("DrawElements");
 
@@ -1428,7 +1430,7 @@ public:
                     }
                 }
 
-                swr::DrawElements(3 * o.triangle_count, swr::vertex_buffer_mode::triangles);
+                swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
 
                 check_errors("DrawElements");
 
@@ -1478,7 +1480,7 @@ public:
         font_rend.draw_string(font::renderer::string_alignment::left | font::renderer::string_alignment::top, str);
 
         font.get_string_dimensions(str, w, h);
-        str = std::format("Accel    [U/D]. {:.2f}", wheel_angular_speed);
+        str = std::format("Accel    [U/D]: {:.2f}", wheel_angular_speed);
         font_rend.draw_string(font::renderer::string_alignment::left, str, 0 /* ignored */, h);
 
         str = "Stop     [SPACE]";

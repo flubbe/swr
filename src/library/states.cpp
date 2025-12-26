@@ -91,12 +91,6 @@ void SetBlendFunc(blend_func sfactor, blend_func dfactor)
     ASSERT_INTERNAL_CONTEXT;
     auto* context = impl::global_context;
 
-    if(context->im_declaring_primitives)
-    {
-        context->last_error = error::invalid_operation;
-        return;
-    }
-
     context->states.blend_src = sfactor;
     context->states.blend_dst = dfactor;
 }

@@ -134,10 +134,45 @@ class sweep_rasterizer : public rasterizer
      */
 
     /** generate a color value along with depth- and stencil flags for a single fragment. writes to the depth buffer. */
-    void process_fragment(int x, int y, const swr::impl::render_states& states, const swr::program_base* in_shader, float one_over_viewport_z, fragment_info& info, swr::impl::fragment_output& out);
+    void process_fragment(
+      int x,
+      int y,
+      const swr::impl::render_states& states,
+      const swr::program_base* in_shader,
+      float one_over_viewport_z,
+      fragment_info& info,
+      swr::impl::fragment_output& out);
 
     /** generate color values along with depth- and stencil masks for a 2x2 block of fragments. writes to the depth buffer. */
-    void process_fragment_block(int x, int y, const swr::impl::render_states& states, const swr::program_base* in_shader, float one_over_viewport_z[4], fragment_info info[4], swr::impl::fragment_output_block& out);
+    void process_fragment_block(
+      int x,
+      int y,
+      const swr::impl::render_states& states,
+      const swr::program_base* in_shader,
+      const ml::vec4& one_over_viewport_z,
+      fragment_info info[4],
+      swr::impl::fragment_output_block& out);
+
+    /**
+     * generate color values along with depth- and stencil masks for a 2x2 block of fragments. writes to the depth buffer.
+     *
+     * @param x x-coordinate of the top-left corner of the block.
+     * @param y y-coordinate of the top-left corner of the block.
+     * @param mask block mask `tl|tr|bl|br`, i.e., `tl` corresponds to mask `0x8`, `tr` to `0x4`, `bl` to `0x2`, `br` to `0x1`.
+     * @param states active render states.
+     * @param one_over_viewport_z `1/z` for viewport `z` for each fragment (order `tl`, `tr`, `bl`, `br`).
+     * @param info fragment infos (order `tl`, `tr`, `bl`, `br`).
+     * @param out output fragment block.
+     */
+    void process_fragment_block(
+      int x,
+      int y,
+      std::uint8_t mask,
+      const swr::impl::render_states& states,
+      const swr::program_base* in_shader,
+      const ml::vec4& one_over_viewport_z,
+      fragment_info info[4],
+      swr::impl::fragment_output_block& out);
 
     /*
      * fragment block processing.

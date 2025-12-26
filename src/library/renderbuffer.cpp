@@ -27,19 +27,6 @@ static auto to_uint32_mask = [](bool b) -> std::uint32_t
     return ~(static_cast<std::uint32_t>(b) - 1);
 };
 
-static auto set_uniform_mask = [](bool mask[4], bool v)
-{
-    mask[0] = mask[1] = mask[2] = mask[3] = v;
-};
-
-static auto apply_mask = [](bool mask[4], const auto additional_mask[4])
-{
-    mask[0] &= static_cast<bool>(additional_mask[0]);
-    mask[1] &= static_cast<bool>(additional_mask[1]);
-    mask[2] &= static_cast<bool>(additional_mask[2]);
-    mask[3] &= static_cast<bool>(additional_mask[3]);
-};
-
 /*
  * attachment_texture.
  */
@@ -208,12 +195,16 @@ void default_framebuffer::merge_color_block(uint32_t attachment, int x, int y, c
     }
 
     // generate write mask.
-    uint32_t color_write_mask[4] = {to_uint32_mask(frag.write_color[0]), to_uint32_mask(frag.write_color[1]), to_uint32_mask(frag.write_color[2]), to_uint32_mask(frag.write_color[3])};
+    uint32_t color_write_mask[4] = {
+      to_uint32_mask((frag.write_color & 0x8) >> 3),
+      to_uint32_mask((frag.write_color & 0x4) >> 2),
+      to_uint32_mask((frag.write_color & 0x2) >> 1),
+      to_uint32_mask(frag.write_color & 0x1)};
 
     // block coordinates
     const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
 
-    if(frag.write_color[0] || frag.write_color[1] || frag.write_color[2] || frag.write_color[3])
+    if(frag.write_color)
     {
         // convert color to output format.
         DECLARE_ALIGNED_ARRAY4(uint32_t, write_color) = {
@@ -294,12 +285,12 @@ void default_framebuffer::depth_compare_write(int x, int y, float depth_value, c
     *depth_buffer_ptr = ml::wrap((ml::unwrap(*depth_buffer_ptr) & ~depth_write_mask) | (ml::unwrap(new_depth_value) & depth_write_mask));
 }
 
-void default_framebuffer::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4])
+void default_framebuffer::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
     {
-        set_uniform_mask(write_mask, false);
+        write_mask = 0;
         return;
     }
 
@@ -349,10 +340,15 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
       depth_compare[static_cast<std::uint32_t>(depth_func)][1],
       depth_compare[static_cast<std::uint32_t>(depth_func)][2],
       depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
-    apply_mask(write_mask, depth_mask);
+
+    write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    uint32_t depth_write_mask[4] = {to_uint32_mask(write_mask[0] && write_depth), to_uint32_mask(write_mask[1] && write_depth), to_uint32_mask(write_mask[2] && write_depth), to_uint32_mask(write_mask[3] && write_depth)};
+    uint32_t depth_write_mask[4] = {
+      to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x1) != 0 && write_depth)};
 
     *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
     *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));
@@ -516,7 +512,7 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
         return;
     }
 
-    if(frag.write_color[0] || frag.write_color[1] || frag.write_color[2] || frag.write_color[3])
+    if(frag.write_color)
     {
         // convert color to output format.
         ml::vec4 write_color[4] = {
@@ -561,10 +557,10 @@ void framebuffer_object::merge_color_block(uint32_t attachment, int x, int y, co
         write_target = write_source;                             \
     }
 
-        CONDITIONAL_WRITE(frag.write_color[0], *(color_buffer_ptrs[0]), write_color[0]);
-        CONDITIONAL_WRITE(frag.write_color[1], *(color_buffer_ptrs[1]), write_color[1]);
-        CONDITIONAL_WRITE(frag.write_color[2], *(color_buffer_ptrs[2]), write_color[2]);
-        CONDITIONAL_WRITE(frag.write_color[3], *(color_buffer_ptrs[3]), write_color[3]);
+        CONDITIONAL_WRITE(((frag.write_color & 0x8) >> 3), *(color_buffer_ptrs[0]), write_color[0]);
+        CONDITIONAL_WRITE(((frag.write_color & 0x4) >> 2), *(color_buffer_ptrs[1]), write_color[1]);
+        CONDITIONAL_WRITE(((frag.write_color & 0x2) >> 1), *(color_buffer_ptrs[2]), write_color[2]);
+        CONDITIONAL_WRITE((frag.write_color & 0x1), *(color_buffer_ptrs[3]), write_color[3]);
 
 #undef CONDITIONAL_WRITE
     }
@@ -624,12 +620,12 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write_block.
-void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, bool write_mask[4])
+void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
     {
-        set_uniform_mask(write_mask, false);
+        write_mask = 0;
         return;
     }
 
@@ -683,11 +679,19 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
     }
 
     bool depth_mask[4] = {
-      depth_compare[static_cast<std::uint32_t>(depth_func)][0], depth_compare[static_cast<std::uint32_t>(depth_func)][1], depth_compare[static_cast<std::uint32_t>(depth_func)][2], depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
-    apply_mask(write_mask, depth_mask);
+      depth_compare[static_cast<std::uint32_t>(depth_func)][0],
+      depth_compare[static_cast<std::uint32_t>(depth_func)][1],
+      depth_compare[static_cast<std::uint32_t>(depth_func)][2],
+      depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
+
+    write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    uint32_t depth_write_mask[4] = {to_uint32_mask(write_mask[0] && write_depth), to_uint32_mask(write_mask[1] && write_depth), to_uint32_mask(write_mask[2] && write_depth), to_uint32_mask(write_mask[3] && write_depth)};
+    uint32_t depth_write_mask[4] = {
+      to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
+      to_uint32_mask((write_mask & 0x1) != 0 && write_depth)};
 
     *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
     *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));

@@ -58,7 +58,7 @@ public:
     ml::vec4* varyings{nullptr};
 
     /** Indices into the vertex buffer. */
-    index_buffer indices;
+    std::vector<uint32_t> indices;
 
     /** Drawing mode. */
     vertex_buffer_mode mode{vertex_buffer_mode::points};
@@ -91,7 +91,7 @@ public:
     }
 
     /** Initialize the object with vertices and indices. */
-    render_object(const index_buffer& in_indices, vertex_buffer_mode in_mode, const render_states& in_states)
+    render_object(const std::vector<uint32_t>& in_indices, vertex_buffer_mode in_mode, const render_states& in_states)
     : indices{in_indices}
     , mode{in_mode}
     , states{in_states}

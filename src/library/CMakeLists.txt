@@ -19,7 +19,6 @@ set(SOURCES
 	context.cpp
 	clipping.cpp
 	draw.cpp
-	immediate.cpp
 	misc.cpp
 	output_merger.cpp
 	pipeline.cpp

@@ -18,18 +18,6 @@ namespace swr
  * buffer management.
  */
 
-uint32_t CreateVertexBuffer(const std::vector<ml::vec4>& vb)
-{
-    ASSERT_INTERNAL_CONTEXT;
-    int i = impl::global_context->vertex_buffers.push({});
-    impl::global_context->vertex_buffers[i].reserve(vb.size());
-    for(auto it: vb)
-    {
-        impl::global_context->vertex_buffers[i].push_back(it);
-    }
-    return i;
-}
-
 uint32_t CreateIndexBuffer(const std::vector<uint32_t>& ib)
 {
     ASSERT_INTERNAL_CONTEXT;
@@ -40,6 +28,30 @@ uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
 {
     ASSERT_INTERNAL_CONTEXT;
     return impl::global_context->vertex_attribute_buffers.push(attribs);
+}
+
+void UpdateIndexBuffer(uint32_t id, const std::vector<uint32_t>& data)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    if(id >= impl::global_context->index_buffers.size())
+    {
+        impl::global_context->last_error = swr::error::invalid_value;
+        return;
+    }
+    auto& ib = impl::global_context->index_buffers[id];
+    ib.assign(data.begin(), data.end());
+}
+
+void UpdateAttributeBuffer(uint32_t id, const std::vector<ml::vec4>& data)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    if(id >= impl::global_context->vertex_attribute_buffers.size())
+    {
+        impl::global_context->last_error = error::invalid_value;
+        return;
+    }
+    auto& ab = impl::global_context->vertex_attribute_buffers[id];
+    ab.data.assign(data.begin(), data.end());
 }
 
 template<typename T>
@@ -54,12 +66,6 @@ static void delete_buffer(uint32_t id, utils::slot_map<T>& buffers, error& last_
     {
         last_error = error::invalid_value;
     }
-}
-
-void DeleteVertexBuffer(uint32_t id)
-{
-    ASSERT_INTERNAL_CONTEXT;
-    delete_buffer(id, impl::global_context->vertex_buffers, impl::global_context->last_error);
 }
 
 void DeleteIndexBuffer(uint32_t id)

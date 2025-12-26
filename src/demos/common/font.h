@@ -85,6 +85,21 @@ public:
 /** font rendering. */
 class renderer
 {
+    /** scratch vertex and tex coord buffer. */
+    mutable std::vector<ml::vec4> vb, tc;
+
+    /** scratch index buffer. */
+    mutable std::vector<std::uint32_t> ib;
+
+    /** index buffer id. */
+    uint32_t text_index_buffer{static_cast<std::uint32_t>(-1)};
+
+    /** vertex buffer id. */
+    uint32_t text_vertex_buffer{static_cast<std::uint32_t>(-1)};
+
+    /** attributes buffer id. */
+    uint32_t text_texcoord_buffer{static_cast<std::uint32_t>(-1)};
+
     /** the shader used for font rendering. */
     uint32_t shader_id{0};
 
@@ -98,22 +113,41 @@ public:
     /** default constructor. */
     renderer() = default;
 
-    /** constructor. */
-    renderer(uint32_t in_shader_id, const extended_ascii_bitmap_font& in_font, int in_viewport_width, int in_viewport_height)
-    : shader_id{in_shader_id}
-    , font{in_font}
-    , viewport_width{in_viewport_width}
-    , viewport_height{in_viewport_height}
+    /**
+     * Initialize the font renderer.
+     */
+    void initialize(uint32_t in_shader_id, const extended_ascii_bitmap_font& in_font, int in_viewport_width, int in_viewport_height)
     {
-    }
+        text_index_buffer = swr::CreateIndexBuffer({});
+        text_vertex_buffer = swr::CreateAttributeBuffer({});
+        text_texcoord_buffer = swr::CreateAttributeBuffer({});
 
-    /** parameter update. */
-    void update(uint32_t in_shader_id, const extended_ascii_bitmap_font& in_font, int in_viewport_width, int in_viewport_height)
-    {
         shader_id = in_shader_id;
         font = in_font;
         viewport_width = in_viewport_width;
         viewport_height = in_viewport_height;
+    }
+
+    /**
+     * Shut down the font renderer.
+     */
+    void shutdown()
+    {
+        if(text_texcoord_buffer != static_cast<std::uint32_t>(-1))
+        {
+            swr::DeleteAttributeBuffer(text_texcoord_buffer);
+            text_texcoord_buffer = static_cast<std::uint32_t>(-1);
+        }
+        if(text_vertex_buffer != static_cast<std::uint32_t>(-1))
+        {
+            swr::DeleteAttributeBuffer(text_vertex_buffer);
+            text_vertex_buffer = static_cast<std::uint32_t>(-1);
+        }
+        if(text_index_buffer != static_cast<std::uint32_t>(-1))
+        {
+            swr::DeleteIndexBuffer(text_index_buffer);
+            text_index_buffer = static_cast<std::uint32_t>(-1);
+        }
     }
 
     /** draw a string at position (x,y). */

@@ -17,9 +17,6 @@ namespace impl
 /** vertex buffer. */
 typedef std::vector<geom::vertex, utils::allocator<geom::vertex>> vertex_buffer;
 
-/** index buffer. */
-typedef std::vector<uint32_t> index_buffer;
-
 /**
  * vertex attribute buffer.
  *

@@ -97,7 +97,7 @@ static uint32_t load_texture(uint32_t w, uint32_t h, const std::vector<uint8_t>&
 class demo_timings : public swr_app::renderwindow
 {
     /** font shader */
-    shader::im_texture font_shader;
+    shader::texture font_shader;
 
     /** cube shader */
     shader::color cube_shader;
@@ -127,7 +127,7 @@ class demo_timings : public swr_app::renderwindow
     uint32_t cube_verts{0};
 
     /** the cube's indices. */
-    uint32_t cube_indices{0};
+    std::vector<std::uint32_t> cube_indices;
 
     /** vertex colors. */
     uint32_t cube_colors{0};
@@ -211,7 +211,7 @@ public:
 #include "common/cube.geom"
 #undef FACE_LIST
         };
-        cube_indices = swr::CreateIndexBuffer(indices);
+        cube_indices = std::move(indices);
 
         std::vector<ml::vec4> vertices = {
 #define VERTEX_LIST(...) __VA_ARGS__
@@ -243,7 +243,7 @@ public:
 
         // create font. the image has to have dimensions 256x256 with 16x16 glyphs.
         font = font::extended_ascii_bitmap_font::create_uniform_font(font_tex_id, font_tex_width, font_tex_height, 256, 256, 16, 16);
-        font_rend.update(font_shader_id, font, width, height);
+        font_rend.initialize(font_shader_id, font, width, height);
 
         // set reference time for fps measurements.
         msec_reference_time = timer.now();
@@ -253,13 +253,14 @@ public:
 
     void destroy()
     {
+        font_rend.shutdown();
+
         swr::DeleteAttributeBuffer(cube_colors);
         swr::DeleteAttributeBuffer(cube_verts);
-        swr::DeleteIndexBuffer(cube_indices);
 
         cube_colors = 0;
         cube_verts = 0;
-        cube_indices = 0;
+        cube_indices.clear();
 
         if(cube_shader_id)
         {
@@ -360,7 +361,7 @@ public:
         swr::BindUniform(1, view);
 
         // draw the buffer.
-        swr::DrawIndexedElements(cube_indices, swr::vertex_buffer_mode::triangles);
+        swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, cube_indices.size(), cube_indices);
 
         swr::DisableAttributeBuffer(cube_colors);
         swr::DisableAttributeBuffer(cube_verts);

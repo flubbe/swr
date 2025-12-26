@@ -955,7 +955,7 @@ public:
                 }
             }
 
-            swr::DrawElements(3 * o.triangle_count, swr::vertex_buffer_mode::triangles);
+            swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
 
             check_errors("DrawElements");
 
@@ -989,7 +989,7 @@ public:
                     }
                 }
 
-                swr::DrawElements(3 * o.triangle_count, swr::vertex_buffer_mode::triangles);
+                swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
 
                 check_errors("DrawElements");
 
