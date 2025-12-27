@@ -24,9 +24,7 @@
 /* include SIMD version of memset */
 namespace simd
 {
-#define SWR_USE_SIMD
-#include "../../common/utils.h"
-#undef SWR_USE_SIMD
+#include "../../common/simd_sse/memset.h"
 } /* namespace simd */
 
 /** small size of memory */

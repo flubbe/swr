@@ -11,6 +11,7 @@ add_executable(demo_cars
 	../../../deps/3rd-party/lodepng/lodepng.cpp
     ../../../deps/3rd-party/simdjson/singleheader/simdjson.cpp
 	main.cpp
+    model.cpp
     ../common/font.cpp
 )
 target_link_libraries(demo_cars swrast swr_app ${EXTRA_LIBS})

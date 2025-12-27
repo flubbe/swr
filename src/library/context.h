@@ -8,6 +8,10 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
+#include "concurrency_utils/thread_pool.h"
+
 namespace swr
 {
 
@@ -220,7 +224,10 @@ public:
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** thread pool type to use. */
-    typedef concurrency_utils::deferred_thread_pool<concurrency_utils::mpmc_blocking_queue<std::function<void()>>> thread_pool_type;
+    typedef concurrency_utils::deferred_thread_pool<
+      concurrency_utils::mpmc_blocking_queue<
+        std::function<void()>>>
+      thread_pool_type;
 
     /** processing threads. */
     std::uint32_t thread_pool_size{0};
