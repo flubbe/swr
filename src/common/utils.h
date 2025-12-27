@@ -8,7 +8,9 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-// include dependencies
+#pragma once
+
+#include <bit> /* std::bit_ceil */
 #include <list>
 #include <memory>    /* std::align, std::allocator_traits */
 #include <cstring>   /* std::memcpy */
@@ -459,23 +461,14 @@ constexpr bool is_power_of_two(std::size_t c)
 }
 
 /**
- * get the next power of two of the argument. e.g. next_power_of_two(1)=2, next_power_of_two(2)=4.
- *
- * source: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+ * get the next power of two of the argument.
+ * e.g. round_to_next_power_of_two(1)=2, round_to_next_power_of_two(2)=4.
  */
-constexpr std::size_t round_to_next_power_of_two(std::size_t n)
+template<typename T>
+    requires(std::is_integral_v<T> && std::is_unsigned_v<T>)
+T round_to_next_power_of_two(T n)
 {
-    static_assert(sizeof(std::size_t) == 8, "Adjust this code for different sizes of std::size_t.");
-
-    n--;
-    n |= n >> 1;
-    n |= n >> 2;
-    n |= n >> 4;
-    n |= n >> 8;
-    n |= n >> 16;
-    n |= n >> 32;
-
-    return n + 1;
+    return std::bit_ceil(n);
 }
 
 } /* namespace utils */
