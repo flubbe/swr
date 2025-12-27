@@ -93,7 +93,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
         if(dot1 > 0)
         {
-            temp.push_back(in_vb[0]);
+            temp.emplace_back(in_vb[0]);
         }
 
         // do consistent clipping.
@@ -112,7 +112,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
         if(dot2 > 0)
         {
-            temp.push_back(in_vb[1]);
+            temp.emplace_back(in_vb[1]);
         }
 
         out_vb.clear();
@@ -125,7 +125,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
             if(dot1 > 0)
             {
-                out_vb.push_back(temp[0]);
+                out_vb.emplace_back(temp[0]);
             }
 
             // do consistent clipping.
@@ -144,7 +144,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
             if(dot2 > 0)
             {
-                out_vb.push_back(temp[1]);
+                out_vb.emplace_back(temp[1]);
             }
         }
 
@@ -175,7 +175,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
         if(dot > 0)
         {
-            temp.push_back(*vert);
+            temp.emplace_back(*vert);
         }
 
         prev_vert = vert;
@@ -216,7 +216,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
 
         if(dot > 0)
         {
-            out_vb.push_back(*vert);
+            out_vb.emplace_back(*vert);
         }
 
         prev_vert = vert;
@@ -255,7 +255,7 @@ static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& ou
 
     if(dots[0] > 0)
     {
-        out_vb.push_back(in_line[0]);
+        out_vb.emplace_back(in_line[0]);
     }
 
     // do consistent clipping.
@@ -278,7 +278,7 @@ static void clip_line_on_w_plane(const vertex_buffer& in_line, vertex_buffer& ou
 
     if(dots[1] > 0)
     {
-        out_vb.push_back(in_line[1]);
+        out_vb.emplace_back(in_line[1]);
     }
 }
 
@@ -333,7 +333,7 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
 
                 v.flags = obj.vertex_flags[indices[i]];
 
-                temp_line.push_back(v);
+                temp_line.emplace_back(v);
             }
 
             // perform clipping.
@@ -377,7 +377,7 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
 
                     v.flags = obj.vertex_flags[indices[i]];
 
-                    obj.clipped_vertices.push_back(v);
+                    obj.clipped_vertices.emplace_back(v);
                 }
             }
             else if(output_type == line_list)
@@ -397,7 +397,7 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
 
                     v.flags = obj.vertex_flags[indices[i]];
 
-                    obj.clipped_vertices.push_back(v);
+                    obj.clipped_vertices.emplace_back(v);
                 }
             }
         }
@@ -456,7 +456,7 @@ static void clip_triangle_on_w_plane(const vertex_buffer& in_triangle, vertex_bu
 
         if(dot > 0)
         {
-            out_vb.push_back(*vert);
+            out_vb.emplace_back(*vert);
         }
 
         prev_vert = vert;
@@ -525,7 +525,7 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
 
                 v.flags = obj.vertex_flags[indices[i]];
 
-                temp_triangle.push_back(v);
+                temp_triangle.emplace_back(v);
             }
 
             // perform clipping.
@@ -563,9 +563,9 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
                 {
                     const geom::vertex* current = &clipped_triangle[i];
 
-                    obj.clipped_vertices.push_back(center);
-                    obj.clipped_vertices.push_back(*previous);
-                    obj.clipped_vertices.push_back(*current);
+                    obj.clipped_vertices.emplace_back(center);
+                    obj.clipped_vertices.emplace_back(*previous);
+                    obj.clipped_vertices.emplace_back(*current);
 
                     previous = current;
                 }
@@ -589,7 +589,7 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
 
                     v.flags = obj.vertex_flags[indices[i]];
 
-                    obj.clipped_vertices.push_back(v);
+                    obj.clipped_vertices.emplace_back(v);
                 }
             }
             else if(output_type == line_list)
@@ -608,7 +608,7 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
 
                     v.flags = obj.vertex_flags[indices[i]];
 
-                    obj.clipped_vertices.push_back(v);
+                    obj.clipped_vertices.emplace_back(v);
                 }
 
                 // mark last index as end of line strip.
@@ -630,7 +630,7 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
 
                     v.flags = obj.vertex_flags[indices[i]];
 
-                    obj.clipped_vertices.push_back(v);
+                    obj.clipped_vertices.emplace_back(v);
                 }
             }
         }

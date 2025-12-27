@@ -403,10 +403,10 @@ static void computeSmoothingShape(tinyobj::attrib_t& inattrib, tinyobj::shape_t&
     {
         unsigned int face = sortedids[id].second;
 
-        outshape.mesh.num_face_vertices.push_back(3);    // always triangles
+        outshape.mesh.num_face_vertices.emplace_back(3);    // always triangles
         if(hasmaterials)
-            outshape.mesh.material_ids.push_back(inshape.mesh.material_ids[face]);
-        outshape.mesh.smoothing_group_ids.push_back(sgroupid);
+            outshape.mesh.material_ids.emplace_back(inshape.mesh.material_ids[face]);
+        outshape.mesh.smoothing_group_ids.emplace_back(sgroupid);
         // Skip tags.
 
         for(unsigned int v = 0; v < 3; ++v)
@@ -427,20 +427,20 @@ static void computeSmoothingShape(tinyobj::attrib_t& inattrib, tinyobj::shape_t&
                 unsigned int offset = static_cast<unsigned int>(outattrib.vertices.size() / 3);
                 outidx.vertex_index = outidx.normal_index = offset;
                 outidx.texcoord_index = (inidx.texcoord_index == -1) ? -1 : offset;
-                outattrib.vertices.push_back(inattrib.vertices[3 * inidx.vertex_index]);
-                outattrib.vertices.push_back(inattrib.vertices[3 * inidx.vertex_index + 1]);
-                outattrib.vertices.push_back(inattrib.vertices[3 * inidx.vertex_index + 2]);
-                outattrib.normals.push_back(0.0f);
-                outattrib.normals.push_back(0.0f);
-                outattrib.normals.push_back(0.0f);
+                outattrib.vertices.emplace_back(inattrib.vertices[3 * inidx.vertex_index]);
+                outattrib.vertices.emplace_back(inattrib.vertices[3 * inidx.vertex_index + 1]);
+                outattrib.vertices.emplace_back(inattrib.vertices[3 * inidx.vertex_index + 2]);
+                outattrib.normals.emplace_back(0.0f);
+                outattrib.normals.emplace_back(0.0f);
+                outattrib.normals.emplace_back(0.0f);
                 if(inidx.texcoord_index != -1)
                 {
-                    outattrib.texcoords.push_back(inattrib.texcoords[2 * inidx.texcoord_index]);
-                    outattrib.texcoords.push_back(inattrib.texcoords[2 * inidx.texcoord_index + 1]);
+                    outattrib.texcoords.emplace_back(inattrib.texcoords[2 * inidx.texcoord_index]);
+                    outattrib.texcoords.emplace_back(inattrib.texcoords[2 * inidx.texcoord_index + 1]);
                 }
                 remap[inidx.vertex_index] = offset;
             }
-            outshape.mesh.indices.push_back(outidx);
+            outshape.mesh.indices.emplace_back(outidx);
         }
     }
 }
@@ -529,7 +529,7 @@ static bool LoadObjAndConvert(
     std::println("# of shapes    = {}", (int)inshapes.size());
 
     // Append `default` material
-    materials.push_back(tinyobj::material_t());
+    materials.emplace_back(tinyobj::material_t());
 
     for(std::size_t i = 0; i < materials.size(); i++)
     {
@@ -583,10 +583,10 @@ static bool LoadObjAndConvert(
                     {
                         for(int i = 0; i < w; ++i)
                         {
-                            image_rgba.push_back(image[4 * (j * w + i) + 0]);    // r
-                            image_rgba.push_back(image[4 * (j * w + i) + 1]);    // g
-                            image_rgba.push_back(image[4 * (j * w + i) + 2]);    // b
-                            image_rgba.push_back(255);                           // a
+                            image_rgba.emplace_back(image[4 * (j * w + i) + 0]);    // r
+                            image_rgba.emplace_back(image[4 * (j * w + i) + 1]);    // g
+                            image_rgba.emplace_back(image[4 * (j * w + i) + 2]);    // b
+                            image_rgba.emplace_back(255);                           // a
                         }
                     }
                 }
@@ -794,12 +794,12 @@ static bool LoadObjAndConvert(
 
             for(int k = 0; k < 3; k++)
             {
-                pos_buffer.push_back(v[k]);
-                normal_buffer.push_back(ml::vec4{n[k], 0.f});
+                pos_buffer.emplace_back(v[k]);
+                normal_buffer.emplace_back(ml::vec4{n[k], 0.f});
 
                 // Combine normal and diffuse to get color.
-                color_buffer.push_back(ml::vec4{diffuse, 1.f});
-                tex_buffer.push_back(ml::vec4{tc[k][0], tc[k][1], 0, 0});
+                color_buffer.emplace_back(ml::vec4{diffuse, 1.f});
+                tex_buffer.emplace_back(ml::vec4{tc[k][0], tc[k][1], 0, 0});
             }
         }
 

@@ -284,7 +284,7 @@ struct slot_map
     void free(std::size_t i)
     {
         assert(i < data.size());
-        free_slots.push_back(i);
+        free_slots.emplace_back(i);
     }
 
     /** check if an index is in the list of free slots. */

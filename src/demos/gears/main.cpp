@@ -178,13 +178,13 @@ struct gear_object
             if(i != 0)
             {
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 3);
-                ib.push_back(cur_idx - 2);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 3);
+                ib.emplace_back(cur_idx - 2);
 
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx);
             }
 
             if(i < teeth)
@@ -196,13 +196,13 @@ struct gear_object
                 nb.emplace_back(0, 0, 1, 0);
 
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 3);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 3);
 
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx);
             }
         }
 
@@ -223,13 +223,13 @@ struct gear_object
             nb.emplace_back(0, 0, 1, 0);
 
             auto cur_idx = vb.size() - 1;
-            ib.push_back(cur_idx - 3);
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 3);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx - 1);
 
-            ib.push_back(cur_idx - 3);
-            ib.push_back(cur_idx - 1);
-            ib.push_back(cur_idx);
+            ib.emplace_back(cur_idx - 3);
+            ib.emplace_back(cur_idx - 1);
+            ib.emplace_back(cur_idx);
         }
 
         /* draw back face */
@@ -245,13 +245,13 @@ struct gear_object
             if(i != 0)
             {
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 3);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 3);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx - 1);
 
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx);
             }
 
             if(i < teeth)
@@ -263,13 +263,13 @@ struct gear_object
                 nb.emplace_back(0, 0, -1, 0);
 
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 3);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 3);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx - 1);
 
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx);
             }
         }
 
@@ -290,13 +290,13 @@ struct gear_object
             nb.emplace_back(0, 0, -1, 0);
 
             auto cur_idx = vb.size() - 1;
-            ib.push_back(cur_idx - 3);
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 3);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx - 1);
 
-            ib.push_back(cur_idx - 3);
-            ib.push_back(cur_idx - 1);
-            ib.push_back(cur_idx);
+            ib.emplace_back(cur_idx - 3);
+            ib.emplace_back(cur_idx - 1);
+            ib.emplace_back(cur_idx);
         }
 
         /* draw outward faces of teeth */
@@ -317,13 +317,13 @@ struct gear_object
             if(i != 0)
             {
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 3);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 3);
 
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx);
-                ib.push_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx);
+                ib.emplace_back(cur_idx - 1);
             }
 
             vb.emplace_back(r2 * std::cos(angle + da), r2 * std::sin(angle + da), width * 0.5f);
@@ -333,13 +333,13 @@ struct gear_object
             nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
 
             auto cur_idx = vb.size() - 1;
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx - 1);
-            ib.push_back(cur_idx - 3);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 3);
 
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx);
-            ib.push_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx);
+            ib.emplace_back(cur_idx - 1);
 
             vb.emplace_back(r2 * std::cos(angle + 2 * da), r2 * std::sin(angle + 2 * da), width * 0.5f);
             vb.emplace_back(r2 * std::cos(angle + 2 * da), r2 * std::sin(angle + 2 * da), -width * 0.5f);
@@ -352,13 +352,13 @@ struct gear_object
             nb.emplace_back(uv.normalized());
 
             cur_idx = vb.size() - 1;
-            ib.push_back(cur_idx - 3);
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 3);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx - 1);
 
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx);
-            ib.push_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx);
+            ib.emplace_back(cur_idx - 1);
 
             vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), width * 0.5f);
             vb.emplace_back(r1 * std::cos(angle + 3 * da), r1 * std::sin(angle + 3 * da), -width * 0.5f);
@@ -367,13 +367,13 @@ struct gear_object
             nb.emplace_back(std::cos(angle), std::sin(angle), 0, 0);
 
             cur_idx = vb.size() - 1;
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx - 1);
-            ib.push_back(cur_idx - 3);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 3);
 
-            ib.push_back(cur_idx - 2);
-            ib.push_back(cur_idx);
-            ib.push_back(cur_idx - 1);
+            ib.emplace_back(cur_idx - 2);
+            ib.emplace_back(cur_idx);
+            ib.emplace_back(cur_idx - 1);
         }
 
         vb.emplace_back(r1 * std::cos(0.f), r1 * std::sin(0.f), width * 0.5f);
@@ -383,13 +383,13 @@ struct gear_object
         nb.emplace_back(std::cos(0.f), std::sin(0.f), 0, 0);
 
         auto cur_idx = vb.size() - 1;
-        ib.push_back(cur_idx - 2);
-        ib.push_back(cur_idx - 1);
-        ib.push_back(cur_idx - 3);
+        ib.emplace_back(cur_idx - 2);
+        ib.emplace_back(cur_idx - 1);
+        ib.emplace_back(cur_idx - 3);
 
-        ib.push_back(cur_idx - 2);
-        ib.push_back(cur_idx);
-        ib.push_back(cur_idx - 1);
+        ib.emplace_back(cur_idx - 2);
+        ib.emplace_back(cur_idx);
+        ib.emplace_back(cur_idx - 1);
 
         /* create outside of the gear. */
         outside = {std::move(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
@@ -412,13 +412,13 @@ struct gear_object
             if(i != 0)
             {
                 auto cur_idx = vb.size() - 1;
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx - 1);
-                ib.push_back(cur_idx - 3);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 3);
 
-                ib.push_back(cur_idx - 2);
-                ib.push_back(cur_idx);
-                ib.push_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx);
+                ib.emplace_back(cur_idx - 1);
             }
         }
 

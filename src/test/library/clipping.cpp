@@ -87,7 +87,7 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     obj.indices.reserve(INDEX_COUNT);
     for(std::uint32_t i = 0; i < INDEX_COUNT; ++i)
     {
-        obj.indices.push_back(i);
+        obj.indices.emplace_back(i);
     }
     obj.vertex_flags.resize(INDEX_COUNT);
     swr::impl::program_info info;
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE(line_clip)
     obj.indices.reserve(VERTEX_COUNT);
     for(std::uint32_t i = 0; i < VERTEX_COUNT; ++i)
     {
-        obj.indices.push_back(i);
+        obj.indices.emplace_back(i);
     }
     obj.vertex_flags.resize(VERTEX_COUNT);
     swr::impl::program_info info;

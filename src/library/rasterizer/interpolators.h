@@ -106,7 +106,7 @@ struct basic_interpolation_data
         out_varyings.clear();
         for(auto& it: varyings)
         {
-            out_varyings.push_back(it);
+            out_varyings.emplace_back(it);
         }
     }
 
@@ -175,19 +175,19 @@ struct basic_interpolation_data
             it.setup_block_processing();
 
             // store value at (x,y)
-            out_varyings[0].push_back(it);
+            out_varyings[0].emplace_back(it);
 
             // store value at (x+1,y)
             it.advance_x();
-            out_varyings[1].push_back(it);
+            out_varyings[1].emplace_back(it);
 
             // store value at (x,y+1)
             it.advance_y();
-            out_varyings[2].push_back(it);
+            out_varyings[2].emplace_back(it);
 
             // store value at (x+1,y+1)
             it.advance_x();
-            out_varyings[3].push_back(it);
+            out_varyings[3].emplace_back(it);
         }
     }
 };

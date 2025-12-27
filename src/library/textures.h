@@ -71,7 +71,7 @@ void texture_storage<T>::allocate(std::size_t width, std::size_t height, bool mi
     if(!mipmapping)
     {
         // just allocate the base texture. in this case, data_ptrs only holds a single element.
-        data_ptrs.push_back(utils::align_vector(utils::alignment::sse, width * height, buffer));
+        data_ptrs.emplace_back(utils::align_vector(utils::alignment::sse, width * height, buffer));
 
         return;
     }
@@ -87,7 +87,7 @@ void texture_storage<T>::allocate(std::size_t width, std::size_t height, bool mi
      */
 
     // base image.
-    data_ptrs.push_back(utils::align_vector(utils::alignment::sse, width * height + ((width * height) >> 1), buffer));
+    data_ptrs.emplace_back(utils::align_vector(utils::alignment::sse, width * height + ((width * height) >> 1), buffer));
     auto base_ptr = data_ptrs[0];
 
     // mipmaps.
@@ -96,7 +96,7 @@ void texture_storage<T>::allocate(std::size_t width, std::size_t height, bool mi
     std::size_t h_offs = 0;
     for(std::size_t h = height >> 1; h > 0; h >>= 1)
     {
-        data_ptrs.push_back(base_ptr + h_offs * pitch + width);
+        data_ptrs.emplace_back(base_ptr + h_offs * pitch + width);
         h_offs += h;
     }
 #else
@@ -104,7 +104,7 @@ void texture_storage<T>::allocate(std::size_t width, std::size_t height, bool mi
     std::size_t offs = dims * dims;
     while(offs > 0)
     {
-        data_ptrs.push_back(base_ptr + offs);
+        data_ptrs.emplace_back(base_ptr + offs);
         offs >>= 2;
     }
 #endif

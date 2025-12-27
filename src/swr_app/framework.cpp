@@ -136,7 +136,7 @@ bool renderwindow::get_surface_buffer_rgba32(std::vector<std::uint32_t>& content
 
             Uint8 r, g, b, a;
             SDL_GetRGBA(pixel, pf_details, palette, &r, &g, &b, &a);
-            contents.push_back((r << 24) | (g << 16) | (b << 8) | a);
+            contents.emplace_back((r << 24) | (g << 16) | (b << 8) | a);
         }
     }
 

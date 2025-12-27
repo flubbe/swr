@@ -24,17 +24,17 @@ namespace rast
 
 void sweep_rasterizer::add_point(const swr::impl::render_states* states, geom::vertex* vertex)
 {
-    draw_list.push_back({states, vertex});
+    draw_list.emplace_back(states, vertex);
 }
 
 void sweep_rasterizer::add_line(const swr::impl::render_states* states, geom::vertex* v1, geom::vertex* v2)
 {
-    draw_list.push_back({states, v1, v2});
+    draw_list.emplace_back(states, v1, v2);
 }
 
 void sweep_rasterizer::add_triangle(const swr::impl::render_states* states, bool is_front_facing, geom::vertex* v1, geom::vertex* v2, geom::vertex* v3)
 {
-    draw_list.push_back({states, is_front_facing, v1, v2, v3});
+    draw_list.emplace_back(states, is_front_facing, v1, v2, v3);
 }
 
 void sweep_rasterizer::draw_primitives()

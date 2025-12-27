@@ -317,7 +317,7 @@ public:
             try
             {
                 // convert type and add to vector.
-                values.push_back(boost::lexical_cast<T>(val));
+                values.emplace_back(boost::lexical_cast<T>(val));
             }
             catch(const boost::bad_lexical_cast&)
             {

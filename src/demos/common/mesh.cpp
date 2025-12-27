@@ -47,8 +47,8 @@ mesh generate_tiling_mesh(float xmin, float xmax, float ymin, float ymax, std::s
     {
         for(std::size_t j = 0; j <= cols; ++j)
         {
-            m.vertices.attribs.push_back({xmin + j * xstep, ymin + i * ystep, z});
-            m.colors.attribs.push_back(rgb[rgb_ctr % 3]);
+            m.vertices.attribs.emplace_back(xmin + j * xstep, ymin + i * ystep, z);
+            m.colors.attribs.emplace_back(rgb[rgb_ctr % 3]);
 
             ++rgb_ctr;
         }
@@ -59,13 +59,13 @@ mesh generate_tiling_mesh(float xmin, float xmax, float ymin, float ymax, std::s
     {
         for(std::size_t j = 0; j < cols; ++j)
         {
-            m.indices.push_back(j * (cols + 1) + i);
-            m.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.emplace_back(j * (cols + 1) + i);
+            m.indices.emplace_back(j * (cols + 1) + i + 1);
+            m.indices.emplace_back((j + 1) * (cols + 1) + i);
 
-            m.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.push_back((j + 1) * (cols + 1) + i + 1);
-            m.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.emplace_back(j * (cols + 1) + i + 1);
+            m.indices.emplace_back((j + 1) * (cols + 1) + i + 1);
+            m.indices.emplace_back((j + 1) * (cols + 1) + i);
         }
     }
 
@@ -132,8 +132,8 @@ mesh generate_random_tiling_mesh(float xmin, float xmax, float ymin, float ymax,
     {
         for(std::size_t j = 0; j < cols + 1; ++j)
         {
-            m.vertices.attribs.push_back({xmin + j * xstep + xgen(), ymin + i * ystep + ygen(), z + zgen()});
-            m.colors.attribs.push_back(rgb[rgb_ctr % rgb.size()]);
+            m.vertices.attribs.emplace_back(xmin + j * xstep + xgen(), ymin + i * ystep + ygen(), z + zgen());
+            m.colors.attribs.emplace_back(rgb[rgb_ctr % rgb.size()]);
 
             ++rgb_ctr;
         }
@@ -148,17 +148,17 @@ mesh generate_random_tiling_mesh(float xmin, float xmax, float ymin, float ymax,
             assert(j * (cols + 1) + i + 1 < m.vertices.attribs.size());
             assert((j + 1) * (cols + 1) + i < m.vertices.attribs.size());
 
-            m.indices.push_back(j * (cols + 1) + i);
-            m.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.emplace_back(j * (cols + 1) + i);
+            m.indices.emplace_back(j * (cols + 1) + i + 1);
+            m.indices.emplace_back((j + 1) * (cols + 1) + i);
 
             assert(j * (cols + 1) + i + 1 < m.vertices.attribs.size());
             assert((j + 1) * (cols + 1) + i + 1 < m.vertices.attribs.size());
             assert((j + 1) * (cols + 1) + i < m.vertices.attribs.size());
 
-            m.indices.push_back(j * (cols + 1) + i + 1);
-            m.indices.push_back((j + 1) * (cols + 1) + i + 1);
-            m.indices.push_back((j + 1) * (cols + 1) + i);
+            m.indices.emplace_back(j * (cols + 1) + i + 1);
+            m.indices.emplace_back((j + 1) * (cols + 1) + i + 1);
+            m.indices.emplace_back((j + 1) * (cols + 1) + i);
         }
     }
 
