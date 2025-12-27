@@ -301,7 +301,7 @@ struct texture_2d
     std::uint32_t id{0};
 
     /** texture width and height. */
-    int width{0}, height{0};
+    std::uint32_t width{0}, height{0};
 
     /** texture data. */
     texture_storage<ml::vec4> data;
@@ -337,19 +337,31 @@ struct texture_2d
     swr::error set_wrap_t(wrap_mode t);
 
     /** allocate texture data initialized to zero. */
-    swr::error allocate(int level, int width, int height);
+    swr::error allocate(std::uint32_t level, std::uint32_t width, std::uint32_t height);
 
     /**
      * Set the texture data using the specified pixel format. the base texture level needs to be set up first through this call, since
      * it allocates the storage. the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    swr::error set_data(int level, int width, int height, pixel_format format, const std::vector<std::uint8_t>& data);
+    swr::error set_data(
+      std::uint32_t level,
+      std::uint32_t width,
+      std::uint32_t height,
+      pixel_format format,
+      const std::vector<std::uint8_t>& data);
 
     /**
      * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up.
      * the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    swr::error set_sub_data(int level, int x, int y, int width, int height, pixel_format format, const std::vector<std::uint8_t>& data);
+    swr::error set_sub_data(
+      std::uint32_t level,
+      std::uint32_t in_x,
+      std::uint32_t in_y,
+      std::uint32_t in_width,
+      std::uint32_t in_height,
+      pixel_format format,
+      const std::vector<std::uint8_t>& data);
 
     /** clear all texture data. */
     void clear();

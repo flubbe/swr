@@ -73,17 +73,8 @@ error texture_2d::set_wrap_t(wrap_mode t)
     return error::none;
 }
 
-error texture_2d::allocate(int in_level, int in_width, int in_height)
+error texture_2d::allocate(std::uint32_t in_level, std::uint32_t in_width, std::uint32_t in_height)
 {
-    if(in_level < 0 || in_width < 0 || in_height < 0)
-    {
-        width = 0;
-        height = 0;
-        data.clear();
-
-        return error::invalid_value;
-    }
-
     if(in_width == 0 || in_height == 0)
     {
         // this texture has no size, but we set width and height anyway.
@@ -123,12 +114,17 @@ error texture_2d::allocate(int in_level, int in_width, int in_height)
     return error::none;
 }
 
-error texture_2d::set_data(int level, int in_width, int in_height, pixel_format format, const std::vector<std::uint8_t>& in_data)
+error texture_2d::set_data(
+  std::uint32_t level,
+  std::uint32_t width,
+  std::uint32_t height,
+  pixel_format format,
+  const std::vector<std::uint8_t>& in_data)
 {
     constexpr auto component_size = sizeof(std::uint32_t);
 
     // allocate the texture. this verifies that level is non-negative, and also sets width and height.
-    auto ret = allocate(level, in_width, in_height);
+    auto ret = allocate(level, width, height);
     if(ret != error::none)
     {
         return ret;
@@ -155,11 +151,11 @@ error texture_2d::set_data(int level, int in_width, int in_height, pixel_format 
 #endif
 
     pixel_format_converter pfc{pixel_format_descriptor::named_format(format)};
-    for(int y = 0; y < in_height; ++y)
+    for(std::uint32_t y = 0; y < height; ++y)
     {
-        for(int x = 0; x < in_width; ++x)
+        for(std::uint32_t x = 0; x < width; ++x)
         {
-            const std::uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
+            const std::uint8_t* buf_ptr = &in_data[(y * width + x) * component_size];
             std::uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
 #ifdef SWR_USE_MORTON_CODES
             data_ptr[libmorton::morton2D_32_encode(x, y)] = pfc.to_color(color);
@@ -172,7 +168,14 @@ error texture_2d::set_data(int level, int in_width, int in_height, pixel_format 
     return error::none;
 }
 
-error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int in_height, pixel_format format, const std::vector<std::uint8_t>& in_data)
+error texture_2d::set_sub_data(
+  std::uint32_t level,
+  std::uint32_t in_x,
+  std::uint32_t in_y,
+  std::uint32_t in_width,
+  std::uint32_t in_height,
+  pixel_format format,
+  const std::vector<std::uint8_t>& in_data)
 {
     ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(std::uint32_t);
@@ -181,15 +184,15 @@ error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int 
     {
         return error::invalid_value;
     }
-    assert(static_cast<std::size_t>(in_width * in_height * component_size) == in_data.size());
+    assert(in_width * in_height * component_size == in_data.size());
 
-    if(level < 0 || static_cast<std::size_t>(level) >= data.data_ptrs.size())
+    if(level >= data.data_ptrs.size())
     {
         return error::invalid_value;
     }
 
     // ensure the dimensions are set up correctly.
-    if(in_x < 0 || in_y < 0 || in_x >= width || in_y >= height)
+    if(in_x >= width || in_y >= height)
     {
         return error::invalid_value;
     }
@@ -199,8 +202,22 @@ error texture_2d::set_sub_data(int level, int in_x, int in_y, int in_width, int 
     auto pitch = width + (width >> 1);
 #endif
 
-    std::uint32_t max_width = std::max(std::min(in_x + in_width, width >> level) - in_x, 0);
-    std::uint32_t max_height = std::max(std::min(in_y + in_height, height >> level) - in_y, 0);
+    auto img_w = width >> level;
+    auto img_h = height >> level;
+
+    std::uint32_t max_width = 0;
+    if(in_x < img_w)
+    {
+        std::uint32_t end = in_x + in_width;
+        max_width = (end >= img_w ? img_w : end) - in_x;
+    }
+
+    std::uint32_t max_height = 0;
+    if(in_y < img_h)
+    {
+        std::uint32_t end = in_y + in_height;
+        max_height = (end >= img_h ? img_h : end) - in_y;
+    }
 
     pixel_format_converter pfc(pixel_format_descriptor::named_format(format));
     for(std::size_t y = 0; y < max_height; ++y)
