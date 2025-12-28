@@ -236,7 +236,20 @@ public:
 
         blur_texture = swr::CreateTexture();
         swr::SetImage(blur_texture, 0, w, h, swr::pixel_format::rgba8888, img_data);
+        if(auto error = swr::GetLastError();
+           error != swr::error::none)
+        {
+            platform::logf("[!!] SetImage failed with error code {}", static_cast<int>(error));
+            return false;
+        }
+
         swr::SetTextureWrapMode(blur_texture, swr::wrap_mode::clamp_to_edge, swr::wrap_mode::clamp_to_edge);
+        if(auto error = swr::GetLastError();
+           error != swr::error::none)
+        {
+            platform::logf("[!!] SetTextureWrapMode failed with error code {}", static_cast<int>(error));
+            return false;
+        }
 
         // create framebuffer object and attach texture.
         blur_fbo = swr::CreateFramebufferObject();

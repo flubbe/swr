@@ -64,6 +64,11 @@ inline std::optional<std::uint32_t> load_uniform(
       h,
       swr::pixel_format::rgba8888,
       image_vec);
+    if(swr::GetLastError() != swr::error::none)
+    {
+        swr::ReleaseTexture(texture_id);
+        return std::nullopt;
+    }
 
     return std::make_optional(texture_id);
 }
@@ -135,10 +140,21 @@ inline std::optional<std::uint32_t> load_non_uniform(
       target_w, target_h,
       swr::pixel_format::rgba8888,
       resized_tex);
+    if(swr::GetLastError() != swr::error::none)
+    {
+        swr::ReleaseTexture(texture_id);
+        return std::nullopt;
+    }
+
     swr::SetTextureWrapMode(
       texture_id,
       swr::wrap_mode::repeat,
       swr::wrap_mode::repeat);
+    if(swr::GetLastError() != swr::error::none)
+    {
+        swr::ReleaseTexture(texture_id);
+        return std::nullopt;
+    }
 
     if(w)
     {
