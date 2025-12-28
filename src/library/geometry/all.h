@@ -10,7 +10,17 @@
 
 #pragma once
 
+#include "ml/all.h"
+
 /* geometry headers. */
+#include "coverage_mask.h"
+
+#ifdef SWR_USE_SIMD
+#    include "barycentric_coords_sse.h"
+#else
+#    include "barycentric_coords.h"
+#endif
+
 #include "edge_function.h"
 #include "interpolators.h"
 #include "limits.h"

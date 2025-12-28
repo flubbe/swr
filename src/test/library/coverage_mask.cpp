@@ -17,15 +17,13 @@
 #define BOOST_TEST_MODULE clipping tests
 #include <boost/test/unit_test.hpp>
 
-/* user headers. */
-#include "swr_internal.h"
-
 /* make sure we include the non-SIMD code. */
 #ifdef SWR_USE_SIMD
 #    undef SWR_USE_SIMD
 #endif
 
-#include "geometry/barycentric_coords.h"
+#include "geometry/all.h"
+#include "common/utils.h"
 
 #if defined(__x86_64__) || defined(_M_X64)
 
@@ -33,7 +31,7 @@
 namespace simd
 {
 #    define SWR_USE_SIMD
-#    include "geometry/barycentric_coords.h"
+#    include "geometry/barycentric_coords_sse.h"
 #    undef SWR_USE_SIMD
 } /* namespace simd */
 

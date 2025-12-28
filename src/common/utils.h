@@ -33,9 +33,9 @@ namespace utils
 {
 
 #ifdef SWR_USE_SIMD
-#    include "simd_sse/memset.h"
+#    include "memset_sse.h"
 #else
-#    include "generic/memset.h"
+#    include "memset.h"
 #endif
 
 /*
