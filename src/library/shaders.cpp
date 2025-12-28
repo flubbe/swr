@@ -23,6 +23,46 @@ namespace impl
 constexpr int default_shader_index = 0;
 static_assert(default_shader_index == 0, "The default shader must be at index 0.");
 
+/** Default (empty) program. */
+class default_program : public program<default_program>
+{
+public:
+    void pre_link(
+      boost::container::static_vector<
+        swr::interpolation_qualifier,
+        geom::limits::max::varyings>&
+        iqs) const override
+    {
+        iqs.clear();
+    }
+
+    void vertex_shader(
+      [[maybe_unused]] int gl_VertexID,
+      [[maybe_unused]] int gl_InstanceID,
+      [[maybe_unused]] const ml::vec4* attribs,
+      [[maybe_unused]] ml::vec4& gl_Position,
+      [[maybe_unused]] float& gl_PointSize,
+      [[maybe_unused]] float* gl_ClipDistance,
+      [[maybe_unused]] ml::vec4* varyings) const override
+    {
+    }
+
+    fragment_shader_result fragment_shader(
+      [[maybe_unused]] const ml::vec4& gl_FragCoord,
+      [[maybe_unused]] bool gl_FrontFacing,
+      [[maybe_unused]] const ml::vec2& gl_PointCoord,
+      [[maybe_unused]] const boost::container::static_vector<
+        swr::varying,
+        geom::limits::max::varyings>&
+        varyings,
+      [[maybe_unused]] float& gl_FragDepth,
+      [[maybe_unused]] ml::vec4& gl_FragColor) const override
+    {
+        gl_FragColor = {1.f, 1.f, 1.f, 1.f};
+        return fragment_shader_result::accept;
+    }
+};
+
 void create_default_shader(render_device_context* context)
 {
     assert(context);
@@ -30,7 +70,7 @@ void create_default_shader(render_device_context* context)
     // create default shader.
     if(!context->default_shader)
     {
-        context->default_shader = std::make_unique<program_base>();
+        context->default_shader = std::make_unique<default_program>();
     }
     program_base* default_shader = context->default_shader.get();
     swr::impl::program_info pi{default_shader};

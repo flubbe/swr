@@ -113,7 +113,10 @@ struct varying
     varying& operator=(varying&&) = default;
 
     /** initializing constructor. */
-    varying(const ml::vec4& in_value, const ml::vec4& in_dFdx, const ml::vec4& in_dFdy)
+    varying(
+      const ml::vec4& in_value,
+      const ml::vec4& in_dFdx,
+      const ml::vec4& in_dFdy)
     : value(in_value)
     , dFdx(in_dFdx)
     , dFdy(in_dFdy)
@@ -170,8 +173,14 @@ class program_base
     friend class program;
 
 protected:
-    const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>* uniforms{nullptr};
-    boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> samplers;
+    const boost::container::static_vector<
+      swr::uniform,
+      geom::limits::max::uniform_locations>*
+      uniforms{nullptr};
+    boost::container::static_vector<
+      struct sampler_2d*,
+      geom::limits::max::texture_units>
+      samplers;
 
 public:
     program_base() = default;
@@ -184,62 +193,60 @@ public:
     virtual ~program_base() = default;
 
     /** return the size (in bytes) of the program. */
-    virtual std::size_t size() const
-    {
-        return sizeof(program_base);
-    }
+    virtual std::size_t size() const = 0;
 
     /**
      * create a new vertex shader instance from this program.
      *
-     * \param mem The memory to store the program object in.
-     * \param uniforms The uniforms for this program instance.
-     * \return A program instance for execution as a vertex shader.
+     * @param mem The memory to store the program object in.
+     * @param uniforms The uniforms for this program instance.
+     * @returns A program instance for execution as a vertex shader.
      */
     virtual program_base* create_vertex_shader_instance(
       void* mem,
-      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms) const
-    {
-        program_base* new_program = new(mem) program_base();
-        new_program->uniforms = &uniforms;
-        return new_program;
-    }
+      const boost::container::static_vector<
+        swr::uniform,
+        geom::limits::max::uniform_locations>&
+        uniforms) const = 0;
 
     /**
      * create a new fragment shader instance from this program.
      *
-     * \param mem The memory to store the program object in.
-     * \param uniforms The uniforms for this program instance.
-     * \param samplers_2d The 2d texture samplers for this program instance.
-     * \return A program instance for execution as a fragment shader.
+     * @param mem The memory to store the program object in.
+     * @param uniforms The uniforms for this program instance.
+     * @param samplers_2d The 2d texture samplers for this program instance.
+     * @returns A program instance for execution as a fragment shader.
      */
     virtual program_base* create_fragment_shader_instance(
       void* mem,
-      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
-      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>& samplers_2d) const
-    {
-        program_base* new_program = new(mem) program_base();
-        new_program->uniforms = &uniforms;
-        new_program->samplers = samplers_2d;
-        return new_program;
-    }
+      const boost::container::static_vector<
+        swr::uniform,
+        geom::limits::max::uniform_locations>&
+        uniforms,
+      const boost::container::static_vector<
+        struct sampler_2d*,
+        geom::limits::max::texture_units>&
+        samplers_2d) const = 0;
 
-    /** pre-link the program. */
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const
-    {
-        // from https://www.khronos.org/opengl/wiki/Fragment_Shader:
-        //
-        // "The user-defined inputs received by this fragment shader will be interpolated according to the interpolation qualifiers
-        //  declared on the input variables declared by this fragment shader. The fragment shader's input variables must be declared
-        //  in accord with the interface matching rules between shader stages. Specifically, between this stage and the last Vertex
-        //  Processing shader stage in the program or pipeline object."
-        //
-        // That is, interpolation qualifiers should be set here.
-
-        iqs.clear();
-
-        // TODO Also see https://www.khronos.org/opengl/wiki/Shader_Compilation for pre-linking setup.
-    }
+    /**
+     * pre-link the program.
+     *
+     * from https://www.khronos.org/opengl/wiki/Fragment_Shader:
+     *
+     *   "The user-defined inputs received by this fragment shader will be interpolated according to the interpolation qualifiers
+     *    declared on the input variables declared by this fragment shader. The fragment shader's input variables must be declared
+     *    in accord with the interface matching rules between shader stages. Specifically, between this stage and the last Vertex
+     *    Processing shader stage in the program or pipeline object."
+     *
+     * That is, interpolation qualifiers should be set here.
+     *
+     * TODO Also see https://www.khronos.org/opengl/wiki/Shader_Compilation for pre-linking setup.
+     */
+    virtual void pre_link(
+      boost::container::static_vector<
+        swr::interpolation_qualifier,
+        geom::limits::max::varyings>&
+        iqs) const = 0;
 
     /**
      * Vertex shader entry point.
@@ -251,9 +258,7 @@ public:
       [[maybe_unused]] ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
       [[maybe_unused]] float* gl_ClipDistance,
-      [[maybe_unused]] ml::vec4* varyings) const
-    {
-    }
+      [[maybe_unused]] ml::vec4* varyings) const = 0;
 
     /**
      * Fragment shader entry point.
@@ -262,12 +267,12 @@ public:
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      [[maybe_unused]] const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
+      [[maybe_unused]] const boost::container::static_vector<
+        swr::varying,
+        geom::limits::max::varyings>&
+        varyings,
       [[maybe_unused]] float& gl_FragDepth,
-      [[maybe_unused]] ml::vec4& gl_FragColor) const
-    {
-        return accept;
-    }
+      [[maybe_unused]] ml::vec4& gl_FragColor) const = 0;
 };
 
 /**
@@ -279,13 +284,12 @@ template<typename T>
 class program : public program_base
 {
 public:
-    /** type information for validation. */
-    using super_type = program_base;
-
     program()
     : program_base{}
     {
-        static_assert(std::is_base_of_v<program<T>, T>, "Invalid program base.");
+        static_assert(
+          std::is_base_of_v<program<T>, T>,
+          "Invalid program base.");
     }
     program(const program&) = default;
     program(program&&) = default;
@@ -293,16 +297,25 @@ public:
     program& operator=(const program&) = default;
     program& operator=(program&&) = default;
 
-    virtual ~program() = default;
+    ~program() = default;
 
-    virtual std::size_t size() const override;
-    virtual program_base* create_vertex_shader_instance(
+    std::size_t size() const override;
+    program_base* create_vertex_shader_instance(
       void* mem,
-      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms) const override;
-    virtual program_base* create_fragment_shader_instance(
+      const boost::container::static_vector<
+        swr::uniform,
+        geom::limits::max::uniform_locations>&
+        uniforms) const override;
+    program_base* create_fragment_shader_instance(
       void* mem,
-      const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
-      const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>& samplers_2d) const override;
+      const boost::container::static_vector<
+        swr::uniform,
+        geom::limits::max::uniform_locations>&
+        uniforms,
+      const boost::container::static_vector<
+        struct sampler_2d*,
+        geom::limits::max::texture_units>&
+        samplers_2d) const override;
 };
 
 template<typename T>
@@ -314,10 +327,12 @@ std::size_t program<T>::size() const
 template<typename T>
 program_base* program<T>::create_vertex_shader_instance(
   void* mem,
-  const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms) const
+  const boost::container::static_vector<
+    swr::uniform,
+    geom::limits::max::uniform_locations>&
+    uniforms) const
 {
-    static_assert(std::is_same<typename T::super_type, program_base>::value, "T needs to be derived from swr::program_base.");
-    T* new_program = new(mem) T{static_cast<const T&>(*this)};
+    auto* new_program = new(mem) T{static_cast<const T&>(*this)};
     new_program->uniforms = &uniforms;
     return static_cast<program_base*>(new_program);
 }
@@ -325,11 +340,15 @@ program_base* program<T>::create_vertex_shader_instance(
 template<typename T>
 program_base* program<T>::create_fragment_shader_instance(
   void* mem,
-  const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms,
-  const boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units>& samplers_2d) const
+  const boost::container::static_vector<
+    swr::uniform, geom::limits::max::uniform_locations>&
+    uniforms,
+  const boost::container::static_vector<
+    struct sampler_2d*,
+    geom::limits::max::texture_units>&
+    samplers_2d) const
 {
-    static_assert(std::is_same<typename T::super_type, program_base>::value, "T needs to be derived from swr::program_base.");
-    T* new_program = new(mem) T{static_cast<const T&>(*this)};
+    auto* new_program = new(mem) T{static_cast<const T&>(*this)};
     new_program->uniforms = &uniforms;
     new_program->samplers = samplers_2d;
     return static_cast<program_base*>(new_program);
@@ -341,23 +360,23 @@ program_base* program<T>::create_fragment_shader_instance(
 
 /**
  * Register a new shader.
- * \param InShader Pointer to the shader.
- * \return On success, this returns the (positive) Id of the shader. If an error occured, the return value is 0.
+ * @param InShader Pointer to the shader.
+ * @returns On success, this returns the (positive) Id of the shader. If an error occured, the return value is 0.
  */
 std::uint32_t RegisterShader(const program_base* InShader);
 
 /**
  * Removes a shader from the graphics pipeline.
  *
- * \param Id The (positive) Id of the shader. If 0 is passed, the function sets last_error to invalid_value.
+ * @param Id The (positive) Id of the shader. If 0 is passed, the function sets last_error to invalid_value.
  */
 void UnregisterShader(std::uint32_t Id);
 
 /**
  * Bind a shader.
  *
- * \param Id The Id of the shader. If zero is passed, an empty shader is selected.
- * \return Returns false if the Id was invalid.
+ * @param Id The Id of the shader. If zero is passed, an empty shader is selected.
+ * @returns Returns false if the Id was invalid.
  */
 bool BindShader(std::uint32_t Id);
 
