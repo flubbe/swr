@@ -4,11 +4,16 @@
  * texture loading.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2025
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 #pragma once
+
+#include <optional>
+#include <string_view>
+
+#include "stb_image.h"
 
 #include "swr/swr.h"
 #include "common/utils.h"
@@ -17,67 +22,143 @@ namespace utils
 {
 
 /**
- * Create a possibly non-uniform texture, with dimensions possibly not being powers of two.
- * Data is RGBA with 8 bits per channel. The largest valid texture coordinates are written to max_u and max_v.
+ * Load a square texture from a file. The texture has to have power-of-two dimensions.
  *
- * @param w Width of the texture.
- * @param h Height of the texture.
- * @param data Image data (RGBA8888).
+ * @param filename The texture filename.
+ * @returns Returns the texture id on success. Returns `std::nullopt` on failure.
+ *          Call `swr::GetLastError` for further error information.
+ */
+inline std::optional<std::uint32_t> load_uniform(
+  std::string_view filename)
+{
+    std::string filename_str{filename};    // copy to get c-string.
+
+    int w = 0, h = 0, comp = 0;
+    unsigned char* image_data =
+      stbi_load(
+        filename_str.c_str(),
+        &w, &h, &comp,
+        STBI_rgb_alpha);
+    if(!image_data)
+    {
+        return std::nullopt;
+    }
+
+    // image size: width*height*sizeof(RGBA).
+    std::size_t image_size = static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * sizeof(std::uint32_t);
+    std::vector<std::uint8_t> image_vec{image_data, image_data + image_size};
+
+    stbi_image_free(image_data);
+    image_data = nullptr;
+
+    auto texture_id = swr::CreateTexture();
+    if(texture_id == 0)
+    {
+        return std::nullopt;
+    }
+
+    swr::SetImage(
+      texture_id,
+      0,
+      w,
+      h,
+      swr::pixel_format::rgba8888,
+      image_vec);
+
+    return std::make_optional(texture_id);
+}
+
+/**
+ * Load an image into a texture from a file. Sets the wrap mode to `repeat`.
+ *
+ * The image is loaded into a texture with power-of-two dimensions. These
+ * dimensions are returned in `w` and `h`.
+ *
+ * @param filename The texture filename.
+ * @param w Output: Generated texture width in pixels.
+ * @param h Output: Generated texture height in pixels.
  * @param max_u Output: u coordinate corresponding to the texture's width.
  * @param max_u Output: v coordinate corresponding to the texture's height.
- * @return Returns the texture id.
+ * @returns Returns the texture id on success. Returns `std::nullopt` on failure.
+ *          Call `swr::GetLastError` for further error information.
  */
-inline std::uint32_t create_non_uniform_texture(
-  std::uint32_t w,
-  std::uint32_t h,
-  const std::vector<std::uint8_t>& data,
+inline std::optional<std::uint32_t> load_non_uniform(
+  std::string_view filename,
+  int* w = nullptr,
+  int* h = nullptr,
   float* max_u = nullptr,
   float* max_v = nullptr)
 {
-    int adjusted_w = utils::round_to_next_power_of_two(w);
-    int adjusted_h = utils::round_to_next_power_of_two(h);
+    std::string filename_str{filename};    // copy to get c-string.
+
+    int img_w = 0, img_h = 0, img_c = 0;
+    unsigned char* image_data =
+      stbi_load(
+        filename_str.c_str(),
+        &img_w, &img_h, &img_c,
+        STBI_default);
+    if(!image_data)
+    {
+        return std::nullopt;
+    }
+
+    auto target_w = utils::round_to_next_power_of_two(static_cast<std::uint32_t>(img_w));
+    auto target_h = utils::round_to_next_power_of_two(static_cast<std::uint32_t>(img_h));
 
     std::vector<std::uint8_t> resized_tex;
-    resized_tex.resize(adjusted_w * adjusted_h * sizeof(std::uint32_t)); /* sizeof(...) for RGBA */
+    resized_tex.resize(target_w * target_h * sizeof(std::uint32_t)); /* sizeof(...) for RGBA */
 
     // copy texture.
-    for(std::uint32_t j = 0; j < h; ++j)
+    for(int j = 0; j < img_h; ++j)
     {
-        for(std::uint32_t i = 0; i < w; ++i)
+        for(int i = 0; i < img_w; ++i)
         {
-            const auto to_index = (j * adjusted_w + i) * sizeof(std::uint32_t);
-            const auto from_index = (j * w + i) * sizeof(std::uint32_t);
+            const auto to_index = (j * target_w + i) * sizeof(std::uint32_t);
+            const auto from_index = (j * img_w + i) * sizeof(std::uint32_t);
             *reinterpret_cast<std::uint32_t*>(&resized_tex[to_index]) =
-              *reinterpret_cast<const std::uint32_t*>(&data[from_index]);
+              *reinterpret_cast<const std::uint32_t*>(&image_data[from_index]);
         }
     }
 
-    auto tex_id = swr::CreateTexture();
+    stbi_image_free(image_data);
+    image_data = nullptr;
+
+    auto texture_id = swr::CreateTexture();
+    if(texture_id == 0)
+    {
+        return std::nullopt;
+    }
+
     swr::SetImage(
-      tex_id,
+      texture_id,
       0,
-      adjusted_w,
-      adjusted_h,
+      target_w, target_h,
       swr::pixel_format::rgba8888,
       resized_tex);
     swr::SetTextureWrapMode(
-      tex_id,
+      texture_id,
       swr::wrap_mode::repeat,
       swr::wrap_mode::repeat);
 
-    if(tex_id)
+    if(w)
     {
-        if(max_u)
-        {
-            *max_u = (adjusted_w != 0) ? static_cast<float>(w) / static_cast<float>(adjusted_w) : 0;
-        }
-        if(max_v)
-        {
-            *max_v = (adjusted_h != 0) ? static_cast<float>(h) / static_cast<float>(adjusted_h) : 0;
-        }
+        *w = target_w;
+    }
+    if(h)
+    {
+        *h = target_h;
     }
 
-    return tex_id;
+    if(max_u)
+    {
+        *max_u = (target_w != 0) ? static_cast<float>(img_w) / static_cast<float>(target_w) : 0;
+    }
+    if(max_v)
+    {
+        *max_v = (target_h != 0) ? static_cast<float>(img_h) / static_cast<float>(target_h) : 0;
+    }
+
+    return std::make_optional(texture_id);
 }
 
 }    // namespace utils

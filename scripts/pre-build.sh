@@ -24,9 +24,6 @@ unzip v0.2.12.zip
 rm v0.2.12.zip
 mv libmorton-0.2.12 libmorton
 
-# Download lodepng
-git clone https://github.com/lvandeve/lodepng.git --depth=1
-
 # Download stb
 git clone https://github.com/nothings/stb.git --depth=1
 

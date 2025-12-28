@@ -17,14 +17,9 @@
 /* shaders for this demo. */
 #include "shader.h"
 
-/* application framework. */
-#include "swr_app/framework.h"
-
-/* logging. */
-#include "common/platform/platform.h"
-
-/* png loading. */
-#include "lodepng.h"
+#include "../common/texture.h"        /* texture utilities.*/
+#include "swr_app/framework.h"        /* application framework. */
+#include "common/platform/platform.h" /* logging. */
 
 /** demo title. */
 const auto demo_title = "Scissor Box";
@@ -150,16 +145,15 @@ public:
         cube_normals = swr::CreateAttributeBuffer(normals);
 
         // cube texture.
-        std::vector<std::uint8_t> img_data;
-        std::uint32_t w = 0, h = 0;
-        std::uint32_t ret = lodepng::decode(img_data, w, h, "../textures/crate1/crate1_diffuse.png");
-        if(ret != 0)
+        const auto cube_texture_filename = "../textures/crate1/crate1_diffuse.png";
+        auto ret = utils::load_uniform(cube_texture_filename);
+        if(!ret.has_value())
         {
-            platform::logf("[!!] lodepng error: {}", lodepng_error_text(ret));
+            platform::logf("[!!] Unable to load texture: {}", cube_texture_filename);
             return false;
         }
-        cube_tex = swr::CreateTexture();
-        swr::SetImage(cube_tex, 0, w, h, swr::pixel_format::rgba8888, img_data);
+
+        cube_tex = ret.value();
         swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         return true;

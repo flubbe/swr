@@ -24,9 +24,6 @@
 #include "common/platform/platform.h" /* logging. */
 #include "common/utils.h"
 
-/* png loading. */
-#include "lodepng.h"
-
 /** demo title. */
 const auto demo_title = "Bitmap Font";
 
@@ -159,21 +156,31 @@ public:
         cube_colors = swr::CreateAttributeBuffer(colors);
 
         // load font.
-        std::vector<std::uint8_t> image_data;
-        std::uint32_t font_tex_width = 0, font_tex_height = 0;
-        auto err = lodepng::decode(image_data, font_tex_width, font_tex_height, "../textures/fonts/cp437_16x16_alpha.png");
-        if(err != 0)
+        const auto font_texture_filename = "../textures/fonts/cp437_16x16_alpha.png";
+        int font_tex_width = 0;
+        int font_tex_height = 0;
+        auto ret = utils::load_non_uniform(
+          font_texture_filename,
+          &font_tex_width,
+          &font_tex_height);
+        if(!ret.has_value())
         {
-            throw std::runtime_error(std::format("lodepng error: {}", lodepng_error_text(err)));
+            throw std::runtime_error(
+              std::format(
+                "Unable to load texture: {}",
+                font_texture_filename));
         }
-        font_tex_id = utils::create_non_uniform_texture(font_tex_width, font_tex_height, image_data);
+        font_tex_id = ret.value();
 
         swr::BindTexture(swr::texture_target::texture_2d, font_tex_id);
         swr::SetTextureMagnificationFilter(swr::texture_filter::nearest);
         swr::SetTextureMinificationFilter(swr::texture_filter::nearest);
 
         // create font. the image has to have dimensions 256x256 with 16x16 glyphs.
-        font = font::extended_ascii_bitmap_font::create_uniform_font(font_tex_id, font_tex_width, font_tex_height, 256, 256, 16, 16);
+        font = font::extended_ascii_bitmap_font::create_uniform_font(
+          font_tex_id,
+          font_tex_width, font_tex_height,
+          256, 256, 16, 16);
         font_rend.initialize(font_shader_id, font, width, height);
 
         return true;

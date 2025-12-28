@@ -24,7 +24,7 @@
 /* include SIMD version of memset */
 namespace simd
 {
-#include "../../common/simd_sse/memset.h"
+#include "../../common/memset_sse.h"
 } /* namespace simd */
 
 /*

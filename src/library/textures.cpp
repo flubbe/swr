@@ -501,7 +501,13 @@ void AllocateImage(std::uint32_t texture_id, std::size_t width, std::size_t heig
     CHECK_AND_SET_LAST_ERROR(texture_2d->allocate(0, width, height));
 }
 
-void SetImage(std::uint32_t texture_id, std::uint32_t level, std::size_t width, std::size_t height, pixel_format format, const std::vector<std::uint8_t>& data)
+void SetImage(
+  std::uint32_t texture_id,
+  std::uint32_t level,
+  std::size_t width,
+  std::size_t height,
+  pixel_format format,
+  const std::vector<std::uint8_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_device_context* context = impl::global_context;

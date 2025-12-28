@@ -100,7 +100,6 @@ include_directories(
 	include
 	deps/concurrency_utils/include
 	deps/ml/include
-	deps/3rd-party/lodepng 
 	deps/3rd-party/cpu_features/include 
 	deps/3rd-party/cnl/include
 	deps/3rd-party/libmorton/include
