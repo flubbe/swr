@@ -24,9 +24,7 @@
 /* include SIMD version of memset */
 namespace simd
 {
-#define SWR_USE_SIMD
-#include "../../common/utils.h"
-#undef SWR_USE_SIMD
+#include "../../common/simd_sse/memset.h"
 } /* namespace simd */
 
 /*
@@ -199,28 +197,28 @@ BOOST_AUTO_TEST_CASE(simd_memset32)
     for(int k = 0; k < 16; ++k)
     {
         mem.resize(memsize::small_aligned + k);
-        simd::utils::memset32(mem.data() + k, pack32('1', '2', '3', '4'), memsize::small_aligned);
+        simd::memset32(mem.data() + k, pack32('1', '2', '3', '4'), memsize::small_aligned);
         check_pattern<std::uint32_t>(mem, k, 0x31323334);
 
         mem.resize(memsize::small_unaligned + k);
-        simd::utils::memset32(mem.data() + k, pack32('5', '6', '7', '8'), memsize::small_unaligned);
+        simd::memset32(mem.data() + k, pack32('5', '6', '7', '8'), memsize::small_unaligned);
         check_pattern<std::uint32_t>(mem, k, 0x35363738);
 
         mem.resize(memsize::medium_aligned + k);
-        simd::utils::memset32(mem.data() + k, pack32('1', '2', '3', '4'), memsize::medium_aligned);
+        simd::memset32(mem.data() + k, pack32('1', '2', '3', '4'), memsize::medium_aligned);
         check_pattern<std::uint32_t>(mem, k, 0x31323334);
 
         mem.resize(memsize::medium_unaligned + k);
-        simd::utils::memset32(mem.data() + k, pack32('5', '6', '7', '8'), memsize::medium_unaligned);
+        simd::memset32(mem.data() + k, pack32('5', '6', '7', '8'), memsize::medium_unaligned);
         check_pattern<std::uint32_t>(mem, k, 0x35363738);
 
 #ifdef DO_LARGE_MEMSIZE_TESTS
         mem.resize(memsize::large_aligned + k);
-        simd::utils::memset32(mem.data() + k, pack32('1', '2', '3', '4'), memsize::large_aligned);
+        simd::memset32(mem.data() + k, pack32('1', '2', '3', '4'), memsize::large_aligned);
         check_pattern<std::uint32_t>(mem, k, 0x31323334);
 
         mem.resize(memsize::large_unaligned + k);
-        simd::utils::memset32(mem.data() + k, pack32('5', '6', '7', '8'), memsize::large_unaligned);
+        simd::memset32(mem.data() + k, pack32('5', '6', '7', '8'), memsize::large_unaligned);
         check_pattern<std::uint32_t>(mem, k, 0x35363738);
 #endif
     }
@@ -236,28 +234,28 @@ BOOST_AUTO_TEST_CASE(simd_memset64)
     for(int k = 0; k < 16; ++k)
     {
         mem.resize(memsize::small_aligned + k);
-        simd::utils::memset64(mem.data() + k, c1, memsize::small_aligned);
+        simd::memset64(mem.data() + k, c1, memsize::small_aligned);
         check_pattern<std::uint64_t>(mem, k, 0x3132333435363738);
 
         mem.resize(memsize::small_unaligned + k);
-        simd::utils::memset64(mem.data() + k, c2, memsize::small_unaligned);
+        simd::memset64(mem.data() + k, c2, memsize::small_unaligned);
         check_pattern<std::uint64_t>(mem, k, 0x3837363534333231);
 
         mem.resize(memsize::medium_aligned + k);
-        simd::utils::memset64(mem.data() + k, c1, memsize::medium_aligned);
+        simd::memset64(mem.data() + k, c1, memsize::medium_aligned);
         check_pattern<std::uint64_t>(mem, k, 0x3132333435363738);
 
         mem.resize(memsize::medium_unaligned + k);
-        simd::utils::memset64(mem.data() + k, c2, memsize::medium_unaligned);
+        simd::memset64(mem.data() + k, c2, memsize::medium_unaligned);
         check_pattern<std::uint64_t>(mem, k, 0x3837363534333231);
 
 #ifdef DO_LARGE_MEMSIZE_TESTS
         mem.resize(memsize::large_aligned + k);
-        simd::utils::memset64(mem.data() + k, c1, memsize::large_aligned);
+        simd::memset64(mem.data() + k, c1, memsize::large_aligned);
         check_pattern<std::uint64_t>(mem, k, 0x3132333435363738);
 
         mem.resize(memsize::large_unaligned + k);
-        simd::utils::memset64(mem.data() + k, c2, memsize::large_unaligned);
+        simd::memset64(mem.data() + k, c2, memsize::large_unaligned);
         check_pattern<std::uint64_t>(mem, k, 0x3837363534333231);
 #endif
     }
@@ -273,28 +271,28 @@ BOOST_AUTO_TEST_CASE(simd_memset128)
     for(int k = 0; k < 16; ++k)
     {
         mem.resize(memsize::small_aligned + k);
-        simd::utils::memset128(mem.data() + k, c1, memsize::small_aligned);
+        simd::memset128(mem.data() + k, c1, memsize::small_aligned);
         check_pattern<__m128i>(mem, k, c1);
 
         mem.resize(memsize::small_unaligned + k);
-        simd::utils::memset128(mem.data() + k, c2, memsize::small_unaligned);
+        simd::memset128(mem.data() + k, c2, memsize::small_unaligned);
         check_pattern<__m128i>(mem, k, c2);
 
         mem.resize(memsize::medium_aligned + k);
-        simd::utils::memset128(mem.data() + k, c1, memsize::medium_aligned);
+        simd::memset128(mem.data() + k, c1, memsize::medium_aligned);
         check_pattern<__m128i>(mem, k, c1);
 
         mem.resize(memsize::medium_unaligned + k);
-        simd::utils::memset128(mem.data() + k, c2, memsize::medium_unaligned);
+        simd::memset128(mem.data() + k, c2, memsize::medium_unaligned);
         check_pattern<__m128i>(mem, k, c2);
 
 #ifdef DO_LARGE_MEMSIZE_TESTS
         mem.resize(memsize::large_aligned + k);
-        simd::utils::memset128(mem.data() + k, c1, memsize::large_aligned);
+        simd::memset128(mem.data() + k, c1, memsize::large_aligned);
         check_pattern<__m128i>(mem, k, c1);
 
         mem.resize(memsize::large_unaligned + k);
-        simd::utils::memset128(mem.data() + k, c2, memsize::large_unaligned);
+        simd::memset128(mem.data() + k, c2, memsize::large_unaligned);
         check_pattern<__m128i>(mem, k, c2);
 #endif
     }
