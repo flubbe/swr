@@ -8,6 +8,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
 /* C++ headers */
 #include <mutex>
 #include <chrono>

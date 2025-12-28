@@ -11,9 +11,6 @@
 #include <format>
 #include <print>
 
-/* boost */
-#include <boost/container/static_vector.hpp>
-
 /* software rasterizer headers. */
 #include "swr/swr.h"
 #include "swr/shaders.h"

@@ -9,6 +9,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
 namespace swr
 {
 

@@ -8,6 +8,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
 /* morton codes */
 #ifdef SWR_USE_MORTON_CODES
 #    include "libmorton/morton.h"

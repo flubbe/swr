@@ -8,6 +8,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
 #include <boost/container/static_vector.hpp>
 
 namespace swr

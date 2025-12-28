@@ -8,7 +8,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/** face culling */
+#pragma once
+
 namespace swr
 {
 
