@@ -120,16 +120,18 @@ struct drawable_object
 
 static std::string get_base_dir(const std::string& filepath)
 {
-    auto separator_pos = filepath.find_last_of("/\\");
-    if(separator_pos != std::string::npos)
+    if(auto separator_pos = filepath.find_last_of("/\\");
+       separator_pos != std::string::npos)
+    {
         return filepath.substr(0, separator_pos);
+    }
     return "";
 }
 
 static void check_errors(std::string desc)
 {
-    swr::error e = swr::GetLastError();
-    if(e != swr::error::none)
+    if(swr::error e = swr::GetLastError();
+       e != swr::error::none)
     {
         std::println(stderr, "SWR error in \"{}\": {}", desc, static_cast<int>(e));
         std::exit(1);

@@ -355,14 +355,11 @@ void create_default_texture(render_device_context* context)
     context->default_texture_2d = context->texture_2d_storage[default_tex_id].get();
     assert(context->default_texture_2d->id == default_tex_id);
 
-#define CHECK(expr)                    \
-    {                                  \
-        auto ret = expr;               \
-        if(ret != error::none)         \
-        {                              \
-            context->last_error = ret; \
-            return;                    \
-        }                              \
+#define CHECK(expr)                         \
+    if(auto ret = expr; ret != error::none) \
+    {                                       \
+        context->last_error = ret;          \
+        return;                             \
     }
 
     CHECK(context->default_texture_2d->set_data(0, 2, 2, pixel_format::rgba8888, default_texture_data));
@@ -396,14 +393,11 @@ std::uint32_t CreateTexture()
     new_texture->set_filter_mag(texture_filter::nearest);
     new_texture->set_filter_min(texture_filter::nearest);
 
-#define CHECK(expr)                    \
-    {                                  \
-        auto ret = expr;               \
-        if(ret != error::none)         \
-        {                              \
-            context->last_error = ret; \
-            return 0;                  \
-        }                              \
+#define CHECK(expr)                         \
+    if(auto ret = expr; ret != error::none) \
+    {                                       \
+        context->last_error = ret;          \
+        return 0;                           \
     }
 
     // TODO this should set the last used wrap modes.
