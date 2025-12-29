@@ -144,7 +144,7 @@ public:
         cube_normals = swr::CreateAttributeBuffer(normals);
 
         // cube texture.
-        const auto cube_texture_filename = "../textures/crate1/crate1_diffuse.pngg";
+        const auto cube_texture_filename = "../textures/crate1/crate1_diffuse.png";
         auto ret = utils::load_uniform(cube_texture_filename);
         if(!ret.has_value())
         {
