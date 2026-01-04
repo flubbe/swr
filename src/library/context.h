@@ -46,7 +46,10 @@ struct program_info
     std::uint32_t varying_count{0};
 
     /** interpolation qualifiers for varyings. */
-    boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings> iqs;
+    boost::container::static_vector<
+      swr::interpolation_qualifier,
+      geom::limits::max::varyings>
+      iqs;
 
     /** flags. */
     std::uint32_t flags{program_flags::none};
@@ -107,8 +110,17 @@ class vertex_shader_instance_container
     const std::size_t varying_count;
 
 public:
-    vertex_shader_instance_container(std::byte* storage, impl::program_info* shader_info, const boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations>& uniforms)
-    : shader{shader_info->shader->create_vertex_shader_instance(storage, uniforms)}
+    vertex_shader_instance_container(
+      std::byte* storage,
+      impl::program_info* shader_info,
+      const boost::container::static_vector<
+        swr::uniform,
+        geom::limits::max::uniform_locations>&
+        uniforms)
+    : shader{
+        shader_info->shader->create_vertex_shader_instance(
+          storage,
+          uniforms)}
     , varying_count{shader_info->varying_count}
     {
     }
@@ -188,7 +200,10 @@ public:
     utils::slot_map<vertex_attribute_buffer> vertex_attribute_buffers;
 
     /** currently active vertex attribute buffers. stores indices into vertex_attribute_buffers. */
-    boost::container::static_vector<int, geom::limits::max::attributes> active_vabs;
+    boost::container::static_vector<
+      int,
+      geom::limits::max::attributes>
+      active_vabs;
 
     /*
      * shaders.
@@ -272,7 +287,9 @@ public:
      * @param index_buffer The index buffer to use.
      * @returns Returns a pointer to the render object on success and `nullptr` on failure.
      */
-    render_object* create_render_object(vertex_buffer_mode mode, std::size_t count);
+    render_object* create_render_object(
+      vertex_buffer_mode mode,
+      std::size_t count);
 
     /**
      * Create render object from (indexed) vertex buffer.
@@ -283,7 +300,10 @@ public:
      * @param index_buffer The index buffer to use.
      * @returns Returns a pointer to the render object on success and `nullptr` on failure.
      */
-    render_object* create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer);
+    render_object* create_indexed_render_object(
+      vertex_buffer_mode mode,
+      std::size_t count,
+      const std::vector<std::uint32_t>& index_buffer);
 
     /*
      * buffer management.
@@ -305,7 +325,10 @@ public:
      *
      * Reference: https://www.khronos.org/opengl/wiki/Primitive_Assembly
      */
-    void assemble_primitives(const render_states* states, vertex_buffer_mode mode, vertex_buffer& vb);
+    void assemble_primitives(
+      const render_states* states,
+      vertex_buffer_mode mode,
+      vertex_buffer& vb);
 
     /*
      * render_device_context interface.
@@ -382,7 +405,11 @@ public:
      */
 
     /** initialize the context with the supplied SDL data and create the buffers. */
-    void initialize(SDL_Window* window, SDL_Renderer* renderer, int width, int height);
+    void initialize(
+      SDL_Window* window,
+      SDL_Renderer* renderer,
+      int width,
+      int height);
 
     /** (re-)create depth- and color buffers using the given width and height. */
     void update_buffers(int width, int height);

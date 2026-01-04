@@ -37,23 +37,11 @@ struct vertex
      */
     ml::vec4 coords;
 
-    /** vertex attributes. */
-    boost::container::static_vector<ml::vec4, limits::max::attributes> attribs;
-
     /** varyings. these are the vertex shader outputs. */
     boost::container::static_vector<ml::vec4, limits::max::varyings> varyings;
 
     /** vertex flags. */
     std::uint32_t flags{vf_none};
-
-    /* default constructor. */
-    vertex() = default;
-
-    /** constructor initializing the vertex coordinates. */
-    vertex(ml::vec4 in_coords)
-    : coords(in_coords)
-    {
-    }
 };
 
 /**
@@ -63,26 +51,26 @@ struct vertex
  * Interpolated data:
  *  *) clip coordinates
  *  *) varyings
+ *
+ * @param t Interpolation parameter.
+ * @param v1 First vertex for interpolation.
+ * @param v2 Second vertex for interpolation.
+ * @returns Returns a vertex with interpolated coordinates and varyings.
  */
-inline const vertex lerp(float t, const vertex& v1, const vertex& v2)
+inline vertex lerp(
+  float t,
+  const vertex& v1,
+  const vertex& v2)
 {
-    vertex r;
-
-    // interpolate coordinates.
-    r.coords = ml::lerp(t, v1.coords, v2.coords);
+    vertex r{
+      .coords = ml::lerp(t, v1.coords, v2.coords),
+      .flags = vf_interpolated};
 
     // interpolate varyings
-    const auto varying_count = v1.varyings.size();
-    r.varyings.reserve(varying_count);
-    for(std::size_t i = 0; i < varying_count; ++i)
+    for(std::size_t i = 0; i < v1.varyings.size(); ++i)
     {
-        // Depending on the interpolation type, Value stores either a the value of the attribute
-        // itself or a weighted value, so that the equation does the correct interpolation.
         r.varyings.emplace_back(ml::lerp(t, v1.varyings[i], v2.varyings[i]));
     }
-
-    // mark interpolated vertex.
-    r.flags |= vf_interpolated;
 
     return r;
 }

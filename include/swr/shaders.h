@@ -138,13 +138,13 @@ struct varying
 };
 
 /** convenience function to return x-derivative of a varying. */
-inline const ml::vec4 dFdx(const varying& v)
+inline ml::vec4 dFdx(const varying& v)
 {
     return v.dFdx;
 }
 
 /** convenience function to return y-derivative of a varying. */
-inline const ml::vec4 dFdy(const varying& v)
+inline ml::vec4 dFdy(const varying& v)
 {
     return v.dFdy;
 }
