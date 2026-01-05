@@ -94,17 +94,25 @@ struct pixel_format_descriptor
 };
 
 /** convert between colors and pixels. */
-class pixel_format_converter
+struct pixel_format_converter
 {
-public:
     /** pixel format. */
     pixel_format_descriptor pf;
 
     /** the maximum representable color per channel, e.g., for rgba8888 it is {255,255,255,255}. */
     ml::vec4 max_per_channel;
 
-    /** color masks. */
-    std::uint32_t red_mask{0}, green_mask{0}, blue_mask{0}, alpha_mask{0};
+    /** red color mask. */
+    std::uint32_t red_mask{0};
+
+    /** green color mask. */
+    std::uint32_t green_mask{0};
+
+    /** blue color mask. */
+    std::uint32_t blue_mask{0};
+
+    /** alpha mask. */
+    std::uint32_t alpha_mask{0};
 
     /** named pixel formats. */
     pixel_format name{pixel_format::unsupported};
@@ -113,14 +121,22 @@ public:
     void update()
     {
         // calculate the maximal representable color per channel.
-        int max_rgba[4] = {(1 << pf.red_bits) - 1, (1 << pf.green_bits) - 1, (1 << pf.blue_bits) - 1, (1 << pf.alpha_bits) - 1};
-        max_per_channel = {static_cast<float>(max_rgba[0]), static_cast<float>(max_rgba[1]), static_cast<float>(max_rgba[2]), static_cast<float>(max_rgba[3])};
+        std::uint32_t max_rgba[4] = {
+          static_cast<std::uint32_t>((1 << pf.red_bits) - 1),
+          static_cast<std::uint32_t>((1 << pf.green_bits) - 1),
+          static_cast<std::uint32_t>((1 << pf.blue_bits) - 1),
+          static_cast<std::uint32_t>((1 << pf.alpha_bits) - 1)};
+        max_per_channel = {
+          static_cast<float>(max_rgba[0]),
+          static_cast<float>(max_rgba[1]),
+          static_cast<float>(max_rgba[2]),
+          static_cast<float>(max_rgba[3])};
 
         // set color masks.
-        red_mask = static_cast<std::uint32_t>(max_rgba[0] << pf.red_shift);
-        green_mask = static_cast<std::uint32_t>(max_rgba[1] << pf.green_shift);
-        blue_mask = static_cast<std::uint32_t>(max_rgba[2] << pf.blue_shift);
-        alpha_mask = static_cast<std::uint32_t>(max_rgba[3] << pf.alpha_shift);
+        red_mask = max_rgba[0] << pf.red_shift;
+        green_mask = max_rgba[1] << pf.green_shift;
+        blue_mask = max_rgba[2] << pf.blue_shift;
+        alpha_mask = max_rgba[3] << pf.alpha_shift;
 
         // get pixel format name.
         name = pf.name;
@@ -128,6 +144,12 @@ public:
 
     /** default constructor. */
     pixel_format_converter() = default;
+    pixel_format_converter(const pixel_format_converter&) = default;
+    pixel_format_converter(pixel_format_converter&&) = default;
+
+    /** assignments. */
+    pixel_format_converter& operator=(const pixel_format_converter&) = default;
+    pixel_format_converter& operator=(pixel_format_converter&&) = default;
 
     /** constructor. */
     pixel_format_converter(const pixel_format_descriptor& in_pf)
@@ -150,7 +172,7 @@ public:
     }
 
     /** convert to pixel format. */
-    std::uint32_t to_pixel(const ml::vec4 color) const
+    std::uint32_t to_pixel(ml::vec4 color) const
     {
         const ml::vec4 scaled_color{color * max_per_channel};
         std::uint8_t r{static_cast<std::uint8_t>(scaled_color.r)};
@@ -161,13 +183,18 @@ public:
     }
 
     /** convert to color. */
-    const ml::vec4 to_color(std::uint32_t pixel) const
+    ml::vec4 to_color(std::uint32_t pixel) const
     {
         std::uint32_t r{(pixel & red_mask) >> pf.red_shift};
         std::uint32_t g{(pixel & green_mask) >> pf.green_shift};
         std::uint32_t b{(pixel & blue_mask) >> pf.blue_shift};
         std::uint32_t a{(pixel & alpha_mask) >> pf.alpha_shift};
-        return ml::vec4{static_cast<float>(r), static_cast<float>(g), static_cast<float>(b), static_cast<float>(a)} / max_per_channel;
+        return ml::vec4{
+                 static_cast<float>(r),
+                 static_cast<float>(g),
+                 static_cast<float>(b),
+                 static_cast<float>(a)}
+               / max_per_channel;
     }
 };
 

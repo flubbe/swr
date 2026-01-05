@@ -44,7 +44,7 @@ struct rasterizer
     }
 
     /** Return a short description of the rasterizer. */
-    virtual const std::string describe() const = 0;
+    virtual std::string describe() const = 0;
 
     /**
      * Add a point which is to be rasterized. The supplied vertices are assumed to

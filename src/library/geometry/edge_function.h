@@ -64,7 +64,7 @@ struct edge_function
     }
 
     /** return the change rate for unit steps in x- and y-direction. this is the same as returning the line's normal. */
-    const ml::vec2 get_change_rate() const
+    ml::vec2 get_change_rate() const
     {
         return {v_diff.y, -v_diff.x};
     }
@@ -89,19 +89,19 @@ struct edge_function_fixed
     }
 
     /** Evaluate the edge function on a point. The return value has double the precision of the points to account for the multiplication involved. */
-    const ml::fixed_24_8_t evaluate(const ml::vec2_fixed<4>& p) const
+    ml::fixed_24_8_t evaluate(const ml::vec2_fixed<4>& p) const
     {
         return p.area(v_diff) - c;
     }
 
     /** return the change rate if we step one unit in x direction. */
-    const ml::fixed_24_8_t get_change_x() const
+    ml::fixed_24_8_t get_change_x() const
     {
         return v_diff.y;
     }
 
     /** return the change rate if we step one unit in x direction. */
-    const ml::fixed_24_8_t get_change_y() const
+    ml::fixed_24_8_t get_change_y() const
     {
         return -v_diff.x;
     }

@@ -251,9 +251,9 @@ public:
      * rasterizer interface.
      */
 
-    const std::string describe() const override
+    std::string describe() const override
     {
-        return std::string("Sweep Rasterizer");
+        return "Sweep Rasterizer";
     }
     void add_point(const swr::impl::render_states* states, geom::vertex* v) override;
     void add_line(const swr::impl::render_states* states, geom::vertex* v1, geom::vertex* v2) override;

@@ -164,21 +164,21 @@ public:
     /** check if the global instance already exists. */
     static bool has_instance()
     {
-        const std::scoped_lock lock{global_app_mtx};
+        std::scoped_lock lock{global_app_mtx};
         return global_app != nullptr;
     }
 
     /** thread-safe singleton setter. */
     static void set_instance(application* new_app)
     {
-        const std::scoped_lock lock{global_app_mtx};
+        std::scoped_lock lock{global_app_mtx};
         global_app = new_app;
     }
 
     /** singleton getter. */
     static application& get_instance()
     {
-        const std::scoped_lock lock{global_app_mtx};
+        std::scoped_lock lock{global_app_mtx};
 
         if(!global_app)
         {
@@ -191,7 +191,7 @@ public:
     /** quit application. */
     static void quit()
     {
-        const std::scoped_lock lock{global_app_mtx};
+        std::scoped_lock lock{global_app_mtx};
         if(global_app)
         {
             global_app->quit_program = true;
@@ -258,7 +258,7 @@ public:
 
     /** return the value of a parameter-value pair of the form 'name=value'. if there are multiply instances of 'name=', returns the last value. */
     template<typename T>
-    const T get_argument(const std::string& name, const T& default_value) const
+    T get_argument(const std::string& name, const T& default_value) const
     {
         std::string opt = std::format("{}=", name);
         std::vector<std::string>::const_reverse_iterator it = std::find_if(cmd_args.rbegin(), cmd_args.rend(),
