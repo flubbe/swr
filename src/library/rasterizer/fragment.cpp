@@ -18,6 +18,9 @@
 namespace rast
 {
 
+/** pixel center. */
+const ml::vec2 pixel_center{0.5f, 0.5f};
+
 /*
  * statically verify assumptions.
  */
@@ -37,7 +40,14 @@ static_assert(swr::fragment_shader_result::accept == 1, "swr::fragment_shader_re
  *  2) Call the fragment shader.
  *  3) Depth test (note that this cannot be done earlier, since the fragment shader may modify the depth value).
  */
-void sweep_rasterizer::process_fragment(int x, int y, const swr::impl::render_states& states, const swr::program_base* in_shader, float one_over_viewport_z, fragment_info& frag_info, swr::impl::fragment_output& out)
+void sweep_rasterizer::process_fragment(
+  int x,
+  int y,
+  const swr::impl::render_states& states,
+  const swr::program_base* in_shader,
+  float one_over_viewport_z,
+  fragment_info& frag_info,
+  swr::impl::fragment_output& out)
 {
     /*
      * Scissor test.

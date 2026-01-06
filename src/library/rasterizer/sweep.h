@@ -14,6 +14,8 @@
 namespace rast
 {
 
+using namespace std::literals;
+
 /**
  * Bias for application to fill rules. This is edge to the line equations if the corresponding
  * edge is a left or top one. Since this is done before any normalization took place, the fill
@@ -31,7 +33,7 @@ class sweep_rasterizer : public rasterizer
     /** a geometric primitive understood by sweep_rasterizer */
     struct primitive
     {
-        enum primitive_type
+        enum class primitive_type
         {
             point,   /** point primitive, consisting of one vertex */
             line,    /** line primitive, consisting of two vertices */
@@ -58,32 +60,45 @@ class sweep_rasterizer : public rasterizer
         primitive() = default;
 
         /** point constructor. */
-        primitive(const swr::impl::render_states* in_states, geom::vertex* vertex)
-        : type(point)
-        , is_front_facing(true)
+        primitive(
+          const swr::impl::render_states* in_states,
+          geom::vertex* vertex)
+        : type{primitive_type::point}
+        , is_front_facing{true}
         , v{vertex, nullptr, nullptr}
-        , states(in_states)
+        , states{in_states}
         {
         }
 
         /** line constructor. */
-        primitive(const swr::impl::render_states* in_states, geom::vertex* v1, geom::vertex* v2)
-        : type(line)
-        , is_front_facing(true)
+        primitive(
+          const swr::impl::render_states* in_states,
+          geom::vertex* v1,
+          geom::vertex* v2)
+        : type{primitive_type::line}
+        , is_front_facing{true}
         , v{v1, v2, nullptr}
-        , states(in_states)
+        , states{in_states}
         {
         }
 
         /** triangle constructor. */
-        primitive(const swr::impl::render_states* in_states, bool in_is_front_facing, geom::vertex* v1, geom::vertex* v2, geom::vertex* v3)
-        : type(triangle)
-        , is_front_facing(in_is_front_facing)
+        primitive(
+          const swr::impl::render_states* in_states,
+          bool in_is_front_facing,
+          geom::vertex* v1,
+          geom::vertex* v2,
+          geom::vertex* v3)
+        : type{primitive_type::triangle}
+        , is_front_facing{in_is_front_facing}
         , v{v1, v2, v3}
-        , states(in_states)
+        , states{in_states}
         {
         }
     };
+
+    /** pointer to the default framebuffer. */
+    swr::impl::default_framebuffer* framebuffer;
 
     /** list containing all primitives which are to be rasterized. */
     std::vector<primitive> draw_list;
@@ -99,11 +114,14 @@ class sweep_rasterizer : public rasterizer
     void process_tile_cache()
     {
         // for each non-empty tile, add a job to the thread pool.
-        for(std::size_t i = 0; i < tiles.entries.size(); ++i)
+        for(auto& entry: tiles.entries)
         {
-            if(tiles.entries[i].primitives.size())
+            if(entry.primitives.size())
             {
-                thread_pool->push_task(process_tile_static, this, &tiles.entries[i]);
+                thread_pool->push_task(
+                  process_tile_static,
+                  this,
+                  &entry);
             }
         }
 
@@ -115,11 +133,11 @@ class sweep_rasterizer : public rasterizer
     void process_tile_cache()
     {
         // for each non-empty tile, add a job to the thread pool.
-        for(std::size_t i = 0; i < tiles.entries.size(); ++i)
+        for(auto& entry: tiles.entries)
         {
-            if(tiles.entries[i].primitives.size())
+            if(entry.primitives.size())
             {
-                process_tile(tiles.entries[i]);
+                process_tile(entry);
             }
         }
 
@@ -179,20 +197,28 @@ class sweep_rasterizer : public rasterizer
     /**
      * Rasterize a complete block of dimension (rasterizer_block_size, rasterizer_block_size), i.e. do not perform additional edge checks.
      */
-    void process_block(unsigned int in_x, unsigned int in_y, tile_info& in_data);
+    void process_block(
+      unsigned int in_x,
+      unsigned int in_y,
+      tile_info& in_data);
 
     /**
      * Rasterize block of dimension (rasterizer_block_size, rasterizer_block_size) and check for each fragment, if it is inside the triangle
      * described by the vertex attributes.
      */
-    void process_block_checked(unsigned int in_x, unsigned int in_y, tile_info& in_data);
+    void process_block_checked(
+      unsigned int in_x,
+      unsigned int in_y,
+      tile_info& in_data);
 
     /** process a tile. */
     void process_tile(tile& in_tile);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** calls rasterizer->process_tile. */
-    static void process_tile_static(sweep_rasterizer* rasterizer, tile* in_tile);
+    static void process_tile_static(
+      sweep_rasterizer* rasterizer,
+      tile* in_tile);
 #endif
 
     /*
@@ -205,19 +231,30 @@ class sweep_rasterizer : public rasterizer
      *
      * NOTE Depending on the render states, the vertices may be modified.
      *
-     * \param states Active render states for this triangle.
-     * \param is_front_facing Whether this triangle is front facing. Passed to the fragment shader.
-     * \param v1 First triangle vertex.
-     * \param v2 Second triangle vertex.
-     * \param v3 Third triangle vertex.
+     * @param states Active render states for this triangle.
+     * @param is_front_facing Whether this triangle is front facing. Passed to the fragment shader.
+     * @param v1 First triangle vertex.
+     * @param v2 Second triangle vertex.
+     * @param v3 Third triangle vertex.
      */
-    void draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, geom::vertex& v1, geom::vertex& v2, geom::vertex& v3);
+    void draw_filled_triangle(
+      const swr::impl::render_states& states,
+      bool is_front_facing,
+      geom::vertex& v1,
+      geom::vertex& v2,
+      geom::vertex& v3);
 
     /** draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false. */
-    void draw_line(const swr::impl::render_states& states, bool draw_end_point, const geom::vertex& v1, const geom::vertex& v2);
+    void draw_line(
+      const swr::impl::render_states& states,
+      bool draw_end_point,
+      const geom::vertex& v1,
+      const geom::vertex& v2);
 
     /** draw a point. */
-    void draw_point(const swr::impl::render_states& states, const geom::vertex& v);
+    void draw_point(
+      const swr::impl::render_states& states,
+      const geom::vertex& v);
 
     /** draw the primitives in the list sequentially. */
     void draw_primitives_sequentially();
@@ -229,8 +266,10 @@ class sweep_rasterizer : public rasterizer
 
 public:
     /** Constructor. */
-    sweep_rasterizer([[maybe_unused]] swr::impl::render_device_context::thread_pool_type* in_thread_pool, swr::impl::default_framebuffer* in_framebuffer)
-    : rasterizer{in_framebuffer}
+    sweep_rasterizer(
+      [[maybe_unused]] swr::impl::render_device_context::thread_pool_type* in_thread_pool,
+      swr::impl::default_framebuffer* in_framebuffer)
+    : framebuffer{in_framebuffer}
 #ifdef SWR_ENABLE_MULTI_THREADING
     , thread_pool{in_thread_pool}
 #endif
@@ -251,13 +290,25 @@ public:
      * rasterizer interface.
      */
 
-    std::string describe() const override
+    [[nodiscard]]
+    std::string_view describe() const override
     {
-        return "Sweep Rasterizer";
+        return "Sweep Rasterizer"sv;
     }
-    void add_point(const swr::impl::render_states* states, geom::vertex* v) override;
-    void add_line(const swr::impl::render_states* states, geom::vertex* v1, geom::vertex* v2) override;
-    void add_triangle(const swr::impl::render_states* states, bool is_front_facing, geom::vertex* v1, geom::vertex* v2, geom::vertex* v3) override;
+
+    void add_point(
+      const swr::impl::render_states* states,
+      geom::vertex* v) override;
+    void add_line(
+      const swr::impl::render_states* states,
+      geom::vertex* v1,
+      geom::vertex* v2) override;
+    void add_triangle(
+      const swr::impl::render_states* states,
+      bool is_front_facing,
+      geom::vertex* v1,
+      geom::vertex* v2,
+      geom::vertex* v3) override;
     void draw_primitives() override;
 };
 

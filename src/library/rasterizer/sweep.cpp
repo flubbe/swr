@@ -58,15 +58,15 @@ void sweep_rasterizer::draw_primitives_sequentially()
     for(auto& it: draw_list)
     {
         // draw the primitive.
-        if(it.type == primitive::point)
+        if(it.type == primitive::primitive_type::point)
         {
             draw_point(*it.states, *it.v[0]);
         }
-        else if(it.type == primitive::line)
+        else if(it.type == primitive::primitive_type::line)
         {
             draw_line(*it.states, true, *it.v[0], *it.v[1]);
         }
-        else if(it.type == primitive::triangle)
+        else if(it.type == primitive::primitive_type::triangle)
         {
             draw_filled_triangle(*it.states, it.is_front_facing, *it.v[0], *it.v[1], *it.v[2]);
         }
@@ -88,24 +88,24 @@ void sweep_rasterizer::draw_primitives_parallel()
     std::size_t triangles_in_tile_cache = 0;
     for(auto& it: draw_list)
     {
-        if(it.type != primitive::triangle
+        // if needed, process triangles to keep draw order.
+        if(it.type != primitive::primitive_type::triangle
            && triangles_in_tile_cache > 0)
         {
-            // process triangles.
             process_tile_cache();
             triangles_in_tile_cache = 0;
         }
 
         // draw the primitive.
-        if(it.type == primitive::point)
+        if(it.type == primitive::primitive_type::point)
         {
             draw_point(*it.states, *it.v[0]);
         }
-        else if(it.type == primitive::line)
+        else if(it.type == primitive::primitive_type::line)
         {
             draw_line(*it.states, true, *it.v[0], *it.v[1]);
         }
-        else if(it.type == primitive::triangle)
+        else if(it.type == primitive::primitive_type::triangle)
         {
             draw_filled_triangle(*it.states, it.is_front_facing, *it.v[0], *it.v[1], *it.v[2]);
             ++triangles_in_tile_cache;
