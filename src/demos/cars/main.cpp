@@ -44,11 +44,36 @@
 /* JSON loading. */
 #include "simdjson.h"
 
+/* obj loading */
+#if defined(__clang__) || defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wnull-dereference"
+#    pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_USE_MAPBOX_EARCUT
 #include "tiny_obj_loader.h"
 
+#if defined(__clang__) || defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#endif
+
+/* image loading */
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdouble-promotion"
+#    pragma clang diagnostic ignored "-Weverything"
+#elif defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdouble-promotion"
+#endif
+
 #include "stb_image.h"
+
+#if defined(__clang__) || defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#endif
 
 /** demo title. */
 const auto demo_title = "car model";
@@ -1418,8 +1443,11 @@ public:
         str = std::format("Steering [L/R]: {:.2f}", steering_value);
         font_rend.draw_string(font::renderer::string_alignment::left | font::renderer::string_alignment::top, str);
 
+        constexpr auto wheel_radius = 0.33;    // in meters
+        constexpr auto f = static_cast<float>(2 * M_PI * wheel_radius * 3600 / 1000);
+
         font.get_string_dimensions(str, w, h);
-        str = std::format("Accel    [U/D]: {:.2f}", wheel_angular_speed);
+        str = std::format("Speed    [U/D]: {:.2f}", wheel_angular_speed * f);
         font_rend.draw_string(font::renderer::string_alignment::left, str, 0 /* ignored */, h);
 
         str = "Stop     [SPACE]";

@@ -13,7 +13,21 @@
 #include <optional>
 #include <string_view>
 
+/* image loading */
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdouble-promotion"
+#    pragma clang diagnostic ignored "-Weverything"
+#elif defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdouble-promotion"
+#endif
+
 #include "stb_image.h"
+
+#if defined(__clang__) || defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#endif
 
 #include "swr/swr.h"
 #include "common/utils.h"

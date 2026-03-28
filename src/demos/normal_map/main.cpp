@@ -251,7 +251,7 @@ public:
         {
             cube_rotation -= 2 * static_cast<float>(M_PI);
         }
-        light_position = ml::vec4{4 * cos(4 * cube_rotation), 4 * sin(4 * cube_rotation), -1};
+        light_position = ml::vec4{4 * std::cos(4 * cube_rotation), 4 * std::sin(4 * cube_rotation), -1};
 
         begin_render();
         draw_cube(ml::vec3{0, 0, -6}, cube_rotation);

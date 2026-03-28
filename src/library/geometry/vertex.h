@@ -4,7 +4,7 @@
  * vertex definition.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -64,6 +64,7 @@ inline vertex lerp(
 {
     vertex r{
       .coords = ml::lerp(t, v1.coords, v2.coords),
+      .varyings = {},
       .flags = vf_interpolated};
 
     // interpolate varyings
