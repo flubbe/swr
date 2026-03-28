@@ -39,20 +39,27 @@
 /* logging. */
 #include "common/platform/platform.h"
 
+/* obj loading. */
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_USE_MAPBOX_EARCUT
 #include "tiny_obj_loader.h"
 
-#ifdef __clang__
+/* image loading */
+#if defined(__clang__)
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Weverything"
+#    pragma clang diagnostic ignored "-Wdouble-promotion"
+#elif defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdouble-promotion"
 #endif
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#ifdef __clang__
+#if defined(__clang__)
 #    pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#    pragma GCC diagnostic pop
 #endif
 
 /** demo title. */

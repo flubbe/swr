@@ -44,11 +44,28 @@
 /* JSON loading. */
 #include "simdjson.h"
 
+/* obj loading */
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_USE_MAPBOX_EARCUT
 #include "tiny_obj_loader.h"
 
+/* image loading */
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Weverything"
+#    pragma clang diagnostic ignored "-Wdouble-promotion"
+#elif defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdouble-promotion"
+#endif
+
 #include "stb_image.h"
+
+#if defined(__clang__)
+#    pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#endif
 
 /** demo title. */
 const auto demo_title = "car model";

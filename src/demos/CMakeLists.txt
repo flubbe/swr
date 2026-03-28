@@ -90,6 +90,7 @@ target_link_libraries(demo_normal_map swrast swr_app ${EXTRA_LIBS})
 
 add_executable(demo_obj_viewer
 	${COMMON_SOURCES}
+    common/stb.cpp
 	obj_viewer/main.cpp
 )
 target_link_libraries(demo_obj_viewer swrast swr_app ${EXTRA_LIBS})
