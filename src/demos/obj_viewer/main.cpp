@@ -40,9 +40,18 @@
 #include "common/platform/platform.h"
 
 /* obj loading. */
+#if defined(__clang__) || defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_USE_MAPBOX_EARCUT
 #include "tiny_obj_loader.h"
+
+#if defined(__clang__) || defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#endif
 
 /* image loading */
 #if defined(__clang__)
@@ -56,9 +65,7 @@
 
 #include "stb_image.h"
 
-#if defined(__clang__)
-#    pragma clang diagnostic pop
-#elif defined(__GNUC__)
+#if defined(__clang__) || defined(__GNUC__)
 #    pragma GCC diagnostic pop
 #endif
 
