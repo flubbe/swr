@@ -57,17 +57,11 @@ struct line_info
     /** whether we need to exclude the originals end pixel. */
     bool exclude_original_end_pixel;
 
-    /** original start pixel x. */
-    int original_start_x;
+    /** original start pixel coordinate. */
+    ml::tvec2<int> original_start;
 
-    /** original start pixel y. */
-    int original_start_y;
-
-    /** original end pixel x. */
-    int original_end_x;
-
-    /** original end pixel y. */
-    int original_end_y;
+    /** original end pixel coordinate. */
+    ml::tvec2<int> original_end;
 
     /** no default constructor. */
     line_info() = delete;
@@ -88,37 +82,36 @@ struct line_info
 };
 
 /** check if a pixel in coordinates relative to the pixel center is inside the pixel diamond. */
-bool inside_diamond(float x, float y)
+bool inside_diamond(ml::vec2 v)
 {
-    return std::abs(x) + std::abs(y) < 0.5f - inside_diamond_eps;
+    return std::abs(v.x) + std::abs(v.y) < 0.5f - inside_diamond_eps;
 }
 
 struct pixel_local_info
 {
-    /** integer pixel x coordinate. */
-    int x;
+    /** integer pixel coordinates. */
+    ml::tvec2<int> coord;
 
-    /** integer pixel x coordinate. */
-    int y;
-
-    /** x offset with respect to the pixel center. */
-    float offset_x;
-
-    /** y offset with respect to the pixel center. */
-    float offset_y;
+    /** offset with respect to the pixel center. */
+    ml::vec2 offset;
 };
+
+/** extract the fractional part of a positive float */
+static float fracf(float f)
+{
+    return f - std::floor(f);
+}
 
 /** return the integer pixel coordinates and the offsets relative to the pixel center. */
 inline pixel_local_info pixel_diamond_local(float x, float y)
 {
-    const float fx = std::floor(x);
-    const float fy = std::floor(y);
+    const int px = static_cast<int>(std::floor(x));
+    const int py = static_cast<int>(std::floor(y));
 
     return {
-      static_cast<int>(fx),
-      static_cast<int>(fy),
-      x - (fx + 0.5f),
-      y - (fy + 0.5f)};
+      {px, py},
+      {fracf(x) - 0.5f,
+       fracf(y) - 0.5f}};
 }
 
 /**
@@ -159,13 +152,11 @@ void line_info::setup()
     const auto start_local = pixel_diamond_local(v1->coords.x, v1->coords.y);
     const auto end_local = pixel_diamond_local(v2->coords.x, v2->coords.y);
 
-    original_start_x = start_local.x;
-    original_start_y = start_local.y;
-    original_end_x = end_local.x;
-    original_end_y = end_local.y;
+    original_start = start_local.coord;
+    original_end = end_local.coord;
 
-    include_original_start_pixel = inside_diamond(start_local.offset_x, start_local.offset_y);
-    exclude_original_end_pixel = inside_diamond(end_local.offset_x, end_local.offset_y);
+    include_original_start_pixel = inside_diamond(start_local.offset);
+    exclude_original_end_pixel = inside_diamond(end_local.offset);
 
     // normalize walking direction.
     swapped = false;
@@ -230,8 +221,8 @@ void sweep_rasterizer::draw_line(
 
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings;
 
-    std::optional<std::pair<int, int>> deferred_walk_start_pixel;
-    std::optional<std::pair<int, int>> deferred_walk_end_pixel;
+    std::optional<ml::tvec2<int>> deferred_walk_start_pixel;
+    std::optional<ml::tvec2<int>> deferred_walk_end_pixel;
     std::optional<int> reserved_walk_start_major;
     std::optional<int> reserved_walk_end_major;
 
@@ -239,13 +230,13 @@ void sweep_rasterizer::draw_line(
     {
         if(info.include_original_start_pixel)
         {
-            deferred_walk_start_pixel = std::make_pair(info.original_start_x, info.original_start_y);
-            reserved_walk_start_major = info.is_x_major ? info.original_start_x : info.original_start_y;
+            deferred_walk_start_pixel = info.original_start;
+            reserved_walk_start_major = info.is_x_major ? info.original_start.x : info.original_start.y;
         }
 
         if(info.exclude_original_end_pixel)
         {
-            reserved_walk_end_major = info.is_x_major ? info.original_end_x : info.original_end_y;
+            reserved_walk_end_major = info.is_x_major ? info.original_end.x : info.original_end.y;
         }
     }
     else
@@ -253,14 +244,14 @@ void sweep_rasterizer::draw_line(
         // original start maps to walk end.
         if(info.include_original_start_pixel)
         {
-            deferred_walk_end_pixel = std::make_pair(info.original_start_x, info.original_start_y);
-            reserved_walk_end_major = info.is_x_major ? info.original_start_x : info.original_start_y;
+            deferred_walk_end_pixel = info.original_start;
+            reserved_walk_end_major = info.is_x_major ? info.original_start.x : info.original_start.y;
         }
 
         // original end maps to walk start.
         if(info.exclude_original_end_pixel)
         {
-            reserved_walk_start_major = info.is_x_major ? info.original_end_x : info.original_end_y;
+            reserved_walk_start_major = info.is_x_major ? info.original_end.x : info.original_end.y;
         }
     }
 
@@ -299,7 +290,7 @@ void sweep_rasterizer::draw_line(
           states.blend_dst);
     };
 
-    std::optional<std::pair<int, int>> last_walk_pixel;
+    std::optional<ml::tvec2<int>> last_emitted_pixel;
 
     if(info.is_x_major)
     {
@@ -316,8 +307,8 @@ void sweep_rasterizer::draw_line(
 
         if(deferred_walk_start_pixel.has_value())
         {
-            emit_pixel(deferred_walk_start_pixel->first, deferred_walk_start_pixel->second);
-            last_walk_pixel = deferred_walk_start_pixel.value();
+            emit_pixel(deferred_walk_start_pixel->x, deferred_walk_start_pixel->y);
+            last_emitted_pixel = deferred_walk_start_pixel.value();
         }
 
         if(reserved_walk_start_major.has_value())
@@ -340,7 +331,7 @@ void sweep_rasterizer::draw_line(
             while(true)
             {
                 emit_pixel(p, v_pix);
-                last_walk_pixel = std::make_pair(p, v_pix);
+                last_emitted_pixel = ml::tvec2<int>(p, v_pix);
 
                 if(p == p_end)
                 {
@@ -379,8 +370,8 @@ void sweep_rasterizer::draw_line(
 
         if(deferred_walk_start_pixel.has_value())
         {
-            emit_pixel(deferred_walk_start_pixel->first, deferred_walk_start_pixel->second);
-            last_walk_pixel = deferred_walk_start_pixel.value();
+            emit_pixel(deferred_walk_start_pixel->x, deferred_walk_start_pixel->y);
+            last_emitted_pixel = deferred_walk_start_pixel.value();
         }
 
         if(reserved_walk_start_major.has_value())
@@ -403,7 +394,7 @@ void sweep_rasterizer::draw_line(
             while(true)
             {
                 emit_pixel(v_pix, p);
-                last_walk_pixel = std::make_pair(v_pix, p);
+                last_emitted_pixel = ml::tvec2<int>(v_pix, p);
 
                 if(p == p_end)
                 {
@@ -430,10 +421,11 @@ void sweep_rasterizer::draw_line(
     }
 
     if(deferred_walk_end_pixel.has_value()
-       && (!last_walk_pixel.has_value()
-           || last_walk_pixel.value() != deferred_walk_end_pixel.value()))
+       && (!last_emitted_pixel.has_value()
+           || last_emitted_pixel.value().x != deferred_walk_end_pixel.value().x
+           || last_emitted_pixel.value().y != deferred_walk_end_pixel.value().y))
     {
-        emit_pixel(deferred_walk_end_pixel->first, deferred_walk_end_pixel->second);
+        emit_pixel(deferred_walk_end_pixel->x, deferred_walk_end_pixel->y);
     }
 }
 
