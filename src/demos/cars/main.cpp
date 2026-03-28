@@ -1418,8 +1418,11 @@ public:
         str = std::format("Steering [L/R]: {:.2f}", steering_value);
         font_rend.draw_string(font::renderer::string_alignment::left | font::renderer::string_alignment::top, str);
 
+        constexpr auto wheel_radius = 0.33;    // in meters
+        constexpr auto f = static_cast<float>(2 * M_PI * wheel_radius * 3600 / 1000);
+
         font.get_string_dimensions(str, w, h);
-        str = std::format("Accel    [U/D]: {:.2f}", wheel_angular_speed);
+        str = std::format("Speed    [U/D]: {:.2f}", wheel_angular_speed * f);
         font_rend.draw_string(font::renderer::string_alignment::left, str, 0 /* ignored */, h);
 
         str = "Stop     [SPACE]";
