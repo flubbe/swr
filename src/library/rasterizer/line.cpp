@@ -322,7 +322,8 @@ void sweep_rasterizer::draw_line(
 
         if(p_start <= p_end)
         {
-            float v_real = v0 + ((static_cast<float>(p_start) + 0.5f) - p0) * dv / dp;
+            const float p_center = static_cast<float>(p_start) + 0.5f;
+            const float v_real = v0 + (p_center - p0) * (dv / dp);
             int v_pix = choose_minor_pixel(v_real, true);
             float error = 2.0f * dp * (v_real - (static_cast<float>(v_pix) + 0.5f));
 
@@ -385,7 +386,8 @@ void sweep_rasterizer::draw_line(
 
         if(p_start <= p_end)
         {
-            float v_real = v0 + ((static_cast<float>(p_start) + 0.5f) - p0) * dv / dp;
+            const float p_center = static_cast<float>(p_start) + 0.5f;
+            const float v_real = v0 + (p_center - p0) * (dv / dp);
             int v_pix = choose_minor_pixel(v_real, false);
             float error = 2.0f * dp * (v_real - (static_cast<float>(v_pix) + 0.5f));
 
