@@ -87,6 +87,7 @@ bool inside_diamond(ml::vec2 v)
     return std::abs(v.x) + std::abs(v.y) < 0.5f - inside_diamond_eps;
 }
 
+/** local pixel information: integer pixel coordinates and offset to pixel center. */
 struct pixel_local_info
 {
     /** integer pixel coordinates. */
