@@ -42,6 +42,7 @@
 /* obj loading. */
 #if defined(__clang__) || defined(__GNUC__)
 #    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wnull-dereference"
 #    pragma GCC diagnostic ignored "-Wunused-function"
 #endif
 
@@ -56,8 +57,8 @@
 /* image loading */
 #if defined(__clang__)
 #    pragma clang diagnostic push
-#    pragma clang diagnostic ignored "-Weverything"
 #    pragma clang diagnostic ignored "-Wdouble-promotion"
+#    pragma clang diagnostic ignored "-Weverything"
 #elif defined(__GNUC__)
 #    pragma GCC diagnostic push
 #    pragma GCC diagnostic ignored "-Wdouble-promotion"
