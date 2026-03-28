@@ -82,7 +82,7 @@ struct line_info
 };
 
 /** check if a pixel in coordinates relative to the pixel center is inside the pixel diamond. */
-bool inside_diamond(ml::vec2 v)
+static bool inside_diamond(ml::vec2 v)
 {
     return std::abs(v.x) + std::abs(v.y) < 0.5f - inside_diamond_eps;
 }
@@ -104,7 +104,7 @@ static float fracf(float f)
 }
 
 /** return the integer pixel coordinates and the offsets relative to the pixel center. */
-inline pixel_local_info pixel_diamond_local(float x, float y)
+static pixel_local_info pixel_diamond_local(float x, float y)
 {
     const int px = static_cast<int>(std::floor(x));
     const int py = static_cast<int>(std::floor(y));
@@ -120,7 +120,7 @@ inline pixel_local_info pixel_diamond_local(float x, float y)
  * x-major: choose top row
  * y-major: choose left column
  */
-inline int choose_minor_pixel(float v_real, bool x_major)
+static int choose_minor_pixel(float v_real, bool x_major)
 {
     const float base_f = std::floor(v_real);
     const int base = static_cast<int>(base_f);
@@ -201,10 +201,8 @@ void sweep_rasterizer::draw_line(
 
     info.setup();
 
-    const float start_x = info.v1->coords.x;
-    const float start_y = info.v1->coords.y;
-    const float end_x = info.v2->coords.x;
-    const float end_y = info.v2->coords.y;
+    const ml::vec2 start = info.v1->coords.xy();
+    const ml::vec2 end = info.v2->coords.xy();
 
     rast::line_interpolator attr(
       *info.v1,
@@ -295,10 +293,10 @@ void sweep_rasterizer::draw_line(
 
     if(info.is_x_major)
     {
-        const float p0 = start_x;
-        const float v0 = start_y;
-        const float p1 = end_x;
-        const float v1 = end_y;
+        const float p0 = start.x;
+        const float v0 = start.y;
+        const float p1 = end.x;
+        const float v1 = end.y;
 
         const float dp = p1 - p0;
         const float dv = v1 - v0;
@@ -358,10 +356,10 @@ void sweep_rasterizer::draw_line(
     }
     else
     {
-        const float p0 = start_y;
-        const float v0 = start_x;
-        const float p1 = end_y;
-        const float v1 = end_x;
+        const float p0 = start.y;
+        const float v0 = start.x;
+        const float p1 = end.y;
+        const float v1 = end.x;
 
         const float dp = p1 - p0;
         const float dv = v1 - v0;
