@@ -262,7 +262,7 @@ static triangle_info setup_triangle(
 
     auto area = (p1 - p0).area(p2 - p0);
 
-    if(area == 0)
+    if(ml::fixed_24_8_t(area) == 0)
     {
         info.is_degenerate = true;
         return info;
@@ -392,13 +392,6 @@ bounding_box compute_triangle_bounds(
   const triangle_info& info,
   bool y_needs_flip)
 {
-    auto v1x = ml::truncate_unchecked(info.v0->coords.x);
-    auto v1y = ml::truncate_unchecked(info.v0->coords.y);
-    auto v2x = ml::truncate_unchecked(info.v1->coords.x);
-    auto v2y = ml::truncate_unchecked(info.v1->coords.y);
-    auto v3x = ml::truncate_unchecked(info.v2->coords.x);
-    auto v3y = ml::truncate_unchecked(info.v2->coords.y);
-
     // take scissor box into account.
     int x_min = 0;
     int x_max = states.draw_target->properties.width;
@@ -421,11 +414,18 @@ bounding_box compute_triangle_bounds(
         }
     }
 
+    auto v0x = ml::truncate_unchecked(info.v0_xy.x);
+    auto v0y = ml::truncate_unchecked(info.v0_xy.y);
+    auto v1x = ml::truncate_unchecked(info.v1_xy.x);
+    auto v1y = ml::truncate_unchecked(info.v1_xy.y);
+    auto v2x = ml::truncate_unchecked(info.v2_xy.x);
+    auto v2y = ml::truncate_unchecked(info.v2_xy.y);
+
     return {
-      swr::impl::lower_align_on_block_size(std::max(std::min({v1x, v2x, v3x}), x_min)),
-      swr::impl::lower_align_on_block_size(std::max(std::min({v1y, v2y, v3y}), y_min)),
-      swr::impl::upper_align_on_block_size(std::min(std::max({v1x + 1, v2x + 1, v3x + 1}), x_max)),
-      swr::impl::upper_align_on_block_size(std::min(std::max({v1y + 1, v2y + 1, v3y + 1}), y_max))};
+      .start_x = swr::impl::lower_align_on_block_size(std::max(std::min({v0x, v1x, v2x}), x_min)),
+      .start_y = swr::impl::lower_align_on_block_size(std::max(std::min({v0y, v1y, v2y}), y_min)),
+      .end_x = swr::impl::upper_align_on_block_size(std::min(std::max({v0x + 1, v1x + 1, v2x + 1}), x_max)),
+      .end_y = swr::impl::upper_align_on_block_size(std::min(std::max({v0y + 1, v1y + 1, v2y + 1}), y_max))};
 }
 
 void sweep_rasterizer::draw_filled_triangle(
@@ -454,10 +454,11 @@ void sweep_rasterizer::draw_filled_triangle(
      * Loop through blocks of size (rasterizer_block_size,rasterizer_block_size), starting and ending on an aligned value.
      * Note that the default framebuffer has flipped y coordinates.
      */
+    const bool y_needs_flip = states.draw_target == framebuffer;
     const bounding_box bounds = compute_triangle_bounds(
       states,
       info,
-      states.draw_target == framebuffer);
+      y_needs_flip);
 
     // initialize lambdas for point-in-triangle detection.
     const auto start_coord = ml::vec2_fixed<4>{

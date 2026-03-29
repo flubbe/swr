@@ -337,12 +337,16 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
             depth_diff_v0v1 * normalized_diff_v0v2.y - depth_diff_v0v2 * normalized_diff_v0v1.y,
             -depth_diff_v0v1 * normalized_diff_v0v2.x + depth_diff_v0v2 * normalized_diff_v0v1.x,
           };
+
+        const float base_depth = v0_coords.z + polygon_offset;
         const float interpolated_depth =
-          v0_coords.z + depth_diff_v0v1 * lambda0 + depth_diff_v0v2 * lambda2;
+          v0_coords.z + depth_diff_v0v1 * lambda0 + depth_diff_v0v2 * lambda2 + polygon_offset;
+
         depth_value = geom::linear_interpolator_2d<float>{
-          std::clamp(v0_coords.z + polygon_offset, 0.0f, 1.0f),
+          base_depth,
           ml::to_tvec2<float>(depth_steps)};
-        depth_value.set_value(std::clamp(interpolated_depth + polygon_offset, 0.0f, 1.0f));
+
+        depth_value.set_value(interpolated_depth);
 
         // viewport z interpolation.
         float viewport_z_diff_v0v1 = v1_coords.w - v0_coords.w;
