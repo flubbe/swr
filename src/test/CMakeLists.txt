@@ -36,13 +36,3 @@ target_link_libraries(test_utils
    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
    )
 add_test(NAME utils COMMAND test_utils)
-
-
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    add_executable(test_utils library/utils.cpp)
-    target_link_libraries(test_utils
-        ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
-        )
-endif()
-    
-    
