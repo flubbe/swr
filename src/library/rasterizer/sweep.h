@@ -240,9 +240,9 @@ class sweep_rasterizer : public rasterizer
     void draw_filled_triangle(
       const swr::impl::render_states& states,
       bool is_front_facing,
-      geom::vertex& v1,
-      geom::vertex& v2,
-      geom::vertex& v3);
+      const geom::vertex& v1,
+      const geom::vertex& v2,
+      const geom::vertex& v3);
 
     /** draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false. */
     void draw_line(

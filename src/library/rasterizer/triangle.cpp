@@ -159,7 +159,12 @@ void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int 
  *
  * Ref: https://registry.khronos.org/OpenGL/specs/gl/glspec43.core.pdf, Section 14.6.5.
  */
-static void setup_polygon_offset(const swr::impl::render_states& states, geom::vertex& v1, geom::vertex& v2, geom::vertex& v3, float inv_area)
+static float setup_polygon_offset(
+  const swr::impl::render_states& states,
+  const geom::vertex& v1,
+  const geom::vertex& v2,
+  const geom::vertex& v3,
+  float inv_area)
 {
     ml::vec3 edges[2] = {
       (v2.coords - v1.coords).xyz(),
@@ -214,14 +219,15 @@ static void setup_polygon_offset(const swr::impl::render_states& states, geom::v
     // clamp to zero (this means no resolvable depth offset for very small numbers)
     r.i = std::max(r.i, 0);
 
-    float o = m * states.polygon_offset_factor + r.f * states.polygon_offset_units;    // Eq. (14.13)
-
-    v1.coords.z = std::clamp(v1.coords.z + o, 0.0f, 1.0f);
-    v2.coords.z = std::clamp(v2.coords.z + o, 0.0f, 1.0f);
-    v3.coords.z = std::clamp(v3.coords.z + o, 0.0f, 1.0f);
+    return m * states.polygon_offset_factor + r.f * states.polygon_offset_units;    // Eq. (14.13)
 }
 
-void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& states, bool is_front_facing, geom::vertex& v1, geom::vertex& v2, geom::vertex& v3)
+void sweep_rasterizer::draw_filled_triangle(
+  const swr::impl::render_states& states,
+  bool is_front_facing,
+  const geom::vertex& v1,
+  const geom::vertex& v2,
+  const geom::vertex& v3)
 {
     // calculate the (signed) parallelogram area spanned by the difference vectors.
     auto v1_xy = v1.coords.xy();
@@ -334,18 +340,10 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     /*
      * Per-triangle depth offset.
      */
+    float polygon_offset = 0.f;
     if(states.polygon_offset_fill_enabled)
     {
-        /*
-         * FIXME This potentially gets applied multiple times per vertex ?!
-         *
-         *       A solution would be make a copy of the (z-)coordinate(s) somewhere in the pipeline.
-         *
-         *       Check: The vertices are only passed through to the interpolator and then written,
-         *              which means the coordinates could be copied.
-         */
-
-        setup_polygon_offset(states, v1, v2, v3, inv_area);
+        polygon_offset = setup_polygon_offset(states, v1, v2, v3, inv_area);
     }
 
     /*
@@ -411,7 +409,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
       screen_coords,
       v1_cw->coords, v2_cw->coords, v3.coords,
       v1_cw->varyings, v2_cw->varyings, v3.varyings, v1.varyings,
-      states.shader_info->iqs, inv_area};
+      states.shader_info->iqs, inv_area, polygon_offset};
 
     for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
     {

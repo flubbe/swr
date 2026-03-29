@@ -304,6 +304,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
      * \param v_ref reference vertex for flat shading
      * \param iqs Interpolation qualifiers for the varyings.
      * \param one_over_area inverse area of the triangle
+     * \param polygon_offset polygon offset.
      */
     triangle_interpolator(
       const ml::vec2 screen_coords,
@@ -313,7 +314,8 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
       const boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& v2_varyings,
       const boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& vref_varyings,
       const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs,
-      float one_over_area)
+      float one_over_area,
+      float polygon_offset)
     : basic_interpolation_data{}
     {
         // the two triangle edge functions
@@ -335,10 +337,12 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
             depth_diff_v0v1 * normalized_diff_v0v2.y - depth_diff_v0v2 * normalized_diff_v0v1.y,
             -depth_diff_v0v1 * normalized_diff_v0v2.x + depth_diff_v0v2 * normalized_diff_v0v1.x,
           };
+        const float interpolated_depth =
+          v0_coords.z + depth_diff_v0v1 * lambda0 + depth_diff_v0v2 * lambda2;
         depth_value = geom::linear_interpolator_2d<float>{
-          v0_coords.z,
+          std::clamp(v0_coords.z + polygon_offset, 0.0f, 1.0f),
           ml::to_tvec2<float>(depth_steps)};
-        depth_value.set_value(v0_coords.z + depth_diff_v0v1 * lambda0 + depth_diff_v0v2 * lambda2);
+        depth_value.set_value(std::clamp(interpolated_depth + polygon_offset, 0.0f, 1.0f));
 
         // viewport z interpolation.
         float viewport_z_diff_v0v1 = v1_coords.w - v0_coords.w;
