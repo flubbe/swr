@@ -32,29 +32,32 @@ BOOST_AUTO_TEST_CASE(empty_input)
 {
     swr::impl::render_object obj;
 
+    swr::impl::program_info info;
+    obj.states.shader_info = &info;
+
     /*
      * test empty input for line clipping.
      */
     swr::impl::clip_line_buffer(obj, swr::impl::clip_output::point_list);
-    BOOST_TEST(obj.clipped_vertices.size() == 0);
+    BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), 0);
 
     swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
-    BOOST_TEST(obj.clipped_vertices.size() == 0);
+    BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), 0);
 
     swr::impl::clip_line_buffer(obj, swr::impl::clip_output::triangle_list);
-    BOOST_TEST(obj.clipped_vertices.size() == 0);
+    BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), 0);
 
     /*
      * test empty input for triangle clipping.
      */
     swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::point_list);
-    BOOST_TEST(obj.clipped_vertices.size() == 0);
+    BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), 0);
 
     swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::line_list);
-    BOOST_TEST(obj.clipped_vertices.size() == 0);
+    BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), 0);
 
     swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::triangle_list);
-    BOOST_TEST(obj.clipped_vertices.size() == 0);
+    BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), 0);
 }
 
 /* get bits of float type. note: in C++20, one should use std::bit_cast. */
@@ -111,16 +114,16 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     // clip lines.
     BOOST_REQUIRE((INDEX_COUNT & 1) == 0);
     swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
-    BOOST_TEST(obj.clipped_vertices.size() == COORD_COUNT);
+    BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), COORD_COUNT);
 
     BOOST_REQUIRE(obj.clipped_vertices.size() == COORD_COUNT);
     for(std::size_t i = 0; i < COORD_COUNT; ++i)
     {
         // compare bits.
-        BOOST_TEST(get_bits(coords[i].x) == get_bits(obj.clipped_vertices[i].coords.x));
-        BOOST_TEST(get_bits(coords[i].y) == get_bits(obj.clipped_vertices[i].coords.y));
-        BOOST_TEST(get_bits(coords[i].z) == get_bits(obj.clipped_vertices[i].coords.z));
-        BOOST_TEST(get_bits(coords[i].w) == get_bits(obj.clipped_vertices[i].coords.w));
+        BOOST_CHECK_EQUAL(get_bits(coords[i].x), get_bits(obj.clipped_vertices[i].coords.x));
+        BOOST_CHECK_EQUAL(get_bits(coords[i].y), get_bits(obj.clipped_vertices[i].coords.y));
+        BOOST_CHECK_EQUAL(get_bits(coords[i].z), get_bits(obj.clipped_vertices[i].coords.z));
+        BOOST_CHECK_EQUAL(get_bits(coords[i].w), get_bits(obj.clipped_vertices[i].coords.w));
     }
 
     /*
@@ -159,17 +162,17 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
 
         obj.clipped_vertices.clear();
         swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
-        BOOST_TEST(obj.clipped_vertices.size() == 2);
+        BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), 2);
 
-        BOOST_TEST(get_bits(points[0].x) == get_bits(obj.clipped_vertices[0].coords.x));
-        BOOST_TEST(get_bits(points[0].y) == get_bits(obj.clipped_vertices[0].coords.y));
-        BOOST_TEST(get_bits(points[0].z) == get_bits(obj.clipped_vertices[0].coords.z));
-        BOOST_TEST(get_bits(points[0].w) == get_bits(obj.clipped_vertices[0].coords.w));
+        BOOST_CHECK_EQUAL(get_bits(points[0].x), get_bits(obj.clipped_vertices[0].coords.x));
+        BOOST_CHECK_EQUAL(get_bits(points[0].y), get_bits(obj.clipped_vertices[0].coords.y));
+        BOOST_CHECK_EQUAL(get_bits(points[0].z), get_bits(obj.clipped_vertices[0].coords.z));
+        BOOST_CHECK_EQUAL(get_bits(points[0].w), get_bits(obj.clipped_vertices[0].coords.w));
 
-        BOOST_TEST(get_bits(points[1].x) == get_bits(obj.clipped_vertices[1].coords.x));
-        BOOST_TEST(get_bits(points[1].y) == get_bits(obj.clipped_vertices[1].coords.y));
-        BOOST_TEST(get_bits(points[1].z) == get_bits(obj.clipped_vertices[1].coords.z));
-        BOOST_TEST(get_bits(points[1].w) == get_bits(obj.clipped_vertices[1].coords.w));
+        BOOST_CHECK_EQUAL(get_bits(points[1].x), get_bits(obj.clipped_vertices[1].coords.x));
+        BOOST_CHECK_EQUAL(get_bits(points[1].y), get_bits(obj.clipped_vertices[1].coords.y));
+        BOOST_CHECK_EQUAL(get_bits(points[1].z), get_bits(obj.clipped_vertices[1].coords.z));
+        BOOST_CHECK_EQUAL(get_bits(points[1].w), get_bits(obj.clipped_vertices[1].coords.w));
     }
 }
 
@@ -267,15 +270,15 @@ BOOST_AUTO_TEST_CASE(line_clip)
             BOOST_REQUIRE(out1.size() == 2);
             BOOST_REQUIRE(out2.size() == 2);
 
-            BOOST_TEST(get_bits(out1[0].coords.x) == get_bits(out2[1].coords.x));
-            BOOST_TEST(get_bits(out1[0].coords.y) == get_bits(out2[1].coords.y));
-            BOOST_TEST(get_bits(out1[0].coords.z) == get_bits(out2[1].coords.z));
-            BOOST_TEST(get_bits(out1[0].coords.w) == get_bits(out2[1].coords.w));
+            BOOST_CHECK_EQUAL(get_bits(out1[0].coords.x), get_bits(out2[1].coords.x));
+            BOOST_CHECK_EQUAL(get_bits(out1[0].coords.y), get_bits(out2[1].coords.y));
+            BOOST_CHECK_EQUAL(get_bits(out1[0].coords.z), get_bits(out2[1].coords.z));
+            BOOST_CHECK_EQUAL(get_bits(out1[0].coords.w), get_bits(out2[1].coords.w));
 
-            BOOST_TEST(get_bits(out1[1].coords.x) == get_bits(out2[0].coords.x));
-            BOOST_TEST(get_bits(out1[1].coords.y) == get_bits(out2[0].coords.y));
-            BOOST_TEST(get_bits(out1[1].coords.z) == get_bits(out2[0].coords.z));
-            BOOST_TEST(get_bits(out1[1].coords.w) == get_bits(out2[0].coords.w));
+            BOOST_CHECK_EQUAL(get_bits(out1[1].coords.x), get_bits(out2[0].coords.x));
+            BOOST_CHECK_EQUAL(get_bits(out1[1].coords.y), get_bits(out2[0].coords.y));
+            BOOST_CHECK_EQUAL(get_bits(out1[1].coords.z), get_bits(out2[0].coords.z));
+            BOOST_CHECK_EQUAL(get_bits(out1[1].coords.w), get_bits(out2[0].coords.w));
 
             ++lines_in_frustum;
         }
@@ -291,15 +294,15 @@ BOOST_AUTO_TEST_CASE(line_clip)
                 // because of floating-point errors, the coordinates might
                 // still not satisfy in_frustum.
 
-                BOOST_TEST(get_bits(out1[0].coords.x) == get_bits(out2[1].coords.x));
-                BOOST_TEST(get_bits(out1[0].coords.y) == get_bits(out2[1].coords.y));
-                BOOST_TEST(get_bits(out1[0].coords.z) == get_bits(out2[1].coords.z));
-                BOOST_TEST(get_bits(out1[0].coords.w) == get_bits(out2[1].coords.w));
+                BOOST_CHECK_EQUAL(get_bits(out1[0].coords.x), get_bits(out2[1].coords.x));
+                BOOST_CHECK_EQUAL(get_bits(out1[0].coords.y), get_bits(out2[1].coords.y));
+                BOOST_CHECK_EQUAL(get_bits(out1[0].coords.z), get_bits(out2[1].coords.z));
+                BOOST_CHECK_EQUAL(get_bits(out1[0].coords.w), get_bits(out2[1].coords.w));
 
-                BOOST_TEST(get_bits(out1[1].coords.x) == get_bits(out2[0].coords.x));
-                BOOST_TEST(get_bits(out1[1].coords.y) == get_bits(out2[0].coords.y));
-                BOOST_TEST(get_bits(out1[1].coords.z) == get_bits(out2[0].coords.z));
-                BOOST_TEST(get_bits(out1[1].coords.w) == get_bits(out2[0].coords.w));
+                BOOST_CHECK_EQUAL(get_bits(out1[1].coords.x), get_bits(out2[0].coords.x));
+                BOOST_CHECK_EQUAL(get_bits(out1[1].coords.y), get_bits(out2[0].coords.y));
+                BOOST_CHECK_EQUAL(get_bits(out1[1].coords.z), get_bits(out2[0].coords.z));
+                BOOST_CHECK_EQUAL(get_bits(out1[1].coords.w), get_bits(out2[0].coords.w));
             }
         }
     }

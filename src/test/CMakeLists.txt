@@ -22,12 +22,21 @@ target_link_libraries(test_clipping
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
     )
+add_test(NAME clipping COMMAND test_clipping)
 
 add_executable(test_coverage_mask library/coverage_mask.cpp)
 target_link_libraries(test_coverage_mask
    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
    SDL3::SDL3
    )
+add_test(NAME coverage_mask COMMAND test_coverage_mask)
+
+add_executable(test_utils library/utils.cpp)
+target_link_libraries(test_utils
+   ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+   )
+add_test(NAME utils COMMAND test_utils)
+
 
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     add_executable(test_utils library/utils.cpp)

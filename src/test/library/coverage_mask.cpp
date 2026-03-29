@@ -64,20 +64,20 @@ BOOST_AUTO_TEST_CASE(init)
     std::memcpy(c1, &block.corners[1], sizeof(c1));
     std::memcpy(c2, &block.corners[2], sizeof(c2));
 
-    BOOST_TEST(c0[0] == cnl::unwrap(lambda0));
-    BOOST_TEST(c0[1] == cnl::unwrap(lambda0));
-    BOOST_TEST(c0[2] == cnl::unwrap(lambda0));
-    BOOST_TEST(c0[3] == cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[0], cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[1], cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[2], cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[3], cnl::unwrap(lambda0));
 
-    BOOST_TEST(c1[0] == cnl::unwrap(lambda1));
-    BOOST_TEST(c1[1] == cnl::unwrap(lambda1));
-    BOOST_TEST(c1[2] == cnl::unwrap(lambda1));
-    BOOST_TEST(c1[3] == cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[0], cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[1], cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[2], cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[3], cnl::unwrap(lambda1));
 
-    BOOST_TEST(c2[0] == cnl::unwrap(lambda2));
-    BOOST_TEST(c2[1] == cnl::unwrap(lambda2));
-    BOOST_TEST(c2[2] == cnl::unwrap(lambda2));
-    BOOST_TEST(c2[3] == cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[0], cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[1], cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[2], cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[3], cnl::unwrap(lambda2));
 
     std::int32_t sx0[4], sx1[4], sx2[4];
 
@@ -85,20 +85,20 @@ BOOST_AUTO_TEST_CASE(init)
     std::memcpy(sx1, &block.steps_x[1], sizeof(sx1));
     std::memcpy(sx2, &block.steps_x[2], sizeof(sx2));
 
-    BOOST_TEST(sx0[0] == cnl::unwrap(step0.x));
-    BOOST_TEST(sx0[1] == cnl::unwrap(step0.x));
-    BOOST_TEST(sx0[2] == cnl::unwrap(step0.x));
-    BOOST_TEST(sx0[3] == cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[0], cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[1], cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[2], cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[3], cnl::unwrap(step0.x));
 
-    BOOST_TEST(sx1[0] == cnl::unwrap(step1.x));
-    BOOST_TEST(sx1[1] == cnl::unwrap(step1.x));
-    BOOST_TEST(sx1[2] == cnl::unwrap(step1.x));
-    BOOST_TEST(sx1[3] == cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[0], cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[1], cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[2], cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[3], cnl::unwrap(step1.x));
 
-    BOOST_TEST(sx2[0] == cnl::unwrap(step2.x));
-    BOOST_TEST(sx2[1] == cnl::unwrap(step2.x));
-    BOOST_TEST(sx2[2] == cnl::unwrap(step2.x));
-    BOOST_TEST(sx2[3] == cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[0], cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[1], cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[2], cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[3], cnl::unwrap(step2.x));
 
     std::int32_t sy0[4], sy1[4], sy2[4];
 
@@ -106,20 +106,20 @@ BOOST_AUTO_TEST_CASE(init)
     std::memcpy(sy1, &block.steps_y[1], sizeof(sy1));
     std::memcpy(sy2, &block.steps_y[2], sizeof(sy2));
 
-    BOOST_TEST(sy0[0] == cnl::unwrap(step0.y));
-    BOOST_TEST(sy0[1] == cnl::unwrap(step0.y));
-    BOOST_TEST(sy0[2] == cnl::unwrap(step0.y));
-    BOOST_TEST(sy0[3] == cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[0], cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[1], cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[2], cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[3], cnl::unwrap(step0.y));
 
-    BOOST_TEST(sy1[0] == cnl::unwrap(step1.y));
-    BOOST_TEST(sy1[1] == cnl::unwrap(step1.y));
-    BOOST_TEST(sy1[2] == cnl::unwrap(step1.y));
-    BOOST_TEST(sy1[3] == cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[0], cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[1], cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[2], cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[3], cnl::unwrap(step1.y));
 
-    BOOST_TEST(sy2[0] == cnl::unwrap(step2.y));
-    BOOST_TEST(sy2[1] == cnl::unwrap(step2.y));
-    BOOST_TEST(sy2[2] == cnl::unwrap(step2.y));
-    BOOST_TEST(sy2[3] == cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[0], cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[1], cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[2], cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[3], cnl::unwrap(step2.y));
 }
 
 BOOST_AUTO_TEST_CASE(setup1)
@@ -165,20 +165,20 @@ BOOST_AUTO_TEST_CASE(setup1)
     std::memcpy(q1, &block.corners[1], sizeof(q1));
     std::memcpy(q2, &block.corners[2], sizeof(q2));
 
-    BOOST_TEST(q0[3] == cnl::unwrap(expected_lambda0[0]));
-    BOOST_TEST(q0[2] == cnl::unwrap(expected_lambda0[1]));
-    BOOST_TEST(q0[1] == cnl::unwrap(expected_lambda0[2]));
-    BOOST_TEST(q0[0] == cnl::unwrap(expected_lambda0[3]));
+    BOOST_CHECK_EQUAL(q0[3], cnl::unwrap(expected_lambda0[0]));
+    BOOST_CHECK_EQUAL(q0[2], cnl::unwrap(expected_lambda0[1]));
+    BOOST_CHECK_EQUAL(q0[1], cnl::unwrap(expected_lambda0[2]));
+    BOOST_CHECK_EQUAL(q0[0], cnl::unwrap(expected_lambda0[3]));
 
-    BOOST_TEST(q1[3] == cnl::unwrap(expected_lambda1[0]));
-    BOOST_TEST(q1[2] == cnl::unwrap(expected_lambda1[1]));
-    BOOST_TEST(q1[1] == cnl::unwrap(expected_lambda1[2]));
-    BOOST_TEST(q1[0] == cnl::unwrap(expected_lambda1[3]));
+    BOOST_CHECK_EQUAL(q1[3], cnl::unwrap(expected_lambda1[0]));
+    BOOST_CHECK_EQUAL(q1[2], cnl::unwrap(expected_lambda1[1]));
+    BOOST_CHECK_EQUAL(q1[1], cnl::unwrap(expected_lambda1[2]));
+    BOOST_CHECK_EQUAL(q1[0], cnl::unwrap(expected_lambda1[3]));
 
-    BOOST_TEST(q2[3] == cnl::unwrap(expected_lambda2[0]));
-    BOOST_TEST(q2[2] == cnl::unwrap(expected_lambda2[1]));
-    BOOST_TEST(q2[1] == cnl::unwrap(expected_lambda2[2]));
-    BOOST_TEST(q2[0] == cnl::unwrap(expected_lambda2[3]));
+    BOOST_CHECK_EQUAL(q2[3], cnl::unwrap(expected_lambda2[0]));
+    BOOST_CHECK_EQUAL(q2[2], cnl::unwrap(expected_lambda2[1]));
+    BOOST_CHECK_EQUAL(q2[1], cnl::unwrap(expected_lambda2[2]));
+    BOOST_CHECK_EQUAL(q2[0], cnl::unwrap(expected_lambda2[3]));
 }
 
 BOOST_AUTO_TEST_CASE(setup2)
@@ -229,20 +229,20 @@ BOOST_AUTO_TEST_CASE(setup2)
     std::memcpy(q1, &block.corners[1], sizeof(q1));
     std::memcpy(q2, &block.corners[2], sizeof(q2));
 
-    BOOST_TEST(q0[3] == cnl::unwrap(expected_lambda0[0]));
-    BOOST_TEST(q0[2] == cnl::unwrap(expected_lambda0[1]));
-    BOOST_TEST(q0[1] == cnl::unwrap(expected_lambda0[2]));
-    BOOST_TEST(q0[0] == cnl::unwrap(expected_lambda0[3]));
+    BOOST_CHECK_EQUAL(q0[3], cnl::unwrap(expected_lambda0[0]));
+    BOOST_CHECK_EQUAL(q0[2], cnl::unwrap(expected_lambda0[1]));
+    BOOST_CHECK_EQUAL(q0[1], cnl::unwrap(expected_lambda0[2]));
+    BOOST_CHECK_EQUAL(q0[0], cnl::unwrap(expected_lambda0[3]));
 
-    BOOST_TEST(q1[3] == cnl::unwrap(expected_lambda1[0]));
-    BOOST_TEST(q1[2] == cnl::unwrap(expected_lambda1[1]));
-    BOOST_TEST(q1[1] == cnl::unwrap(expected_lambda1[2]));
-    BOOST_TEST(q1[0] == cnl::unwrap(expected_lambda1[3]));
+    BOOST_CHECK_EQUAL(q1[3], cnl::unwrap(expected_lambda1[0]));
+    BOOST_CHECK_EQUAL(q1[2], cnl::unwrap(expected_lambda1[1]));
+    BOOST_CHECK_EQUAL(q1[1], cnl::unwrap(expected_lambda1[2]));
+    BOOST_CHECK_EQUAL(q1[0], cnl::unwrap(expected_lambda1[3]));
 
-    BOOST_TEST(q2[3] == cnl::unwrap(expected_lambda2[0]));
-    BOOST_TEST(q2[2] == cnl::unwrap(expected_lambda2[1]));
-    BOOST_TEST(q2[1] == cnl::unwrap(expected_lambda2[2]));
-    BOOST_TEST(q2[0] == cnl::unwrap(expected_lambda2[3]));
+    BOOST_CHECK_EQUAL(q2[3], cnl::unwrap(expected_lambda2[0]));
+    BOOST_CHECK_EQUAL(q2[2], cnl::unwrap(expected_lambda2[1]));
+    BOOST_CHECK_EQUAL(q2[1], cnl::unwrap(expected_lambda2[2]));
+    BOOST_CHECK_EQUAL(q2[0], cnl::unwrap(expected_lambda2[3]));
 }
 
 BOOST_AUTO_TEST_CASE(trivial_miss)
@@ -270,7 +270,7 @@ BOOST_AUTO_TEST_CASE(trivial_miss)
      */
     block.setup(2, 2);
 
-    BOOST_TEST(block.get_coverage_mask() == 0);
+    BOOST_CHECK_EQUAL(block.get_coverage_mask(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(trivial_hit)
@@ -300,7 +300,7 @@ BOOST_AUTO_TEST_CASE(trivial_hit)
      */
     block.setup(2, 2);
 
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(mask)
@@ -311,7 +311,7 @@ BOOST_AUTO_TEST_CASE(mask)
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{0, 0}};
     block.setup(1, 1);
 
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x0);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1},
@@ -319,7 +319,7 @@ BOOST_AUTO_TEST_CASE(mask)
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1}};
     block.setup(1, 1);
 
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x8);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x8);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
@@ -327,7 +327,7 @@ BOOST_AUTO_TEST_CASE(mask)
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1}};
     block.setup(1, 1);
 
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1},
@@ -335,7 +335,7 @@ BOOST_AUTO_TEST_CASE(mask)
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1}};
     block.setup(1, 1);
 
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x2);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x2);
 
     block = geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2},
@@ -343,7 +343,7 @@ BOOST_AUTO_TEST_CASE(mask)
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2}};
     block.setup(1, 1);
 
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x1);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x1);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit1)
@@ -374,7 +374,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -400,7 +400,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x5);
 
     /*
      * step in y direction.
@@ -413,7 +413,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     /*
      * step in x direction.
@@ -426,7 +426,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xd);
 
     /*
      * step in x direction.
@@ -439,7 +439,7 @@ BOOST_AUTO_TEST_CASE(step_hit1)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit2)
@@ -470,7 +470,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -483,7 +483,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -496,7 +496,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x5);
 
     /*
      * step in y direction.
@@ -509,7 +509,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     /*
      * step in x direction.
@@ -522,7 +522,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xd);
 
     /*
      * step in x direction.
@@ -535,7 +535,7 @@ BOOST_AUTO_TEST_CASE(step_hit2)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit3)
@@ -566,7 +566,7 @@ BOOST_AUTO_TEST_CASE(step_hit3)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -579,7 +579,7 @@ BOOST_AUTO_TEST_CASE(step_hit3)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_x(2);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     /*
      * step in x direction.
@@ -592,7 +592,7 @@ BOOST_AUTO_TEST_CASE(step_hit3)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(2);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xf);
 
     /*
      * step in y direction.
@@ -605,7 +605,7 @@ BOOST_AUTO_TEST_CASE(step_hit3)
      * the coverage mask is thus 0b0101 = 0x4.
      */
     block.step_y(2);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     /*
      * step in y direction.
@@ -618,7 +618,7 @@ BOOST_AUTO_TEST_CASE(step_hit3)
      * the coverage mask is thus 0b0000= 0x0.
      */
     block.step_y(2);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x0);
 }
 
 /*
@@ -648,20 +648,20 @@ BOOST_AUTO_TEST_CASE(init_simd)
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(c1), block.corners[1]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(c2), block.corners[2]);
 
-    BOOST_TEST(c0[0] == cnl::unwrap(lambda0));
-    BOOST_TEST(c0[1] == cnl::unwrap(lambda0));
-    BOOST_TEST(c0[2] == cnl::unwrap(lambda0));
-    BOOST_TEST(c0[3] == cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[0], cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[1], cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[2], cnl::unwrap(lambda0));
+    BOOST_CHECK_EQUAL(c0[3], cnl::unwrap(lambda0));
 
-    BOOST_TEST(c1[0] == cnl::unwrap(lambda1));
-    BOOST_TEST(c1[1] == cnl::unwrap(lambda1));
-    BOOST_TEST(c1[2] == cnl::unwrap(lambda1));
-    BOOST_TEST(c1[3] == cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[0], cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[1], cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[2], cnl::unwrap(lambda1));
+    BOOST_CHECK_EQUAL(c1[3], cnl::unwrap(lambda1));
 
-    BOOST_TEST(c2[0] == cnl::unwrap(lambda2));
-    BOOST_TEST(c2[1] == cnl::unwrap(lambda2));
-    BOOST_TEST(c2[2] == cnl::unwrap(lambda2));
-    BOOST_TEST(c2[3] == cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[0], cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[1], cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[2], cnl::unwrap(lambda2));
+    BOOST_CHECK_EQUAL(c2[3], cnl::unwrap(lambda2));
 
     std::int32_t sx0[4], sx1[4], sx2[4];
 
@@ -669,20 +669,20 @@ BOOST_AUTO_TEST_CASE(init_simd)
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sx1), block.steps_x[1]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sx2), block.steps_x[2]);
 
-    BOOST_TEST(sx0[0] == cnl::unwrap(step0.x));
-    BOOST_TEST(sx0[1] == cnl::unwrap(step0.x));
-    BOOST_TEST(sx0[2] == cnl::unwrap(step0.x));
-    BOOST_TEST(sx0[3] == cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[0], cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[1], cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[2], cnl::unwrap(step0.x));
+    BOOST_CHECK_EQUAL(sx0[3], cnl::unwrap(step0.x));
 
-    BOOST_TEST(sx1[0] == cnl::unwrap(step1.x));
-    BOOST_TEST(sx1[1] == cnl::unwrap(step1.x));
-    BOOST_TEST(sx1[2] == cnl::unwrap(step1.x));
-    BOOST_TEST(sx1[3] == cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[0], cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[1], cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[2], cnl::unwrap(step1.x));
+    BOOST_CHECK_EQUAL(sx1[3], cnl::unwrap(step1.x));
 
-    BOOST_TEST(sx2[0] == cnl::unwrap(step2.x));
-    BOOST_TEST(sx2[1] == cnl::unwrap(step2.x));
-    BOOST_TEST(sx2[2] == cnl::unwrap(step2.x));
-    BOOST_TEST(sx2[3] == cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[0], cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[1], cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[2], cnl::unwrap(step2.x));
+    BOOST_CHECK_EQUAL(sx2[3], cnl::unwrap(step2.x));
 
     std::int32_t sy0[4], sy1[4], sy2[4];
 
@@ -690,20 +690,20 @@ BOOST_AUTO_TEST_CASE(init_simd)
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sy1), block.steps_y[1]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(sy2), block.steps_y[2]);
 
-    BOOST_TEST(sy0[0] == cnl::unwrap(step0.y));
-    BOOST_TEST(sy0[1] == cnl::unwrap(step0.y));
-    BOOST_TEST(sy0[2] == cnl::unwrap(step0.y));
-    BOOST_TEST(sy0[3] == cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[0], cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[1], cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[2], cnl::unwrap(step0.y));
+    BOOST_CHECK_EQUAL(sy0[3], cnl::unwrap(step0.y));
 
-    BOOST_TEST(sy1[0] == cnl::unwrap(step1.y));
-    BOOST_TEST(sy1[1] == cnl::unwrap(step1.y));
-    BOOST_TEST(sy1[2] == cnl::unwrap(step1.y));
-    BOOST_TEST(sy1[3] == cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[0], cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[1], cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[2], cnl::unwrap(step1.y));
+    BOOST_CHECK_EQUAL(sy1[3], cnl::unwrap(step1.y));
 
-    BOOST_TEST(sy2[0] == cnl::unwrap(step2.y));
-    BOOST_TEST(sy2[1] == cnl::unwrap(step2.y));
-    BOOST_TEST(sy2[2] == cnl::unwrap(step2.y));
-    BOOST_TEST(sy2[3] == cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[0], cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[1], cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[2], cnl::unwrap(step2.y));
+    BOOST_CHECK_EQUAL(sy2[3], cnl::unwrap(step2.y));
 }
 
 BOOST_AUTO_TEST_CASE(setup1_simd)
@@ -749,20 +749,20 @@ BOOST_AUTO_TEST_CASE(setup1_simd)
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q1), block.corners[1]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q2), block.corners[2]);
 
-    BOOST_TEST(q0[3] == cnl::unwrap(expected_lambda0[0]));
-    BOOST_TEST(q0[2] == cnl::unwrap(expected_lambda0[1]));
-    BOOST_TEST(q0[1] == cnl::unwrap(expected_lambda0[2]));
-    BOOST_TEST(q0[0] == cnl::unwrap(expected_lambda0[3]));
+    BOOST_CHECK_EQUAL(q0[3], cnl::unwrap(expected_lambda0[0]));
+    BOOST_CHECK_EQUAL(q0[2], cnl::unwrap(expected_lambda0[1]));
+    BOOST_CHECK_EQUAL(q0[1], cnl::unwrap(expected_lambda0[2]));
+    BOOST_CHECK_EQUAL(q0[0], cnl::unwrap(expected_lambda0[3]));
 
-    BOOST_TEST(q1[3] == cnl::unwrap(expected_lambda1[0]));
-    BOOST_TEST(q1[2] == cnl::unwrap(expected_lambda1[1]));
-    BOOST_TEST(q1[1] == cnl::unwrap(expected_lambda1[2]));
-    BOOST_TEST(q1[0] == cnl::unwrap(expected_lambda1[3]));
+    BOOST_CHECK_EQUAL(q1[3], cnl::unwrap(expected_lambda1[0]));
+    BOOST_CHECK_EQUAL(q1[2], cnl::unwrap(expected_lambda1[1]));
+    BOOST_CHECK_EQUAL(q1[1], cnl::unwrap(expected_lambda1[2]));
+    BOOST_CHECK_EQUAL(q1[0], cnl::unwrap(expected_lambda1[3]));
 
-    BOOST_TEST(q2[3] == cnl::unwrap(expected_lambda2[0]));
-    BOOST_TEST(q2[2] == cnl::unwrap(expected_lambda2[1]));
-    BOOST_TEST(q2[1] == cnl::unwrap(expected_lambda2[2]));
-    BOOST_TEST(q2[0] == cnl::unwrap(expected_lambda2[3]));
+    BOOST_CHECK_EQUAL(q2[3], cnl::unwrap(expected_lambda2[0]));
+    BOOST_CHECK_EQUAL(q2[2], cnl::unwrap(expected_lambda2[1]));
+    BOOST_CHECK_EQUAL(q2[1], cnl::unwrap(expected_lambda2[2]));
+    BOOST_CHECK_EQUAL(q2[0], cnl::unwrap(expected_lambda2[3]));
 }
 
 BOOST_AUTO_TEST_CASE(setup2_simd)
@@ -813,20 +813,20 @@ BOOST_AUTO_TEST_CASE(setup2_simd)
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q1), block.corners[1]);
     _mm_storeu_si128(reinterpret_cast<__m128i_u*>(q2), block.corners[2]);
 
-    BOOST_TEST(q0[3] == cnl::unwrap(expected_lambda0[0]));
-    BOOST_TEST(q0[2] == cnl::unwrap(expected_lambda0[1]));
-    BOOST_TEST(q0[1] == cnl::unwrap(expected_lambda0[2]));
-    BOOST_TEST(q0[0] == cnl::unwrap(expected_lambda0[3]));
+    BOOST_CHECK_EQUAL(q0[3], cnl::unwrap(expected_lambda0[0]));
+    BOOST_CHECK_EQUAL(q0[2], cnl::unwrap(expected_lambda0[1]));
+    BOOST_CHECK_EQUAL(q0[1], cnl::unwrap(expected_lambda0[2]));
+    BOOST_CHECK_EQUAL(q0[0], cnl::unwrap(expected_lambda0[3]));
 
-    BOOST_TEST(q1[3] == cnl::unwrap(expected_lambda1[0]));
-    BOOST_TEST(q1[2] == cnl::unwrap(expected_lambda1[1]));
-    BOOST_TEST(q1[1] == cnl::unwrap(expected_lambda1[2]));
-    BOOST_TEST(q1[0] == cnl::unwrap(expected_lambda1[3]));
+    BOOST_CHECK_EQUAL(q1[3], cnl::unwrap(expected_lambda1[0]));
+    BOOST_CHECK_EQUAL(q1[2], cnl::unwrap(expected_lambda1[1]));
+    BOOST_CHECK_EQUAL(q1[1], cnl::unwrap(expected_lambda1[2]));
+    BOOST_CHECK_EQUAL(q1[0], cnl::unwrap(expected_lambda1[3]));
 
-    BOOST_TEST(q2[3] == cnl::unwrap(expected_lambda2[0]));
-    BOOST_TEST(q2[2] == cnl::unwrap(expected_lambda2[1]));
-    BOOST_TEST(q2[1] == cnl::unwrap(expected_lambda2[2]));
-    BOOST_TEST(q2[0] == cnl::unwrap(expected_lambda2[3]));
+    BOOST_CHECK_EQUAL(q2[3], cnl::unwrap(expected_lambda2[0]));
+    BOOST_CHECK_EQUAL(q2[2], cnl::unwrap(expected_lambda2[1]));
+    BOOST_CHECK_EQUAL(q2[1], cnl::unwrap(expected_lambda2[2]));
+    BOOST_CHECK_EQUAL(q2[0], cnl::unwrap(expected_lambda2[3]));
 }
 
 BOOST_AUTO_TEST_CASE(trivial_miss_simd)
@@ -854,7 +854,7 @@ BOOST_AUTO_TEST_CASE(trivial_miss_simd)
      */
     block.setup(2, 2);
 
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 }
 
 BOOST_AUTO_TEST_CASE(trivial_hit_simd)
@@ -883,7 +883,7 @@ BOOST_AUTO_TEST_CASE(trivial_hit_simd)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.setup(2, 2);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(mask_simd)
@@ -893,35 +893,35 @@ BOOST_AUTO_TEST_CASE(mask_simd)
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{0, 0},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{0, 0}};
     block.setup(1, 1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x0);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{-1, -1}};
     block.setup(1, 1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x8);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x8);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{1, -1}};
     block.setup(1, 1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 1}};
     block.setup(1, 1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x2);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x2);
 
     block = simd::geom::barycentric_coordinate_block{
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2},
       ml::fixed_24_8_t{1}, ml::tvec2<ml::fixed_24_8_t>{1, -1},
       ml::fixed_24_8_t{0}, ml::tvec2<ml::fixed_24_8_t>{-1, 2}};
     block.setup(1, 1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x1);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x1);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit1_simd)
@@ -952,7 +952,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -965,7 +965,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -978,7 +978,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x5);
 
     /*
      * step in y direction.
@@ -991,7 +991,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     /*
      * step in x direction.
@@ -1004,7 +1004,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xd);
 
     /*
      * step in x direction.
@@ -1017,7 +1017,7 @@ BOOST_AUTO_TEST_CASE(step_hit1_simd)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xf);
 }
 
 BOOST_AUTO_TEST_CASE(step_hit2_simd)
@@ -1048,7 +1048,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
     block.setup(1, 1);
 
     /* coverage mask: 0b0000 */
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -1061,7 +1061,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b0000 = 0x0.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0);
 
     /*
      * step in x direction.
@@ -1074,7 +1074,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b0101 = 0x5.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x5);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x5);
 
     /*
      * step in y direction.
@@ -1087,7 +1087,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b0100 = 0x4.
      */
     block.step_y(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0x4);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0x4);
 
     /*
      * step in x direction.
@@ -1100,7 +1100,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b1101 = 0xd.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xd);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xd);
 
     /*
      * step in x direction.
@@ -1113,7 +1113,7 @@ BOOST_AUTO_TEST_CASE(step_hit2_simd)
      * the coverage mask is thus 0b1111 = 0xf.
      */
     block.step_x(1);
-    BOOST_TEST(geom::reduce_coverage_mask(block.get_coverage_mask()) == 0xf);
+    BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(block.get_coverage_mask()), 0xf);
 }
 
 #endif /* defined(__x86_64__) || defined(_M_X64) */
@@ -1153,7 +1153,7 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
     ml::vec2 v3_xy{100, 200};
 
     auto area = (v2_xy - v1_xy).area(v3_xy - v1_xy);
-    BOOST_TEST(area > 0);
+    BOOST_CHECK_GT(area, 0);
 
     ml::vec2_fixed<4> v1_xy_fix(v1_xy.x, v1_xy.y);
     ml::vec2_fixed<4> v2_xy_fix(v2_xy.x, v2_xy.y);
@@ -1181,10 +1181,10 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
     /*
      * bounding box (32-aligned): 3*32 = 96 < 100; 200 < 224 = 7*32.
      */
-    BOOST_TEST(start_x == 96);
-    BOOST_TEST(start_y == 96);
-    BOOST_TEST(end_x == 224);
-    BOOST_TEST(end_y == 224);
+    BOOST_CHECK_EQUAL(start_x, 96);
+    BOOST_CHECK_EQUAL(start_y, 96);
+    BOOST_CHECK_EQUAL(end_x, 224);
+    BOOST_CHECK_EQUAL(end_y, 224);
 
     /*
      * triangle:
@@ -1255,7 +1255,7 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
         {
             BOOST_REQUIRE(ref_mask_ptr < reference_masks_32 + countof(reference_masks_32));
 
-            BOOST_TEST(geom::reduce_coverage_mask(lambdas_box.get_coverage_mask()) == *ref_mask_ptr);
+            BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(lambdas_box.get_coverage_mask()), *ref_mask_ptr);
             ++ref_mask_ptr;
 
             lambdas_box.step_x(test::rasterizer_block_size);
