@@ -231,7 +231,7 @@ void sweep_rasterizer::draw_filled_triangle(const swr::impl::render_states& stat
     auto area = (v2_xy - v1_xy).area(v3_xy - v1_xy);
 
     // don't consider degenerate triangles.
-    if(ml::fixed_24_8_t(area) == 0)
+    if(area == 0.f)
     {
         return;
     }
