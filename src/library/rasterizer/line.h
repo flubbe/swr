@@ -46,7 +46,7 @@ struct pixel_local_info
 };
 
 /** return the integer pixel coordinates and the offsets relative to the pixel center. */
-static pixel_local_info pixel_diamond_local(float x, float y)
+inline pixel_local_info pixel_diamond_local(float x, float y)
 {
     const int px = static_cast<int>(std::floor(x));
     const int py = static_cast<int>(std::floor(y));
@@ -62,7 +62,7 @@ static pixel_local_info pixel_diamond_local(float x, float y)
  * x-major: choose top row
  * y-major: choose left column
  */
-static int choose_minor_pixel(float v_real, bool x_major)
+inline int choose_minor_pixel(float v_real, bool x_major)
 {
     const float base_f = std::floor(v_real);
     const int base = static_cast<int>(base_f);
@@ -174,6 +174,224 @@ inline void line_info::setup()
             dy = -dy;
             swapped = true;
         }
+    }
+}
+
+/*
+ * fragment emission and rasterization.
+ */
+
+/** where the emission took place. */
+enum class line_emit_kind
+{
+    walked_pixel,     /** emission during line walking */
+    deferred_endpoint /** emission of deferred endpoint */
+};
+
+template<class EmitFragment>
+void rasterize_line_coverage(
+  const geom::vertex& in_v1,
+  const geom::vertex& in_v2,
+  EmitFragment&& emit_fragment)
+{
+    line_info info{in_v1, in_v2};
+
+    if(info.max_absolute_delta == 0.0f)
+    {
+        return;
+    }
+
+    info.setup();
+
+    const ml::vec2 start = info.v1->coords.xy();
+    const ml::vec2 end = info.v2->coords.xy();
+
+    std::optional<ml::tvec2<int>> deferred_walk_start_pixel;
+    std::optional<ml::tvec2<int>> deferred_walk_end_pixel;
+    std::optional<int> reserved_walk_start_major;
+    std::optional<int> reserved_walk_end_major;
+
+    if(!info.swapped)
+    {
+        if(info.include_original_start_pixel)
+        {
+            deferred_walk_start_pixel = info.original_start;
+            reserved_walk_start_major =
+              info.is_x_major ? info.original_start.x : info.original_start.y;
+        }
+
+        if(info.exclude_original_end_pixel)
+        {
+            reserved_walk_end_major =
+              info.is_x_major ? info.original_end.x : info.original_end.y;
+        }
+    }
+    else
+    {
+        // original start maps to walk end.
+        if(info.include_original_start_pixel)
+        {
+            deferred_walk_end_pixel = info.original_start;
+            reserved_walk_end_major =
+              info.is_x_major ? info.original_start.x : info.original_start.y;
+        }
+
+        // original end maps to walk start.
+        if(info.exclude_original_end_pixel)
+        {
+            reserved_walk_start_major =
+              info.is_x_major ? info.original_end.x : info.original_end.y;
+        }
+    }
+
+    std::optional<ml::tvec2<int>> last_emitted_pixel;
+
+    auto emit = [&](int x, int y, line_emit_kind kind)
+    {
+        emit_fragment(x, y, kind);
+        last_emitted_pixel = ml::tvec2<int>(x, y);
+    };
+
+    if(info.is_x_major)
+    {
+        const float p0 = start.x;
+        const float v0 = start.y;
+        const float p1 = end.x;
+        const float v1 = end.y;
+
+        const float dp = p1 - p0;
+        const float dv = v1 - v0;
+
+        int p_start = static_cast<int>(std::ceil(p0 - 0.5f));
+        int p_end = static_cast<int>(std::ceil(p1 - 0.5f)) - 1;
+
+        if(deferred_walk_start_pixel.has_value())
+        {
+            emit(
+              deferred_walk_start_pixel->x,
+              deferred_walk_start_pixel->y,
+              line_emit_kind::deferred_endpoint);
+        }
+
+        if(reserved_walk_start_major.has_value())
+        {
+            p_start = std::max(p_start, *reserved_walk_start_major + 1);
+        }
+
+        if(reserved_walk_end_major.has_value())
+        {
+            p_end = std::min(p_end, *reserved_walk_end_major - 1);
+        }
+
+        if(p_start <= p_end)
+        {
+            const float p_center = static_cast<float>(p_start) + 0.5f;
+            const float v_real = v0 + (p_center - p0) * (dv / dp);
+            int v_pix = choose_minor_pixel(v_real, true);
+            float error =
+              2.0f * dp * (v_real - (static_cast<float>(v_pix) + 0.5f));
+
+            int p = p_start;
+            while(true)
+            {
+                emit(p, v_pix, line_emit_kind::walked_pixel);
+
+                if(p == p_end)
+                {
+                    break;
+                }
+
+                ++p;
+
+                error += 2.0f * dv;
+                if(error > dp)
+                {
+                    ++v_pix;
+                    error -= 2.0f * dp;
+                }
+                else if(error < -dp)
+                {
+                    --v_pix;
+                    error += 2.0f * dp;
+                }
+            }
+        }
+    }
+    else
+    {
+        const float p0 = start.y;
+        const float v0 = start.x;
+        const float p1 = end.y;
+        const float v1 = end.x;
+
+        const float dp = p1 - p0;
+        const float dv = v1 - v0;
+
+        int p_start = static_cast<int>(std::ceil(p0 - 0.5f));
+        int p_end = static_cast<int>(std::ceil(p1 - 0.5f)) - 1;
+
+        if(deferred_walk_start_pixel.has_value())
+        {
+            emit(
+              deferred_walk_start_pixel->x,
+              deferred_walk_start_pixel->y,
+              line_emit_kind::deferred_endpoint);
+        }
+
+        if(reserved_walk_start_major.has_value())
+        {
+            p_start = std::max(p_start, *reserved_walk_start_major + 1);
+        }
+
+        if(reserved_walk_end_major.has_value())
+        {
+            p_end = std::min(p_end, *reserved_walk_end_major - 1);
+        }
+
+        if(p_start <= p_end)
+        {
+            const float p_center = static_cast<float>(p_start) + 0.5f;
+            const float v_real = v0 + (p_center - p0) * (dv / dp);
+            int v_pix = choose_minor_pixel(v_real, false);
+            float error =
+              2.0f * dp * (v_real - (static_cast<float>(v_pix) + 0.5f));
+
+            int p = p_start;
+            while(true)
+            {
+                emit(v_pix, p, line_emit_kind::walked_pixel);
+
+                if(p == p_end)
+                {
+                    break;
+                }
+
+                ++p;
+
+                error += 2.0f * dv;
+                if(error > dp)
+                {
+                    ++v_pix;
+                    error -= 2.0f * dp;
+                }
+                else if(error < -dp)
+                {
+                    --v_pix;
+                    error += 2.0f * dp;
+                }
+            }
+        }
+    }
+
+    if(deferred_walk_end_pixel.has_value()
+       && (!last_emitted_pixel.has_value()
+           || last_emitted_pixel->x != deferred_walk_end_pixel->x
+           || last_emitted_pixel->y != deferred_walk_end_pixel->y))
+    {
+        emit(
+          deferred_walk_end_pixel->x,
+          deferred_walk_end_pixel->y,
+          line_emit_kind::deferred_endpoint);
     }
 }
 
