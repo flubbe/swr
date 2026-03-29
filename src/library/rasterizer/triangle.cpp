@@ -222,6 +222,7 @@ static float setup_polygon_offset(
     return m * states.polygon_offset_factor + r.f * states.polygon_offset_units;    // Eq. (14.13)
 }
 
+/** triangel setup info. */
 struct triangle_info
 {
     bool is_degenerate{true};
@@ -378,6 +379,55 @@ static triangle_info setup_triangle(
     return info;
 }
 
+/** triangle bounding box. */
+struct bounding_box
+{
+    int start_x, start_y;
+    int end_x, end_y;
+};
+
+/** compute block-aligned triangle bounds in viewport coordinates. */
+bounding_box compute_triangle_bounds(
+  const swr::impl::render_states& states,
+  const triangle_info& info,
+  bool y_needs_flip)
+{
+    auto v1x = ml::truncate_unchecked(info.v0->coords.x);
+    auto v1y = ml::truncate_unchecked(info.v0->coords.y);
+    auto v2x = ml::truncate_unchecked(info.v1->coords.x);
+    auto v2y = ml::truncate_unchecked(info.v1->coords.y);
+    auto v3x = ml::truncate_unchecked(info.v2->coords.x);
+    auto v3y = ml::truncate_unchecked(info.v2->coords.y);
+
+    // take scissor box into account.
+    int x_min = 0;
+    int x_max = states.draw_target->properties.width;
+    int y_min = 0;
+    int y_max = states.draw_target->properties.height;
+
+    if(states.scissor_test_enabled)
+    {
+        x_min = std::max(states.scissor_box.x_min, 0);
+        x_max = std::min(states.scissor_box.x_max, states.draw_target->properties.width);
+
+        y_min = std::max(states.scissor_box.y_min, 0);
+        y_max = std::min(states.scissor_box.y_max, states.draw_target->properties.height);
+
+        if(y_needs_flip)
+        {
+            const int y_temp = y_min;
+            y_min = states.draw_target->properties.height - y_max;
+            y_max = states.draw_target->properties.height - y_temp;
+        }
+    }
+
+    return {
+      swr::impl::lower_align_on_block_size(std::max(std::min({v1x, v2x, v3x}), x_min)),
+      swr::impl::lower_align_on_block_size(std::max(std::min({v1y, v2y, v3y}), y_min)),
+      swr::impl::upper_align_on_block_size(std::min(std::max({v1x + 1, v2x + 1, v3x + 1}), x_max)),
+      swr::impl::upper_align_on_block_size(std::min(std::max({v1y + 1, v2y + 1, v3y + 1}), y_max))};
+}
+
 void sweep_rasterizer::draw_filled_triangle(
   const swr::impl::render_states& states,
   bool is_front_facing,
@@ -402,48 +452,17 @@ void sweep_rasterizer::draw_filled_triangle(
 
     /*
      * Loop through blocks of size (rasterizer_block_size,rasterizer_block_size), starting and ending on an aligned value.
+     * Note that the default framebuffer has flipped y coordinates.
      */
-
-    auto v1x = ml::truncate_unchecked(info.v0->coords.x);
-    auto v1y = ml::truncate_unchecked(info.v0->coords.y);
-    auto v2x = ml::truncate_unchecked(info.v1->coords.x);
-    auto v2y = ml::truncate_unchecked(info.v1->coords.y);
-    auto v3x = ml::truncate_unchecked(info.v2->coords.x);
-    auto v3y = ml::truncate_unchecked(info.v2->coords.y);
-
-    // take scissor box into account.
-    int start_x{0}, start_y{0}, end_x{0}, end_y{0};
-    if(states.scissor_test_enabled)
-    {
-        int x_min = std::max(states.scissor_box.x_min, 0);
-        int x_max = std::min(states.scissor_box.x_max, states.draw_target->properties.width);
-
-        int y_min = std::max(states.scissor_box.y_min, 0);
-        int y_max = std::min(states.scissor_box.y_max, states.draw_target->properties.height);
-
-        // the default framebuffer needs a flip.
-        if(states.draw_target == framebuffer)
-        {
-            int y_temp = y_min;
-            y_min = states.draw_target->properties.height - y_max;
-            y_max = states.draw_target->properties.height - y_temp;
-        }
-
-        start_x = swr::impl::lower_align_on_block_size(std::max(std::min({v1x, v2x, v3x}), x_min));
-        end_x = swr::impl::upper_align_on_block_size(std::min(std::max({v1x + 1, v2x + 1, v3x + 1}), x_max));
-        start_y = swr::impl::lower_align_on_block_size(std::max(std::min({v1y, v2y, v3y}), y_min));
-        end_y = swr::impl::upper_align_on_block_size(std::min(std::max({v1y + 1, v2y + 1, v3y + 1}), y_max));
-    }
-    else
-    {
-        start_x = swr::impl::lower_align_on_block_size(std::max(std::min({v1x, v2x, v3x}), 0));
-        end_x = swr::impl::upper_align_on_block_size(std::min(std::max({v1x + 1, v2x + 1, v3x + 1}), states.draw_target->properties.width));
-        start_y = swr::impl::lower_align_on_block_size(std::max(std::min({v1y, v2y, v3y}), 0));
-        end_y = swr::impl::upper_align_on_block_size(std::min(std::max({v1y + 1, v2y + 1, v3y + 1}), states.draw_target->properties.height));
-    }
+    const bounding_box bounds = compute_triangle_bounds(
+      states,
+      info,
+      states.draw_target == framebuffer);
 
     // initialize lambdas for point-in-triangle detection.
-    const auto start_coord = ml::vec2_fixed<4>{ml::fixed_28_4_t{start_x} + ml::fixed_28_4_t{0.5f}, ml::fixed_28_4_t{start_y} + ml::fixed_28_4_t{0.5f}};
+    const auto start_coord = ml::vec2_fixed<4>{
+      ml::fixed_28_4_t{bounds.start_x} + ml::fixed_28_4_t{0.5f},
+      ml::fixed_28_4_t{bounds.start_y} + ml::fixed_28_4_t{0.5f}};
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_row_top_left[3] = {
       {{-info.edges_fix[0].evaluate(start_coord)},
        {-info.edges_fix[0].get_change_x(),
@@ -458,14 +477,16 @@ void sweep_rasterizer::draw_filled_triangle(
     /*
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
      */
-    const ml::vec2 screen_coords{static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f};
+    const ml::vec2 screen_coords{
+      static_cast<float>(bounds.start_x) + 0.5f,
+      static_cast<float>(bounds.start_y) + 0.5f};
     rast::triangle_interpolator attributes{
       screen_coords,
       info.v0->coords, info.v1->coords, info.v2->coords,
       info.v0->varyings, info.v1->varyings, info.v2->varyings, v0.varyings,
       states.shader_info->iqs, info.inv_area, polygon_offset};
 
-    for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
+    for(auto y = bounds.start_y; y < bounds.end_y; y += swr::impl::rasterizer_block_size)
     {
         // initialize lambdas for the corners of the block.
         geom::barycentric_coordinate_block lambdas_box{
@@ -475,7 +496,7 @@ void sweep_rasterizer::draw_filled_triangle(
         lambdas_box.setup(swr::impl::rasterizer_block_size, swr::impl::rasterizer_block_size);
 
         rast::triangle_interpolator attributes_row = attributes;
-        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size)
+        for(auto x = bounds.start_x; x < bounds.end_x; x += swr::impl::rasterizer_block_size)
         {
             // check if we have any block coverage. if so, calculate a reduced coverage mask.
             int mask = lambdas_box.get_coverage_mask();
