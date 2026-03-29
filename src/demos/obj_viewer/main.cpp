@@ -949,7 +949,7 @@ public:
         swr::SetPolygonMode(swr::polygon_mode::fill);
 
         swr::SetState(swr::state::polygon_offset_fill, true);
-        swr::PolygonOffset(1.0, 1.0);
+        swr::PolygonOffset(2.0, 2.0);
 
         swr::BindShader(flat_shader_id);
         swr::BindUniform(0, proj);
@@ -996,21 +996,9 @@ public:
             {
                 swr::EnableAttributeBuffer(o.vertex_buffer_id, 0);
 
-                swr::BindTexture(swr::texture_target::texture_2d, 0);
-                if((o.material_id < materials.size()))
-                {
-                    std::string diffuse_texname = materials[o.material_id].diffuse_texname;
-                    if(textures.find(diffuse_texname) != textures.end())
-                    {
-                        swr::BindTexture(swr::texture_target::texture_2d, textures[diffuse_texname]);
-                    }
-                }
-
                 swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
 
                 check_errors("DrawElements");
-
-                swr::BindTexture(swr::texture_target::texture_2d, 0);
 
                 swr::DisableAttributeBuffer(o.vertex_buffer_id);
             }

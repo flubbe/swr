@@ -3,7 +3,6 @@
 #
 
 cmake_policy(VERSION 3.22.0)
-cmake_policy(SET CMP0167 OLD)
 cmake_minimum_required (VERSION 3.22.0)
 
 project(swr)
@@ -55,7 +54,7 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
     message(STATUS "Detected ARM64 architecture")
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     message(STATUS "Detected x86_64 architecture")
-    add_compile_options( -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse)
+    add_compile_options(-msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse)
 else()
     message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
@@ -83,8 +82,8 @@ find_package(Boost CONFIG REQUIRED)
 #
 # Set up output directories
 #
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 #
 # Disable testing (for cpu_features integration)
