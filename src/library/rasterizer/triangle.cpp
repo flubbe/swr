@@ -222,25 +222,51 @@ static float setup_polygon_offset(
     return m * states.polygon_offset_factor + r.f * states.polygon_offset_units;    // Eq. (14.13)
 }
 
-void sweep_rasterizer::draw_filled_triangle(
-  const swr::impl::render_states& states,
-  bool is_front_facing,
-  const geom::vertex& v1,
-  const geom::vertex& v2,
-  const geom::vertex& v3)
+struct triangle_info
 {
+    bool is_degenerate{true};
+
+    // vertices normalized to CW raster order
+    const geom::vertex* v0{nullptr};
+    const geom::vertex* v1{nullptr};
+    const geom::vertex* v2{nullptr};
+
+    // 2D coords in the same normalized order
+    ml::vec2 v0_xy;
+    ml::vec2 v1_xy;
+    ml::vec2 v2_xy;
+
+    float area{0.0f};
+    float inv_area{0.0f};
+
+    ml::vec2_fixed<4> v0_xy_fix;
+    ml::vec2_fixed<4> v1_xy_fix;
+    ml::vec2_fixed<4> v2_xy_fix;
+
+    geom::edge_function_fixed edges_fix[3] = {
+      {{}, {}}, {{}, {}}, {{}, {}}};
+};
+
+static triangle_info setup_triangle(
+  const geom::vertex& v0,
+  const geom::vertex& v1,
+  const geom::vertex& v2)
+{
+    triangle_info info{};
+
     // calculate the (signed) parallelogram area spanned by the difference vectors.
-    auto v1_xy = v1.coords.xy();
-    auto v2_xy = v2.coords.xy();
-    auto v3_xy = v3.coords.xy();
+    auto p0 = v0.coords.xy();
+    auto p1 = v1.coords.xy();
+    auto p2 = v2.coords.xy();
 
-    auto area = (v2_xy - v1_xy).area(v3_xy - v1_xy);
+    auto area = (p1 - p0).area(p2 - p0);
 
-    // don't consider degenerate triangles.
-    if(area == 0.f)
+    if(area == 0)
     {
-        return;
+        info.is_degenerate = true;
+        return info;
     }
+    info.is_degenerate = false;
 
     /*
      * To simplify the rasterization code, we only want to consider CW triangles with respect to the coordinate system
@@ -253,36 +279,48 @@ void sweep_rasterizer::draw_filled_triangle(
      * If a triangle is set up this way, we can check for a sign of the "fixed-point barycentric coordinates" below
      * (instead of checking that all of them have the same sign).
      */
-    const geom::vertex *v1_cw{nullptr}, *v2_cw{nullptr};
 
-    if(area > 0)
+    if(area > 0.0f)
     {
-        // keep vertex order.
-        v1_cw = &v1;
-        v2_cw = &v2;
+        // keep vertex order
+        info.v0 = &v0;
+        info.v1 = &v1;
+        info.v2 = &v2;
+
+        info.v0_xy = p0;
+        info.v1_xy = p1;
+        info.v2_xy = p2;
+
+        info.area = area;
     }
     else /* area < 0, since we already checked for area==0 */
     {
         // change vertex order.
-        std::swap(v1_xy, v2_xy);
-        area = -area;
 
-        v1_cw = &v2;
-        v2_cw = &v1;
+        info.v0 = &v1;
+        info.v1 = &v0;
+        info.v2 = &v2;
+
+        info.v0_xy = p1;
+        info.v1_xy = p0;
+        info.v2_xy = p2;
+
+        info.area = -area;
     }
 
-    float inv_area = 1.0f / area;
+    info.inv_area = 1.0f / info.area;
 
     // convert triangle coordinates into a fixed-point representation with 4-bit subpixel precision.
-    ml::vec2_fixed<4> v1_xy_fix(v1_xy.x, v1_xy.y);
-    ml::vec2_fixed<4> v2_xy_fix(v2_xy.x, v2_xy.y);
-    ml::vec2_fixed<4> v3_xy_fix(v3_xy.x, v3_xy.y);
+    info.v0_xy_fix = ml::vec2_fixed<4>(info.v0_xy.x, info.v0_xy.y);
+    info.v1_xy_fix = ml::vec2_fixed<4>(info.v1_xy.x, info.v1_xy.y);
+    info.v2_xy_fix = ml::vec2_fixed<4>(info.v2_xy.x, info.v2_xy.y);
 
     // list all edge in fixed point to use them for checking if a particular
     // pixel lies inside the triangle. the order of the edges does not matter,
     // but their orientation does.
-    geom::edge_function_fixed edges_fix[3] = {
-      {v1_xy_fix, v2_xy_fix}, {v2_xy_fix, v3_xy_fix}, {v3_xy_fix, v1_xy_fix}};
+    info.edges_fix[0] = geom::edge_function_fixed{info.v0_xy_fix, info.v1_xy_fix};
+    info.edges_fix[1] = geom::edge_function_fixed{info.v1_xy_fix, info.v2_xy_fix};
+    info.edges_fix[2] = geom::edge_function_fixed{info.v2_xy_fix, info.v0_xy_fix};
 
     /*
      * Fill Rules.
@@ -318,23 +356,39 @@ void sweep_rasterizer::draw_filled_triangle(
         //
         // 'exactly horizontal' implies that the y coordinate does not change. Since the triangle's vertices are
         // wound CW, the top edge is determined by checking that its x-direction is positive.
-        if(edges_fix[i].v_diff.y == 0
-           && edges_fix[i].v_diff.x > 0)
+        if(info.edges_fix[i].v_diff.y == 0
+           && info.edges_fix[i].v_diff.x > 0)
         {
-            edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
+            info.edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
         }
         // Left edge test.
         //
         // In a CW triangle, a left edge goes up, i.e. its endpoint is strictly above its starting point.
         // In terms of the y coordinate, the difference vector has to be strictly negative.
-        else if(edges_fix[i].v_diff.y < 0)
+        else if(info.edges_fix[i].v_diff.y < 0)
         {
-            edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
+            info.edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
         }
         else
         {
             // Here we have either a bottom edge or a right edge. Thus, we intentionally do nothing.
         }
+    }
+
+    return info;
+}
+
+void sweep_rasterizer::draw_filled_triangle(
+  const swr::impl::render_states& states,
+  bool is_front_facing,
+  const geom::vertex& v0,
+  const geom::vertex& v1,
+  const geom::vertex& v2)
+{
+    triangle_info info = setup_triangle(v0, v1, v2);
+    if(info.is_degenerate)
+    {
+        return;
     }
 
     /*
@@ -343,19 +397,19 @@ void sweep_rasterizer::draw_filled_triangle(
     float polygon_offset = 0.f;
     if(states.polygon_offset_fill_enabled)
     {
-        polygon_offset = setup_polygon_offset(states, v1, v2, v3, inv_area);
+        polygon_offset = setup_polygon_offset(states, v0, v1, v2, info.inv_area);
     }
 
     /*
      * Loop through blocks of size (rasterizer_block_size,rasterizer_block_size), starting and ending on an aligned value.
      */
 
-    auto v1x = ml::truncate_unchecked(v1.coords.x);
-    auto v1y = ml::truncate_unchecked(v1.coords.y);
-    auto v2x = ml::truncate_unchecked(v2.coords.x);
-    auto v2y = ml::truncate_unchecked(v2.coords.y);
-    auto v3x = ml::truncate_unchecked(v3.coords.x);
-    auto v3y = ml::truncate_unchecked(v3.coords.y);
+    auto v1x = ml::truncate_unchecked(info.v0->coords.x);
+    auto v1y = ml::truncate_unchecked(info.v0->coords.y);
+    auto v2x = ml::truncate_unchecked(info.v1->coords.x);
+    auto v2y = ml::truncate_unchecked(info.v1->coords.y);
+    auto v3x = ml::truncate_unchecked(info.v2->coords.x);
+    auto v3y = ml::truncate_unchecked(info.v2->coords.y);
 
     // take scissor box into account.
     int start_x{0}, start_y{0}, end_x{0}, end_y{0};
@@ -391,15 +445,15 @@ void sweep_rasterizer::draw_filled_triangle(
     // initialize lambdas for point-in-triangle detection.
     const auto start_coord = ml::vec2_fixed<4>{ml::fixed_28_4_t{start_x} + ml::fixed_28_4_t{0.5f}, ml::fixed_28_4_t{start_y} + ml::fixed_28_4_t{0.5f}};
     geom::linear_interpolator_2d<ml::fixed_24_8_t> lambda_row_top_left[3] = {
-      {{-edges_fix[0].evaluate(start_coord)},
-       {-edges_fix[0].get_change_x(),
-        -edges_fix[0].get_change_y()}},
-      {{-edges_fix[1].evaluate(start_coord)},
-       {-edges_fix[1].get_change_x(),
-        -edges_fix[1].get_change_y()}},
-      {{-edges_fix[2].evaluate(start_coord)},
-       {-edges_fix[2].get_change_x(),
-        -edges_fix[2].get_change_y()}}};
+      {{-info.edges_fix[0].evaluate(start_coord)},
+       {-info.edges_fix[0].get_change_x(),
+        -info.edges_fix[0].get_change_y()}},
+      {{-info.edges_fix[1].evaluate(start_coord)},
+       {-info.edges_fix[1].get_change_x(),
+        -info.edges_fix[1].get_change_y()}},
+      {{-info.edges_fix[2].evaluate(start_coord)},
+       {-info.edges_fix[2].get_change_x(),
+        -info.edges_fix[2].get_change_y()}}};
 
     /*
      * Set up an interpolator for the triangle attributes, i.e., depth value, viewport z coordinate and shader varyings.
@@ -407,9 +461,9 @@ void sweep_rasterizer::draw_filled_triangle(
     const ml::vec2 screen_coords{static_cast<float>(start_x) + 0.5f, static_cast<float>(start_y) + 0.5f};
     rast::triangle_interpolator attributes{
       screen_coords,
-      v1_cw->coords, v2_cw->coords, v3.coords,
-      v1_cw->varyings, v2_cw->varyings, v3.varyings, v1.varyings,
-      states.shader_info->iqs, inv_area, polygon_offset};
+      info.v0->coords, info.v1->coords, info.v2->coords,
+      info.v0->varyings, info.v1->varyings, info.v2->varyings, v0.varyings,
+      states.shader_info->iqs, info.inv_area, polygon_offset};
 
     for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
     {

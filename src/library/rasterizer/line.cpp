@@ -34,10 +34,10 @@ namespace rast
 void sweep_rasterizer::draw_line(
   const swr::impl::render_states& states,
   [[maybe_unused]] bool in_draw_endpoint,
-  const geom::vertex& v1,
-  const geom::vertex& v2)
+  const geom::vertex& v0,
+  const geom::vertex& v1)
 {
-    line_info info{v1, v2};
+    line_info info{v0, v1};
 
     if(info.max_absolute_delta == 0.0f)
     {
@@ -49,7 +49,7 @@ void sweep_rasterizer::draw_line(
     rast::line_interpolator attr(
       *info.v1,
       *info.v2,
-      v1,
+      v0,
       states.shader_info->iqs,
       1.0f / info.max_absolute_delta);
 
@@ -98,7 +98,7 @@ void sweep_rasterizer::draw_line(
             attr.advance();
         } };
 
-    rasterize_line_coverage(v1, v2, emit_fragment);
+    rasterize_line_coverage(v0, v1, emit_fragment);
 }
 
 } /* namespace rast */

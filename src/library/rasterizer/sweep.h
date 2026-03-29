@@ -233,23 +233,23 @@ class sweep_rasterizer : public rasterizer
      *
      * @param states Active render states for this triangle.
      * @param is_front_facing Whether this triangle is front facing. Passed to the fragment shader.
-     * @param v1 First triangle vertex.
-     * @param v2 Second triangle vertex.
-     * @param v3 Third triangle vertex.
+     * @param v0 First triangle vertex.
+     * @param v1 Second triangle vertex.
+     * @param v2 Third triangle vertex.
      */
     void draw_filled_triangle(
       const swr::impl::render_states& states,
       bool is_front_facing,
+      const geom::vertex& v0,
       const geom::vertex& v1,
-      const geom::vertex& v2,
-      const geom::vertex& v3);
+      const geom::vertex& v2);
 
     /** draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false. */
     void draw_line(
       const swr::impl::render_states& states,
       bool draw_end_point,
-      const geom::vertex& v1,
-      const geom::vertex& v2);
+      const geom::vertex& v0,
+      const geom::vertex& v1);
 
     /** draw a point. */
     void draw_point(
