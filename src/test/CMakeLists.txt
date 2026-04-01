@@ -17,6 +17,13 @@ include_directories(../../include ../../src/library)
 # build tests
 #
 
+add_executable(test_rasterizer_point library/rasterizer/point.cpp)
+target_link_libraries(test_rasterizer_point
+    swrast
+    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    )
+add_test(NAME rasterizer_point COMMAND test_rasterizer_point --color_output=no)
+
 add_executable(test_rasterizer_line library/rasterizer/line.cpp)
 target_link_libraries(test_rasterizer_line
     swrast

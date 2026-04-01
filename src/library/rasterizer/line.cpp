@@ -37,21 +37,18 @@ void sweep_rasterizer::draw_line(
   const geom::vertex& v0,
   const geom::vertex& v1)
 {
-    line_info info{v0, v1};
-
-    if(info.max_absolute_delta == 0.0f)
+    auto info = rast::line_info::make(v0, v1);
+    if(!info.has_value())
     {
         return;
     }
 
-    info.setup();
-
     rast::line_interpolator attr(
-      *info.v1,
-      *info.v2,
+      *info->v0,
+      *info->v1,
       v0,
       states.shader_info->iqs,
-      1.0f / info.max_absolute_delta);
+      1.0f / info->max_absolute_delta);
 
     std::vector<std::byte> shader_storage{states.shader_info->shader->size()};
     swr::program_base* shader =
@@ -96,9 +93,10 @@ void sweep_rasterizer::draw_line(
         if(kind == line_emit_kind::walked_pixel)
         {
             attr.advance();
-        } };
+        }
+    };
 
-    rasterize_line_coverage(v0, v1, emit_fragment);
+    rasterize_line_coverage(*info, emit_fragment);
 }
 
 } /* namespace rast */
