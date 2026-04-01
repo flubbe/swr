@@ -31,6 +31,14 @@ target_link_libraries(test_rasterizer_line
     )
 add_test(NAME rasterizer_line COMMAND test_rasterizer_line --color_output=no)
 
+add_executable(test_rasterizer_triangle library/rasterizer/triangle.cpp)
+target_link_libraries(test_rasterizer_triangle
+    swrast
+    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    )
+add_test(NAME rasterizer_triangle COMMAND test_rasterizer_triangle --color_output=no)
+
+
 add_executable(test_clipping library/clipping.cpp)
 target_link_libraries(test_clipping
     swrast

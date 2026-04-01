@@ -25,7 +25,7 @@ using namespace std::literals;
  *
  * This bias is used by triangle- and point rasterization code.
  */
-constexpr std::uint32_t FILL_RULE_EDGE_BIAS = 1;
+inline constexpr std::uint32_t FILL_RULE_EDGE_BIAS = 1;
 
 /** Sweep rasterizer. */
 class sweep_rasterizer : public rasterizer

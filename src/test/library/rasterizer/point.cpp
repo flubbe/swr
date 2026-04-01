@@ -10,7 +10,6 @@
 
 /* C++ headers */
 #include <set>
-#include <print>
 
 /* boost test framework. */
 #define BOOST_TEST_MAIN
