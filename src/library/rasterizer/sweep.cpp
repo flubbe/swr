@@ -22,19 +22,39 @@ namespace rast
  * sweep_rasterizer implementation.
  */
 
-void sweep_rasterizer::add_point(const swr::impl::render_states* states, geom::vertex* vertex)
+void sweep_rasterizer::add_point(
+  const swr::impl::render_states* states,
+  geom::vertex* vertex)
 {
-    draw_list.emplace_back(states, vertex);
+    draw_list.emplace_back(
+      states,
+      vertex);
 }
 
-void sweep_rasterizer::add_line(const swr::impl::render_states* states, geom::vertex* v1, geom::vertex* v2)
+void sweep_rasterizer::add_line(
+  const swr::impl::render_states* states,
+  geom::vertex* v1,
+  geom::vertex* v2)
 {
-    draw_list.emplace_back(states, v1, v2);
+    draw_list.emplace_back(
+      states,
+      v1,
+      v2);
 }
 
-void sweep_rasterizer::add_triangle(const swr::impl::render_states* states, bool is_front_facing, geom::vertex* v1, geom::vertex* v2, geom::vertex* v3)
+void sweep_rasterizer::add_triangle(
+  const swr::impl::render_states* states,
+  bool is_front_facing,
+  geom::vertex* v1,
+  geom::vertex* v2,
+  geom::vertex* v3)
 {
-    draw_list.emplace_back(states, is_front_facing, v1, v2, v3);
+    draw_list.emplace_back(
+      states,
+      is_front_facing,
+      v1,
+      v2,
+      v3);
 }
 
 void sweep_rasterizer::draw_primitives()
@@ -60,15 +80,26 @@ void sweep_rasterizer::draw_primitives_sequentially()
         // draw the primitive.
         if(it.type == primitive::primitive_type::point)
         {
-            draw_point(*it.states, *it.v[0]);
+            draw_point(
+              *it.states,
+              *it.v[0]);
         }
         else if(it.type == primitive::primitive_type::line)
         {
-            draw_line(*it.states, true, *it.v[0], *it.v[1]);
+            draw_line(
+              *it.states,
+              true,
+              *it.v[0],
+              *it.v[1]);
         }
         else if(it.type == primitive::primitive_type::triangle)
         {
-            draw_filled_triangle(*it.states, it.is_front_facing, *it.v[0], *it.v[1], *it.v[2]);
+            draw_filled_triangle(
+              *it.states,
+              it.is_front_facing,
+              *it.v[0],
+              *it.v[1],
+              *it.v[2]);
         }
 
         // process tile cache.
@@ -99,15 +130,26 @@ void sweep_rasterizer::draw_primitives_parallel()
         // draw the primitive.
         if(it.type == primitive::primitive_type::point)
         {
-            draw_point(*it.states, *it.v[0]);
+            draw_point(
+              *it.states,
+              *it.v[0]);
         }
         else if(it.type == primitive::primitive_type::line)
         {
-            draw_line(*it.states, true, *it.v[0], *it.v[1]);
+            draw_line(
+              *it.states,
+              true,
+              *it.v[0],
+              *it.v[1]);
         }
         else if(it.type == primitive::primitive_type::triangle)
         {
-            draw_filled_triangle(*it.states, it.is_front_facing, *it.v[0], *it.v[1], *it.v[2]);
+            draw_filled_triangle(
+              *it.states,
+              it.is_front_facing,
+              *it.v[0],
+              *it.v[1],
+              *it.v[2]);
             ++triangles_in_tile_cache;
         }
     }
@@ -132,18 +174,26 @@ void sweep_rasterizer::process_tile(tile& in_tile)
     {
         if(it.mode == tile_info::rasterization_mode::block)
         {
-            process_block(in_tile.x, in_tile.y, it);
+            process_block(
+              in_tile.x,
+              in_tile.y,
+              it);
         }
         else if(it.mode == tile_info::rasterization_mode::checked)
         {
-            process_block_checked(in_tile.x, in_tile.y, it);
+            process_block_checked(
+              in_tile.x,
+              in_tile.y,
+              it);
         }
     }
 }
 
 #ifdef SWR_ENABLE_MULTI_THREADING
 
-void sweep_rasterizer::process_tile_static(sweep_rasterizer* rasterizer, tile* in_tile)
+void sweep_rasterizer::process_tile_static(
+  sweep_rasterizer* rasterizer,
+  tile* in_tile)
 {
     rasterizer->process_tile(*in_tile);
 }

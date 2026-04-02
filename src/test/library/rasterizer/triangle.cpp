@@ -23,6 +23,7 @@
 #include "rasterizer/fragment.h"
 #include "rasterizer/sweep.h"
 #include "rasterizer/triangle.h"
+#include "rasterizer/block.h"
 
 /*
  * Helpers.
@@ -170,7 +171,7 @@ struct covered_triangle_block
     rast::tile_info::rasterization_mode mode;
 };
 
-template<class EmitFn>
+template<typename EmitFn>
 std::vector<covered_triangle_block> collect_covered_triangle_blocks(EmitFn&& emit_fn)
 {
     std::vector<covered_triangle_block> out;
@@ -206,6 +207,73 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
             y_needs_flip,
             std::forward<decltype(f)>(f));
       });
+}
+
+std::vector<std::pair<int, int>> collect_covered_triangle_pixels(
+  const swr::impl::render_states& states,
+  const rast::triangle_info& info,
+  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  float polygon_offset = 0.0f,
+  bool y_needs_flip = false)
+{
+    std::vector<std::pair<int, int>> out;
+
+    rast::for_each_covered_triangle_block(
+      states,
+      info,
+      base_varyings,
+      polygon_offset,
+      y_needs_flip,
+      [&](int block_x,
+          int block_y,
+          const geom::barycentric_coordinate_block& lambdas_box,
+          const rast::triangle_interpolator& attributes,
+          rast::tile_info::rasterization_mode mode)
+      {
+          if(mode == rast::tile_info::rasterization_mode::block)
+          {
+              rast::for_each_quad_in_triangle_block(
+                block_x,
+                block_y,
+                attributes,
+                [&](unsigned int x, unsigned int y, auto&)
+                {
+                    out.emplace_back(x, y);
+                });
+          }
+          else
+          {
+              rast::for_each_covered_quad_in_checked_triangle_block(
+                block_x,
+                block_y,
+                lambdas_box,
+                attributes,
+                [&](unsigned int x, unsigned int y, int mask, auto&)
+                {
+                    if(mask & 0x8)
+                    {
+                        out.emplace_back(x + 0, y + 0);
+                    }
+                    if(mask & 0x4)
+                    {
+                        out.emplace_back(x + 1, y + 0);
+                    }
+                    if(mask & 0x2)
+                    {
+                        out.emplace_back(x + 0, y + 1);
+                    }
+                    if(mask & 0x1)
+                    {
+                        out.emplace_back(x + 1, y + 1);
+                    }
+                });
+          }
+      });
+
+    std::sort(out.begin(), out.end());
+    out.erase(std::unique(out.begin(), out.end()), out.end());
+
+    return out;
 }
 
 namespace rast
@@ -264,6 +332,27 @@ BOOST_AUTO_TEST_CASE(block_covered)
     BOOST_CHECK_EQUAL(blocks[0].x, 0);
     BOOST_CHECK_EQUAL(blocks[0].y, 0);
     BOOST_CHECK_EQUAL(blocks[0].mode, rast::tile_info::rasterization_mode::checked);
+}
+
+BOOST_AUTO_TEST_CASE(single_pixel_triangle_coverage)
+{
+    const auto v0 = make_vertex(0.25f, 0.25f);
+    const auto v1 = make_vertex(1.25f, 0.25f);
+    const auto v2 = make_vertex(0.25f, 1.25f);
+
+    triangle_test_context ctx{10, 10};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto pixels = collect_covered_triangle_pixels(
+      ctx.states,
+      info,
+      v0.varyings);
+
+    BOOST_REQUIRE_EQUAL(pixels.size(), 1u);
+    BOOST_CHECK_EQUAL(pixels[0].first, 0);
+    BOOST_CHECK_EQUAL(pixels[0].second, 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END();
