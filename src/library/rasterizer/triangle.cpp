@@ -15,6 +15,7 @@
 #include "fragment.h"
 #include "sweep.h"
 #include "triangle.h"
+#include "block.h"
 
 namespace rast
 {
@@ -25,125 +26,107 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
 
     const bool front_facing = in_data.front_facing;
 
-    const auto end_x = block_x + swr::impl::rasterizer_block_size;
-    const auto end_y = block_y + swr::impl::rasterizer_block_size;
-
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
-    // process block.
-    for(unsigned int y = block_y; y < end_y; y += 2)
-    {
-        for(unsigned int x = block_x; x < end_x; x += 2)
-        {
-            temp_varyings[0].clear();
-            temp_varyings[1].clear();
-            temp_varyings[2].clear();
-            temp_varyings[3].clear();
+    for_each_quad_in_triangle_block(
+      block_x,
+      block_y,
+      in_data.attributes,
+      [&](unsigned int x,
+          unsigned int y,
+          rast::triangle_interpolator& attributes_quad)
+      {
+          temp_varyings[0].clear();
+          temp_varyings[1].clear();
+          temp_varyings[2].clear();
+          temp_varyings[3].clear();
 
-            in_data.attributes.get_data_block(
-              temp_varyings,
-              frag_depth,
-              one_over_viewport_z);
+          attributes_quad.get_data_block(
+            temp_varyings,
+            frag_depth,
+            one_over_viewport_z);
 
-            rast::fragment_info frag_info[4] = {
-              {frag_depth[0], front_facing, temp_varyings[0]},
-              {frag_depth[1], front_facing, temp_varyings[1]},
-              {frag_depth[2], front_facing, temp_varyings[2]},
-              {frag_depth[3], front_facing, temp_varyings[3]}};
+          rast::fragment_info frag_info[4] = {
+            {frag_depth[0], front_facing, temp_varyings[0]},
+            {frag_depth[1], front_facing, temp_varyings[1]},
+            {frag_depth[2], front_facing, temp_varyings[2]},
+            {frag_depth[3], front_facing, temp_varyings[3]}};
 
-            process_fragment_block(
-              x, y,
-              *in_data.states,
-              in_data.shader,
-              one_over_viewport_z,
-              frag_info,
-              out);
-            in_data.states->draw_target->merge_color_block(
-              0,
-              x, y,
-              out,
-              in_data.states->blending_enabled,
-              in_data.states->blend_src,
-              in_data.states->blend_dst);
+          process_fragment_block(
+            x, y,
+            *in_data.states,
+            in_data.shader,
+            one_over_viewport_z,
+            frag_info,
+            out);
 
-            in_data.attributes.advance_x(2);
-        }
-        in_data.attributes.advance_y(2);
-    }
+          in_data.states->draw_target->merge_color_block(
+            0,
+            x, y,
+            out,
+            in_data.states->blending_enabled,
+            in_data.states->blend_src,
+            in_data.states->blend_dst);
+      });
 }
 
-void sweep_rasterizer::process_block_checked(unsigned int block_x, unsigned int block_y, tile_info& in_data)
+void sweep_rasterizer::process_block_checked(
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& in_data)
 {
     boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
 
     const bool front_facing = in_data.front_facing;
 
-    const auto end_x = block_x + swr::impl::rasterizer_block_size;
-    const auto end_y = block_y + swr::impl::rasterizer_block_size;
-
-    // set up barycentric coordinates for 2x2 blocks.
-    geom::barycentric_coordinate_block lambdas = in_data.lambdas;
-    lambdas.setup(1, 1);
-
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
-    /*
-     * process in 2x2 blocks.
-     */
-    for(unsigned int y = block_y; y < end_y; y += 2)
-    {
-        geom::barycentric_coordinate_block::fixed_24_8_array_4 row_start[3];
-        lambdas.store_position(row_start[0], row_start[1], row_start[2]);
+    for_each_covered_quad_in_checked_triangle_block(
+      block_x,
+      block_y,
+      in_data.lambdas,
+      in_data.attributes,
+      [&](unsigned int x,
+          unsigned int y,
+          int mask,
+          rast::triangle_interpolator& attributes_quad)
+      {
+          temp_varyings[0].clear();
+          temp_varyings[1].clear();
+          temp_varyings[2].clear();
+          temp_varyings[3].clear();
 
-        for(unsigned int x = block_x; x < end_x; x += 2)
-        {
-            // get reduced coverage mask.
-            int mask = geom::reduce_coverage_mask(lambdas.get_coverage_mask());
+          attributes_quad.get_data_block(temp_varyings, frag_depth, one_over_viewport_z);
 
-            if(mask)
-            {
-                temp_varyings[0].clear();
-                temp_varyings[1].clear();
-                temp_varyings[2].clear();
-                temp_varyings[3].clear();
+          rast::fragment_info frag_info[4] = {
+            {frag_depth[0], front_facing, temp_varyings[0]},
+            {frag_depth[1], front_facing, temp_varyings[1]},
+            {frag_depth[2], front_facing, temp_varyings[2]},
+            {frag_depth[3], front_facing, temp_varyings[3]}};
 
-                // the block is at least partially covered.
-                in_data.attributes.get_data_block(temp_varyings, frag_depth, one_over_viewport_z);
+          process_fragment_block(
+            x,
+            y,
+            mask,
+            *in_data.states,
+            in_data.shader,
+            one_over_viewport_z,
+            frag_info,
+            out);
 
-                rast::fragment_info frag_info[4] = {
-                  {frag_depth[0], front_facing, temp_varyings[0]},
-                  {frag_depth[1], front_facing, temp_varyings[1]},
-                  {frag_depth[2], front_facing, temp_varyings[2]},
-                  {frag_depth[3], front_facing, temp_varyings[3]}};
-
-                process_fragment_block(
-                  x, y, mask,
-                  *in_data.states,
-                  in_data.shader,
-                  one_over_viewport_z,
-                  frag_info,
-                  out);
-                in_data.states->draw_target->merge_color_block(
-                  0,
-                  x, y,
-                  out,
-                  in_data.states->blending_enabled,
-                  in_data.states->blend_src,
-                  in_data.states->blend_dst);
-            }
-
-            lambdas.step_x(2);
-            in_data.attributes.advance_x(2);
-        }
-
-        lambdas.load_position(row_start[0], row_start[1], row_start[2]);
-        lambdas.step_y(2);
-        in_data.attributes.advance_y(2);
-    }
+          in_data.states->draw_target->merge_color_block(
+            0,
+            x,
+            y,
+            out,
+            in_data.states->blending_enabled,
+            in_data.states->blend_src,
+            in_data.states->blend_dst);
+      });
 }
 
 /**
