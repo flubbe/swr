@@ -223,6 +223,7 @@ void sweep_rasterizer::draw_filled_triangle(
     for_each_covered_triangle_block(
       states,
       info,
+      v0.varyings,
       polygon_offset,
       y_needs_flip,
       [&](int x,

@@ -191,6 +191,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(EmitFn&& emi
 std::vector<covered_triangle_block> collect_covered_triangle_blocks(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
+  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
   float polygon_offset = 0.0f,
   bool y_needs_flip = false)
 {
@@ -200,6 +201,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
           rast::for_each_covered_triangle_block(
             states,
             info,
+            base_varyings,
             polygon_offset,
             y_needs_flip,
             std::forward<decltype(f)>(f));
@@ -254,7 +256,8 @@ BOOST_AUTO_TEST_CASE(block_covered)
 
     const auto blocks = collect_covered_triangle_blocks(
       ctx.states,
-      info);
+      info,
+      v0.varyings);
 
     BOOST_REQUIRE(!blocks.empty());
     BOOST_CHECK_EQUAL(blocks.size(), 1u);
