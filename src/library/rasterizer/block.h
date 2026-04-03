@@ -37,7 +37,7 @@ inline void for_each_quad_in_triangle_block(
 }
 
 /** Invoke a callable for each covered 2x2 quad inside a checked triangle block. */
-template<class F>
+template<typename F>
 inline void for_each_covered_quad_in_checked_triangle_block(
   unsigned int block_x,
   unsigned int block_y,

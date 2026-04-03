@@ -90,8 +90,8 @@ void sweep_rasterizer::process_block_checked(
       block_y,
       in_data.lambdas,
       in_data.attributes,
-      [&](unsigned int x,
-          unsigned int y,
+      [&](int x,
+          int y,
           int mask,
           rast::triangle_interpolator& attributes_quad)
       {

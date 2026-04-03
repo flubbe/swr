@@ -226,7 +226,7 @@ bounding_box compute_triangle_bounds(
       .end_y = swr::impl::upper_align_on_block_size(std::min(std::max({v0y + 1, v1y + 1, v2y + 1}), y_max))};
 }
 
-template<class F>
+template<typename F>
 inline void for_each_covered_triangle_block(
   const swr::impl::render_states& states,
   const triangle_info& info,

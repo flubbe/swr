@@ -89,7 +89,7 @@ inline line_fixed_t signed_constraint(line_fixed_vec2 v, int sx, int sy)
 }
 
 /** Invoke a callable once for each of the four diamond boundary sign combinations. */
-template<class F>
+template<typename F>
 inline void for_each_diamond_constraint(F&& f)
 {
     f(1, 1);
@@ -99,7 +99,7 @@ inline void for_each_diamond_constraint(F&& f)
 }
 
 /** Invoke `f` for each active diamond boundary constraint touched by `offset`. */
-template<class F>
+template<typename F>
 inline bool for_each_active_diamond_boundary_constraint(
   line_fixed_vec2 offset,
   bool x_major,
@@ -208,7 +208,7 @@ inline bool segment_stays_within_owned_start_diamond(
  *
  * Used for both start ownership and end exclusion depending on the predicate.
  */
-template<class BoundaryPredicate>
+template<typename BoundaryPredicate>
 inline std::optional<ml::tvec2<int>> resolve_endpoint_pixel(
   line_fixed_vec2 point,
   line_fixed_vec2 delta,
@@ -522,7 +522,7 @@ inline line_walk_plan make_line_walk_plan(
  * For each integer major coordinate p in [p_start, p_end], computes the corresponding
  * minor pixel using integer interpolation and tie-breaking, and invokes the callback.
  */
-template<class EmitWalkPixel>
+template<typename EmitWalkPixel>
 void walk_line_pixels(
   const line_walk_plan& plan,
   EmitWalkPixel&& emit_walk_pixel)
@@ -554,7 +554,7 @@ void walk_line_pixels(
  * The callback receives each pixel and whether it was produced by the walk or by
  * deferred endpoint handling.
  */
-template<class EmitFragment>
+template<typename EmitFragment>
 void rasterize_line_coverage(
   const line_info& info,
   EmitFragment&& emit_fragment)

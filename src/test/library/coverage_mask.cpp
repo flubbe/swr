@@ -14,7 +14,7 @@
 /* boost test framework. */
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_ALTERNATIVE_INIT_API
-#define BOOST_TEST_MODULE clipping tests
+#define BOOST_TEST_MODULE coverage masks
 #include <boost/test/unit_test.hpp>
 
 /* make sure we include the non-SIMD code. */
