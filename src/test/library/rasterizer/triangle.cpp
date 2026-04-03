@@ -350,6 +350,28 @@ std::vector<ml::tvec2<int>> make_expected(
     return out;
 }
 
+template<class F>
+void for_each_triangle_permutation(
+  const geom::vertex& v0,
+  const geom::vertex& v1,
+  const geom::vertex& v2,
+  F&& f)
+{
+    const std::array<
+      std::reference_wrapper<
+        const geom::vertex>,
+      3>
+      vertices{v0, v1, v2};
+    std::array<int, 3> perm{0, 1, 2};
+
+    do
+    {
+        f(vertices[perm[0]].get(),
+          vertices[perm[1]].get(),
+          vertices[perm[2]].get());
+    } while(std::next_permutation(perm.begin(), perm.end()));
+}
+
 namespace rast
 {
 
@@ -436,19 +458,24 @@ BOOST_AUTO_TEST_CASE(single_pixel_triangle_coverage)
     const auto v1 = make_vertex(1.25f, 0.25f);
     const auto v2 = make_vertex(0.25f, 1.25f);
 
-    triangle_test_context ctx{10, 10};
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
 
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            a.varyings);
 
-    BOOST_REQUIRE_EQUAL(pixels.size(), 1u);
-    BOOST_CHECK_EQUAL(pixels[0].x, 0);
-    BOOST_CHECK_EQUAL(pixels[0].y, 0);
+          BOOST_REQUIRE_EQUAL(pixels.size(), 1u);
+          BOOST_CHECK_EQUAL(pixels[0].x, 0);
+          BOOST_CHECK_EQUAL(pixels[0].y, 0);
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_1)
@@ -457,20 +484,26 @@ BOOST_AUTO_TEST_CASE(d3d11_1)
     const auto v1 = make_vertex(6, 2);
     const auto v2 = make_vertex(2, 4);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{1, 1}, {2, 1}, {1, 2}, {2, 2}, {3, 2}, {4, 2}, {2, 3}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_2)
@@ -491,17 +524,22 @@ BOOST_AUTO_TEST_CASE(d3d11_3)
     const auto v1 = make_vertex(1.25, 1.25);
     const auto v2 = make_vertex(0.25, 1.25);
 
-    triangle_test_context ctx{10, 10};
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
 
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
 
-    BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
+          BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_4)
@@ -510,17 +548,22 @@ BOOST_AUTO_TEST_CASE(d3d11_4)
     const auto v1 = make_vertex(1.5, 1.5);
     const auto v2 = make_vertex(0.5, 1.5);
 
-    triangle_test_context ctx{10, 10};
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
 
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
 
-    BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
+          BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_5)
@@ -529,20 +572,26 @@ BOOST_AUTO_TEST_CASE(d3d11_5)
     const auto v1 = make_vertex(2.75, 0.75);
     const auto v2 = make_vertex(4.75, 2.5);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{2, 1}, {3, 1}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_6)
@@ -551,20 +600,26 @@ BOOST_AUTO_TEST_CASE(d3d11_6)
     const auto v1 = make_vertex(4.75, 2.5);
     const auto v2 = make_vertex(2.5, 5.25);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{1, 2}, {2, 2}, {3, 2}, {4, 2}, {1, 3}, {2, 3}, {3, 3}, {2, 4}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_7)
@@ -573,20 +628,26 @@ BOOST_AUTO_TEST_CASE(d3d11_7)
     const auto v1 = make_vertex(1.5, 2.5);
     const auto v2 = make_vertex(0.5, 1.5);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{1, 0}, {0, 1}, {1, 1}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_8)
@@ -595,17 +656,22 @@ BOOST_AUTO_TEST_CASE(d3d11_8)
     const auto v1 = make_vertex(0.5, 1.5);
     const auto v2 = make_vertex(1.5, 4.5);
 
-    triangle_test_context ctx{10, 10};
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
 
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
 
-    BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
+          BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_9)
@@ -614,20 +680,26 @@ BOOST_AUTO_TEST_CASE(d3d11_9)
     const auto v1 = make_vertex(6, 0);
     const auto v2 = make_vertex(4, 2);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{4, 0}, {1, 1}, {2, 1}, {3, 1}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_10)
@@ -636,20 +708,26 @@ BOOST_AUTO_TEST_CASE(d3d11_10)
     const auto v1 = make_vertex(4, 2);
     const auto v2 = make_vertex(7, 3);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{5, 0}, {4, 1}, {5, 1}, {5, 2}, {6, 2}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_11)
@@ -658,20 +736,26 @@ BOOST_AUTO_TEST_CASE(d3d11_11)
     const auto v1 = make_vertex(7, 3);
     const auto v2 = make_vertex(8.5, 1.5);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{6, 0}, {6, 1}, {7, 1}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_12)
@@ -680,20 +764,26 @@ BOOST_AUTO_TEST_CASE(d3d11_12)
     const auto v1 = make_vertex(1.5, 1.5);
     const auto v2 = make_vertex(0.5, 2.5);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{0, 1}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_13)
@@ -702,20 +792,26 @@ BOOST_AUTO_TEST_CASE(d3d11_13)
     const auto v1 = make_vertex(2.5, 0.5);
     const auto v2 = make_vertex(0.5, 2.5);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{0, 0}, {1, 0}, {0, 1}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_14)
@@ -724,20 +820,26 @@ BOOST_AUTO_TEST_CASE(d3d11_14)
     const auto v1 = make_vertex(2.5, 0.5);
     const auto v2 = make_vertex(0.5, 2.5);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{1, 1}});
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
+
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_CASE(d3d11_15)
@@ -746,25 +848,26 @@ BOOST_AUTO_TEST_CASE(d3d11_15)
     const auto v1 = make_vertex(0.5, 11.5);
     const auto v2 = make_vertex(1.5, 9.5);
 
-    triangle_test_context ctx{10, 10};
-
-    const auto info = rast::setup_triangle(v0, v1, v2);
-    BOOST_REQUIRE(!info.is_degenerate);
-
-    const auto pixels = collect_covered_triangle_pixels(
-      ctx.states,
-      info,
-      v0.varyings);
     const auto expected = make_expected({{0, 9}});
 
-    for(const auto& p: pixels)
-    {
-        std::println("{} {}", p.x, p.y);
-    }
+    for_each_triangle_permutation(
+      v0, v1, v2,
+      [&](const auto& a, const auto& b, const auto& c)
+      {
+          triangle_test_context ctx{10, 10};
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-      pixels.begin(), pixels.end(),
-      expected.begin(), expected.end());
+          const auto info = rast::setup_triangle(a, b, c);
+          BOOST_REQUIRE(!info.is_degenerate);
+
+          const auto pixels = collect_covered_triangle_pixels(
+            ctx.states,
+            info,
+            v0.varyings);
+
+          BOOST_CHECK_EQUAL_COLLECTIONS(
+            pixels.begin(), pixels.end(),
+            expected.begin(), expected.end());
+      });
 }
 
 BOOST_AUTO_TEST_SUITE_END();
