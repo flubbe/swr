@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <array>
+
 namespace geom
 {
 
@@ -38,7 +40,11 @@ struct barycentric_coordinate_block
         , f3{f}
         {
         }
-        fixed_24_8_array_4(const ml::fixed_24_8_t& in_f3, const ml::fixed_24_8_t& in_f2, const ml::fixed_24_8_t& in_f1, const ml::fixed_24_8_t& in_f0)
+        fixed_24_8_array_4(
+          const ml::fixed_24_8_t& in_f3,
+          const ml::fixed_24_8_t& in_f2,
+          const ml::fixed_24_8_t& in_f1,
+          const ml::fixed_24_8_t& in_f0)
         : f0{in_f0}
         , f1{in_f1}
         , f2{in_f2}
@@ -48,12 +54,20 @@ struct barycentric_coordinate_block
 
         const fixed_24_8_array_4 operator*(int i) const
         {
-            return {f3 * i, f2 * i, f1 * i, f0 * i};
+            return {
+              f3 * i,
+              f2 * i,
+              f1 * i,
+              f0 * i};
         }
 
         const fixed_24_8_array_4 operator+(const fixed_24_8_array_4& fa) const
         {
-            return {f3 + fa.f3, f2 + fa.f2, f1 + fa.f1, f0 + fa.f0};
+            return {
+              f3 + fa.f3,
+              f2 + fa.f2,
+              f1 + fa.f1,
+              f0 + fa.f0};
         }
     };
 
@@ -63,7 +77,7 @@ struct barycentric_coordinate_block
      * after setup, the assignments of members to corners is given by
      * (.f3, .f2, .f1, .f0) = (top-left, top-right, bottom-left, bottom-right).
      */
-    fixed_24_8_array_4 corners[3];
+    std::array<fixed_24_8_array_4, 3> corners;
 
     /**
      * steps to take in x direction on each advance.
@@ -73,7 +87,7 @@ struct barycentric_coordinate_block
      *
      * the members usually all contain the same value.
      */
-    fixed_24_8_array_4 steps_x[3];
+    std::array<fixed_24_8_array_4, 3> steps_x;
 
     /**
      * steps to take in y direction on each advance.
@@ -83,7 +97,7 @@ struct barycentric_coordinate_block
      *
      * the members usually all contain the same value.
      */
-    fixed_24_8_array_4 steps_y[3];
+    std::array<fixed_24_8_array_4, 3> steps_y;
 
     /** default constructor. */
     barycentric_coordinate_block() = default;
@@ -97,18 +111,10 @@ struct barycentric_coordinate_block
       const ml::fixed_24_8_t& lambda0, const ml::tvec2<ml::fixed_24_8_t>& step0,
       const ml::fixed_24_8_t& lambda1, const ml::tvec2<ml::fixed_24_8_t>& step1,
       const ml::fixed_24_8_t& lambda2, const ml::tvec2<ml::fixed_24_8_t>& step2)
+    : corners{fixed_24_8_array_4{lambda0}, fixed_24_8_array_4{lambda1}, fixed_24_8_array_4{lambda2}}
+    , steps_x{fixed_24_8_array_4{step0.x}, fixed_24_8_array_4{step1.x}, fixed_24_8_array_4{step2.x}}
+    , steps_y{fixed_24_8_array_4{step0.y}, fixed_24_8_array_4{step1.y}, fixed_24_8_array_4{step2.y}}
     {
-        corners[0] = fixed_24_8_array_4{lambda0};
-        corners[1] = fixed_24_8_array_4{lambda1};
-        corners[2] = fixed_24_8_array_4{lambda2};
-
-        steps_x[0] = fixed_24_8_array_4{step0.x};
-        steps_x[1] = fixed_24_8_array_4{step1.x};
-        steps_x[2] = fixed_24_8_array_4{step2.x};
-
-        steps_y[0] = fixed_24_8_array_4{step0.y};
-        steps_y[1] = fixed_24_8_array_4{step1.y};
-        steps_y[2] = fixed_24_8_array_4{step2.y};
     }
 
     barycentric_coordinate_block& operator=(const barycentric_coordinate_block&) = default;
@@ -161,7 +167,10 @@ struct barycentric_coordinate_block
     }
 
     /** store current position. */
-    void store_position(fixed_24_8_array_4& c0, fixed_24_8_array_4& c1, fixed_24_8_array_4& c2) const
+    void store_position(
+      fixed_24_8_array_4& c0,
+      fixed_24_8_array_4& c1,
+      fixed_24_8_array_4& c2) const
     {
         c0 = corners[0];
         c1 = corners[1];
@@ -169,7 +178,10 @@ struct barycentric_coordinate_block
     }
 
     /** load current position. */
-    void load_position(const fixed_24_8_array_4& c0, const fixed_24_8_array_4& c1, const fixed_24_8_array_4& c2)
+    void load_position(
+      const fixed_24_8_array_4& c0,
+      const fixed_24_8_array_4& c1,
+      const fixed_24_8_array_4& c2)
     {
         corners[0] = c0;
         corners[1] = c1;
@@ -183,13 +195,15 @@ struct barycentric_coordinate_block
      *
      *                          lambda2         |       lambda1       |       lambda0
      * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
-     * pixsel position:    tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
+     * pixel position:     tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
      */
     int get_coverage_mask() const
     {
         auto gen_mask = [](const fixed_24_8_array_4& f) -> int
         { return ((f.f3 > 0) << 3) | ((f.f2 > 0) << 2) | ((f.f1 > 0) << 1) | (f.f0 > 0); };
-        return gen_mask(corners[0]) | (gen_mask(corners[1]) << 4) | (gen_mask(corners[2]) << 8);
+        return gen_mask(corners[0])
+               | (gen_mask(corners[1]) << 4)
+               | (gen_mask(corners[2]) << 8);
     }
 };
 

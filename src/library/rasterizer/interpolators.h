@@ -118,7 +118,11 @@ struct basic_interpolation_data
      * @param out_one_over_viewport_z Inverse of viewport z for the block.
      */
     void get_data_block(
-      boost::container::static_vector<swr::varying, geom::limits::max::varyings> out_varyings[4],
+      std::array<
+        boost::container::static_vector<
+          swr::varying,
+          geom::limits::max::varyings>,
+        4>& out_varyings,
       ml::vec4& out_depth,
       ml::vec4& out_one_over_viewport_z) const
     {
@@ -286,7 +290,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
  * These coordinates are given with respect to the edges used during their initialization
  * in the constructor.
  *
- * NOTE: The validity of the parameters is not checked!
+ * NOTE The validity of the parameters is not checked!
  */
 struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolator_2d<float>>
 {

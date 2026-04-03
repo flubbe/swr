@@ -121,7 +121,7 @@ struct pixel_format_converter
     void update()
     {
         // calculate the maximal representable color per channel.
-        std::uint32_t max_rgba[4] = {
+        std::array<std::uint32_t, 4> max_rgba = {
           static_cast<std::uint32_t>((1 << pf.red_bits) - 1),
           static_cast<std::uint32_t>((1 << pf.green_bits) - 1),
           static_cast<std::uint32_t>((1 << pf.blue_bits) - 1),

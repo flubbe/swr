@@ -22,7 +22,12 @@ namespace rast
 
 void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y, tile_info& in_data)
 {
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
+    std::array<
+      boost::container::static_vector<
+        swr::varying,
+        geom::limits::max::varyings>,
+      4>
+      temp_varyings;
 
     const bool front_facing = in_data.front_facing;
 
@@ -48,11 +53,11 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
             frag_depth,
             one_over_viewport_z);
 
-          rast::fragment_info frag_info[4] = {
-            {frag_depth[0], front_facing, temp_varyings[0]},
-            {frag_depth[1], front_facing, temp_varyings[1]},
-            {frag_depth[2], front_facing, temp_varyings[2]},
-            {frag_depth[3], front_facing, temp_varyings[3]}};
+          std::array<rast::fragment_info, 4> frag_info =
+            {{{frag_depth[0], front_facing, temp_varyings[0]},
+              {frag_depth[1], front_facing, temp_varyings[1]},
+              {frag_depth[2], front_facing, temp_varyings[2]},
+              {frag_depth[3], front_facing, temp_varyings[3]}}};
 
           process_fragment_block(
             x, y,
@@ -77,7 +82,12 @@ void sweep_rasterizer::process_block_checked(
   unsigned int block_y,
   tile_info& in_data)
 {
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp_varyings[4];
+    std::array<
+      boost::container::static_vector<
+        swr::varying,
+        geom::limits::max::varyings>,
+      4>
+      temp_varyings;
 
     const bool front_facing = in_data.front_facing;
 
@@ -100,13 +110,16 @@ void sweep_rasterizer::process_block_checked(
           temp_varyings[2].clear();
           temp_varyings[3].clear();
 
-          attributes_quad.get_data_block(temp_varyings, frag_depth, one_over_viewport_z);
+          attributes_quad.get_data_block(
+            temp_varyings,
+            frag_depth,
+            one_over_viewport_z);
 
-          rast::fragment_info frag_info[4] = {
-            {frag_depth[0], front_facing, temp_varyings[0]},
-            {frag_depth[1], front_facing, temp_varyings[1]},
-            {frag_depth[2], front_facing, temp_varyings[2]},
-            {frag_depth[3], front_facing, temp_varyings[3]}};
+          std::array<rast::fragment_info, 4> frag_info =
+            {{{frag_depth[0], front_facing, temp_varyings[0]},
+              {frag_depth[1], front_facing, temp_varyings[1]},
+              {frag_depth[2], front_facing, temp_varyings[2]},
+              {frag_depth[3], front_facing, temp_varyings[3]}}};
 
           process_fragment_block(
             x,

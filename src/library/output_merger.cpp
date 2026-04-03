@@ -28,7 +28,9 @@ namespace argb8888
  */
 
 /** A fast approximation to alpha blending. */
-static std::uint32_t approx_srcalpha_oneminussrcalpha(const std::uint32_t src, const std::uint32_t dest)
+static std::uint32_t approx_srcalpha_oneminussrcalpha(
+  const std::uint32_t src,
+  const std::uint32_t dest)
 {
     // extract alpha value
     std::uint32_t a = src >> 24;
@@ -58,7 +60,9 @@ namespace xxxx8888
 {
 
 /** multiply source and destination in components. */
-static std::uint32_t approx_zero_dstsrccolor(const std::uint32_t src, const std::uint32_t dest)
+static std::uint32_t approx_zero_dstsrccolor(
+  const std::uint32_t src,
+  const std::uint32_t dest)
 {
     std::uint32_t c1 = (((src & 0x000000ff) * (dest & 0x000000ff)) >> 8) & 0x000000ff;
     std::uint32_t c2 = (((src & 0x0000ff00) >> 8) * ((dest & 0x0000ff00) >> 8)) & 0x0000ff00;
@@ -74,7 +78,12 @@ static std::uint32_t approx_zero_dstsrccolor(const std::uint32_t src, const std:
  * blending.
  */
 
-std::uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const std::uint32_t src, const std::uint32_t dest)
+std::uint32_t blend(
+  const pixel_format_converter& pf_conv,
+  blend_func blend_src,
+  blend_func blend_dst,
+  const std::uint32_t src,
+  const std::uint32_t dest)
 {
     // first check for blending modes that do not depend on the pixel format.
     if(blend_src == blend_func::one
@@ -121,7 +130,13 @@ std::uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src,
     return src;
 }
 
-void blend_block(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const std::uint32_t src[4], const std::uint32_t dest[4], std::uint32_t out[4])
+void blend_block(
+  const pixel_format_converter& pf_conv,
+  blend_func blend_src,
+  blend_func blend_dst,
+  const std::array<std::uint32_t, 4>& src,
+  const std::array<std::uint32_t, 4>& dest,
+  std::array<std::uint32_t, 4>& out)
 {
     // first check for blending modes that do not depend on the pixel format.
     if(blend_src == blend_func::one
@@ -192,7 +207,11 @@ void blend_block(const pixel_format_converter& pf_conv, blend_func blend_src, bl
     out[3] = src[3];
 }
 
-ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& src, const ml::vec4& dest)
+ml::vec4 blend(
+  blend_func blend_src,
+  blend_func blend_dst,
+  const ml::vec4& src,
+  const ml::vec4& dest)
 {
     if(blend_src == blend_func::one
        && blend_dst == blend_func::zero)
@@ -228,9 +247,14 @@ ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& src, 
     return src;
 }
 
-void blend_block(blend_func blend_src, blend_func blend_dst, const ml::vec4 src[4], const ml::vec4 dest[4], ml::vec4 out[4])
+void blend_block(
+  blend_func blend_src,
+  blend_func blend_dst,
+  const std::array<ml::vec4, 4>& src,
+  const std::array<ml::vec4, 4>& dest,
+  std::array<ml::vec4, 4>& out)
 {
-    auto copy_to_out = [&out](const ml::vec4 from[4])
+    auto copy_to_out = [&out](const std::array<ml::vec4, 4>& from)
     {
         out[0] = from[0];
         out[1] = from[1];

@@ -17,6 +17,8 @@
 
 #include "../swr_internal.h"
 
+#include <array>
+
 namespace rast
 {
 
@@ -42,8 +44,11 @@ struct triangle_info
     ml::vec2_fixed<4> v1_xy_fix;
     ml::vec2_fixed<4> v2_xy_fix;
 
-    geom::edge_function_fixed edges_fix[3] = {
-      {{}, {}}, {{}, {}}, {{}, {}}};
+    // FIXME add appropriate constructor to edge_function_fixed
+    std::array<geom::edge_function_fixed, 3> edges_fix = {
+      geom::edge_function_fixed{{}, {}},
+      geom::edge_function_fixed{{}, {}},
+      geom::edge_function_fixed{{}, {}}};
 };
 
 inline triangle_info setup_triangle(
@@ -149,24 +154,24 @@ inline triangle_info setup_triangle(
      *
      * Note that this coordinate system may or may not correspond to the actual rendered output.
      */
-    for(int i = 0; i < 3; ++i)
+    for(auto& edge: info.edges_fix)
     {
         // Top edge test.
         //
         // 'exactly horizontal' implies that the y coordinate does not change. Since the triangle's vertices are
         // wound CW, the top edge is determined by checking that its x-direction is positive.
-        if(info.edges_fix[i].v_diff.y == 0
-           && info.edges_fix[i].v_diff.x > 0)
+        if(edge.v_diff.y == 0
+           && edge.v_diff.x > 0)
         {
-            info.edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
+            edge.c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
         }
         // Left edge test.
         //
         // In a CW triangle, a left edge goes up, i.e. its endpoint is strictly above its starting point.
         // In terms of the y coordinate, the difference vector has to be strictly negative.
-        else if(info.edges_fix[i].v_diff.y < 0)
+        else if(edge.v_diff.y < 0)
         {
-            info.edges_fix[i].c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
+            edge.c += cnl::wrap<ml::fixed_24_8_t>(FILL_RULE_EDGE_BIAS);
         }
         else
         {

@@ -167,7 +167,7 @@ void sweep_rasterizer::process_fragment_block(
   const swr::impl::render_states& states,
   const swr::program_base* in_shader,
   const ml::vec4& one_over_viewport_z,
-  fragment_info frag_info[4],
+  std::array<fragment_info, 4>& frag_info,
   swr::impl::fragment_output_block& out)
 {
     // initialize masks.
@@ -180,7 +180,11 @@ void sweep_rasterizer::process_fragment_block(
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
     // block coordinates
-    const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
+    const std::array<ml::tvec2<int>, 4> coords =
+      {{{x, y},
+        {x + 1, y},
+        {x, y + 1},
+        {x + 1, y + 1}}};
 
     /*
      * Scissor test.
@@ -224,8 +228,16 @@ void sweep_rasterizer::process_fragment_block(
      * Compute z and interpolated values.
      */
 #ifdef SWR_USE_SIMD
-    DECLARE_ALIGNED_FLOAT4(z);
-    _mm_store_ps(z, _mm_div_ps(_mm_set_ps1(1.0f), _mm_set_ps(one_over_viewport_z[3], one_over_viewport_z[2], one_over_viewport_z[1], one_over_viewport_z[0])));
+    alignas(utils::alignment::sse) std::array<float, 4> z;
+    _mm_store_ps(
+      z,
+      _mm_div_ps(
+        _mm_set_ps1(1.0f),
+        _mm_set_ps(
+          one_over_viewport_z[3],
+          one_over_viewport_z[2],
+          one_over_viewport_z[1],
+          one_over_viewport_z[0])));
 #else  /* SWR_USE_SIMD */
     const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
 #endif /* SWR_USE_SIMD */
@@ -265,8 +277,12 @@ void sweep_rasterizer::process_fragment_block(
      * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color
      */
 
-    ml::vec4 color[4] = {ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}};
-    DECLARE_ALIGNED_FLOAT4(depth_value) = {
+    std::array<ml::vec4, 4> color =
+      {{{0, 0, 0, 1},
+        {0, 0, 0, 1},
+        {0, 0, 0, 1},
+        {0, 0, 0, 1}}};
+    alignas(utils::alignment::sse) std::array<float, 4> depth_value = {
       frag_info[0].depth_value,
       frag_info[1].depth_value,
       frag_info[2].depth_value,
@@ -276,12 +292,11 @@ void sweep_rasterizer::process_fragment_block(
      * set up the fragment coordinate. this should match (15.1) on p. 415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
      * note that we need to reverse the y-axis.
      */
-    ml::vec4 frag_coord[4] = {
-      {static_cast<float>(coords[0].x) - pixel_center.x, static_cast<float>(coords[0].y) - pixel_center.y, depth_value[0], z[0]},
-      {static_cast<float>(coords[1].x) - pixel_center.x, static_cast<float>(coords[1].y) - pixel_center.y, depth_value[1], z[1]},
-      {static_cast<float>(coords[2].x) - pixel_center.x, static_cast<float>(coords[2].y) - pixel_center.y, depth_value[2], z[2]},
-      {static_cast<float>(coords[3].x) - pixel_center.x, static_cast<float>(coords[3].y) - pixel_center.y, depth_value[3], z[3]},
-    };
+    std::array<ml::vec4, 4> frag_coord =
+      {{{static_cast<float>(coords[0].x) - pixel_center.x, static_cast<float>(coords[0].y) - pixel_center.y, depth_value[0], z[0]},
+        {static_cast<float>(coords[1].x) - pixel_center.x, static_cast<float>(coords[1].y) - pixel_center.y, depth_value[1], z[1]},
+        {static_cast<float>(coords[2].x) - pixel_center.x, static_cast<float>(coords[2].y) - pixel_center.y, depth_value[2], z[2]},
+        {static_cast<float>(coords[3].x) - pixel_center.x, static_cast<float>(coords[3].y) - pixel_center.y, depth_value[3], z[3]}}};
 
     if(states.draw_target == framebuffer)
     {
@@ -323,7 +338,12 @@ void sweep_rasterizer::process_fragment_block(
         depth_value[3] = std::clamp(depth_value[3], 0.f, 1.f);
 #endif /* SWR_USE_SIMD */
 
-        states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
+        states.draw_target->depth_compare_write_block(
+          x, y,
+          depth_value,
+          states.depth_func,
+          states.write_depth,
+          depth_mask);
     }
 
     write_color &= depth_mask;
@@ -346,7 +366,7 @@ void sweep_rasterizer::process_fragment_block(
   const swr::impl::render_states& states,
   const swr::program_base* in_shader,
   const ml::vec4& one_over_viewport_z,
-  fragment_info frag_info[4],
+  std::array<fragment_info, 4>& frag_info,
   swr::impl::fragment_output_block& out)
 {
     // initialize masks.
@@ -359,7 +379,11 @@ void sweep_rasterizer::process_fragment_block(
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to 0. */
 
     // block coordinates
-    const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
+    const std::array<ml::tvec2<int>, 4> coords =
+      {{{x, y},
+        {x + 1, y},
+        {x, y + 1},
+        {x + 1, y + 1}}};
 
     /*
      * Scissor test.
@@ -403,8 +427,16 @@ void sweep_rasterizer::process_fragment_block(
      * Compute z and interpolated values.
      */
 #ifdef SWR_USE_SIMD
-    DECLARE_ALIGNED_FLOAT4(z);
-    _mm_store_ps(z, _mm_div_ps(_mm_set_ps1(1.0f), _mm_set_ps(one_over_viewport_z[3], one_over_viewport_z[2], one_over_viewport_z[1], one_over_viewport_z[0])));
+    alignas(utils::alignment::sse) std::array<float, 4> z;
+    _mm_store_ps(
+      z,
+      _mm_div_ps(
+        _mm_set_ps1(1.0f),
+        _mm_set_ps(
+          one_over_viewport_z[3],
+          one_over_viewport_z[2],
+          one_over_viewport_z[1],
+          one_over_viewport_z[0])));
 #else  /* SWR_USE_SIMD */
     const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
 #endif /* SWR_USE_SIMD */
@@ -444,8 +476,12 @@ void sweep_rasterizer::process_fragment_block(
      * choose {0,0,0,1} for initialization. see e.g. https://stackoverflow.com/questions/29119097/glsl-default-value-for-output-color
      */
 
-    ml::vec4 color[4] = {ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}, ml::vec4{0, 0, 0, 1}};
-    DECLARE_ALIGNED_FLOAT4(depth_value) = {
+    std::array<ml::vec4, 4> color =
+      {{{0, 0, 0, 1},
+        {0, 0, 0, 1},
+        {0, 0, 0, 1},
+        {0, 0, 0, 1}}};
+    alignas(utils::alignment::sse) std::array<float, 4> depth_value = {
       frag_info[0].depth_value,
       frag_info[1].depth_value,
       frag_info[2].depth_value,
@@ -455,12 +491,11 @@ void sweep_rasterizer::process_fragment_block(
      * set up the fragment coordinate. this should match (15.1) on p. 415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
      * note that we need to reverse the y-axis.
      */
-    ml::vec4 frag_coord[4] = {
-      {static_cast<float>(coords[0].x) - pixel_center.x, static_cast<float>(coords[0].y) - pixel_center.y, depth_value[0], z[0]},
-      {static_cast<float>(coords[1].x) - pixel_center.x, static_cast<float>(coords[1].y) - pixel_center.y, depth_value[1], z[1]},
-      {static_cast<float>(coords[2].x) - pixel_center.x, static_cast<float>(coords[2].y) - pixel_center.y, depth_value[2], z[2]},
-      {static_cast<float>(coords[3].x) - pixel_center.x, static_cast<float>(coords[3].y) - pixel_center.y, depth_value[3], z[3]},
-    };
+    std::array<ml::vec4, 4> frag_coord =
+      {{{static_cast<float>(coords[0].x) - pixel_center.x, static_cast<float>(coords[0].y) - pixel_center.y, depth_value[0], z[0]},
+        {static_cast<float>(coords[1].x) - pixel_center.x, static_cast<float>(coords[1].y) - pixel_center.y, depth_value[1], z[1]},
+        {static_cast<float>(coords[2].x) - pixel_center.x, static_cast<float>(coords[2].y) - pixel_center.y, depth_value[2], z[2]},
+        {static_cast<float>(coords[3].x) - pixel_center.x, static_cast<float>(coords[3].y) - pixel_center.y, depth_value[3], z[3]}}};
 
     if(states.draw_target == framebuffer)
     {

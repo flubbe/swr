@@ -94,7 +94,7 @@ struct fake_draw_target : swr::impl::framebuffer_draw_target
     void depth_compare_write_block(
       [[maybe_unused]] int x,
       [[maybe_unused]] int y,
-      [[maybe_unused]] float depth_value[4],
+      [[maybe_unused]] std::array<float, 4>& depth_value,
       [[maybe_unused]] swr::comparison_func depth_func,
       [[maybe_unused]] bool write_depth,
       [[maybe_unused]] std::uint8_t& write_mask) override
@@ -427,7 +427,7 @@ BOOST_AUTO_TEST_CASE(setup_degenerate_triangle)
     BOOST_REQUIRE(info.is_degenerate);
 }
 
-BOOST_AUTO_TEST_CASE(block_covered)
+BOOST_AUTO_TEST_CASE(checked_block_covered)
 {
     static_assert(swr::impl::rasterizer_block_size >= 8);
 
@@ -498,7 +498,7 @@ BOOST_AUTO_TEST_CASE(d3d11_1)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -536,7 +536,7 @@ BOOST_AUTO_TEST_CASE(d3d11_3)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
       });
@@ -560,7 +560,7 @@ BOOST_AUTO_TEST_CASE(d3d11_4)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
       });
@@ -586,7 +586,7 @@ BOOST_AUTO_TEST_CASE(d3d11_5)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -614,7 +614,7 @@ BOOST_AUTO_TEST_CASE(d3d11_6)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -642,7 +642,7 @@ BOOST_AUTO_TEST_CASE(d3d11_7)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -668,7 +668,7 @@ BOOST_AUTO_TEST_CASE(d3d11_8)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_REQUIRE_EQUAL(pixels.size(), 0u);
       });
@@ -694,7 +694,7 @@ BOOST_AUTO_TEST_CASE(d3d11_9)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -722,7 +722,7 @@ BOOST_AUTO_TEST_CASE(d3d11_10)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -750,7 +750,7 @@ BOOST_AUTO_TEST_CASE(d3d11_11)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -778,7 +778,7 @@ BOOST_AUTO_TEST_CASE(d3d11_12)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -806,7 +806,7 @@ BOOST_AUTO_TEST_CASE(d3d11_13)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -834,7 +834,7 @@ BOOST_AUTO_TEST_CASE(d3d11_14)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),
@@ -862,7 +862,7 @@ BOOST_AUTO_TEST_CASE(d3d11_15)
           const auto pixels = collect_covered_triangle_pixels(
             ctx.states,
             info,
-            v0.varyings);
+            a.varyings);
 
           BOOST_CHECK_EQUAL_COLLECTIONS(
             pixels.begin(), pixels.end(),

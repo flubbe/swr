@@ -166,7 +166,7 @@ class sweep_rasterizer : public rasterizer
       const swr::impl::render_states& states,
       const swr::program_base* in_shader,
       const ml::vec4& one_over_viewport_z,
-      fragment_info info[4],
+      std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
     /**
@@ -187,7 +187,7 @@ class sweep_rasterizer : public rasterizer
       const swr::impl::render_states& states,
       const swr::program_base* in_shader,
       const ml::vec4& one_over_viewport_z,
-      fragment_info info[4],
+      std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
     /*
