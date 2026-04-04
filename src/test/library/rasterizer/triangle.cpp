@@ -454,13 +454,10 @@ BOOST_AUTO_TEST_CASE(checked_block_covered)
 
 BOOST_AUTO_TEST_CASE(full_block_covered)
 {
-    const auto v0 = make_vertex(-1.0f, -1.0f);
-
-    // TODO We might want to fix the +3 here. It is needed because both edges
-    //      have -1 as x (resp. y) coords, and likely because of the coverage mask
-    //      using uses strict positivity (f > 0).
-    const auto v1 = make_vertex(2 * swr::impl::rasterizer_block_size + 3, -1.0f);
-    const auto v2 = make_vertex(-1.0f, 2 * swr::impl::rasterizer_block_size + 3);
+    constexpr float eps = ml::to_float(cnl::wrap<ml::fixed_28_4_t>(1));
+    const auto v0 = make_vertex(0.5f, 0.5f);
+    const auto v1 = make_vertex(0.5f + 2 * swr::impl::rasterizer_block_size + eps, 0.5f);
+    const auto v2 = make_vertex(0.5f, 0.5f + 2 * swr::impl::rasterizer_block_size + eps);
 
     triangle_test_context ctx{2 * swr::impl::rasterizer_block_size, 2 * swr::impl::rasterizer_block_size};
 
@@ -479,7 +476,9 @@ BOOST_AUTO_TEST_CASE(full_block_covered)
       blocks.end(),
       [](const auto& b)
       {
-          return b.mode == rast::tile_info::rasterization_mode::block;
+          return b.x == 0
+                 && b.y == 0
+                 && b.mode == rast::tile_info::rasterization_mode::block;
       });
 
     BOOST_CHECK(it != blocks.end());
