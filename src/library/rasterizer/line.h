@@ -27,7 +27,8 @@ using line_fixed_wide_t = ml::static_number_traits<line_fixed_t>::wide_rep;
 inline constexpr line_fixed_t half{0.5f};
 
 /** Convert a `ml::vec2` into the fixed-point representation used by line rasterization. */
-line_fixed_vec2 make_fixed_point(ml::vec2 point)
+inline line_fixed_vec2 make_line_fixed_vec2(
+  ml::vec2 point)
 {
     return {point.x, point.y};
 }
@@ -50,7 +51,9 @@ enum class diamond_point_class
  * - upper half (y > 0) is always included
  * - for y-major lines, the right half of the horizontal edge is also included
  */
-inline diamond_point_class classify_diamond_point(line_fixed_vec2 v, bool x_major)
+inline diamond_point_class classify_diamond_point(
+  line_fixed_vec2 v,
+  bool x_major)
 {
     const auto d = cnl::abs(v.x) + cnl::abs(v.y);
 
@@ -83,14 +86,18 @@ inline diamond_point_class classify_diamond_point(line_fixed_vec2 v, bool x_majo
 }
 
 /** Evaluate one signed diamond boundary constraint sx*x + sy*y for a point or direction vector. */
-inline line_fixed_t signed_constraint(line_fixed_vec2 v, int sx, int sy)
+inline line_fixed_t signed_constraint(
+  line_fixed_vec2 v,
+  int sx,
+  int sy)
 {
     return (sx > 0 ? v.x : -v.x) + (sy > 0 ? v.y : -v.y);
 }
 
 /** Invoke a callable once for each of the four diamond boundary sign combinations. */
 template<typename F>
-inline void for_each_diamond_constraint(F&& f)
+void for_each_diamond_constraint(
+  F&& f)
 {
     f(1, 1);
     f(1, -1);
@@ -100,7 +107,7 @@ inline void for_each_diamond_constraint(F&& f)
 
 /** Invoke `f` for each active diamond boundary constraint touched by `offset`. */
 template<typename F>
-inline bool for_each_active_diamond_boundary_constraint(
+bool for_each_active_diamond_boundary_constraint(
   line_fixed_vec2 offset,
   bool x_major,
   F&& f)
@@ -167,15 +174,8 @@ inline bool enters_diamond_towards_boundary_end(
     return touched && valid;
 }
 
-/** Diamond-rule ownership decisions for the original start and end endpoints of a line segment. */
-struct endpoint_rule_info
-{
-    std::optional<ml::tvec2<int>> start_pixel_to_emit;
-    std::optional<ml::tvec2<int>> end_pixel_to_exclude;
-};
-
 /** Express a point in coordinates relative to the center of the given pixel. */
-inline line_fixed_vec2 point_offset_from_pixel_center(
+constexpr line_fixed_vec2 point_offset_from_pixel_center(
   line_fixed_vec2 point,
   ml::tvec2<int> pixel)
 {
@@ -209,7 +209,7 @@ inline bool segment_stays_within_owned_start_diamond(
  * Used for both start ownership and end exclusion depending on the predicate.
  */
 template<typename BoundaryPredicate>
-inline std::optional<ml::tvec2<int>> resolve_endpoint_pixel(
+std::optional<ml::tvec2<int>> resolve_endpoint_pixel(
   line_fixed_vec2 point,
   line_fixed_vec2 delta,
   bool x_major,
@@ -279,6 +279,13 @@ inline std::optional<ml::tvec2<int>> resolve_end_pixel_exclusion(
       enters_diamond_towards_boundary_end);
 }
 
+/** Diamond-rule ownership decisions for the original start and end endpoints of a line segment. */
+struct endpoint_rule_info
+{
+    std::optional<ml::tvec2<int>> start_pixel_to_emit;
+    std::optional<ml::tvec2<int>> end_pixel_to_exclude;
+};
+
 /**
  * Classify both endpoints of a line segment according to the Direct3D diamond rule.
  *
@@ -294,11 +301,9 @@ inline endpoint_rule_info classify_line_endpoints(
   bool x_major)
 {
     endpoint_rule_info out;
-    const auto start_point = make_fixed_point(start.coords.xy());
-    const auto end_point = make_fixed_point(end.coords.xy());
-    const auto delta = line_fixed_vec2{
-      end_point.x - start_point.x,
-      end_point.y - start_point.y};
+    const auto start_point = make_line_fixed_vec2(start.coords.xy());
+    const auto end_point = make_line_fixed_vec2(end.coords.xy());
+    const auto delta = end_point - start_point;
 
     out.start_pixel_to_emit = resolve_start_pixel_ownership(
       start_point,
@@ -329,11 +334,12 @@ inline endpoint_rule_info classify_line_endpoints(
  * This is used to convert from fixed-point edge coordinates to integer pixel indices
  * under half-open rasterization rules.
  */
-inline int ceil_raw_to_int(std::int32_t raw)
+inline int ceil_raw_to_int(
+  line_fixed_raw_t raw)
 {
-    constexpr std::int32_t scale = 1 << ml::static_number_traits<line_fixed_t>::fractional_bits;
-    const std::int32_t q = raw / scale;
-    const std::int32_t r = raw % scale;
+    constexpr line_fixed_raw_t scale = 1 << ml::static_number_traits<line_fixed_t>::fractional_bits;
+    const int q = raw / scale;
+    const int r = raw % scale;
     return q + (r != 0 && raw > 0);
 }
 
@@ -531,11 +537,11 @@ void walk_line_pixels(
     {
         const line_fixed_raw_t p_center_raw =
           cnl::unwrap(line_fixed_t{p} + half);
-        const line_fixed_wide_t numer =
+        const line_fixed_wide_t interp_numer =
           static_cast<line_fixed_wide_t>(plan.v0_raw) * plan.dp_raw
           + static_cast<line_fixed_wide_t>(p_center_raw - plan.p0_raw) * plan.dv_raw;
         const int v_pix = choose_minor_pixel(
-          numer,
+          interp_numer,
           plan.dp_raw);
         emit_walk_pixel(p, v_pix);
     }
@@ -559,8 +565,8 @@ void rasterize_line_coverage(
   const line_info& info,
   EmitFragment&& emit_fragment)
 {
-    const auto start = make_fixed_point(info.v0->coords.xy());
-    const auto end = make_fixed_point(info.v1->coords.xy());
+    const auto start = make_line_fixed_vec2(info.v0->coords.xy());
+    const auto end = make_line_fixed_vec2(info.v1->coords.xy());
 
     std::optional<ml::tvec2<int>> deferred_walk_start_pixel;
     std::optional<ml::tvec2<int>> deferred_walk_end_pixel;
