@@ -5,7 +5,7 @@
  * and half-open endpoint ownership.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2026-Present.
+ * \copyright Copyright (c) 2026.
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -27,7 +27,7 @@ using line_fixed_wide_t = ml::static_number_traits<line_fixed_t>::wide_rep;
 inline constexpr line_fixed_t half{0.5f};
 
 /** Convert a `ml::vec2` into the fixed-point representation used by line rasterization. */
-inline line_fixed_vec2 make_line_fixed_vec2(
+inline line_fixed_vec2 to_line_fixed_vec2(
   ml::vec2 point)
 {
     return {point.x, point.y};
@@ -46,10 +46,14 @@ enum class diamond_point_class
  * Classify a point relative to the origin-centered pixel diamond (`|x|+|y| = 0.5`),
  * applying the Direct3D diamond rule.
  *
- * Points strictly inside/outside are classified directly.
+ * `v` is expressed relative to the pixel center in screen-space: `+x` is right
+ * and `+y` is down.
+ *
+ * Points strictly inside/outside the diamond are classified directly.
  * Points on the boundary are split into included/excluded depending on line major axis:
- * - upper half (y > 0) is always included
- * - for y-major lines, the right half of the horizontal edge is also included
+ * - the boundary half with positive local y is included (lower half).
+ * - for y-major lines, the horizontal boundary point(s) with y == 0 and positive
+ *   local x are also included
  */
 inline diamond_point_class classify_diamond_point(
   line_fixed_vec2 v,
@@ -85,8 +89,22 @@ inline diamond_point_class classify_diamond_point(
     return diamond_point_class::excluded_boundary;
 }
 
-/** Evaluate one signed diamond boundary constraint sx*x + sy*y for a point or direction vector. */
-inline line_fixed_t signed_constraint(
+/**
+ * Evaluate one of the four unshifted diamond edge functions
+ * `x+y`, `x-y`, `-x+y`, `-x-y`.
+ *
+ * The corresponding diamond boundary edges are the level sets where the
+ * selected expression equals `half`.
+ *
+ * For a point offset from the pixel center, `diamond_edge_value(...) == half`
+ * means the point lies on the corresponding boundary edge.
+ *
+ * For a direction vector, the sign tells whether stepping in that direction
+ * moves toward or away from the selected edge. If the current point already
+ * lies on that edge, a positive result means the step leaves the diamond
+ * through that edge.
+ */
+inline line_fixed_t diamond_edge_value(
   line_fixed_vec2 v,
   int sx,
   int sy)
@@ -96,7 +114,7 @@ inline line_fixed_t signed_constraint(
 
 /** Invoke a callable once for each of the four diamond boundary sign combinations. */
 template<typename F>
-void for_each_diamond_constraint(
+void for_each_diamond_edge(
   F&& f)
 {
     f(1, 1);
@@ -105,9 +123,12 @@ void for_each_diamond_constraint(
     f(-1, -1);
 }
 
-/** Invoke `f` for each active diamond boundary constraint touched by `offset`. */
+/**
+ * Invoke `f` for each diamond edge touched by `offset`, provided that `offset`
+ * lies on an included boundary.
+ */
 template<typename F>
-bool for_each_active_diamond_boundary_constraint(
+bool for_each_touched_included_diamond_edge(
   line_fixed_vec2 offset,
   bool x_major,
   F&& f)
@@ -118,10 +139,10 @@ bool for_each_active_diamond_boundary_constraint(
     }
 
     bool touched = false;
-    for_each_diamond_constraint(
+    for_each_diamond_edge(
       [&](int sx, int sy)
       {
-          if(signed_constraint(offset, sx, sy) == half)
+          if(diamond_edge_value(offset, sx, sy) == half)
           {
               touched = true;
               f(sx, sy);
@@ -131,19 +152,29 @@ bool for_each_active_diamond_boundary_constraint(
     return touched;
 }
 
-inline bool exits_diamond_from_boundary(
+/**
+ * Return true if `offset` lies on an included diamond boundary that is valid for
+ * start-endpoint ownership under the half-open diamond rule.
+ *
+ * The point must touch at least one included boundary edge of the pixel diamond,
+ * and `delta` must point outward across at least one such touched edge.
+ *
+ * This predicate is used when resolving the original line start: a pixel satisfying
+ * it owns the start endpoint and may need to be emitted explicitly.
+ */
+inline bool is_valid_start_boundary_ownership(
   line_fixed_vec2 offset,
   line_fixed_vec2 delta,
   bool x_major)
 {
     bool exits = false;
 
-    for_each_active_diamond_boundary_constraint(
+    for_each_touched_included_diamond_edge(
       offset,
       x_major,
       [&](int sx, int sy)
       {
-          if(signed_constraint(delta, sx, sy) > line_fixed_t{0})
+          if(diamond_edge_value(delta, sx, sy) > line_fixed_t{0})
           {
               exits = true;
           }
@@ -152,7 +183,18 @@ inline bool exits_diamond_from_boundary(
     return exits;
 }
 
-inline bool enters_diamond_towards_boundary_end(
+/**
+ * Return true if `offset` lies on an included diamond boundary that is valid for
+ * end-endpoint ownership under the half-open diamond rule.
+ *
+ * The point must touch at least one included boundary edge of the pixel diamond.
+ * For every such touched edge, `delta` must not point outward across that edge.
+ *
+ * This predicate is used when resolving the original line end: a pixel satisfying
+ * it is considered the pixel whose diamond the segment enters at the end endpoint,
+ * and is therefore excluded from the walked interior.
+ */
+inline bool is_valid_end_boundary_ownership(
   line_fixed_vec2 offset,
   line_fixed_vec2 delta,
   bool x_major)
@@ -160,12 +202,12 @@ inline bool enters_diamond_towards_boundary_end(
     bool touched = false;
     bool valid = true;
 
-    touched = for_each_active_diamond_boundary_constraint(
+    touched = for_each_touched_included_diamond_edge(
       offset,
       x_major,
       [&](int sx, int sy)
       {
-          if(signed_constraint(delta, sx, sy) < line_fixed_t{0})
+          if(diamond_edge_value(delta, sx, sy) < line_fixed_t{0})
           {
               valid = false;
           }
@@ -174,7 +216,12 @@ inline bool enters_diamond_towards_boundary_end(
     return touched && valid;
 }
 
-/** Express a point in coordinates relative to the center of the given pixel. */
+/**
+ * Express a point in coordinates relative to the center of the given pixel.
+ *
+ * We use the convention that `+x` is right, `+y` is down and a pixel
+ * `(x, y)` has center `(x + 0.5, y + 0.5)`.
+ */
 constexpr line_fixed_vec2 point_offset_from_pixel_center(
   line_fixed_vec2 point,
   ml::tvec2<int> pixel)
@@ -184,8 +231,11 @@ constexpr line_fixed_vec2 point_offset_from_pixel_center(
       point.y - (line_fixed_t{pixel.y} + half)};
 }
 
-/** Return true if the line end remains inside or on the included boundary of the owned start pixel's diamond. */
-inline bool segment_stays_within_owned_start_diamond(
+/**
+ * Return `true` if the segment end point lies inside or on the included
+ * boundary of the owned start pixel’s diamond.
+ */
+inline bool end_point_lies_within_owned_start_diamond(
   line_fixed_vec2 end_point,
   ml::tvec2<int> owned_start_pixel,
   bool x_major)
@@ -201,15 +251,17 @@ inline bool segment_stays_within_owned_start_diamond(
 /**
  * Find the pixel whose diamond owns an endpoint.
  *
- * The search starts from the base pixel (floor of coordinates) and expands to the
- * 3x3 neighborhood. A pixel is selected if:
+ * The search starts from the base pixel given by the integral part of the
+ * endpoint coordinates and expands to the 3x3 neighborhood.
+ *
+ * A pixel is selected if:
  * - the point lies inside its diamond, or
- * - it satisfies the supplied boundary predicate (entry/exit rule)
+ * - it satisfies the supplied boundary-ownership test
  *
  * Used for both start ownership and end exclusion depending on the predicate.
  */
 template<typename BoundaryPredicate>
-std::optional<ml::tvec2<int>> resolve_endpoint_pixel(
+std::optional<ml::tvec2<int>> resolve_endpoint_ownership_pixel(
   line_fixed_vec2 point,
   line_fixed_vec2 delta,
   bool x_major,
@@ -253,41 +305,56 @@ std::optional<ml::tvec2<int>> resolve_endpoint_pixel(
     return std::nullopt;
 }
 
-/** Determine which pixel, if any, owns the original start endpoint and must be emitted explicitly. */
+/**
+ * Determine which pixel, if any, owns the original start endpoint and must
+ * be emitted explicitly.
+ */
 inline std::optional<ml::tvec2<int>> resolve_start_pixel_ownership(
   line_fixed_vec2 point,
   line_fixed_vec2 delta,
   bool x_major)
 {
-    return resolve_endpoint_pixel(
+    return resolve_endpoint_ownership_pixel(
       point,
       delta,
       x_major,
-      exits_diamond_from_boundary);
+      is_valid_start_boundary_ownership);
 }
 
-/** Determine which pixel, if any, owns the original end endpoint and must be excluded from the walk. */
-inline std::optional<ml::tvec2<int>> resolve_end_pixel_exclusion(
+/**
+ * Determine which pixel, if any, owns the original end endpoint. That pixel
+ * is later excluded from the walked interior.
+ */
+inline std::optional<ml::tvec2<int>> resolve_end_pixel_ownership(
   line_fixed_vec2 point,
   line_fixed_vec2 delta,
   bool x_major)
 {
-    return resolve_endpoint_pixel(
+    return resolve_endpoint_ownership_pixel(
       point,
       delta,
       x_major,
-      enters_diamond_towards_boundary_end);
+      is_valid_end_boundary_ownership);
 }
 
 /** Diamond-rule ownership decisions for the original start and end endpoints of a line segment. */
-struct endpoint_rule_info
+struct endpoint_rasterization_adjustments
 {
     std::optional<ml::tvec2<int>> start_pixel_to_emit;
     std::optional<ml::tvec2<int>> end_pixel_to_exclude;
 };
 
+/*
+ * The line walk itself covers the half-open interior of the segment in normalized
+ * major-axis order. Endpoint handling is computed separately:
+ * - the start endpoint may contribute a pixel that must be emitted explicitly
+ * - the end endpoint may identify a pixel that must be excluded from the walk
+ *
+ * These decisions are derived from included diamond-boundary ownership tests.
+ */
+
 /**
- * Classify both endpoints of a line segment according to the Direct3D diamond rule.
+ * Compute endpoint rasterization adjustments for a line segment according to the Direct3D diamond exit rule.
  *
  * Determines:
  * - an optional start pixel that must be emitted explicitly (if the segment exits its diamond),
@@ -295,14 +362,14 @@ struct endpoint_rule_info
  *
  * If the segment remains entirely within the owned start diamond, the start emission is suppressed.
  */
-inline endpoint_rule_info classify_line_endpoints(
+inline endpoint_rasterization_adjustments compute_endpoint_adjustments(
   const geom::vertex& start,
   const geom::vertex& end,
   bool x_major)
 {
-    endpoint_rule_info out;
-    const auto start_point = make_line_fixed_vec2(start.coords.xy());
-    const auto end_point = make_line_fixed_vec2(end.coords.xy());
+    endpoint_rasterization_adjustments out;
+    const auto start_point = to_line_fixed_vec2(start.coords.xy());
+    const auto end_point = to_line_fixed_vec2(end.coords.xy());
     const auto delta = end_point - start_point;
 
     out.start_pixel_to_emit = resolve_start_pixel_ownership(
@@ -311,7 +378,7 @@ inline endpoint_rule_info classify_line_endpoints(
       x_major);
 
     if(out.start_pixel_to_emit.has_value()
-       && segment_stays_within_owned_start_diamond(
+       && end_point_lies_within_owned_start_diamond(
          end_point,
          *out.start_pixel_to_emit,
          x_major))
@@ -319,7 +386,7 @@ inline endpoint_rule_info classify_line_endpoints(
         out.start_pixel_to_emit.reset();
     }
 
-    out.end_pixel_to_exclude = resolve_end_pixel_exclusion(
+    out.end_pixel_to_exclude = resolve_end_pixel_ownership(
       end_point,
       delta,
       x_major);
@@ -347,8 +414,8 @@ inline int ceil_raw_to_int(
  * Resolve the minor-axis pixel coordinate for a given major-axis sample.
  *
  * Computes the interpolated minor coordinate and applies the diamond-rule tie-breaking:
- * exact ties (sample lies exactly on a pixel boundary) are resolved to the previously
- * owned pixel (half-open convention).
+ * exact ties are resolved to the lower-index adjacent pixel, matching the half-open walk
+ * convention
  */
 inline int choose_minor_pixel(
   line_fixed_wide_t numer,
@@ -382,7 +449,7 @@ struct line_info
     float max_absolute_delta;
     bool is_x_major;
     bool swapped;
-    endpoint_rule_info endpoint_rules;
+    endpoint_rasterization_adjustments endpoint_adjustments;
 
     [[nodiscard]] static std::optional<line_info>
       make(const geom::vertex& in_v0, const geom::vertex& in_v1)
@@ -404,18 +471,18 @@ struct line_info
           .max_absolute_delta = max_abs,
           .is_x_major = std::abs(dy0) <= std::abs(dx0),
           .swapped = false,
-          .endpoint_rules = {}};
+          .endpoint_adjustments = {}};
 
-        out.normalize_and_classify();
+        out.normalize_and_compute_adjustments();
         return out;
     }
 
 private:
-    void normalize_and_classify();
+    void normalize_and_compute_adjustments();
 };
 
-/** Finalize line setup by classifying endpoints and optionally swapping endpoints into walk order. */
-inline void line_info::normalize_and_classify()
+/** Finalize line setup by computing endpoint adjustments and optionally swapping endpoints into walk order. */
+inline void line_info::normalize_and_compute_adjustments()
 {
     dx = v1->coords.x - v0->coords.x;
     dy = v1->coords.y - v0->coords.y;
@@ -425,7 +492,7 @@ inline void line_info::normalize_and_classify()
         return;
     }
 
-    endpoint_rules = classify_line_endpoints(*v0, *v1, is_x_major);
+    endpoint_adjustments = compute_endpoint_adjustments(*v0, *v1, is_x_major);
 
     // normalize walking direction.
     swapped = false;
@@ -488,8 +555,8 @@ inline line_walk_plan make_line_walk_plan(
   line_fixed_vec2 start,
   line_fixed_vec2 end,
   bool is_x_major,
-  std::optional<int> reserved_walk_start_major,
-  std::optional<int> reserved_walk_end_major)
+  std::optional<int> clipped_walk_start_major,
+  std::optional<int> clipped_walk_end_major)
 {
     const line_fixed_t p0 = is_x_major ? start.x : start.y;
     const line_fixed_t v0 = is_x_major ? start.y : start.x;
@@ -509,14 +576,14 @@ inline line_walk_plan make_line_walk_plan(
       .p_end = ceil_raw_to_int(p1_raw - cnl::unwrap(half)) - 1,
       .is_x_major = is_x_major};
 
-    if(reserved_walk_start_major.has_value())
+    if(clipped_walk_start_major.has_value())
     {
-        out.p_start = std::max(out.p_start, *reserved_walk_start_major + 1);
+        out.p_start = std::max(out.p_start, *clipped_walk_start_major + 1);
     }
 
-    if(reserved_walk_end_major.has_value())
+    if(clipped_walk_end_major.has_value())
     {
-        out.p_end = std::min(out.p_end, *reserved_walk_end_major - 1);
+        out.p_end = std::min(out.p_end, *clipped_walk_end_major - 1);
     }
 
     return out;
@@ -551,7 +618,7 @@ void walk_line_pixels(
  * Rasterize a line segment using the Direct3D diamond rule.
  *
  * The algorithm:
- * 1. Classifies endpoints and determines ownership adjustments.
+ * 1. Computes endpoint rasterization adjustments.
  * 2. Normalizes the segment to a monotonic major-axis walk.
  * 3. Emits an optional deferred start pixel.
  * 4. Walks the line and emits covered pixels.
@@ -565,52 +632,57 @@ void rasterize_line_coverage(
   const line_info& info,
   EmitFragment&& emit_fragment)
 {
-    const auto start = make_line_fixed_vec2(info.v0->coords.xy());
-    const auto end = make_line_fixed_vec2(info.v1->coords.xy());
+    const auto start = to_line_fixed_vec2(info.v0->coords.xy());
+    const auto end = to_line_fixed_vec2(info.v1->coords.xy());
+
+    /*
+     * Endpoint adjustments are computed in original segment direction,
+     * then remapped into normalized walk order here.
+     */
 
     std::optional<ml::tvec2<int>> deferred_walk_start_pixel;
     std::optional<ml::tvec2<int>> deferred_walk_end_pixel;
-    std::optional<int> reserved_walk_start_major;
-    std::optional<int> reserved_walk_end_major;
+    std::optional<int> clipped_walk_start_major;
+    std::optional<int> clipped_walk_end_major;
 
     if(!info.swapped)
     {
-        if(info.endpoint_rules.start_pixel_to_emit.has_value())
+        if(info.endpoint_adjustments.start_pixel_to_emit.has_value())
         {
-            deferred_walk_start_pixel = info.endpoint_rules.start_pixel_to_emit;
-            reserved_walk_start_major =
+            deferred_walk_start_pixel = info.endpoint_adjustments.start_pixel_to_emit;
+            clipped_walk_start_major =
               info.is_x_major
-                ? info.endpoint_rules.start_pixel_to_emit->x
-                : info.endpoint_rules.start_pixel_to_emit->y;
+                ? info.endpoint_adjustments.start_pixel_to_emit->x
+                : info.endpoint_adjustments.start_pixel_to_emit->y;
         }
 
-        if(info.endpoint_rules.end_pixel_to_exclude.has_value())
+        if(info.endpoint_adjustments.end_pixel_to_exclude.has_value())
         {
-            reserved_walk_end_major =
+            clipped_walk_end_major =
               info.is_x_major
-                ? info.endpoint_rules.end_pixel_to_exclude->x
-                : info.endpoint_rules.end_pixel_to_exclude->y;
+                ? info.endpoint_adjustments.end_pixel_to_exclude->x
+                : info.endpoint_adjustments.end_pixel_to_exclude->y;
         }
     }
     else
     {
         // original start maps to walk end.
-        if(info.endpoint_rules.start_pixel_to_emit.has_value())
+        if(info.endpoint_adjustments.start_pixel_to_emit.has_value())
         {
-            deferred_walk_end_pixel = info.endpoint_rules.start_pixel_to_emit;
-            reserved_walk_end_major =
+            deferred_walk_end_pixel = info.endpoint_adjustments.start_pixel_to_emit;
+            clipped_walk_end_major =
               info.is_x_major
-                ? info.endpoint_rules.start_pixel_to_emit->x
-                : info.endpoint_rules.start_pixel_to_emit->y;
+                ? info.endpoint_adjustments.start_pixel_to_emit->x
+                : info.endpoint_adjustments.start_pixel_to_emit->y;
         }
 
         // original end maps to walk start.
-        if(info.endpoint_rules.end_pixel_to_exclude.has_value())
+        if(info.endpoint_adjustments.end_pixel_to_exclude.has_value())
         {
-            reserved_walk_start_major =
+            clipped_walk_start_major =
               info.is_x_major
-                ? info.endpoint_rules.end_pixel_to_exclude->x
-                : info.endpoint_rules.end_pixel_to_exclude->y;
+                ? info.endpoint_adjustments.end_pixel_to_exclude->x
+                : info.endpoint_adjustments.end_pixel_to_exclude->y;
         }
     }
 
@@ -634,8 +706,8 @@ void rasterize_line_coverage(
       start,
       end,
       info.is_x_major,
-      reserved_walk_start_major,
-      reserved_walk_end_major);
+      clipped_walk_start_major,
+      clipped_walk_end_major);
 
     walk_line_pixels(
       walk_plan,
