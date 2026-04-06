@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <ranges>
+
 namespace swr
 {
 
@@ -78,18 +80,13 @@ public:
 
     /** Initialize the object with vertices in sequential order. */
     render_object(std::size_t count, vertex_buffer_mode in_mode, const render_states& in_states)
-    : mode{in_mode}
+    : indices{std::views::iota(std::size_t{0}, count)
+              | std::ranges::to<std::vector<std::uint32_t>>()}
+    , mode{in_mode}
     , states{in_states}
     {
         allocate_coords(count);
         vertex_flags.resize(count);
-
-        // populate index buffer with consecutive numbers.
-        indices.reserve(count);
-        for(std::size_t i = 0; i < count; ++i)
-        {
-            indices.emplace_back(i);
-        }
     }
 
     /** Initialize the object with vertices and indices. */

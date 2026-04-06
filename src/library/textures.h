@@ -489,15 +489,15 @@ inline ml::vec4 sampler_2d_impl::sample_at_linear(int mipmap_level, const swr::v
     ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
 
     // calculate nearest four texel coordinates while respect the texture wrap mode.
-    ml::tvec2<int> texel_coords_dec_wrap[4] = {
-      {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
-      {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
-      {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
-      {wrap(wrap_s, texel_coords_dec.x + 1, w),
-       wrap(wrap_t, texel_coords_dec.y + 1, h)}};
+    std::array<ml::tvec2<int>, 4> texel_coords_dec_wrap = {
+      {{wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
+       {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
+       {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
+       {wrap(wrap_s, texel_coords_dec.x + 1, w),
+        wrap(wrap_t, texel_coords_dec.y + 1, h)}}};
 
     // get color values.
-    ml::vec4 texels[4] = {
+    std::array<ml::vec4, 4> texels = {
       (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[0].x, texel_coords_dec_wrap[0].y)],
       (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[1].x, texel_coords_dec_wrap[1].y)],
       (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords_dec_wrap[2].x, texel_coords_dec_wrap[2].y)],
@@ -517,15 +517,15 @@ inline ml::vec4 sampler_2d_impl::sample_at_linear(int mipmap_level, const swr::v
     ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
 
     // calculate nearest four texel coordinates while respect the texture wrap mode.
-    ml::tvec2<int> texel_coords_dec_wrap[4] = {
-      {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
-      {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
-      {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
-      {wrap(wrap_s, texel_coords_dec.x + 1, w),
-       wrap(wrap_t, texel_coords_dec.y + 1, h)}};
+    std::array<ml::tvec2<int>, 4> texel_coords_dec_wrap = {
+      {{wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
+       {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
+       {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
+       {wrap(wrap_s, texel_coords_dec.x + 1, w),
+        wrap(wrap_t, texel_coords_dec.y + 1, h)}}};
 
     // get color values.
-    ml::vec4 texels[4] = {
+    std::array<ml::vec4, 4> texels = {
       (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[0].y * pitch + texel_coords_dec_wrap[0].x],
       (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[1].y * pitch + texel_coords_dec_wrap[1].x],
       (associated_texture->data.data_ptrs[mipmap_level])[texel_coords_dec_wrap[2].y * pitch + texel_coords_dec_wrap[2].x],

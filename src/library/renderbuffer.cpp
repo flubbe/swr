@@ -53,13 +53,18 @@ bool attachment_texture::is_valid() const
         return false;
     }
 
-    return global_context->texture_2d_storage[tex_id].get() == tex && tex_id == tex->id && info.data_ptr == tex->data.data_ptrs[level];
+    return global_context->texture_2d_storage[tex_id].get() == tex
+           && tex_id == tex->id
+           && info.data_ptr == tex->data.data_ptrs[level];
 }
 
 #if defined(SWR_USE_MORTON_CODES) && 0
 
 template<>
-void scissor_clear_buffer(ml::vec4 clear_value, attachment_info<ml::vec4>& info, const utils::rect& scissor_box)
+void scissor_clear_buffer(
+  ml::vec4 clear_value,
+  attachment_info<ml::vec4>& info,
+  const utils::rect& scissor_box)
 {
     int x_min = std::min(std::max(0, scissor_box.x_min), info.width);
     int x_max = std::max(0, std::min(scissor_box.x_max, info.width));
@@ -84,7 +89,10 @@ void scissor_clear_buffer(ml::vec4 clear_value, attachment_info<ml::vec4>& info,
 #elif 0
 
 template<typename T>
-static void scissor_clear_buffer_morton(T clear_value, attachment_info<T>& info, const utils::rect& scissor_box)
+static void scissor_clear_buffer_morton(
+  T clear_value,
+  attachment_info<T>& info,
+  const utils::rect& scissor_box)
 {
     int x_min = std::min(std::max(0, scissor_box.x_min), info.width);
     int x_max = std::max(0, std::min(scissor_box.x_max, info.width));
@@ -106,16 +114,24 @@ static void scissor_clear_buffer_morton(T clear_value, attachment_info<T>& info,
  * default framebuffer.
  */
 
-void default_framebuffer::clear_color(std::uint32_t attachment, ml::vec4 clear_color)
+void default_framebuffer::clear_color(
+  std::uint32_t attachment,
+  ml::vec4 clear_color)
 {
     if(attachment == 0)
     {
         auto& info = color_buffer.info;
-        utils::memset32(info.data_ptr, color_buffer.converter.to_pixel(clear_color), info.pitch * info.height);
+        utils::memset32(
+          info.data_ptr,
+          color_buffer.converter.to_pixel(clear_color),
+          info.pitch * info.height);
     }
 }
 
-void default_framebuffer::clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect)
+void default_framebuffer::clear_color(
+  std::uint32_t attachment,
+  ml::vec4 clear_color,
+  const utils::rect& rect)
 {
     if(attachment == 0)
     {
@@ -128,25 +144,36 @@ void default_framebuffer::clear_color(std::uint32_t attachment, ml::vec4 clear_c
 
         const auto row_size = (x_max - x_min) * sizeof(std::uint32_t);
 
-        auto ptr = reinterpret_cast<std::uint8_t*>(color_buffer.info.data_ptr) + y_min * color_buffer.info.pitch + x_min * sizeof(std::uint32_t);
+        auto ptr = reinterpret_cast<std::uint8_t*>(color_buffer.info.data_ptr)
+                   + y_min * color_buffer.info.pitch
+                   + x_min * sizeof(std::uint32_t);
         for(int y = y_min; y < y_max; ++y)
         {
-            utils::memset32(ptr, *reinterpret_cast<std::uint32_t*>(&clear_value), row_size);
+            utils::memset32(
+              ptr,
+              *reinterpret_cast<std::uint32_t*>(&clear_value),
+              row_size);
             ptr += color_buffer.info.pitch;
         }
     }
 }
 
-void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth)
+void default_framebuffer::clear_depth(
+  ml::fixed_32_t clear_depth)
 {
     auto& info = depth_buffer.info;
     if(info.data_ptr)
     {
-        utils::memset32(reinterpret_cast<std::uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
+        utils::memset32(
+          reinterpret_cast<std::uint32_t*>(info.data_ptr),
+          ml::unwrap(clear_depth),
+          info.pitch * info.height);
     }
 }
 
-void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect)
+void default_framebuffer::clear_depth(
+  ml::fixed_32_t clear_depth,
+  const utils::rect& rect)
 {
     int x_min = std::min(std::max(0, rect.x_min), depth_buffer.info.width);
     int x_max = std::max(0, std::min(rect.x_max, depth_buffer.info.width));
@@ -155,15 +182,27 @@ void default_framebuffer::clear_depth(ml::fixed_32_t clear_depth, const utils::r
 
     const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
 
-    auto ptr = reinterpret_cast<std::uint8_t*>(depth_buffer.info.data_ptr) + y_min * depth_buffer.info.pitch + x_min * sizeof(ml::fixed_32_t);
+    auto ptr = reinterpret_cast<std::uint8_t*>(depth_buffer.info.data_ptr)
+               + y_min * depth_buffer.info.pitch
+               + x_min * sizeof(ml::fixed_32_t);
     for(int y = y_min; y < y_max; ++y)
     {
-        utils::memset32(ptr, *reinterpret_cast<std::uint32_t*>(&clear_depth), row_size);
+        utils::memset32(
+          ptr,
+          *reinterpret_cast<std::uint32_t*>(&clear_depth),
+          row_size);
         ptr += depth_buffer.info.pitch;
     }
 }
 
-void default_framebuffer::merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void default_framebuffer::merge_color(
+  std::uint32_t attachment,
+  int x,
+  int y,
+  const fragment_output& frag,
+  bool do_blend,
+  blend_func blend_src,
+  blend_func blend_dst)
 {
     if(attachment != 0)
     {
@@ -173,13 +212,19 @@ void default_framebuffer::merge_color(std::uint32_t attachment, int x, int y, co
     if(frag.write_flags & fragment_output::fof_write_color)
     {
         // convert color to output format.
-        std::uint32_t write_color = color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color));
+        std::uint32_t write_color = color_buffer.converter.to_pixel(
+          ml::clamp_to_unit_interval(frag.color));
 
         // alpha blending.
         std::uint32_t* color_buffer_ptr = color_buffer.info.data_ptr + y * color_buffer.info.width + x;
         if(do_blend)
         {
-            write_color = swr::output_merger::blend(color_buffer.converter, blend_src, blend_dst, write_color, *color_buffer_ptr);
+            write_color = swr::output_merger::blend(
+              color_buffer.converter,
+              blend_src,
+              blend_dst,
+              write_color,
+              *color_buffer_ptr);
         }
 
         // write color.
@@ -187,7 +232,14 @@ void default_framebuffer::merge_color(std::uint32_t attachment, int x, int y, co
     }
 }
 
-void default_framebuffer::merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void default_framebuffer::merge_color_block(
+  std::uint32_t attachment,
+  int x,
+  int y,
+  const fragment_output_block& frag,
+  bool do_blend,
+  blend_func blend_src,
+  blend_func blend_dst)
 {
     if(attachment != 0)
     {
@@ -195,38 +247,51 @@ void default_framebuffer::merge_color_block(std::uint32_t attachment, int x, int
     }
 
     // generate write mask.
-    std::uint32_t color_write_mask[4] = {
+    std::array<std::uint32_t, 4> color_write_mask = {
       to_uint32_mask((frag.write_color & 0x8) >> 3),
       to_uint32_mask((frag.write_color & 0x4) >> 2),
       to_uint32_mask((frag.write_color & 0x2) >> 1),
       to_uint32_mask(frag.write_color & 0x1)};
 
     // block coordinates
-    const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
+    const std::array<ml::tvec2<int>, 4> coords =
+      {{{x, y},
+        {x + 1, y},
+        {x, y + 1},
+        {x + 1, y + 1}}};
 
     if(frag.write_color)
     {
         // convert color to output format.
-        DECLARE_ALIGNED_ARRAY4(std::uint32_t, write_color) = {
+        alignas(utils::alignment::sse) std::array<std::uint32_t, 4> write_color = {
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[0])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[1])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[2])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[3]))};
 
         // alpha blending.
-        std::uint32_t* color_buffer_ptr[4] = {
+        std::array<std::uint32_t*, 4> color_buffer_ptr = {
           color_buffer.info.data_ptr + coords[0].y * color_buffer.info.width + coords[0].x,
           color_buffer.info.data_ptr + coords[1].y * color_buffer.info.width + coords[1].x,
           color_buffer.info.data_ptr + coords[2].y * color_buffer.info.width + coords[2].x,
           color_buffer.info.data_ptr + coords[3].y * color_buffer.info.width + coords[3].x};
 
-        DECLARE_ALIGNED_ARRAY4(std::uint32_t, color_buffer_values) = {
-          *color_buffer_ptr[0], *color_buffer_ptr[1], *color_buffer_ptr[2], *color_buffer_ptr[3]};
+        alignas(utils::alignment::sse) std::array<std::uint32_t, 4> color_buffer_values = {
+          *color_buffer_ptr[0],
+          *color_buffer_ptr[1],
+          *color_buffer_ptr[2],
+          *color_buffer_ptr[3]};
 
         if(do_blend)
         {
             // note: when compiling with SSE/SIMD enabled, make sure that src/dest/out are aligned on 16-byte boundaries.
-            swr::output_merger::blend_block(color_buffer.converter, blend_src, blend_dst, write_color, color_buffer_values, write_color);
+            swr::output_merger::blend_block(
+              color_buffer.converter,
+              blend_src,
+              blend_dst,
+              write_color,
+              color_buffer_values,
+              write_color);
         }
 
         // write color.
@@ -237,7 +302,13 @@ void default_framebuffer::merge_color_block(std::uint32_t attachment, int x, int
     }
 }
 
-void default_framebuffer::depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask)
+void default_framebuffer::depth_compare_write(
+  int x,
+  int y,
+  float depth_value,
+  comparison_func depth_func,
+  bool write_depth,
+  bool& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -282,10 +353,18 @@ void default_framebuffer::depth_compare_write(int x, int y, float depth_value, c
 
     // write depth value.
     std::uint32_t depth_write_mask = to_uint32_mask(write_depth && write_mask);
-    *depth_buffer_ptr = ml::wrap((ml::unwrap(*depth_buffer_ptr) & ~depth_write_mask) | (ml::unwrap(new_depth_value) & depth_write_mask));
+    *depth_buffer_ptr = ml::wrap(
+      (ml::unwrap(*depth_buffer_ptr) & ~depth_write_mask)
+      | (ml::unwrap(new_depth_value) & depth_write_mask));
 }
 
-void default_framebuffer::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask)
+void default_framebuffer::depth_compare_write_block(
+  int x,
+  int y,
+  std::array<float, 4>& depth_value,
+  comparison_func depth_func,
+  bool write_depth,
+  std::uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -302,32 +381,53 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
     }
 
     // block coordinates
-    const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
+    const std::array<ml::tvec2<int>, 4> coords =
+      {{{x, y},
+        {x + 1, y},
+        {x, y + 1},
+        {x + 1, y + 1}}};
 
     // read and compare depth buffer.
-    ml::fixed_32_t* depth_buffer_ptr[4] = {
+    std::array<ml::fixed_32_t*, 4> depth_buffer_ptr = {
       depth_buffer.info.data_ptr + coords[0].y * depth_buffer.info.width + coords[0].x,
       depth_buffer.info.data_ptr + coords[1].y * depth_buffer.info.width + coords[1].x,
       depth_buffer.info.data_ptr + coords[2].y * depth_buffer.info.width + coords[2].x,
       depth_buffer.info.data_ptr + coords[3].y * depth_buffer.info.width + coords[3].x};
 
-    ml::fixed_32_t old_depth_value[4] = {*depth_buffer_ptr[0], *depth_buffer_ptr[1], *depth_buffer_ptr[2], *depth_buffer_ptr[3]};
-    ml::fixed_32_t new_depth_value[4] = {depth_value[0], depth_value[1], depth_value[2], depth_value[3]};
+    const std::array<ml::fixed_32_t, 4> old_depth_value = {
+      *depth_buffer_ptr[0],
+      *depth_buffer_ptr[1],
+      *depth_buffer_ptr[2],
+      *depth_buffer_ptr[3]};
+    const std::array<ml::fixed_32_t, 4> new_depth_value = {
+      depth_value[0],
+      depth_value[1],
+      depth_value[2],
+      depth_value[3]};
 
     // basic comparisons for depth test.
-    bool depth_compare[][4] = {
-      {true, true, true, true},                                                                                                                                                 /* pass */
-      {false, false, false, false},                                                                                                                                             /* fail */
-      {new_depth_value[0] == old_depth_value[0], new_depth_value[1] == old_depth_value[1], new_depth_value[2] == old_depth_value[2], new_depth_value[3] == old_depth_value[3]}, /* equal */
-      {false, false, false, false},                                                                                                                                             /* not_equal */
-      {new_depth_value[0] < old_depth_value[0], new_depth_value[1] < old_depth_value[1], new_depth_value[2] < old_depth_value[2], new_depth_value[3] < old_depth_value[3]},     /* less */
-      {false, false, false, false},                                                                                                                                             /* less -<equal */
-      {false, false, false, false},                                                                                                                                             /* greater */
-      {false, false, false, false}                                                                                                                                              /* greater_equal */
-    };
+    std::array<std::array<bool, 4>, 8> depth_compare = {{
+      {true, true, true, true},     /* pass */
+      {false, false, false, false}, /* fail */
+      {new_depth_value[0] == old_depth_value[0],
+       new_depth_value[1] == old_depth_value[1],
+       new_depth_value[2] == old_depth_value[2],
+       new_depth_value[3] == old_depth_value[3]}, /* equal */
+      {false, false, false, false},               /* not_equal */
+      {new_depth_value[0] < old_depth_value[0],
+       new_depth_value[1] < old_depth_value[1],
+       new_depth_value[2] < old_depth_value[2],
+       new_depth_value[3] < old_depth_value[3]}, /* less */
+      {false, false, false, false},              /* less_equal */
+      {false, false, false, false},              /* greater */
+      {false, false, false, false}               /* greater_equal */
+    }};
+
+    using block_t = decltype(depth_compare)::value_type;
+    constexpr std::size_t block_size = std::tuple_size<block_t>::value;
 
     // compound comparisons for depth test.
-    for(int k = 0; k < 4; ++k)
+    for(std::size_t k = 0; k < block_size; ++k)
     {
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
@@ -335,7 +435,7 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
     }
 
-    bool depth_mask[4] = {
+    const std::array<bool, 4> depth_mask = {
       depth_compare[static_cast<std::uint32_t>(depth_func)][0],
       depth_compare[static_cast<std::uint32_t>(depth_func)][1],
       depth_compare[static_cast<std::uint32_t>(depth_func)][2],
@@ -344,7 +444,7 @@ void default_framebuffer::depth_compare_write_block(int x, int y, float depth_va
     write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    std::uint32_t depth_write_mask[4] = {
+    const std::array<std::uint32_t, 4> depth_write_mask = {
       to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
@@ -515,7 +615,7 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
     if(frag.write_color)
     {
         // convert color to output format.
-        ml::vec4 write_color[4] = {
+        std::array<ml::vec4, 4> write_color = {
           ml::clamp_to_unit_interval(frag.color[0]),
           ml::clamp_to_unit_interval(frag.color[1]),
           ml::clamp_to_unit_interval(frag.color[2]),
@@ -524,30 +624,42 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
         ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
 
         // block coordinates
-        const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
+        const std::array<ml::tvec2<int>, 4> coords =
+          {{{x, y},
+            {x + 1, y},
+            {x, y + 1},
+            {x + 1, y + 1}}};
 
         // alpha blending.
 #ifdef SWR_USE_MORTON_CODES
-        ml::vec4* color_buffer_ptrs[4] = {
+        std::array<ml::vec4*, 4> color_buffer_ptrs = {
           data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
           data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
           data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
           data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
 #else
         int pitch = color_attachments[attachment]->info.pitch;
-        ml::vec4* color_buffer_ptrs[4] = {
+        std::array<ml::vec4*, 4> color_buffer_ptrs = {
           data_ptr + coords[0].y * pitch + coords[0].x,
           data_ptr + coords[1].y * pitch + coords[1].x,
           data_ptr + coords[2].y * pitch + coords[2].x,
           data_ptr + coords[3].y * pitch + coords[3].x};
 #endif
 
-        ml::vec4 color_buffer_values[4] = {
-          *color_buffer_ptrs[0], *color_buffer_ptrs[1], *color_buffer_ptrs[2], *color_buffer_ptrs[3]};
+        const std::array<ml::vec4, 4> color_buffer_values = {
+          *color_buffer_ptrs[0],
+          *color_buffer_ptrs[1],
+          *color_buffer_ptrs[2],
+          *color_buffer_ptrs[3]};
 
         if(do_blend)
         {
-            swr::output_merger::blend_block(blend_src, blend_dst, write_color, color_buffer_values, write_color);
+            swr::output_merger::blend_block(
+              blend_src,
+              blend_dst,
+              write_color,
+              color_buffer_values,
+              write_color);
         }
 
         // write color.
@@ -620,7 +732,7 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write_block.
-void framebuffer_object::depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask)
+void framebuffer_object::depth_compare_write_block(int x, int y, std::array<float, 4>& depth_value, comparison_func depth_func, bool write_depth, std::uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -637,40 +749,61 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
     }
 
     // block coordinates
-    const ml::tvec2<int> coords[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
+    const std::array<ml::tvec2<int>, 4> coords =
+      {{{x, y},
+        {x + 1, y},
+        {x, y + 1},
+        {x + 1, y + 1}}};
 
     // read and compare depth buffer.
 #ifdef SWR_USE_MORTON_CODES
-    ml::fixed_32_t* depth_buffer_ptr[4] = {
+    std::array<ml::fixed_32_t*, 4> depth_buffer_ptr = {
       depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
       depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
       depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
       depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
 #else
-    ml::fixed_32_t* depth_buffer_ptr[4] = {
+    std::array<ml::fixed_32_t*, 4> depth_buffer_ptr = {
       depth_attachment->info.data_ptr + coords[0].y * depth_attachment->info.width + coords[0].x,
       depth_attachment->info.data_ptr + coords[1].y * depth_attachment->info.width + coords[1].x,
       depth_attachment->info.data_ptr + coords[2].y * depth_attachment->info.width + coords[2].x,
       depth_attachment->info.data_ptr + coords[3].y * depth_attachment->info.width + coords[3].x};
 #endif
 
-    ml::fixed_32_t old_depth_value[4] = {*depth_buffer_ptr[0], *depth_buffer_ptr[1], *depth_buffer_ptr[2], *depth_buffer_ptr[3]};
-    ml::fixed_32_t new_depth_value[4] = {depth_value[0], depth_value[1], depth_value[2], depth_value[3]};
+    const std::array<ml::fixed_32_t, 4> old_depth_value = {
+      *depth_buffer_ptr[0],
+      *depth_buffer_ptr[1],
+      *depth_buffer_ptr[2],
+      *depth_buffer_ptr[3]};
+    const std::array<ml::fixed_32_t, 4> new_depth_value = {
+      depth_value[0],
+      depth_value[1],
+      depth_value[2],
+      depth_value[3]};
 
     // basic comparisons for depth test.
-    bool depth_compare[][4] = {
-      {true, true, true, true},                                                                                                                                                 /* pass */
-      {false, false, false, false},                                                                                                                                             /* fail */
-      {new_depth_value[0] == old_depth_value[0], new_depth_value[1] == old_depth_value[1], new_depth_value[2] == old_depth_value[2], new_depth_value[3] == old_depth_value[3]}, /* equal */
-      {false, false, false, false},                                                                                                                                             /* not_equal */
-      {new_depth_value[0] < old_depth_value[0], new_depth_value[1] < old_depth_value[1], new_depth_value[2] < old_depth_value[2], new_depth_value[3] < old_depth_value[3]},     /* less */
-      {false, false, false, false},                                                                                                                                             /* less -<equal */
-      {false, false, false, false},                                                                                                                                             /* greater */
-      {false, false, false, false}                                                                                                                                              /* greater_equal */
-    };
+    std::array<std::array<bool, 4>, 8> depth_compare = {{
+      {true, true, true, true},     /* pass */
+      {false, false, false, false}, /* fail */
+      {new_depth_value[0] == old_depth_value[0],
+       new_depth_value[1] == old_depth_value[1],
+       new_depth_value[2] == old_depth_value[2],
+       new_depth_value[3] == old_depth_value[3]}, /* equal */
+      {false, false, false, false},               /* not_equal */
+      {new_depth_value[0] < old_depth_value[0],
+       new_depth_value[1] < old_depth_value[1],
+       new_depth_value[2] < old_depth_value[2],
+       new_depth_value[3] < old_depth_value[3]}, /* less */
+      {false, false, false, false},              /* less_equal */
+      {false, false, false, false},              /* greater */
+      {false, false, false, false}               /* greater_equal */
+    }};
+
+    using block_t = decltype(depth_compare)::value_type;
+    constexpr std::size_t block_size = std::tuple_size<block_t>::value;
 
     // compound comparisons for depth test.
-    for(int k = 0; k < 4; ++k)
+    for(std::size_t k = 0; k < block_size; ++k)
     {
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
@@ -678,7 +811,7 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
         depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
     }
 
-    bool depth_mask[4] = {
+    const std::array<bool, 4> depth_mask = {
       depth_compare[static_cast<std::uint32_t>(depth_func)][0],
       depth_compare[static_cast<std::uint32_t>(depth_func)][1],
       depth_compare[static_cast<std::uint32_t>(depth_func)][2],
@@ -687,7 +820,7 @@ void framebuffer_object::depth_compare_write_block(int x, int y, float depth_val
     write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
 
     // write depth.
-    std::uint32_t depth_write_mask[4] = {
+    const std::array<std::uint32_t, 4> depth_write_mask = {
       to_uint32_mask((write_mask & 0x8) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x4) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x2) != 0 && write_depth),

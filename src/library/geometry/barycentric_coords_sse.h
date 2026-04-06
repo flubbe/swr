@@ -19,13 +19,13 @@ struct barycentric_coordinate_block
     using fixed_24_8_array_4 = __m128i;
 
     /** values at the corners of the rectangle in question. each __m128i contains the four values [top_left, top_right, bottom_left, bottom_right]. */
-    __m128i corners[3];
+    std::array<__m128i, 3> corners;
 
     /** steps to take in x direction on each advance. */
-    __m128i steps_x[3];
+    std::array<__m128i, 3> steps_x;
 
     /** steps in y direction. */
-    __m128i steps_y[3];
+    std::array<__m128i, 3> steps_y;
 
     /** default constructor. */
     barycentric_coordinate_block() = default;

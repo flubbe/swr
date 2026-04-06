@@ -40,7 +40,7 @@ struct fragment_output
 struct fragment_output_block
 {
     /** 2x2 block of colors produced by the fragment shader. */
-    ml::vec4 color[4];
+    std::array<ml::vec4, 4> color;
 
     /*
      * masks.
@@ -255,35 +255,69 @@ struct framebuffer_draw_target
     virtual ~framebuffer_draw_target() = default;
 
     /** clear a color attachment. fails silently if the attachment is not available. */
-    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color) = 0;
+    virtual void clear_color(
+      std::uint32_t attachment,
+      ml::vec4 clear_color) = 0;
 
     /** clear part of a color attachment. fails silently if the attachment is not available or if the supplied rectangle was invalid. */
-    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) = 0;
+    virtual void clear_color(
+      std::uint32_t attachment,
+      ml::vec4 clear_color,
+      const utils::rect& rect) = 0;
 
     /** clear the depth attachment. fails silently if the attachment is not available. */
-    virtual void clear_depth(ml::fixed_32_t clear_depth) = 0;
+    virtual void clear_depth(
+      ml::fixed_32_t clear_depth) = 0;
 
     /** clear the depth attachment. fails silently if the attachment is not available of if the supplied rectangle was invalid. */
-    virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) = 0;
+    virtual void clear_depth(
+      ml::fixed_32_t clear_depth,
+      const utils::rect& rect) = 0;
 
     /** merge a color value while respecting blend modes, if requested. silently fails for invalid attachments. */
-    virtual void merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) = 0;
+    virtual void merge_color(
+      std::uint32_t attachment,
+      int x,
+      int y,
+      const fragment_output& frag,
+      bool do_blend,
+      blend_func src,
+      blend_func dst) = 0;
 
     /** merge a 2x2 block of color values while respecting blend modes, if requested. silently fails for invalid attachments. */
-    virtual void merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) = 0;
+    virtual void merge_color_block(
+      std::uint32_t attachment,
+      int x,
+      int y,
+      const fragment_output_block& frag,
+      bool do_blend,
+      blend_func src,
+      blend_func dst) = 0;
 
     /**
      * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write a new value to the depth buffer.
      * if the depth test failed, write_mask is set to false, and true otherwise. sets write_mask to true if no depth buffer was available.
      */
-    virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) = 0;
+    virtual void depth_compare_write(
+      int x,
+      int y,
+      float depth_value,
+      comparison_func depth_func,
+      bool write_depth,
+      bool& write_mask) = 0;
 
     /**
      * if a depth buffer is available, perform a depth comparison and (also depending on write_mask) possibly write new values to the depth buffer.
      * if a depth test failed, correpsonding entry in write_mask is set to false, and true otherwise. sets all write_mask entries
      * to true if no depth buffer was available.
      */
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask) = 0;
+    virtual void depth_compare_write_block(
+      int x,
+      int y,
+      std::array<float, 4>& depth_value,
+      comparison_func depth_func,
+      bool write_depth,
+      std::uint8_t& write_mask) = 0;
 };
 
 /** default framebuffer. */
@@ -307,14 +341,48 @@ struct default_framebuffer : public framebuffer_draw_target
      * framebuffer_draw_target interface.
      */
 
-    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color) override;
-    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
-    virtual void clear_depth(ml::fixed_32_t clear_depth) override;
-    virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) override;
-    virtual void merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
-    virtual void merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
-    virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask) override;
+    virtual void clear_color(
+      std::uint32_t attachment,
+      ml::vec4 clear_color) override;
+    virtual void clear_color(
+      std::uint32_t attachment,
+      ml::vec4 clear_color,
+      const utils::rect& rect) override;
+    virtual void clear_depth(
+      ml::fixed_32_t clear_depth) override;
+    virtual void clear_depth(
+      ml::fixed_32_t clear_depth,
+      const utils::rect& rect) override;
+    virtual void merge_color(
+      std::uint32_t attachment,
+      int x,
+      int y,
+      const fragment_output& frag,
+      bool do_blend,
+      blend_func src,
+      blend_func dst) override;
+    virtual void merge_color_block(
+      std::uint32_t attachment,
+      int x,
+      int y,
+      const fragment_output_block& frag,
+      bool do_blend,
+      blend_func src,
+      blend_func dst) override;
+    virtual void depth_compare_write(
+      int x,
+      int y,
+      float depth_value,
+      comparison_func depth_func,
+      bool write_depth,
+      bool& write_mask) override;
+    virtual void depth_compare_write_block(
+      int x,
+      int y,
+      std::array<float, 4>& depth_value,
+      comparison_func depth_func,
+      bool write_depth,
+      std::uint8_t& write_mask) override;
 
     /*
      * default_framebuffer interface.
@@ -329,7 +397,12 @@ struct default_framebuffer : public framebuffer_draw_target
     }
 
     /** set up the default framebuffer. */
-    void setup(int width, int height, int pitch, pixel_format pixel_format, std::uint32_t* data)
+    void setup(
+      int width,
+      int height,
+      int pitch,
+      pixel_format pixel_format,
+      std::uint32_t* data)
     {
         reset();
         color_buffer.attach(width, height, pitch, data);
@@ -430,14 +503,47 @@ public:
      * framebuffer_draw_target interface.
      */
 
-    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color) override;
-    virtual void clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect) override;
+    virtual void clear_color(
+      std::uint32_t attachment,
+      ml::vec4 clear_color) override;
+    virtual void clear_color(
+      std::uint32_t attachment,
+      ml::vec4 clear_color,
+      const utils::rect& rect) override;
     virtual void clear_depth(ml::fixed_32_t clear_depth) override;
-    virtual void clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect) override;
-    virtual void merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func src, blend_func dst) override;
-    virtual void merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func src, blend_func dst) override;
-    virtual void depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask) override;
-    virtual void depth_compare_write_block(int x, int y, float depth_value[4], comparison_func depth_func, bool write_depth, std::uint8_t& write_mask) override;
+    virtual void clear_depth(
+      ml::fixed_32_t clear_depth,
+      const utils::rect& rect) override;
+    virtual void merge_color(
+      std::uint32_t attachment,
+      int x,
+      int y,
+      const fragment_output& frag,
+      bool do_blend,
+      blend_func src,
+      blend_func dst) override;
+    virtual void merge_color_block(
+      std::uint32_t attachment,
+      int x,
+      int y,
+      const fragment_output_block& frag,
+      bool do_blend,
+      blend_func src,
+      blend_func dst) override;
+    virtual void depth_compare_write(
+      int x,
+      int y,
+      float depth_value,
+      comparison_func depth_func,
+      bool write_depth,
+      bool& write_mask) override;
+    virtual void depth_compare_write_block(
+      int x,
+      int y,
+      std::array<float, 4>& depth_value,
+      comparison_func depth_func,
+      bool write_depth,
+      std::uint8_t& write_mask) override;
 
     /*
      * framebuffer_object interface.
@@ -461,7 +567,9 @@ public:
     }
 
     /** attach at texture. */
-    void attach_texture(framebuffer_attachment attachment, texture_2d* tex, int level)
+    void attach_texture(
+      framebuffer_attachment attachment,
+      texture_2d* tex, int level)
     {
         auto index = static_cast<int>(attachment);
         if(index >= 0 && index < max_color_attachments)
@@ -476,12 +584,20 @@ public:
                 if(!depth_attachment)
                 {
                     // if this is the first attachment, we need to set the effective width and height.
-                    properties.reset(color_attachments[index]->info.width, color_attachments[index]->info.height);
+                    properties.reset(
+                      color_attachments[index]->info.width,
+                      color_attachments[index]->info.height);
                 }
                 else
                 {
                     // update effective dimensions.
-                    properties.reset(std::min(depth_attachment->info.width, color_attachments[index]->info.width), std::min(depth_attachment->info.height, color_attachments[index]->info.height));
+                    properties.reset(
+                      std::min(
+                        depth_attachment->info.width,
+                        color_attachments[index]->info.width),
+                      std::min(
+                        depth_attachment->info.height,
+                        color_attachments[index]->info.height));
                 }
             }
             else
@@ -491,7 +607,13 @@ public:
                 // update effective dimensions.
                 int old_width = properties.width;
                 int old_height = properties.height;
-                properties.reset(std::min(old_width, color_attachments[index]->info.width), std::min(old_height, color_attachments[index]->info.height));
+                properties.reset(
+                  std::min(
+                    old_width,
+                    color_attachments[index]->info.width),
+                  std::min(
+                    old_height,
+                    color_attachments[index]->info.height));
             }
         }
     }
@@ -500,7 +622,8 @@ public:
     void detach_texture(framebuffer_attachment attachment)
     {
         auto index = static_cast<std::size_t>(attachment);
-        if(index < max_color_attachments && color_attachments[index])
+        if(index < max_color_attachments
+           && color_attachments[index])
         {
             color_attachments[index]->detach();
             color_attachments[index].reset();
@@ -516,15 +639,26 @@ public:
         depth_attachment = attachment;
 
         // if there were no color attachments, set effective width and height. otherwise, update it.
-        if(!std::count_if(color_attachments.begin(), color_attachments.end(), [](const auto& c) -> bool
-                          { return static_cast<bool>(c); }))
+        if(!std::count_if(
+             color_attachments.begin(),
+             color_attachments.end(),
+             [](const auto& c) -> bool
+             { return static_cast<bool>(c); }))
         {
-            properties.reset(depth_attachment->info.width, depth_attachment->info.height);
+            properties.reset(
+              depth_attachment->info.width,
+              depth_attachment->info.height);
         }
         else
         {
             // update effective dimensions.
-            properties.reset(std::min(properties.width, depth_attachment->info.width), std::min(properties.height, depth_attachment->info.height));
+            properties.reset(
+              std::min(
+                properties.width,
+                depth_attachment->info.width),
+              std::min(
+                properties.height,
+                depth_attachment->info.height));
         }
     }
 

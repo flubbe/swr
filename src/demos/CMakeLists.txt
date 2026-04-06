@@ -121,8 +121,14 @@ add_executable(demo_timings
 	common/font.cpp
     common/stb.cpp
 	timings/main.cpp
-	timings/main.cpp
 )
 target_link_libraries(demo_timings swrast swr_app ${EXTRA_LIBS})
+
+add_executable(demo_triangle
+	${COMMON_SOURCES}
+	triangle/main.cpp
+)
+target_link_libraries(demo_triangle swrast swr_app ${EXTRA_LIBS})
+
 
 add_subdirectory(cars)

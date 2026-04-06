@@ -257,7 +257,7 @@ static void invoke_vertex_shader_and_clip_preprocess(
 
     // push shader tasks to thread pool.
     std::size_t offset = 0;
-    for(; offset < obj.coord_count - thread_vertex_count; offset += thread_vertex_count)
+    for(; offset + thread_vertex_count < obj.coord_count; offset += thread_vertex_count)
     {
         thread_pool.push_immediate_task(
           vertex_shader_task,
@@ -331,7 +331,7 @@ static void transform_to_viewport_coords(swr::impl::sdl_render_context::thread_p
     std::size_t thread_vertex_count = std::max(min_tasks_per_thread, vb.size() / thread_count);
 
     std::size_t offset = 0;
-    for(; offset < vb.size() - thread_vertex_count; offset += thread_vertex_count)
+    for(; offset + thread_vertex_count < vb.size(); offset += thread_vertex_count)
     {
         thread_pool.push_immediate_task(transform_to_viewport_coords_task, &vb, offset, offset + thread_vertex_count, x, y, width, height, z_near, z_far);
     }

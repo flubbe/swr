@@ -25,7 +25,7 @@ using namespace std::literals;
  *
  * This bias is used by triangle- and point rasterization code.
  */
-constexpr std::uint32_t FILL_RULE_EDGE_BIAS = 1;
+inline constexpr std::uint32_t FILL_RULE_EDGE_BIAS = 1;
 
 /** Sweep rasterizer. */
 class sweep_rasterizer : public rasterizer
@@ -166,7 +166,7 @@ class sweep_rasterizer : public rasterizer
       const swr::impl::render_states& states,
       const swr::program_base* in_shader,
       const ml::vec4& one_over_viewport_z,
-      fragment_info info[4],
+      std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
     /**
@@ -187,7 +187,7 @@ class sweep_rasterizer : public rasterizer
       const swr::impl::render_states& states,
       const swr::program_base* in_shader,
       const ml::vec4& one_over_viewport_z,
-      fragment_info info[4],
+      std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
     /*
@@ -233,23 +233,23 @@ class sweep_rasterizer : public rasterizer
      *
      * @param states Active render states for this triangle.
      * @param is_front_facing Whether this triangle is front facing. Passed to the fragment shader.
-     * @param v1 First triangle vertex.
-     * @param v2 Second triangle vertex.
-     * @param v3 Third triangle vertex.
+     * @param v0 First triangle vertex.
+     * @param v1 Second triangle vertex.
+     * @param v2 Third triangle vertex.
      */
     void draw_filled_triangle(
       const swr::impl::render_states& states,
       bool is_front_facing,
-      geom::vertex& v1,
-      geom::vertex& v2,
-      geom::vertex& v3);
+      const geom::vertex& v0,
+      const geom::vertex& v1,
+      const geom::vertex& v2);
 
     /** draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false. */
     void draw_line(
       const swr::impl::render_states& states,
       bool draw_end_point,
-      const geom::vertex& v1,
-      const geom::vertex& v2);
+      const geom::vertex& v0,
+      const geom::vertex& v1);
 
     /** draw a point. */
     void draw_point(

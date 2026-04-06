@@ -18,16 +18,36 @@ namespace output_merger
 {
 
 /** apply blending on pixels. */
-std::uint32_t blend(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const std::uint32_t src, const std::uint32_t dest);
+std::uint32_t blend(
+  const pixel_format_converter& pf_conv,
+  blend_func blend_src,
+  blend_func blend_dst,
+  const std::uint32_t src,
+  const std::uint32_t dest);
 
 /** apply blending on a 2x2 block of pixels. when compiling with SIMD/SSE enabled, assumes that src, dest and out are aligned on 16-byte boundaries. */
-void blend_block(const pixel_format_converter& pf_conv, blend_func blend_src, blend_func blend_dst, const std::uint32_t src[4], const std::uint32_t dest[4], std::uint32_t out[4]);
+void blend_block(
+  const pixel_format_converter& pf_conv,
+  blend_func blend_src,
+  blend_func blend_dst,
+  const std::array<std::uint32_t, 4>& src,
+  const std::array<std::uint32_t, 4>& dest,
+  std::array<std::uint32_t, 4>& out);
 
 /** apply blending on colors. */
-ml::vec4 blend(blend_func blend_src, blend_func blend_dst, const ml::vec4& src, const ml::vec4& dest);
+ml::vec4 blend(
+  blend_func blend_src,
+  blend_func blend_dst,
+  const ml::vec4& src,
+  const ml::vec4& dest);
 
 /** apply blending on a 2x2 block of colors. */
-void blend_block(blend_func blend_src, blend_func blend_dst, const ml::vec4 src[4], const ml::vec4 dest[4], ml::vec4 out[4]);
+void blend_block(
+  blend_func blend_src,
+  blend_func blend_dst,
+  const std::array<ml::vec4, 4>& src,
+  const std::array<ml::vec4, 4>& dest,
+  std::array<ml::vec4, 4>& out);
 
 } /* namespace output_merger */
 
