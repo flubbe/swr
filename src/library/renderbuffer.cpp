@@ -850,7 +850,7 @@ static auto slot_to_id = [](std::uint32_t slot) -> std::uint32_t
 std::uint32_t CreateFramebufferObject()
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     // set up a new framebuffer.
     auto slot = context->framebuffer_objects.push({});
@@ -863,7 +863,7 @@ std::uint32_t CreateFramebufferObject()
 void ReleaseFramebufferObject(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     if(id == default_framebuffer_id)
     {
@@ -889,7 +889,7 @@ void ReleaseFramebufferObject(std::uint32_t id)
 void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     if(id == default_framebuffer_id)
     {
@@ -929,7 +929,7 @@ void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
 void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id, std::uint32_t level)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     if(id == default_framebuffer_id)
     {
@@ -973,7 +973,7 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
 std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     auto slot = context->depth_attachments.push({});
     context->depth_attachments[slot].allocate(width, height);
@@ -984,7 +984,7 @@ std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
 void ReleaseDepthRenderbuffer(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     if(id < context->depth_attachments.size() && !context->depth_attachments.is_free(id))
     {
@@ -995,7 +995,7 @@ void ReleaseDepthRenderbuffer(std::uint32_t id)
 void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     if(id == default_framebuffer_id)
     {

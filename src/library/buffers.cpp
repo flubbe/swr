@@ -92,7 +92,7 @@ void DeleteAttributeBuffer(std::uint32_t id)
 void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     // check if id and slot are valid.
     if(id < context->vertex_attribute_buffers.size() && slot < context->active_vabs.max_size())
@@ -115,7 +115,7 @@ void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
 void DisableAttributeBuffer(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     // check that BufferId is valid.
     if(id < context->vertex_attribute_buffers.size())

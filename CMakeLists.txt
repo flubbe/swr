@@ -70,18 +70,6 @@ set(EXTRA_LIBS SDL3::SDL3)
 message(STATUS ${EXTRA_LIBS})
 
 #
-# Thread library.
-#
-set(CMAKE_THREAD_PREFER_PTHREAD ON)
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-
-#
-# Boost
-#
-find_package(Boost CONFIG REQUIRED)
-
-#
 # Set up output directories
 #
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)

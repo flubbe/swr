@@ -1,6 +1,11 @@
 project (swr_app)
 
 #
+# Boost.
+#
+find_package(Boost CONFIG REQUIRED)
+
+#
 # Set up project include directories
 #
 include_directories(. ../../../inc)

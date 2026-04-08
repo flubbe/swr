@@ -63,7 +63,7 @@ public:
     }
 };
 
-void create_default_shader(render_device_context* context)
+void create_default_shader(render_context* context)
 {
     assert(context);
 

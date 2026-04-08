@@ -21,7 +21,7 @@ namespace swr
 void SetState(state s, bool enable)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     if(s == state::blend)
     {
@@ -52,7 +52,7 @@ void SetState(state s, bool enable)
 bool GetState(state s)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_device_context* context = impl::global_context;
+    impl::render_context* context = impl::global_context;
 
     if(s == state::blend)
     {

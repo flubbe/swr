@@ -1,9 +1,17 @@
 project (libswraster)
 
 #
+# Boost.
+#
+find_package(Boost CONFIG REQUIRED)
+
+#
 # Set up project include directories
 #
-include_directories(. ../../inc)
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
 
 #
 # Add files
@@ -30,4 +38,4 @@ set(SOURCES
 )
 
 add_library(swrast SHARED ${SOURCES})
-target_link_libraries(swrast ${EXTRA_LIBS})
+target_link_libraries(swrast SDL3::SDL3 Boost::headers)

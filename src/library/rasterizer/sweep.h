@@ -108,7 +108,7 @@ class sweep_rasterizer : public rasterizer
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** thread pool. */
-    swr::impl::render_device_context::thread_pool_type* thread_pool{nullptr};
+    swr::impl::render_context::thread_pool_type* thread_pool{nullptr};
 
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
@@ -267,7 +267,7 @@ class sweep_rasterizer : public rasterizer
 public:
     /** Constructor. */
     sweep_rasterizer(
-      [[maybe_unused]] swr::impl::render_device_context::thread_pool_type* in_thread_pool,
+      [[maybe_unused]] swr::impl::render_context::thread_pool_type* in_thread_pool,
       swr::impl::default_framebuffer* in_framebuffer)
     : framebuffer{in_framebuffer}
 #ifdef SWR_ENABLE_MULTI_THREADING
