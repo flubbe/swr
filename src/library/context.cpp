@@ -268,7 +268,12 @@ void sdl_render_context::update_buffers(int width, int height)
         throw std::runtime_error(std::format("sdl_render_context: could not set blend mode: {}", SDL_GetError()));
     }
 
-    framebuffer.setup(width, height, width, swr_pixel_format, nullptr);
+    framebuffer.setup(
+      width,
+      height,
+      width * sizeof(std::uint32_t),    // FIXME This depends on the pixel format, but we only support 4-byte pf's.
+      swr_pixel_format,
+      nullptr);
 }
 
 void sdl_render_context::copy_default_color_buffer()
@@ -394,7 +399,15 @@ void offscreen_render_context::update_buffers(int width, int height)
     if(!locked)
     {
         rgba_buffer.resize(width * height);
-        framebuffer.setup(width, height, width, swr::pixel_format::rgba8888, nullptr);
+        framebuffer.setup(
+          width,
+          height,
+          width * sizeof(std::uint32_t),
+          swr::pixel_format::argb8888,
+          nullptr);
+
+        this->width = width;
+        this->height = height;
     }
 }
 
@@ -412,7 +425,7 @@ bool offscreen_render_context::lock()
         framebuffer.color_buffer.attach(
           width,
           height,
-          width,
+          width * sizeof(std::uint32_t),
           static_cast<std::uint32_t*>(rgba_buffer.data()));
     }
 
@@ -460,9 +473,9 @@ context_handle CreateOffscreenContext(
   std::uint32_t height,
   std::uint32_t thread_hint)
 {
-    // TODO
-
-    return nullptr;
+    auto* context = new impl::offscreen_render_context(thread_hint);
+    context->initialize(width, height);
+    return context;
 }
 
 void DestroyContext(context_handle context)
@@ -515,6 +528,29 @@ void CopyDefaultColorBuffer(context_handle context)
 #else
     internal_context->lock();
 #endif
+}
+
+void GetContextInfo(
+  context_handle context,
+  void** data,
+  int* width,
+  int* height,
+  int* components)
+{
+    swr::impl::render_context* internal_context = static_cast<swr::impl::render_context*>(context);
+    *data = internal_context->framebuffer.color_buffer.info.data_ptr;
+    if(width != nullptr)
+    {
+        *width = internal_context->framebuffer.color_buffer.info.width;
+    }
+    if(height != nullptr)
+    {
+        *height = internal_context->framebuffer.color_buffer.info.height;
+    }
+    if(components != nullptr)
+    {
+        *components = 4;
+    }
 }
 
 } /* namespace swr */

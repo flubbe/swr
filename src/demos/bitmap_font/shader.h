@@ -31,7 +31,7 @@ namespace shader
 class texture : public swr::program<texture>
 {
 public:
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
+    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
         iqs = {swr::interpolation_qualifier::smooth};
@@ -60,7 +60,7 @@ public:
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
+      const boost::container::static_vector<swr::varying, swr::limits::max::varyings>& varyings,
       [[maybe_unused]] float& gl_FragDepth,
       ml::vec4& gl_FragColor) const override
     {
@@ -95,7 +95,7 @@ public:
 class color : public swr::program<color>
 {
 public:
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs) const override
+    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
         iqs = {swr::interpolation_qualifier::smooth};
@@ -124,7 +124,7 @@ public:
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      const boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings,
+      const boost::container::static_vector<swr::varying, swr::limits::max::varyings>& varyings,
       [[maybe_unused]] float& gl_FragDepth,
       ml::vec4& gl_FragColor) const override
     {

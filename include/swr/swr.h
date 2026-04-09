@@ -664,6 +664,22 @@ bool MakeContextCurrent(context_handle Context);
  */
 void CopyDefaultColorBuffer(context_handle Context);
 
+/**
+ * Get a pointer to the color buffer and its dimension.
+ *
+ * @param context The context.
+ * @param data Pointer to the offscreen frame buffer.
+ * @param width If not `nullptr`, the width of the offscreen frame buffer is written.
+ * @param height If not `nullptr`, the height of the offscreen frame buffer is written.
+ * @param components If not `nullptr`, the component count of the offscreen frame buffer is written.
+ */
+void GetContextInfo(
+  context_handle context,
+  void** data,
+  int* width,
+  int* height,
+  int* components);
+
 /*
  * Versioning.
  */

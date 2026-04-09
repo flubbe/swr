@@ -30,7 +30,7 @@ public:
     void pre_link(
       boost::container::static_vector<
         swr::interpolation_qualifier,
-        geom::limits::max::varyings>&
+        swr::limits::max::varyings>&
         iqs) const override
     {
         iqs.clear();
@@ -53,7 +53,7 @@ public:
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
       [[maybe_unused]] const boost::container::static_vector<
         swr::varying,
-        geom::limits::max::varyings>&
+        swr::limits::max::varyings>&
         varyings,
       [[maybe_unused]] float& gl_FragDepth,
       [[maybe_unused]] ml::vec4& gl_FragColor) const override
@@ -167,7 +167,7 @@ void BindUniform(std::uint32_t id, int value)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(id < geom::limits::max::uniform_locations)
+    if(id < swr::limits::max::uniform_locations)
     {
         auto* context = impl::global_context;
 
@@ -184,7 +184,7 @@ void BindUniform(std::uint32_t id, float value)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(id < geom::limits::max::uniform_locations)
+    if(id < swr::limits::max::uniform_locations)
     {
         auto* context = impl::global_context;
 
@@ -201,7 +201,7 @@ void BindUniform(std::uint32_t id, ml::mat4x4 value)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(id < geom::limits::max::uniform_locations)
+    if(id < swr::limits::max::uniform_locations)
     {
         auto* context = impl::global_context;
 
@@ -218,7 +218,7 @@ void BindUniform(std::uint32_t id, ml::vec4 value)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(id < geom::limits::max::uniform_locations)
+    if(id < swr::limits::max::uniform_locations)
     {
         auto* context = impl::global_context;
 

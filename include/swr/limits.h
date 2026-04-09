@@ -10,7 +10,7 @@
 
 #pragma once
 
-namespace geom
+namespace swr
 {
 
 namespace limits
@@ -51,4 +51,4 @@ constexpr int texture_units = 16;
 
 } /* namespace limits */
 
-} /* namespace geom */
+}    // namespace swr

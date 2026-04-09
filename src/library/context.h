@@ -48,7 +48,7 @@ struct program_info
     /** interpolation qualifiers for varyings. */
     boost::container::static_vector<
       swr::interpolation_qualifier,
-      geom::limits::max::varyings>
+      swr::limits::max::varyings>
       iqs;
 
     /** flags. */
@@ -115,7 +115,7 @@ public:
       impl::program_info* shader_info,
       const boost::container::static_vector<
         swr::uniform,
-        geom::limits::max::uniform_locations>&
+        swr::limits::max::uniform_locations>&
         uniforms)
     : shader{
         shader_info->shader->create_vertex_shader_instance(
@@ -202,7 +202,7 @@ public:
     /** currently active vertex attribute buffers. stores indices into vertex_attribute_buffers. */
     boost::container::static_vector<
       int,
-      geom::limits::max::attributes>
+      swr::limits::max::attributes>
       active_vabs;
 
     /*

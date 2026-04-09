@@ -22,7 +22,7 @@
  */
 
 /* user headers. */
-#include "geometry/limits.h"
+#include "limits.h"
 
 namespace swr
 {
@@ -175,11 +175,11 @@ class program_base
 protected:
     const boost::container::static_vector<
       swr::uniform,
-      geom::limits::max::uniform_locations>*
+      swr::limits::max::uniform_locations>*
       uniforms{nullptr};
     boost::container::static_vector<
       struct sampler_2d*,
-      geom::limits::max::texture_units>
+      swr::limits::max::texture_units>
       samplers;
 
 public:
@@ -206,7 +206,7 @@ public:
       void* mem,
       const boost::container::static_vector<
         swr::uniform,
-        geom::limits::max::uniform_locations>&
+        swr::limits::max::uniform_locations>&
         uniforms) const = 0;
 
     /**
@@ -221,11 +221,11 @@ public:
       void* mem,
       const boost::container::static_vector<
         swr::uniform,
-        geom::limits::max::uniform_locations>&
+        swr::limits::max::uniform_locations>&
         uniforms,
       const boost::container::static_vector<
         struct sampler_2d*,
-        geom::limits::max::texture_units>&
+        swr::limits::max::texture_units>&
         samplers_2d) const = 0;
 
     /**
@@ -245,7 +245,7 @@ public:
     virtual void pre_link(
       boost::container::static_vector<
         swr::interpolation_qualifier,
-        geom::limits::max::varyings>&
+        swr::limits::max::varyings>&
         iqs) const = 0;
 
     /**
@@ -269,7 +269,7 @@ public:
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
       [[maybe_unused]] const boost::container::static_vector<
         swr::varying,
-        geom::limits::max::varyings>&
+        swr::limits::max::varyings>&
         varyings,
       [[maybe_unused]] float& gl_FragDepth,
       [[maybe_unused]] ml::vec4& gl_FragColor) const = 0;
@@ -304,17 +304,17 @@ public:
       void* mem,
       const boost::container::static_vector<
         swr::uniform,
-        geom::limits::max::uniform_locations>&
+        swr::limits::max::uniform_locations>&
         uniforms) const override;
     program_base* create_fragment_shader_instance(
       void* mem,
       const boost::container::static_vector<
         swr::uniform,
-        geom::limits::max::uniform_locations>&
+        swr::limits::max::uniform_locations>&
         uniforms,
       const boost::container::static_vector<
         struct sampler_2d*,
-        geom::limits::max::texture_units>&
+        swr::limits::max::texture_units>&
         samplers_2d) const override;
 };
 
@@ -329,7 +329,7 @@ program_base* program<T>::create_vertex_shader_instance(
   void* mem,
   const boost::container::static_vector<
     swr::uniform,
-    geom::limits::max::uniform_locations>&
+    swr::limits::max::uniform_locations>&
     uniforms) const
 {
     auto* new_program = new(mem) T{static_cast<const T&>(*this)};
@@ -341,11 +341,11 @@ template<typename T>
 program_base* program<T>::create_fragment_shader_instance(
   void* mem,
   const boost::container::static_vector<
-    swr::uniform, geom::limits::max::uniform_locations>&
+    swr::uniform, swr::limits::max::uniform_locations>&
     uniforms,
   const boost::container::static_vector<
     struct sampler_2d*,
-    geom::limits::max::texture_units>&
+    swr::limits::max::texture_units>&
     samplers_2d) const
 {
     auto* new_program = new(mem) T{static_cast<const T&>(*this)};

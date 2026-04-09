@@ -25,7 +25,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
     std::array<
       boost::container::static_vector<
         swr::varying,
-        geom::limits::max::varyings>,
+        swr::limits::max::varyings>,
       4>
       temp_varyings;
 
@@ -85,7 +85,7 @@ void sweep_rasterizer::process_block_checked(
     std::array<
       boost::container::static_vector<
         swr::varying,
-        geom::limits::max::varyings>,
+        swr::limits::max::varyings>,
       4>
       temp_varyings;
 

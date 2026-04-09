@@ -22,7 +22,7 @@ namespace impl
 
 static void copy_attributes(
   render_object& obj,
-  const boost::container::static_vector<int, geom::limits::max::attributes>& active_vabs,
+  const boost::container::static_vector<int, swr::limits::max::attributes>& active_vabs,
   const utils::slot_map<vertex_attribute_buffer>& vertex_attribute_buffers,
   std::function<std::uint32_t(std::uint32_t)> transform_fn =
     [](std::uint32_t i) -> std::uint32_t

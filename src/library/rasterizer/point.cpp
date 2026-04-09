@@ -36,7 +36,7 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
     ml::vec2_fixed<4> adjusted_coords(coords.x, coords.y);
 
     // set up attributes and varyings.
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings> temp(v.varyings.size());
+    boost::container::static_vector<swr::varying, swr::limits::max::varyings> temp(v.varyings.size());
     for(std::size_t i = 0; i < v.varyings.size(); ++i)
     {
         temp[i].value = v.varyings[i];

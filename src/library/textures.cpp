@@ -271,7 +271,7 @@ bool bind_texture_pointer(texture_target target, std::uint32_t id)
     auto unit = global_context->states.texture_2d_active_unit;
     if(unit >= global_context->states.texture_2d_units.size())
     {
-        if(unit > geom::limits::max::texture_units)
+        if(unit > swr::limits::max::texture_units)
         {
             global_context->last_error = error::invalid_value;
             return false;
@@ -281,7 +281,7 @@ bool bind_texture_pointer(texture_target target, std::uint32_t id)
     }
     if(unit >= global_context->states.texture_2d_samplers.size())
     {
-        if(unit > geom::limits::max::texture_units)
+        if(unit > swr::limits::max::texture_units)
         {
             global_context->last_error = error::invalid_value;
             return false;
@@ -441,7 +441,7 @@ void ActiveTexture(std::uint32_t unit)
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(unit >= geom::limits::max::texture_units)
+    if(unit >= swr::limits::max::texture_units)
     {
         context->last_error = error::invalid_value;
         return;
@@ -449,7 +449,7 @@ void ActiveTexture(std::uint32_t unit)
 
     if(unit >= context->states.texture_2d_samplers.size())
     {
-        if(unit > geom::limits::max::texture_units)
+        if(unit > swr::limits::max::texture_units)
         {
             context->last_error = error::invalid_value;
             return;
