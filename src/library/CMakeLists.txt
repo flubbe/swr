@@ -32,8 +32,6 @@ target_include_directories(swrast
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
-    ${DEPS_ROOT}/concurrency_utils/include
-    ${DEPS_ROOT}/3rd-party/libmorton/include
 )
 
 target_link_libraries(swrast
@@ -42,4 +40,6 @@ target_link_libraries(swrast
     PRIVATE
     SDL3::SDL3
     Boost::headers
+    libmorton
+    concurrency_utils
 )

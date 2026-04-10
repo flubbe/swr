@@ -23,50 +23,38 @@ include_directories(
 #
 
 add_executable(test_rasterizer_point library/rasterizer/point.cpp)
-target_include_directories(test_rasterizer_point
-    PRIVATE
-    ${DEPS_ROOT}/3rd-party/libmorton/include
-    ${DEPS_ROOT}/concurrency_utils/include
-)
 target_link_libraries(test_rasterizer_point
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    libmorton
+    concurrency_utils
 )
 add_test(NAME rasterizer_point COMMAND test_rasterizer_point --color_output=no)
 
 add_executable(test_rasterizer_line library/rasterizer/line.cpp)
-target_include_directories(test_rasterizer_line
-    PRIVATE
-    ${DEPS_ROOT}/3rd-party/libmorton/include
-    ${DEPS_ROOT}/concurrency_utils/include
-)
 target_link_libraries(test_rasterizer_line
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    libmorton
+    concurrency_utils
 )
 add_test(NAME rasterizer_line COMMAND test_rasterizer_line --color_output=no)
 
 add_executable(test_rasterizer_triangle library/rasterizer/triangle.cpp)
-target_include_directories(test_rasterizer_triangle
-    PRIVATE
-    ${DEPS_ROOT}/3rd-party/libmorton/include
-    ${DEPS_ROOT}/concurrency_utils/include
-)
 target_link_libraries(test_rasterizer_triangle
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    libmorton
+    concurrency_utils
 )
 add_test(NAME rasterizer_triangle COMMAND test_rasterizer_triangle --color_output=no)
 
 add_executable(test_clipping library/clipping.cpp)
-target_include_directories(test_clipping
-    PRIVATE
-    ${DEPS_ROOT}/3rd-party/libmorton/include
-    ${DEPS_ROOT}/concurrency_utils/include
-)
 target_link_libraries(test_clipping
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    libmorton
+    concurrency_utils
 )
 add_test(NAME clipping COMMAND test_clipping --color_output=no)
 

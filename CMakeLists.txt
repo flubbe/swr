@@ -15,6 +15,39 @@ option(SWR_BUILD_APP "Build swr app" ${SWR_IS_TOPLEVEL})
 option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${SWR_IS_TOPLEVEL})
 option(SWR_BUILD_TESTS "Build swr tests" ${SWR_IS_TOPLEVEL})
 
+#
+# Get dependencies.
+#
+
+include(FetchContent)
+
+FetchContent_Declare(
+    libmorton_src
+    GIT_REPOSITORY https://github.com/Forceflow/libmorton.git
+    GIT_TAG v0.2.12
+    SOURCE_SUBDIR __unused__
+)
+FetchContent_MakeAvailable(libmorton_src)
+
+add_library(libmorton INTERFACE)
+target_include_directories(libmorton INTERFACE
+    ${libmorton_src_SOURCE_DIR}/include
+)
+
+FetchContent_Declare(
+    ml_src
+    GIT_REPOSITORY https://github.com/flubbe/ml.git
+    GIT_TAG 4bf382d
+)
+FetchContent_MakeAvailable(ml_src)
+
+FetchContent_Declare(
+    concurrency_utils_src
+    GIT_REPOSITORY https://github.com/flubbe/concurrency_utils.git
+    GIT_TAG 825ba86
+)
+FetchContent_MakeAvailable(concurrency_utils_src)
+
 enable_testing()
 
 project(swr)
@@ -100,7 +133,6 @@ include_directories(
 #
 # Add subdirectories
 #
-add_subdirectory(deps/ml)
 
 if(SWR_BUILD_DEMOS)
     add_subdirectory(src/demos)
