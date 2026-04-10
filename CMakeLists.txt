@@ -5,6 +5,16 @@
 cmake_policy(VERSION 3.22.0)
 cmake_minimum_required(VERSION 3.22.0)
 
+set(SWR_IS_TOPLEVEL OFF)
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    set(SWR_IS_TOPLEVEL ON)
+endif()
+
+option(SWR_BUILD_DEMOS "Build swr demos" ${SWR_IS_TOPLEVEL})
+option(SWR_BUILD_APP "Build swr app" ${SWR_IS_TOPLEVEL})
+option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${SWR_IS_TOPLEVEL})
+option(SWR_BUILD_TESTS "Build swr tests" ${SWR_IS_TOPLEVEL})
+
 enable_testing()
 
 project(swr)
@@ -90,14 +100,23 @@ include_directories(
 #
 # Add subdirectories
 #
-add_subdirectory(deps/3rd-party/cpu_features)
 add_subdirectory(deps/ml)
-add_subdirectory(src/demos)
+
+if(SWR_BUILD_DEMOS)
+    add_subdirectory(src/demos)
+endif()
+
+if(SWR_BUILD_APP)
+    add_subdirectory(deps/3rd-party/cpu_features)
+    add_subdirectory(src/swr_app)
+endif()
+
+if(SWR_BUILD_BENCHMARKS)
+    add_subdirectory(src/bench)
+endif()
+
+if(SWR_BUILD_TESTS)
+    add_subdirectory(src/test)
+endif()
+
 add_subdirectory(src/library)
-add_subdirectory(src/swr_app)
-
-# benchmarks
-add_subdirectory(src/bench)
-
-# tests
-add_subdirectory(src/test)
