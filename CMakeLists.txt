@@ -22,6 +22,26 @@ option(SWR_BUILD_TESTS "Build swr tests" ${SWR_IS_TOPLEVEL})
 include(FetchContent)
 
 FetchContent_Declare(
+    cpu_features_src
+    GIT_REPOSITORY https://github.com/google/cpu_features.git
+    GIT_TAG v0.10.1
+)
+FetchContent_MakeAvailable(cpu_features_src)
+
+FetchContent_Declare(
+    stb_src
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG 28d546d
+    SOURCE_SUBDIR __unused__
+)
+FetchContent_MakeAvailable(stb_src)
+
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE
+    ${stb_src_SOURCE_DIR}
+)
+
+FetchContent_Declare(
     libmorton_src
     GIT_REPOSITORY https://github.com/Forceflow/libmorton.git
     GIT_TAG v0.2.12
@@ -119,11 +139,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 #
-# Disable testing (for cpu_features integration)
-#
-set(BUILD_TESTING OFF)
-
-#
 # Set up project include directories
 #
 include_directories(
@@ -139,7 +154,6 @@ if(SWR_BUILD_DEMOS)
 endif()
 
 if(SWR_BUILD_APP)
-    add_subdirectory(deps/3rd-party/cpu_features)
     add_subdirectory(src/swr_app)
 endif()
 
