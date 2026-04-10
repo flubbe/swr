@@ -1,41 +1,45 @@
-project (libswraster)
+set(SWR_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+set(DEPS_ROOT ${SWR_ROOT}/deps)
 
-#
-# Boost.
-#
 find_package(Boost CONFIG REQUIRED)
 
-#
-# Set up project include directories
-#
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR} 
-    ${CMAKE_CURRENT_SOURCE_DIR}/..
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
-
-#
-# Add files
-#
 set(SOURCES
-	rasterizer/fragment.cpp
-	rasterizer/line.cpp
-	rasterizer/point.cpp
-	rasterizer/sweep.cpp
-	rasterizer/triangle.cpp
-	assembly.cpp
-	buffers.cpp
-	context.cpp
-	clipping.cpp
-	draw.cpp
-	misc.cpp
-	output_merger.cpp
-	pipeline.cpp
-	renderbuffer.cpp
-	renderobject.cpp
-	shaders.cpp
-	states.cpp
-	textures.cpp
+    rasterizer/fragment.cpp
+    rasterizer/line.cpp
+    rasterizer/point.cpp
+    rasterizer/sweep.cpp
+    rasterizer/triangle.cpp
+    assembly.cpp
+    buffers.cpp
+    context.cpp
+    clipping.cpp
+    draw.cpp
+    misc.cpp
+    output_merger.cpp
+    pipeline.cpp
+    renderbuffer.cpp
+    renderobject.cpp
+    shaders.cpp
+    states.cpp
+    textures.cpp
 )
 
 add_library(swrast SHARED ${SOURCES})
-target_link_libraries(swrast SDL3::SDL3 Boost::headers)
+
+target_include_directories(swrast
+    PUBLIC
+    ${SWR_ROOT}/include
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${DEPS_ROOT}/concurrency_utils/include
+    ${DEPS_ROOT}/3rd-party/libmorton/include
+)
+
+target_link_libraries(swrast
+    PUBLIC
+    ml
+    PRIVATE
+    SDL3::SDL3
+    Boost::headers
+)

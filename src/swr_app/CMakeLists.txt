@@ -1,5 +1,3 @@
-project (swr_app)
-
 #
 # Boost.
 #
@@ -11,15 +9,15 @@ find_package(Boost CONFIG REQUIRED)
 include_directories(. ../../../inc)
 
 # add support for boost test framework
-add_definitions(-DBOOST_TEST_DYN_LINK) 
-link_directories ( ${Boost_LIBRARY_DIRS} )
+add_definitions(-DBOOST_TEST_DYN_LINK)
+link_directories(${Boost_LIBRARY_DIRS})
 
-add_library(swr_app SHARED 
-	../common/platform/cpu.cpp
-	../common/platform/log.cpp
-	../common/platform/platform.cpp
-	main.cpp 
-	framework.cpp
-	)
+add_library(swr_app SHARED
+    ../common/platform/cpu.cpp
+    ../common/platform/log.cpp
+    ../common/platform/platform.cpp
+    main.cpp
+    framework.cpp
+)
 
-target_link_libraries(swr_app cpu_features ${EXTRA_LIBS})
+target_link_libraries(swr_app cpu_features swrast ${EXTRA_LIBS})

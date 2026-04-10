@@ -3,7 +3,7 @@
 #
 
 cmake_policy(VERSION 3.22.0)
-cmake_minimum_required (VERSION 3.22.0)
+cmake_minimum_required(VERSION 3.22.0)
 
 enable_testing()
 
@@ -14,14 +14,14 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Set a default build type if none was specified
 set(default_build_type "Release")
 if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-	set(default_build_type "Debug")
+    set(default_build_type "Debug")
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
-	message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-	set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-	# Set the possible values of build type for cmake-gui
-	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
 set(CMAKE_CXX_STANDARD 23)
@@ -38,18 +38,18 @@ endif()
 add_compile_options(-Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         add_compile_options(-stdlib=libc++)
-    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         add_compile_options(-Og)
-	endif()
+    endif()
 else()
     add_compile_options(-O3)
-	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         add_compile_options(-stdlib=libc++)
-	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         add_compile_options(-fno-omit-frame-pointer)
-	endif()
+    endif()
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
@@ -84,20 +84,19 @@ set(BUILD_TESTING OFF)
 # Set up project include directories
 #
 include_directories(
-	./ 
-	src 
-	include
-	deps/concurrency_utils/include
-	deps/ml/include
-	deps/3rd-party/cpu_features/include 
-	deps/3rd-party/cnl/include
-	deps/3rd-party/libmorton/include
-	)
+    ./
+    src
+    include
+    deps/concurrency_utils/include
+    deps/3rd-party/cpu_features/include
+    deps/3rd-party/libmorton/include
+)
 
 #
 # Add subdirectories
 #
 add_subdirectory(deps/3rd-party/cpu_features)
+add_subdirectory(deps/ml)
 add_subdirectory(src/demos)
 add_subdirectory(src/library)
 add_subdirectory(src/swr_app)
