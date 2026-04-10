@@ -1,5 +1,8 @@
 cmake_policy(SET CMP0167 OLD)
 
+set(SWR_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+set(DEPS_ROOT ${SWR_ROOT}/deps)
+
 # SDL3
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
 
@@ -9,13 +12,22 @@ find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 link_directories(${Boost_LIBRARY_DIRS})
 
 # add library include directories
-include_directories(../../include ../../src/library)
+include_directories(
+    ${CMAKE_CURRENT_LIST_DIR}/../../include
+    ${CMAKE_CURRENT_LIST_DIR}/..
+    ${CMAKE_CURRENT_LIST_DIR}/../library
+)
 
 #
 # build tests
 #
 
 add_executable(test_rasterizer_point library/rasterizer/point.cpp)
+target_include_directories(test_rasterizer_point
+    PRIVATE
+    ${DEPS_ROOT}/3rd-party/libmorton/include
+    ${DEPS_ROOT}/concurrency_utils/include
+)
 target_link_libraries(test_rasterizer_point
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
@@ -23,6 +35,11 @@ target_link_libraries(test_rasterizer_point
 add_test(NAME rasterizer_point COMMAND test_rasterizer_point --color_output=no)
 
 add_executable(test_rasterizer_line library/rasterizer/line.cpp)
+target_include_directories(test_rasterizer_line
+    PRIVATE
+    ${DEPS_ROOT}/3rd-party/libmorton/include
+    ${DEPS_ROOT}/concurrency_utils/include
+)
 target_link_libraries(test_rasterizer_line
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
@@ -30,14 +47,23 @@ target_link_libraries(test_rasterizer_line
 add_test(NAME rasterizer_line COMMAND test_rasterizer_line --color_output=no)
 
 add_executable(test_rasterizer_triangle library/rasterizer/triangle.cpp)
+target_include_directories(test_rasterizer_triangle
+    PRIVATE
+    ${DEPS_ROOT}/3rd-party/libmorton/include
+    ${DEPS_ROOT}/concurrency_utils/include
+)
 target_link_libraries(test_rasterizer_triangle
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
 )
 add_test(NAME rasterizer_triangle COMMAND test_rasterizer_triangle --color_output=no)
 
-
 add_executable(test_clipping library/clipping.cpp)
+target_include_directories(test_clipping
+    PRIVATE
+    ${DEPS_ROOT}/3rd-party/libmorton/include
+    ${DEPS_ROOT}/concurrency_utils/include
+)
 target_link_libraries(test_clipping
     swrast
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}

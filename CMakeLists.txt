@@ -84,12 +84,7 @@ set(BUILD_TESTING OFF)
 # Set up project include directories
 #
 include_directories(
-    ./
-    src
     include
-    deps/concurrency_utils/include
-    deps/3rd-party/cpu_features/include
-    deps/3rd-party/libmorton/include
 )
 
 #
