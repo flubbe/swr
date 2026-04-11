@@ -1,134 +1,259 @@
-project (swdemo)
-
-#
-# Set up project include directories
-#
-include_directories(
-	../../include
-	../../src/library
-	../../deps/3rd-party/stb
-	../../deps/3rd-party/tinyobjloader
+add_library(swr_demo_common OBJECT
+    ${SWR_SOURCE_DIR}/src/common/platform/cpu.cpp
+    ${SWR_SOURCE_DIR}/src/common/platform/log.cpp
+    ${SWR_SOURCE_DIR}/src/common/platform/platform.cpp
 )
 
-#
-# Add files
-#
-set(COMMON_SOURCES
-	../common/platform/cpu.cpp
-	../common/platform/log.cpp
-	../common/platform/platform.cpp
+target_include_directories(swr_demo_common
+    PUBLIC
+    ${SWR_SOURCE_DIR}/src
+)
+
+target_link_libraries(swr_demo_common
+    PUBLIC
+    cpu_features
+    swrast
+    swr_app
+    swr_project_options
+    swr_project_warnings
 )
 
 add_executable(demo_alpha_blend
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	alpha_blend/main.cpp
+    alpha_blend/main.cpp
 )
-target_link_libraries(demo_alpha_blend swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_alpha_blend
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_alpha_blend
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_bitmap_font
-	${COMMON_SOURCES}
-	common/font.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    common/font.cpp
     common/stb.cpp
-	bitmap_font/main.cpp
+    bitmap_font/main.cpp
 )
-target_link_libraries(demo_bitmap_font swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_bitmap_font
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_bitmap_font
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_blinn_phong
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	blinn_phong/main.cpp
+    blinn_phong/main.cpp
 )
-target_link_libraries(demo_blinn_phong swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_blinn_phong
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_blinn_phong
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_clear
-	${COMMON_SOURCES}
-	clear/main.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    clear/main.cpp
 )
-target_link_libraries(demo_clear swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_clear
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_clear
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_color
-	${COMMON_SOURCES}
-	color/main.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    color/main.cpp
 )
-target_link_libraries(demo_color swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_color
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_color
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_emitter
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	emitter/main.cpp
+    emitter/main.cpp
 )
-target_link_libraries(demo_emitter swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_emitter
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_emitter
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_fill_test
-	${COMMON_SOURCES}
-	common/mesh.cpp
-	fill_test/main.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    common/mesh.cpp
+    fill_test/main.cpp
 )
-target_link_libraries(demo_fill_test swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_fill_test
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_fill_test
+    PRIVATE
+    swr_demo_common
+)
 
 add_executable(demo_gears
-	${COMMON_SOURCES}
-	gears/main.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    gears/main.cpp
 )
-target_link_libraries(demo_gears swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_gears
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_gears
+    PRIVATE
+    swr_demo_common
+)
 
 add_executable(demo_motion_blur
-	${COMMON_SOURCES}
-	common/mesh.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    common/mesh.cpp
     common/stb.cpp
-	motion_blur/main.cpp
+    motion_blur/main.cpp
 )
-target_link_libraries(demo_motion_blur swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_motion_blur
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_motion_blur
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_normal_map
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	normal_map/main.cpp
+    normal_map/main.cpp
 )
-target_link_libraries(demo_normal_map swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_normal_map
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_normal_map
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_obj_viewer
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	obj_viewer/main.cpp
+    obj_viewer/main.cpp
 )
-target_link_libraries(demo_obj_viewer swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_obj_viewer
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_obj_viewer
+    PRIVATE
+    stb
+    swr_demo_common
+    tinyobjloader
+)
 
 add_executable(demo_phong
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	phong/main.cpp
+    phong/main.cpp
 )
-target_link_libraries(demo_phong swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_phong
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_phong
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_scissor
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	scissor/main.cpp
+    scissor/main.cpp
 )
-target_link_libraries(demo_scissor swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_scissor
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_scissor
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_texture
-	${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
-	textures/main.cpp
+    textures/main.cpp
 )
-target_link_libraries(demo_texture swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_texture
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_texture
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_timings
-	${COMMON_SOURCES}
-	common/font.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    common/font.cpp
     common/stb.cpp
-	timings/main.cpp
+    timings/main.cpp
 )
-target_link_libraries(demo_timings swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_timings
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_timings
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_executable(demo_triangle
-	${COMMON_SOURCES}
-	triangle/main.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    triangle/main.cpp
 )
-target_link_libraries(demo_triangle swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_triangle
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_triangle
+    PRIVATE
+    swr_demo_common
+)
 
 
 add_subdirectory(cars)

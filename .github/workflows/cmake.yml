@@ -45,10 +45,6 @@ jobs:
           gcc --version
           g++ --version
 
-      - name: Configure build environment
-        run: ${{github.workspace}}/scripts/pre-build.sh
-        shell: bash
-
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 

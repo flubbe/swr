@@ -4,7 +4,7 @@
  * public interface.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -634,6 +634,16 @@ void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment
 context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, std::uint32_t thread_hint = 0);
 
 /**
+ * Create an offscreen RGBA rendering context.
+ *
+ * @param width Offscreen buffer width.
+ * @param height Offscreen buffer height.
+ * @param thread_hint A hint to the rasterizer how many threads to use.
+ * @return A rendering context that may be used for software rasterization.
+ */
+context_handle CreateOffscreenContext(std::uint32_t width, std::uint32_t height, std::uint32_t thread_hint = 0);
+
+/**
  * Destroy a context created with CreateSDLContext. Frees all memory associated to the context
  * (e.g. color buffers, depth buffers, texture memory).
  *
@@ -653,6 +663,22 @@ bool MakeContextCurrent(context_handle Context);
  * @param Context The context to use for color buffer copying.
  */
 void CopyDefaultColorBuffer(context_handle Context);
+
+/**
+ * Get a pointer to the color buffer and its dimension.
+ *
+ * @param context The context.
+ * @param data Pointer to the offscreen frame buffer.
+ * @param width If not `nullptr`, the width of the offscreen frame buffer is written.
+ * @param height If not `nullptr`, the height of the offscreen frame buffer is written.
+ * @param components If not `nullptr`, the component count of the offscreen frame buffer is written.
+ */
+void GetContextInfo(
+  context_handle context,
+  void** data,
+  int* width,
+  int* height,
+  int* components);
 
 /*
  * Versioning.

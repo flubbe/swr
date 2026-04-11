@@ -396,7 +396,7 @@ static void clip_vertex_buffer(swr::impl::render_object* obj)
     }
 }
 
-static void process_vertices(impl::render_device_context* context)
+static void process_vertices(impl::render_context* context)
 {
     // create shaders.
     std::size_t total_shader_size = 0;

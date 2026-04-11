@@ -12,6 +12,8 @@
 
 #include <boost/container/static_vector.hpp>
 
+#include "swr/limits.h"
+
 namespace geom
 {
 
@@ -38,7 +40,7 @@ struct vertex
     ml::vec4 coords;
 
     /** varyings. these are the vertex shader outputs. */
-    boost::container::static_vector<ml::vec4, limits::max::varyings> varyings;
+    boost::container::static_vector<ml::vec4, swr::limits::max::varyings> varyings;
 
     /** vertex flags. */
     std::uint32_t flags{vf_none};

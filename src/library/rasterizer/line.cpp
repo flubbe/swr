@@ -57,7 +57,7 @@ void sweep_rasterizer::draw_line(
         states.uniforms,
         states.texture_2d_samplers);
 
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings>
+    boost::container::static_vector<swr::varying, swr::limits::max::varyings>
       temp_varyings;
 
     auto emit_fragment = [&](int x, int y, line_emit_kind kind)

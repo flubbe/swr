@@ -48,7 +48,7 @@ struct program_info
     /** interpolation qualifiers for varyings. */
     boost::container::static_vector<
       swr::interpolation_qualifier,
-      geom::limits::max::varyings>
+      swr::limits::max::varyings>
       iqs;
 
     /** flags. */
@@ -115,7 +115,7 @@ public:
       impl::program_info* shader_info,
       const boost::container::static_vector<
         swr::uniform,
-        geom::limits::max::uniform_locations>&
+        swr::limits::max::uniform_locations>&
         uniforms)
     : shader{
         shader_info->shader->create_vertex_shader_instance(
@@ -155,8 +155,8 @@ public:
     }
 };
 
-/** a general render device context (not associated to any output device/window). */
-class render_device_context
+/** a general render context (not associated to any output device/window). */
+class render_context
 {
 public:
     /*
@@ -202,7 +202,7 @@ public:
     /** currently active vertex attribute buffers. stores indices into vertex_attribute_buffers. */
     boost::container::static_vector<
       int,
-      geom::limits::max::attributes>
+      swr::limits::max::attributes>
       active_vabs;
 
     /*
@@ -266,10 +266,10 @@ public:
      */
 
     /** default constructor. */
-    render_device_context() = default;
+    render_context() = default;
 
     /** virtual destructor. */
-    virtual ~render_device_context()
+    virtual ~render_context()
     {
         shutdown();
     }
@@ -354,8 +354,8 @@ public:
     }
 };
 
-/** a render device context for an SDL window. */
-class sdl_render_context : public render_device_context
+/** a render context for an SDL window. */
+class sdl_render_context : public render_context
 {
 protected:
     /** context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
@@ -374,8 +374,8 @@ protected:
     swr::pixel_format get_window_pixel_format(SDL_PixelFormat* out_sdl_pixel_format = nullptr) const;
 
 public:
-    /** default constructor. */
-    sdl_render_context([[maybe_unused]] std::uint32_t thread_hint)
+    sdl_render_context(
+      [[maybe_unused]] std::uint32_t thread_hint)
     {
 #ifdef SWR_ENABLE_MULTI_THREADING
         if(thread_hint > 0)
@@ -415,12 +415,57 @@ public:
     void update_buffers(int width, int height);
 };
 
+/** a offscreen render context. */
+class offscreen_render_context : public render_context
+{
+    int width = 0;
+    int height = 0;
+
+    /** RGBA buffer. */
+    std::vector<std::uint32_t> rgba_buffer;
+
+    /** Whether the buffer is locked. */
+    bool locked{false};
+
+public:
+    offscreen_render_context(
+      [[maybe_unused]] std::uint32_t thread_hint)
+    {
+#ifdef SWR_ENABLE_MULTI_THREADING
+        if(thread_hint > 0)
+        {
+            thread_pool_size = thread_hint;
+        }
+#endif
+    }
+
+    /*
+     * render_device_context interface.
+     */
+
+    void shutdown() override;
+    bool lock() override;
+    void unlock() override;
+
+    /*
+     * offscreen_render_context interface.
+     */
+
+    /** initialize the context with the supplied SDL data and create the buffers. */
+    void initialize(
+      int width,
+      int height);
+
+    /** (re-)create depth- and color buffers using the given width and height. */
+    void update_buffers(int width, int height);
+};
+
 /*
  * global render contexts.
  */
 
 /** the (thread-)global rendering context. */
-extern thread_local render_device_context* global_context;
+extern thread_local render_context* global_context;
 
 /** assert validity of render context in debug builds. */
 #define ASSERT_INTERNAL_CONTEXT assert(impl::global_context)
@@ -430,14 +475,14 @@ extern thread_local render_device_context* global_context;
  */
 
 /** create a default texture. */
-void create_default_texture(render_device_context* context);
+void create_default_texture(render_context* context);
 
 /*
  * shader helpers.
  */
 
 /** create a default shader in the supplied context which outputs empty fragments. */
-void create_default_shader(render_device_context* context);
+void create_default_shader(render_context* context);
 
 } /* namespace impl */
 

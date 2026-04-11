@@ -1,33 +1,44 @@
-project (libswraster)
+find_package(Boost CONFIG REQUIRED)
 
-#
-# Set up project include directories
-#
-include_directories(. ../../inc)
-
-#
-# Add files
-#
 set(SOURCES
-	rasterizer/fragment.cpp
-	rasterizer/line.cpp
-	rasterizer/point.cpp
-	rasterizer/sweep.cpp
-	rasterizer/triangle.cpp
-	assembly.cpp
-	buffers.cpp
-	context.cpp
-	clipping.cpp
-	draw.cpp
-	misc.cpp
-	output_merger.cpp
-	pipeline.cpp
-	renderbuffer.cpp
-	renderobject.cpp
-	shaders.cpp
-	states.cpp
-	textures.cpp
+    rasterizer/fragment.cpp
+    rasterizer/line.cpp
+    rasterizer/point.cpp
+    rasterizer/sweep.cpp
+    rasterizer/triangle.cpp
+    assembly.cpp
+    buffers.cpp
+    context.cpp
+    clipping.cpp
+    draw.cpp
+    misc.cpp
+    output_merger.cpp
+    pipeline.cpp
+    renderbuffer.cpp
+    renderobject.cpp
+    shaders.cpp
+    states.cpp
+    textures.cpp
 )
 
 add_library(swrast SHARED ${SOURCES})
-target_link_libraries(swrast ${EXTRA_LIBS})
+
+target_include_directories(swrast
+    PUBLIC
+    $<BUILD_INTERFACE:${SWR_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+target_link_libraries(swrast
+    PUBLIC
+    ml
+    SDL3::SDL3
+    PRIVATE
+    Boost::headers
+    libmorton
+    concurrency_utils
+    swr_project_options
+    swr_project_warnings
+)

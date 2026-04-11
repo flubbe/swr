@@ -1,16 +1,17 @@
-project(cars)
-
-include_directories(
-    ../../../deps/3rd-party/simdjson/singleheader
-)
-
 add_executable(demo_cars
-    ../../../deps/3rd-party/simdjson/singleheader/simdjson.cpp
-	../../common/platform/cpu.cpp
-	../../common/platform/log.cpp
-	../../common/platform/platform.cpp
-    ../common/stb.cpp
-    ../common/font.cpp
-	main.cpp
+    $<TARGET_OBJECTS:swr_demo_common>
+    ${SWR_SOURCE_DIR}/src/demos/common/font.cpp
+    ${SWR_SOURCE_DIR}/src/demos/common/stb.cpp
+    main.cpp
 )
-target_link_libraries(demo_cars swrast swr_app ${EXTRA_LIBS})
+target_include_directories(demo_cars
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_cars
+    PRIVATE
+    simdjson
+    stb
+    swr_demo_common
+    tinyobjloader
+)

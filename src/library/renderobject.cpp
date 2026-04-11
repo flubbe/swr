@@ -22,7 +22,7 @@ namespace impl
 
 static void copy_attributes(
   render_object& obj,
-  const boost::container::static_vector<int, geom::limits::max::attributes>& active_vabs,
+  const boost::container::static_vector<int, swr::limits::max::attributes>& active_vabs,
   const utils::slot_map<vertex_attribute_buffer>& vertex_attribute_buffers,
   std::function<std::uint32_t(std::uint32_t)> transform_fn =
     [](std::uint32_t i) -> std::uint32_t
@@ -64,7 +64,7 @@ static void copy_attributes(
  * create a new render object and initialize it with its vertices, the vertex buffer mode, the render states
  * and the active attributes.
  */
-render_object* render_device_context::create_render_object(vertex_buffer_mode mode, std::size_t count)
+render_object* render_context::create_render_object(vertex_buffer_mode mode, std::size_t count)
 {
     if(count == 0)
     {
@@ -79,7 +79,7 @@ render_object* render_device_context::create_render_object(vertex_buffer_mode mo
     return &new_object;
 }
 
-render_object* render_device_context::create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer)
+render_object* render_context::create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer)
 {
     if(index_buffer.empty())
     {

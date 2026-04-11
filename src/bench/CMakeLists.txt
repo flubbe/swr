@@ -5,5 +5,9 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 
     # memset benchmark
     add_executable(bench_memset memset/main.cpp)
-    target_link_libraries(bench_memset benchmark::benchmark)
+    target_link_libraries(bench_memset
+        PRIVATE
+        benchmark::benchmark
+        swr_project_options
+    )
 endif()

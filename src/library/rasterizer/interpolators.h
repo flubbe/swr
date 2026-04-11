@@ -90,7 +90,7 @@ struct basic_interpolation_data
     T one_over_viewport_z;
 
     /** varyings from the shader. */
-    boost::container::static_vector<varying_interpolator, geom::limits::max::varyings> varyings;
+    boost::container::static_vector<varying_interpolator, swr::limits::max::varyings> varyings;
 
     /** constructors. */
     basic_interpolation_data() = default;
@@ -101,7 +101,7 @@ struct basic_interpolation_data
     basic_interpolation_data<T>& operator=(const basic_interpolation_data<T>&) = default;
 
     /** get the varyings' values. */
-    void get_varyings(boost::container::static_vector<swr::varying, geom::limits::max::varyings>& out_varyings) const
+    void get_varyings(boost::container::static_vector<swr::varying, swr::limits::max::varyings>& out_varyings) const
     {
         out_varyings.clear();
         for(auto& it: varyings)
@@ -121,7 +121,7 @@ struct basic_interpolation_data
       std::array<
         boost::container::static_vector<
           swr::varying,
-          geom::limits::max::varyings>,
+          swr::limits::max::varyings>,
         4>& out_varyings,
       ml::vec4& out_depth,
       ml::vec4& out_one_over_viewport_z) const
@@ -217,7 +217,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
       const geom::vertex& v_ref,
       const boost::container::static_vector<
         swr::interpolation_qualifier,
-        geom::limits::max::varyings>& iqs,
+        swr::limits::max::varyings>& iqs,
       float one_over_span_length)
     : basic_interpolation_data{}
     {
@@ -320,11 +320,11 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     triangle_interpolator(
       const ml::vec2 screen_coords,
       const ml::vec4& v0_coords, const ml::vec4& v1_coords, const ml::vec4& v2_coords,
-      const boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& v0_varyings,
-      const boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& v1_varyings,
-      const boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& v2_varyings,
-      const boost::container::static_vector<ml::vec4, geom::limits::max::varyings>& vref_varyings,
-      const boost::container::static_vector<swr::interpolation_qualifier, geom::limits::max::varyings>& iqs,
+      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& v0_varyings,
+      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& v1_varyings,
+      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& v2_varyings,
+      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& vref_varyings,
+      const boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs,
       float one_over_area,
       float polygon_offset)
     : basic_interpolation_data{}

@@ -56,13 +56,13 @@ struct render_states
     blend_func blend_dst{blend_func::zero};
 
     /* texture units. */
-    boost::container::static_vector<struct texture_2d*, geom::limits::max::texture_units> texture_2d_units; /* the context owns the textures. */
+    boost::container::static_vector<struct texture_2d*, swr::limits::max::texture_units> texture_2d_units; /* the context owns the textures. */
     std::uint32_t texture_2d_active_unit{0};
-    boost::container::static_vector<struct sampler_2d*, geom::limits::max::texture_units> texture_2d_samplers; /* the textures own their samplers. */
+    boost::container::static_vector<struct sampler_2d*, swr::limits::max::texture_units> texture_2d_samplers; /* the textures own their samplers. */
 
     /* shaders */
     struct program_info* shader_info{nullptr}; /* the context owns the shader info */
-    boost::container::static_vector<swr::uniform, geom::limits::max::uniform_locations> uniforms;
+    boost::container::static_vector<swr::uniform, swr::limits::max::uniform_locations> uniforms;
 
     /* framebuffer. this needs to be always valid for the drawing functions. */
     struct framebuffer_draw_target* draw_target{nullptr};

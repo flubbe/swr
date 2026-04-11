@@ -1,20 +1,26 @@
-project (swr_app)
+find_package(Boost CONFIG REQUIRED)
 
-#
-# Set up project include directories
-#
-include_directories(. ../../../inc)
+add_library(swr_app SHARED
+    ${SWR_SOURCE_DIR}/src/common/platform/cpu.cpp
+    ${SWR_SOURCE_DIR}/src/common/platform/log.cpp
+    ${SWR_SOURCE_DIR}/src/common/platform/platform.cpp
+    main.cpp
+    framework.cpp
+)
 
-# add support for boost test framework
-add_definitions(-DBOOST_TEST_DYN_LINK) 
-link_directories ( ${Boost_LIBRARY_DIRS} )
+target_include_directories(swr_app
+    PUBLIC
+    $<BUILD_INTERFACE:${SWR_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${SWR_SOURCE_DIR}/src
+)
 
-add_library(swr_app SHARED 
-	../common/platform/cpu.cpp
-	../common/platform/log.cpp
-	../common/platform/platform.cpp
-	main.cpp 
-	framework.cpp
-	)
-
-target_link_libraries(swr_app cpu_features ${EXTRA_LIBS})
+target_link_libraries(swr_app
+    PRIVATE
+    cpu_features
+    swrast
+    swr_project_options
+    swr_project_warnings
+)

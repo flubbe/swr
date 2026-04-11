@@ -108,7 +108,7 @@ public:
     void pre_link(
       boost::container::static_vector<
         swr::interpolation_qualifier,
-        geom::limits::max::varyings>&
+        swr::limits::max::varyings>&
         iqs) const override
     {
         iqs.clear();
@@ -131,7 +131,7 @@ public:
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
       [[maybe_unused]] const boost::container::static_vector<
         swr::varying,
-        geom::limits::max::varyings>&
+        swr::limits::max::varyings>&
         varyings,
       [[maybe_unused]] float& gl_FragDepth,
       [[maybe_unused]] ml::vec4& gl_FragColor) const override

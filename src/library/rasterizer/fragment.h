@@ -28,7 +28,7 @@ struct fragment_info
     bool front_facing;
 
     /** varyings. */
-    boost::container::static_vector<swr::varying, geom::limits::max::varyings>& varyings;
+    boost::container::static_vector<swr::varying, swr::limits::max::varyings>& varyings;
 
     /** no default constructor. */
     fragment_info() = delete;
@@ -37,7 +37,7 @@ struct fragment_info
     fragment_info(
       float depth,
       bool in_front_facing,
-      boost::container::static_vector<swr::varying, geom::limits::max::varyings>& in_varyings)
+      boost::container::static_vector<swr::varying, swr::limits::max::varyings>& in_varyings)
     : depth_value{depth}
     , front_facing{in_front_facing}
     , varyings{in_varyings}
