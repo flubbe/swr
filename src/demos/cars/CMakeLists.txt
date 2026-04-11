@@ -1,20 +1,23 @@
-project(cars)
-
 add_executable(demo_cars
-    ../../common/platform/cpu.cpp
-    ../../common/platform/log.cpp
-    ../../common/platform/platform.cpp
-    ../common/stb.cpp
-    ../common/font.cpp
+    ${SWR_SOURCE_DIR}/src/common/platform/cpu.cpp
+    ${SWR_SOURCE_DIR}/src/common/platform/log.cpp
+    ${SWR_SOURCE_DIR}/src/common/platform/platform.cpp
+    ${SWR_SOURCE_DIR}/src/demos/common/stb.cpp
+    ${SWR_SOURCE_DIR}/src/demos/common/font.cpp
     main.cpp
 )
-target_link_libraries(
-    demo_cars
+target_include_directories(demo_cars
     PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_cars
+    PRIVATE
+    cpu_features
     swrast
     swr_app
     simdjson
     stb
     tinyobjloader
-    ${EXTRA_LIBS}
+    swr_project_options
+    swr_project_warnings
 )

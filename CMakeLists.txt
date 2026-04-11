@@ -5,21 +5,35 @@
 cmake_policy(VERSION 3.22.0)
 cmake_minimum_required(VERSION 3.22.0)
 
-set(SWR_IS_TOPLEVEL OFF)
-if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(SWR_IS_TOPLEVEL ON)
+project(swr LANGUAGES CXX)
+set(SWR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+option(SWR_BUILD_DEMOS "Build swr demos" ${PROJECT_IS_TOP_LEVEL})
+option(SWR_BUILD_APP "Build swr app" ${PROJECT_IS_TOP_LEVEL})
+option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${PROJECT_IS_TOP_LEVEL})
+option(SWR_BUILD_TESTS "Build swr tests" ${PROJECT_IS_TOP_LEVEL})
+
+if(PROJECT_IS_TOP_LEVEL)
+    enable_testing()
 endif()
 
-option(SWR_BUILD_DEMOS "Build swr demos" ${SWR_IS_TOPLEVEL})
-option(SWR_BUILD_APP "Build swr app" ${SWR_IS_TOPLEVEL})
-option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${SWR_IS_TOPLEVEL})
-option(SWR_BUILD_TESTS "Build swr tests" ${SWR_IS_TOPLEVEL})
+# Set a default build type only for standalone single-config generators.
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(default_build_type Release)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+        set(default_build_type Debug)
+    endif()
 
-#
-# Get dependencies.
-#
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build.")
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release MinSizeRel RelWithDebInfo)
+endif()
 
 include(FetchContent)
+
+#
+# Dependencies.
+#
 
 FetchContent_Declare(
     cpu_features_src
@@ -37,8 +51,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(libmorton_src)
 
 add_library(libmorton INTERFACE)
-target_include_directories(libmorton INTERFACE
-    ${libmorton_src_SOURCE_DIR}/include
+target_include_directories(libmorton SYSTEM INTERFACE
+    "${libmorton_src_SOURCE_DIR}/include"
 )
 
 if(SWR_BUILD_DEMOS)
@@ -58,8 +72,8 @@ if(SWR_BUILD_DEMOS)
     FetchContent_MakeAvailable(stb_src)
 
     add_library(stb INTERFACE)
-    target_include_directories(stb INTERFACE
-        ${stb_src_SOURCE_DIR}
+    target_include_directories(stb SYSTEM INTERFACE
+        "${stb_src_SOURCE_DIR}"
     )
 
     FetchContent_Declare(
@@ -71,8 +85,8 @@ if(SWR_BUILD_DEMOS)
     FetchContent_MakeAvailable(tinyobjloader_src)
 
     add_library(tinyobjloader INTERFACE)
-    target_include_directories(tinyobjloader INTERFACE
-        ${tinyobjloader_src_SOURCE_DIR}
+    target_include_directories(tinyobjloader SYSTEM INTERFACE
+        "${tinyobjloader_src_SOURCE_DIR}"
     )
 endif()
 
@@ -90,85 +104,83 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(concurrency_utils_src)
 
-enable_testing()
-
-project(swr)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# Set a default build type if none was specified
-set(default_build_type "Release")
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-    set(default_build_type "Debug")
-endif()
-
-if(NOT CMAKE_BUILD_TYPE)
-    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-    # Set the possible values of build type for cmake-gui
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif()
-
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Test if linux
-if(UNIX AND NOT APPLE)
-    set(LINUX TRUE)
-endif()
-
 #
-# Set compiler specific options.
+# Project-wide target-based defaults.
 #
-add_compile_options(-Wall -Wextra -Wdouble-promotion -Wchar-subscripts -Wnull-dereference -Wmisleading-indentation -Wuninitialized)
+
+add_library(swr_project_options INTERFACE)
+add_library(swr_project_warnings INTERFACE)
+
+target_compile_features(swr_project_options INTERFACE cxx_std_23)
+
+# Position independent code for swr targets only.
+set_property(TARGET swr_project_options PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE ON)
+
+target_compile_options(swr_project_warnings INTERFACE
+    -Wall
+    -Wextra
+    -Wdouble-promotion
+    -Wchar-subscripts
+    -Wnull-dereference
+    -Wmisleading-indentation
+    -Wuninitialized
+)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        add_compile_options(-stdlib=libc++)
-    elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        add_compile_options(-Og)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(swr_project_options INTERFACE
+            -stdlib=libc++
+        )
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(swr_project_options INTERFACE
+            -Og
+        )
     endif()
 else()
-    add_compile_options(-O3)
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        add_compile_options(-stdlib=libc++)
-    elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        add_compile_options(-fno-omit-frame-pointer)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(swr_project_options INTERFACE
+            -O3
+            -stdlib=libc++
+        )
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(swr_project_options INTERFACE
+            -O3
+            -fno-omit-frame-pointer
+        )
+    else()
+        target_compile_options(swr_project_options INTERFACE
+            -O3
+        )
     endif()
 endif()
 
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
     message(STATUS "Detected ARM64 architecture")
-elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
     message(STATUS "Detected x86_64 architecture")
-    add_compile_options(-msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -mfpmath=sse)
+    target_compile_options(swr_project_options INTERFACE
+        -msse
+        -msse2
+        -msse3
+        -msse4
+        -msse4.1
+        -msse4.2
+        -mfpmath=sse
+    )
 else()
     message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
 #
-# SDL3.
+# Optional dependencies only when needed.
 #
 
-find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
-set(EXTRA_LIBS SDL3::SDL3)
-message(STATUS ${EXTRA_LIBS})
+if(SWR_BUILD_DEMOS OR SWR_BUILD_APP)
+    find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
+endif()
 
 #
-# Set up output directories
-#
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-
-#
-# Set up project include directories
-#
-include_directories(
-    include
-)
-
-#
-# Add subdirectories
+# Add subdirectories.
 #
 
 if(SWR_BUILD_DEMOS)

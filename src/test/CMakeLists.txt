@@ -1,73 +1,106 @@
-cmake_policy(SET CMP0167 OLD)
-
-set(SWR_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(DEPS_ROOT ${SWR_ROOT}/deps)
-
-# SDL3
-find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
-
-# add support for boost test framework
-add_definitions(-DBOOST_TEST_DYN_LINK)
-find_package(Boost COMPONENTS unit_test_framework REQUIRED)
-link_directories(${Boost_LIBRARY_DIRS})
-
-# add library include directories
-include_directories(
-    ${CMAKE_CURRENT_LIST_DIR}/../../include
-    ${CMAKE_CURRENT_LIST_DIR}/..
-    ${CMAKE_CURRENT_LIST_DIR}/../library
-)
+find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
+find_package(Boost CONFIG REQUIRED COMPONENTS unit_test_framework)
 
 #
-# build tests
+# tests
 #
 
 add_executable(test_rasterizer_point library/rasterizer/point.cpp)
+target_include_directories(test_rasterizer_point
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_rasterizer_point PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_rasterizer_point
+    PRIVATE
     swrast
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    Boost::unit_test_framework
     libmorton
     concurrency_utils
+    swr_project_options
+    swr_project_warnings
 )
 add_test(NAME rasterizer_point COMMAND test_rasterizer_point --color_output=no)
 
 add_executable(test_rasterizer_line library/rasterizer/line.cpp)
+target_include_directories(test_rasterizer_line
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_rasterizer_line PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_rasterizer_line
+    PRIVATE
     swrast
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    Boost::unit_test_framework
     libmorton
     concurrency_utils
+    swr_project_options
+    swr_project_warnings
 )
 add_test(NAME rasterizer_line COMMAND test_rasterizer_line --color_output=no)
 
 add_executable(test_rasterizer_triangle library/rasterizer/triangle.cpp)
+target_include_directories(test_rasterizer_triangle
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_rasterizer_triangle PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_rasterizer_triangle
+    PRIVATE
     swrast
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    Boost::unit_test_framework
     libmorton
     concurrency_utils
+    swr_project_options
+    swr_project_warnings
 )
 add_test(NAME rasterizer_triangle COMMAND test_rasterizer_triangle --color_output=no)
 
 add_executable(test_clipping library/clipping.cpp)
+target_include_directories(test_clipping
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_clipping PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_clipping
+    PRIVATE
     swrast
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    Boost::unit_test_framework
     libmorton
     concurrency_utils
+    swr_project_options
+    swr_project_warnings
 )
 add_test(NAME clipping COMMAND test_clipping --color_output=no)
 
 add_executable(test_coverage_mask library/coverage_mask.cpp)
+target_include_directories(test_coverage_mask
+    PRIVATE
+    ${SWR_SOURCE_DIR}/include
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_coverage_mask PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_coverage_mask
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    PRIVATE
+    Boost::unit_test_framework
     SDL3::SDL3
     ml
+    swr_project_options
+    swr_project_warnings
 )
 add_test(NAME coverage_mask COMMAND test_coverage_mask --color_output=no)
 
 add_executable(test_utils library/utils.cpp)
+target_compile_definitions(test_utils PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_utils
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    PRIVATE
+    Boost::unit_test_framework
+    swr_project_options
+    swr_project_warnings
 )
 add_test(NAME utils COMMAND test_utils --color_output=no)

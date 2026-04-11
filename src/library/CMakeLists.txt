@@ -1,6 +1,3 @@
-set(SWR_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(DEPS_ROOT ${SWR_ROOT}/deps)
-
 find_package(Boost CONFIG REQUIRED)
 
 set(SOURCES
@@ -28,12 +25,12 @@ add_library(swrast SHARED ${SOURCES})
 
 target_include_directories(swrast
     PUBLIC
-    ${SWR_ROOT}/include
+    $<BUILD_INTERFACE:${SWR_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
-
 target_link_libraries(swrast
     PUBLIC
     ml
@@ -42,4 +39,6 @@ target_link_libraries(swrast
     Boost::headers
     libmorton
     concurrency_utils
+    swr_project_options
+    swr_project_warnings
 )
