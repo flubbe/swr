@@ -14,6 +14,9 @@ option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_TESTS "Build swr tests" ${PROJECT_IS_TOP_LEVEL})
 
 if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SWR_SOURCE_DIR}/bin")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${SWR_SOURCE_DIR}/bin")
+
     enable_testing()
 endif()
 
