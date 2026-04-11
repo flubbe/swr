@@ -41,38 +41,40 @@ target_include_directories(libmorton INTERFACE
     ${libmorton_src_SOURCE_DIR}/include
 )
 
-FetchContent_Declare(
-    simdjson_src
-    GIT_REPOSITORY https://github.com/simdjson/simdjson.git
-    GIT_TAG v4.6.1
-)
-FetchContent_MakeAvailable(simdjson_src)
+if(SWR_BUILD_DEMOS)
+    FetchContent_Declare(
+        simdjson_src
+        GIT_REPOSITORY https://github.com/simdjson/simdjson.git
+        GIT_TAG v4.6.1
+    )
+    FetchContent_MakeAvailable(simdjson_src)
 
-FetchContent_Declare(
-    stb_src
-    GIT_REPOSITORY https://github.com/nothings/stb.git
-    GIT_TAG 28d546d
-    SOURCE_SUBDIR __unused__
-)
-FetchContent_MakeAvailable(stb_src)
+    FetchContent_Declare(
+        stb_src
+        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_TAG 28d546d
+        SOURCE_SUBDIR __unused__
+    )
+    FetchContent_MakeAvailable(stb_src)
 
-add_library(stb INTERFACE)
-target_include_directories(stb INTERFACE
-    ${stb_src_SOURCE_DIR}
-)
+    add_library(stb INTERFACE)
+    target_include_directories(stb INTERFACE
+        ${stb_src_SOURCE_DIR}
+    )
 
-FetchContent_Declare(
-    tinyobjloader_src
-    GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
-    GIT_TAG 966edce
-    SOURCE_SUBDIR __unused__
-)
-FetchContent_MakeAvailable(tinyobjloader_src)
+    FetchContent_Declare(
+        tinyobjloader_src
+        GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+        GIT_TAG 966edce
+        SOURCE_SUBDIR __unused__
+    )
+    FetchContent_MakeAvailable(tinyobjloader_src)
 
-add_library(tinyobjloader INTERFACE)
-target_include_directories(tinyobjloader INTERFACE
-    ${tinyobjloader_src_SOURCE_DIR}
-)
+    add_library(tinyobjloader INTERFACE)
+    target_include_directories(tinyobjloader INTERFACE
+        ${tinyobjloader_src_SOURCE_DIR}
+    )
+endif()
 
 FetchContent_Declare(
     ml_src
