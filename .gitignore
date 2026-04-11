@@ -1,7 +1,8 @@
-.vscode
-deps
-bin
-build
+/.vscode
+/bin
+/build
 
 .VSCodeCounter
 .DS_Store
+
+CMakePresets.json
