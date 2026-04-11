@@ -8,8 +8,10 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-#include <vector>
+#include <cstdint>
+#include <cstddef>
 #include <cstring>
+#include <vector>
 
 /* Google benchmark */
 #include <benchmark/benchmark.h>

@@ -1,4 +1,3 @@
-find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
 find_package(Boost CONFIG REQUIRED COMPONENTS unit_test_framework)
 
 #
