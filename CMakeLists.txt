@@ -29,6 +29,26 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cpu_features_src)
 
 FetchContent_Declare(
+    libmorton_src
+    GIT_REPOSITORY https://github.com/Forceflow/libmorton.git
+    GIT_TAG v0.2.12
+    SOURCE_SUBDIR __unused__
+)
+FetchContent_MakeAvailable(libmorton_src)
+
+add_library(libmorton INTERFACE)
+target_include_directories(libmorton INTERFACE
+    ${libmorton_src_SOURCE_DIR}/include
+)
+
+FetchContent_Declare(
+    simdjson_src
+    GIT_REPOSITORY https://github.com/simdjson/simdjson.git
+    GIT_TAG v4.6.1
+)
+FetchContent_MakeAvailable(simdjson_src)
+
+FetchContent_Declare(
     stb_src
     GIT_REPOSITORY https://github.com/nothings/stb.git
     GIT_TAG 28d546d
@@ -42,16 +62,16 @@ target_include_directories(stb INTERFACE
 )
 
 FetchContent_Declare(
-    libmorton_src
-    GIT_REPOSITORY https://github.com/Forceflow/libmorton.git
-    GIT_TAG v0.2.12
+    tinyobjloader_src
+    GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+    GIT_TAG 966edce
     SOURCE_SUBDIR __unused__
 )
-FetchContent_MakeAvailable(libmorton_src)
+FetchContent_MakeAvailable(tinyobjloader_src)
 
-add_library(libmorton INTERFACE)
-target_include_directories(libmorton INTERFACE
-    ${libmorton_src_SOURCE_DIR}/include
+add_library(tinyobjloader INTERFACE)
+target_include_directories(tinyobjloader INTERFACE
+    ${tinyobjloader_src_SOURCE_DIR}
 )
 
 FetchContent_Declare(

@@ -4,8 +4,6 @@
 include_directories(
     ../../include
     ../../src/library
-    ../../deps/3rd-party/stb
-    ../../deps/3rd-party/tinyobjloader
 )
 
 #
@@ -91,7 +89,7 @@ add_executable(demo_obj_viewer
     common/stb.cpp
     obj_viewer/main.cpp
 )
-target_link_libraries(demo_obj_viewer swrast swr_app stb ${EXTRA_LIBS})
+target_link_libraries(demo_obj_viewer swrast swr_app stb tinyobjloader ${EXTRA_LIBS})
 
 add_executable(demo_phong
     ${COMMON_SOURCES}
