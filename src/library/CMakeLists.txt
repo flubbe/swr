@@ -37,8 +37,8 @@ target_include_directories(swrast
 target_link_libraries(swrast
     PUBLIC
     ml
-    PRIVATE
     SDL3::SDL3
+    PRIVATE
     Boost::headers
     libmorton
     concurrency_utils
