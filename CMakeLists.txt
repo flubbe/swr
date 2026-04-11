@@ -93,7 +93,7 @@ endif()
 FetchContent_Declare(
     ml_src
     GIT_REPOSITORY https://github.com/flubbe/ml.git
-    GIT_TAG 4bf382d
+    GIT_TAG 5bb7eb5
 )
 FetchContent_MakeAvailable(ml_src)
 
