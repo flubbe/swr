@@ -1,11 +1,25 @@
-set(COMMON_SOURCES
+add_library(swr_demo_common OBJECT
     ${SWR_SOURCE_DIR}/src/common/platform/cpu.cpp
     ${SWR_SOURCE_DIR}/src/common/platform/log.cpp
     ${SWR_SOURCE_DIR}/src/common/platform/platform.cpp
 )
 
+target_include_directories(swr_demo_common
+    PUBLIC
+    ${SWR_SOURCE_DIR}/src
+)
+
+target_link_libraries(swr_demo_common
+    PUBLIC
+    cpu_features
+    swrast
+    swr_app
+    swr_project_options
+    swr_project_warnings
+)
+
 add_executable(demo_alpha_blend
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     alpha_blend/main.cpp
 )
@@ -15,16 +29,12 @@ target_include_directories(demo_alpha_blend
 )
 target_link_libraries(demo_alpha_blend
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_bitmap_font
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/font.cpp
     common/stb.cpp
     bitmap_font/main.cpp
@@ -35,16 +45,12 @@ target_include_directories(demo_bitmap_font
 )
 target_link_libraries(demo_bitmap_font
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_blinn_phong
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     blinn_phong/main.cpp
 )
@@ -54,16 +60,12 @@ target_include_directories(demo_blinn_phong
 )
 target_link_libraries(demo_blinn_phong
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_clear
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     clear/main.cpp
 )
 target_include_directories(demo_clear
@@ -72,15 +74,12 @@ target_include_directories(demo_clear
 )
 target_link_libraries(demo_clear
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
-    swr_project_options
-    swr_project_warnings
+    stb
+    swr_demo_common
 )
 
 add_executable(demo_color
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     color/main.cpp
 )
 target_include_directories(demo_color
@@ -89,15 +88,12 @@ target_include_directories(demo_color
 )
 target_link_libraries(demo_color
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
-    swr_project_options
-    swr_project_warnings
+    stb
+    swr_demo_common
 )
 
 add_executable(demo_emitter
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     emitter/main.cpp
 )
@@ -107,16 +103,12 @@ target_include_directories(demo_emitter
 )
 target_link_libraries(demo_emitter
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_fill_test
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/mesh.cpp
     fill_test/main.cpp
 )
@@ -126,15 +118,11 @@ target_include_directories(demo_fill_test
 )
 target_link_libraries(demo_fill_test
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_gears
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     gears/main.cpp
 )
 target_include_directories(demo_gears
@@ -143,15 +131,11 @@ target_include_directories(demo_gears
 )
 target_link_libraries(demo_gears
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_motion_blur
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/mesh.cpp
     common/stb.cpp
     motion_blur/main.cpp
@@ -162,16 +146,12 @@ target_include_directories(demo_motion_blur
 )
 target_link_libraries(demo_motion_blur
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_normal_map
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     normal_map/main.cpp
 )
@@ -181,16 +161,12 @@ target_include_directories(demo_normal_map
 )
 target_link_libraries(demo_normal_map
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_obj_viewer
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     obj_viewer/main.cpp
 )
@@ -200,17 +176,13 @@ target_include_directories(demo_obj_viewer
 )
 target_link_libraries(demo_obj_viewer
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
+    swr_demo_common
     tinyobjloader
-    swr_project_options
-    swr_project_warnings
 )
 
 add_executable(demo_phong
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     phong/main.cpp
 )
@@ -220,16 +192,12 @@ target_include_directories(demo_phong
 )
 target_link_libraries(demo_phong
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_scissor
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     scissor/main.cpp
 )
@@ -239,16 +207,12 @@ target_include_directories(demo_scissor
 )
 target_link_libraries(demo_scissor
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_texture
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/stb.cpp
     textures/main.cpp
 )
@@ -258,16 +222,12 @@ target_include_directories(demo_texture
 )
 target_link_libraries(demo_texture
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_timings
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     common/font.cpp
     common/stb.cpp
     timings/main.cpp
@@ -278,16 +238,12 @@ target_include_directories(demo_timings
 )
 target_link_libraries(demo_timings
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
     stb
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 add_executable(demo_triangle
-    ${COMMON_SOURCES}
+    $<TARGET_OBJECTS:swr_demo_common>
     triangle/main.cpp
 )
 target_include_directories(demo_triangle
@@ -296,11 +252,7 @@ target_include_directories(demo_triangle
 )
 target_link_libraries(demo_triangle
     PRIVATE
-    cpu_features
-    swrast
-    swr_app
-    swr_project_options
-    swr_project_warnings
+    swr_demo_common
 )
 
 
