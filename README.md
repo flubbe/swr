@@ -27,35 +27,38 @@ Some configuration options can be set in `src/library/swr_internal.h`.
 
 ## Dependencies
 
-The project uses [boost](https://www.boost.org/) and [SDL3](https://www.libsdl.org/), and the tests rely on the [Boost.Test](https://www.boost.org/)
-framework. If you'd like to run the benchmarks, you also need [Google's benchmark library](https://github.com/google/benchmark).
+The project uses [CMake](https://cmake.org/) for building and dependency fetching.
 
-For the other dependencies:
+The dependencies are:
 
-- put the [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl), release v1.1.2, in `deps/3rd-party/cnl`.
-- put [cpu_features](https://github.com/google/cpu_features), release v0.10.1, into `deps/3rd-party/cpu_features`
-- if you use [Morton Codes](https://en.wikipedia.org/wiki/Z-order_curve) (enabled by default), put [libmorton](https://github.com/Forceflow/libmorton), release v0.2.12, into `deps/3rd-party/libmorton`
-- clone [stb](https://github.com/nothings/stb) into `deps/3rd-party/stb`
-- extract [simdjson](https://github.com/simdjson/simdjson/releases/download/v4.2.4/singleheader.zip)'s single header version into `deps/3rd-party/simdjson/singleheader`
-- clone [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) into `deps/3rd-party/tinyobjloader`
-- clone [ml](https://github.com/flubbe/ml) into `deps/ml`
-- clone [concurrency_utils](https://github.com/flubbe/concurrency_utils) into `deps/concurrency_utils`
-
-As a build system, the project uses [CMake](https://cmake.org/).
+- [boost](https://www.boost.org/) and [Boost.Test](https://www.boost.org/),
+- [SDL3](https://www.libsdl.org/),
+- [Google's benchmark library](https://github.com/google/benchmark),
+- [Compositional Numeric Library](https://github.com/johnmcfarlane/cnl),
+- [cpu_features](https://github.com/google/cpu_features),
+- [libmorton](https://github.com/Forceflow/libmorton),
+- [stb](https://github.com/nothings/stb),
+- [simdjson](https://github.com/simdjson/simdjson),
+- [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader),
+- [ml](https://github.com/flubbe/ml),
+- [concurrency_utils](https://github.com/flubbe/concurrency_utils).
 
 ## Building the Library and Demos
 
-The project uses C++23.
+Configure and build the project:
 
-Install the dependencies listed above. In the root directory, execute:
+```bash
+cmake -B build
+cmake --build build
+```
 
-- `mkdir bin`
-- `mkdir build`
-- `cd build`
-- `cmake .. -G Ninja` (or use any generator you like)
-- `ninja`
+Run the tests:
 
-If everything succeeded, you should find the demo files in the `bin`-directory.
+```bash
+ctest --test-dir build
+```
+
+The executables are written to the `bin/` directory.
 
 ## Limitations
 
