@@ -55,12 +55,6 @@ Install the dependencies listed above. In the root directory, execute:
 - `cmake .. -G Ninja` (or use any generator you like)
 - `ninja`
 
-Alternatively, you can use the included build scripts:
-
-- Make the scripts executable: `chmod +x ./scripts/*`
-- Set up the build directory structure and download the dependencies: `./scripts/pre-build.sh`
-- Build the library and demos: `./scripts/build.sh`
-
 If everything succeeded, you should find the demo files in the `bin`-directory.
 
 ## Limitations
