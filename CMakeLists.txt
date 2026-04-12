@@ -107,6 +107,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(concurrency_utils_src)
 
+find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
+
 #
 # Project-wide target-based defaults.
 #
@@ -172,14 +174,6 @@ elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQU
     )
 else()
     message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
-endif()
-
-#
-# Optional dependencies only when needed.
-#
-
-if(SWR_BUILD_DEMOS OR SWR_BUILD_APP)
-    find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
 endif()
 
 #
