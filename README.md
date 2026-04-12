@@ -43,7 +43,7 @@ The dependencies are:
 - [ml](https://github.com/flubbe/ml),
 - [concurrency_utils](https://github.com/flubbe/concurrency_utils).
 
-## Building the Library and Demos
+## Building the Library, Demos and Tests
 
 Configure and build the project:
 
@@ -58,7 +58,13 @@ Run the tests:
 ctest --test-dir build
 ```
 
-The executables are written to the `bin/` directory.
+The executables (including demos) are written to the `bin/` directory.
+Run the demos from `bin/` for the assets to be found, e.g.:
+
+```bash
+cd bin
+./demo_texture
+```
 
 ## Limitations
 
@@ -67,7 +73,7 @@ with no specific goal in mind.
 
 - Many functionalities are only partly implemented or not implemented at all.
 - Error propagation and handling is mostly missing and sometimes not very consistent. For example, some functions
-  throw std::runtime_error, while others may just set an error flag.
+  throw `std::runtime_error`, while others may just set an error flag.
 - The library is not thread-safe.
 
 ## Licenses

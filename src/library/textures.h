@@ -461,7 +461,9 @@ inline ml::vec4 sampler_2d_impl::sample_at_nearest(int mipmap_level, const swr::
     int w{0}, h{0};
 
     get_mipmap_params(mipmap_level, w, h);
-    ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.value.x * w), ml::truncate_unchecked(uv.value.y * h)};
+    ml::tvec2<int> texel_coords = {
+      static_cast<int>(std::floor(uv.value.x * w)),
+      static_cast<int>(std::floor(uv.value.y * h))};
     texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
     return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords.x, texel_coords.y)];
@@ -469,7 +471,9 @@ inline ml::vec4 sampler_2d_impl::sample_at_nearest(int mipmap_level, const swr::
     int w{0}, h{0}, pitch{0};
 
     get_mipmap_params(mipmap_level, w, h, pitch);
-    ml::tvec2<int> texel_coords = {ml::truncate_unchecked(uv.value.x * w), ml::truncate_unchecked(uv.value.y * h)};
+    ml::tvec2<int> texel_coords = {
+      static_cast<int>(std::floor(uv.value.x * w)),
+      static_cast<int>(std::floor(uv.value.y * h))};
     texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
 
     return (associated_texture->data.data_ptrs[mipmap_level])[texel_coords.y * pitch + texel_coords.x];
@@ -485,7 +489,9 @@ inline ml::vec4 sampler_2d_impl::sample_at_linear(int mipmap_level, const swr::v
 
     // calculate nearest texel and interpolation parameters.
     ml::vec2 texel_coords = {uv.value.x * w - 0.5f, uv.value.y * h - 0.5f};
-    ml::tvec2<int> texel_coords_dec = {static_cast<int>(std::floor(texel_coords.x)), static_cast<int>(std::floor(texel_coords.y))};
+    ml::tvec2<int> texel_coords_dec = {
+      static_cast<int>(std::floor(texel_coords.x)),
+      static_cast<int>(std::floor(texel_coords.y))};
     ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
 
     // calculate nearest four texel coordinates while respect the texture wrap mode.
@@ -513,7 +519,9 @@ inline ml::vec4 sampler_2d_impl::sample_at_linear(int mipmap_level, const swr::v
 
     // calculate nearest texel and interpolation parameters.
     ml::vec2 texel_coords = {uv.value.x * w - 0.5f, uv.value.y * h - 0.5f};
-    ml::tvec2<int> texel_coords_dec = {static_cast<int>(std::floor(texel_coords.x)), static_cast<int>(std::floor(texel_coords.y))};
+    ml::tvec2<int> texel_coords_dec = {
+      static_cast<int>(std::floor(texel_coords.x)),
+      static_cast<int>(std::floor(texel_coords.y))};
     ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
 
     // calculate nearest four texel coordinates while respect the texture wrap mode.
