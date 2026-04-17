@@ -157,6 +157,17 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
         } while(!in_frustum(points[0]) || !in_frustum(points[1]));
 
         obj.allocate_coords(2);
+
+        if(obj.coords == nullptr)
+        {
+            BOOST_FAIL("Failed to allocate coords.");
+        }
+
+        if(obj.vertex_flags.size() < 2)
+        {
+            BOOST_FAIL("vertex_flags size is too small.");
+        }
+
         obj.coords[0] = points[0];
         obj.coords[1] = points[1];
 

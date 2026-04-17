@@ -18,6 +18,16 @@ struct barycentric_coordinate_block
 {
     using fixed_24_8_array_4 = __m128i;
 
+    /*
+     * `corners`, `step_x` and `step_y` are correctly aligned even withing the `std::array`.
+     *  To see this is correct, we also statically assert it here after disabling the warning locally.
+     */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+
+    static_assert(alignof(std::array<__m128i, 3>) >= alignof(__m128i), "std::array<__m128i, 3> must be at least as aligned as __m128i");
+
     /** values at the corners of the rectangle in question. each __m128i contains the four values [top_left, top_right, bottom_left, bottom_right]. */
     std::array<__m128i, 3> corners;
 
@@ -26,6 +36,8 @@ struct barycentric_coordinate_block
 
     /** steps in y direction. */
     std::array<__m128i, 3> steps_y;
+
+#pragma GCC diagnostic pop
 
     /** default constructor. */
     barycentric_coordinate_block() = default;

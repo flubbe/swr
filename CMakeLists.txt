@@ -107,7 +107,48 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(concurrency_utils_src)
 
-find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
+set(SWR_SDL_PROVIDER "AUTO" CACHE STRING "How to provide SDL3: AUTO|SYSTEM|FETCH")
+set_property(CACHE SWR_SDL_PROVIDER PROPERTY STRINGS AUTO SYSTEM FETCH)
+
+function(swr_provide_sdl3)
+    if(SWR_SDL_PROVIDER STREQUAL "SYSTEM")
+        find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
+        return()
+    endif()
+
+    if(SWR_SDL_PROVIDER STREQUAL "FETCH")
+        FetchContent_Declare(
+            SDL3_src
+            GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+            GIT_TAG release-3.4.4
+        )
+        FetchContent_MakeAvailable(SDL3_src)
+        return()
+    endif()
+
+    if(NOT SWR_SDL_PROVIDER STREQUAL "AUTO")
+        message(FATAL_ERROR "Invalid SWR_SDL_PROVIDER='${SWR_SDL_PROVIDER}'. Use AUTO|SYSTEM|FETCH.")
+    endif()
+
+    # AUTO: prefer installed SDL3, then FetchContent.
+    find_package(SDL3 QUIET CONFIG COMPONENTS SDL3)
+    if(SDL3_FOUND)
+        message(STATUS "Using system SDL3 via find_package().")
+        return()
+    endif()
+
+    message(STATUS "SDL3 not found on system; fetching SDL3 with FetchContent.")
+    FetchContent_Declare(
+        SDL3_src
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-3.4.4
+    )
+    FetchContent_MakeAvailable(SDL3_src)
+endfunction()
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+swr_provide_sdl3()
+
 
 #
 # Project-wide target-based defaults.
