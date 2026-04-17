@@ -132,23 +132,27 @@ function(swr_provide_sdl3)
 
     # AUTO: prefer installed SDL3, then FetchContent.
     find_package(SDL3 QUIET CONFIG COMPONENTS SDL3)
-    if(SDL3_FOUND)
+
+    if(TARGET SDL3::SDL3)
         message(STATUS "Using system SDL3 via find_package().")
         return()
     endif()
 
-    message(STATUS "SDL3 not found on system; fetching SDL3 with FetchContent.")
+    message(STATUS "SDL3 not found as a usable package; fetching SDL3 with FetchContent.")
     FetchContent_Declare(
         SDL3_src
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-3.4.4
     )
     FetchContent_MakeAvailable(SDL3_src)
+
+    if(NOT TARGET SDL3::SDL3)
+        message(FATAL_ERROR "Fetched SDL3, but target SDL3::SDL3 is still missing.")
+    endif()
 endfunction()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 swr_provide_sdl3()
-
 
 #
 # Project-wide target-based defaults.

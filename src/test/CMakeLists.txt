@@ -87,7 +87,6 @@ target_compile_definitions(test_coverage_mask PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_coverage_mask
     PRIVATE
     Boost::unit_test_framework
-    SDL3::SDL3
     ml
     swr_project_options
     swr_project_warnings
