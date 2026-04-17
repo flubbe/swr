@@ -111,8 +111,16 @@ set(SWR_SDL_PROVIDER "AUTO" CACHE STRING "How to provide SDL3: AUTO|SYSTEM|FETCH
 set_property(CACHE SWR_SDL_PROVIDER PROPERTY STRINGS AUTO SYSTEM FETCH)
 
 function(swr_provide_sdl3)
+    if(TARGET SDL3::SDL3)
+        message(STATUS "Using already-available SDL3::SDL3 target.")
+        return()
+    endif()
+
     if(SWR_SDL_PROVIDER STREQUAL "SYSTEM")
-        find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
+        find_package(SDL3 REQUIRED CONFIG)
+        if(NOT TARGET SDL3::SDL3)
+            message(FATAL_ERROR "System SDL3 package found, but target SDL3::SDL3 is missing.")
+        endif()
         return()
     endif()
 
@@ -123,6 +131,9 @@ function(swr_provide_sdl3)
             GIT_TAG release-3.4.4
         )
         FetchContent_MakeAvailable(SDL3_src)
+        if(NOT TARGET SDL3::SDL3)
+            message(FATAL_ERROR "Fetched SDL3, but target SDL3::SDL3 is missing.")
+        endif()
         return()
     endif()
 
@@ -130,9 +141,7 @@ function(swr_provide_sdl3)
         message(FATAL_ERROR "Invalid SWR_SDL_PROVIDER='${SWR_SDL_PROVIDER}'. Use AUTO|SYSTEM|FETCH.")
     endif()
 
-    # AUTO: prefer installed SDL3, then FetchContent.
-    find_package(SDL3 QUIET CONFIG COMPONENTS SDL3)
-
+    find_package(SDL3 QUIET CONFIG)
     if(TARGET SDL3::SDL3)
         message(STATUS "Using system SDL3 via find_package().")
         return()
