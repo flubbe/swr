@@ -18,20 +18,30 @@ namespace swr
  * drawing.
  */
 
-void DrawElements(vertex_buffer_mode mode, std::size_t vertex_count)
+void DrawElements(
+  vertex_buffer_mode mode,
+  std::size_t vertex_count)
 {
     ASSERT_INTERNAL_CONTEXT;
 
     // add draw command to command list.
-    impl::global_context->create_render_object(mode, vertex_count);
+    impl::global_context->create_render_object(
+      mode,
+      vertex_count);
 }
 
-void DrawIndexedElements(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t> index_buffer)
+void DrawIndexedElements(
+  vertex_buffer_mode mode,
+  std::size_t count,
+  const std::vector<std::uint32_t>& index_buffer)
 {
     ASSERT_INTERNAL_CONTEXT;
 
     // add draw command to the command list.
-    impl::global_context->create_indexed_render_object(mode, count, index_buffer);
+    impl::global_context->create_indexed_render_object(
+      mode,
+      count,
+      index_buffer);
 }
 
 } /* namespace swr */

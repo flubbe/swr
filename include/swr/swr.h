@@ -106,7 +106,7 @@ void DrawElements(vertex_buffer_mode mode, std::size_t count);
  * @param count Number of elements to use from `index_buffer`.
  * @param index_buffer The index buffer to use.
  */
-void DrawIndexedElements(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t> index_buffer);
+void DrawIndexedElements(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer);
 
 /*
  * Vertex attribute buffers.

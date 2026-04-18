@@ -20,13 +20,12 @@ namespace impl
  * render object management.
  */
 
-static void copy_attributes(
+template<typename TransformFn>
+void copy_attributes(
   render_object& obj,
   const boost::container::static_vector<int, swr::limits::max::attributes>& active_vabs,
   const utils::slot_map<vertex_attribute_buffer>& vertex_attribute_buffers,
-  std::function<std::uint32_t(std::uint32_t)> transform_fn =
-    [](std::uint32_t i) -> std::uint32_t
-  { return i; })
+  TransformFn&& transform_fn)
 {
     if(active_vabs.size() == 0)
     {
@@ -64,7 +63,9 @@ static void copy_attributes(
  * create a new render object and initialize it with its vertices, the vertex buffer mode, the render states
  * and the active attributes.
  */
-render_object* render_context::create_render_object(vertex_buffer_mode mode, std::size_t count)
+render_object* render_context::create_render_object(
+  vertex_buffer_mode mode,
+  std::size_t count)
 {
     if(count == 0)
     {
@@ -74,12 +75,22 @@ render_object* render_context::create_render_object(vertex_buffer_mode mode, std
 
     // create and initialize new object.
     auto& new_object = render_object_list.emplace_back(count, mode, states);
-    copy_attributes(new_object, active_vabs, vertex_attribute_buffers);
+    copy_attributes(
+      new_object,
+      active_vabs,
+      vertex_attribute_buffers,
+      [](std::uint32_t i) -> std::uint32_t
+      {
+          return i;
+      });
 
     return &new_object;
 }
 
-render_object* render_context::create_indexed_render_object(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer)
+render_object* render_context::create_indexed_render_object(
+  vertex_buffer_mode mode,
+  std::size_t count,
+  const std::vector<std::uint32_t>& index_buffer)
 {
     if(index_buffer.empty())
     {
@@ -94,14 +105,20 @@ render_object* render_context::create_indexed_render_object(vertex_buffer_mode m
     }
 
     // create and initialize new object.
-    render_object_list.emplace_back(count, mode, states);
+    render_object_list.emplace_back(
+      count,
+      mode,
+      states);
     auto& new_object = render_object_list.back();
 
-    copy_attributes(new_object, active_vabs, vertex_attribute_buffers,
-                    [&index_buffer](std::uint32_t i) -> std::uint32_t
-                    {
-                        return index_buffer[i];
-                    });
+    copy_attributes(
+      new_object,
+      active_vabs,
+      vertex_attribute_buffers,
+      [&index_buffer](std::uint32_t i) -> std::uint32_t
+      {
+          return index_buffer[i];
+      });
 
     return &new_object;
 }
