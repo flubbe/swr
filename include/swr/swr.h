@@ -644,6 +644,16 @@ context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, std:
 context_handle CreateOffscreenContext(std::uint32_t width, std::uint32_t height, std::uint32_t thread_hint = 0);
 
 /**
+ * Resize an offscreen RGBA rendering context.
+ *
+ * @param context The context to resize.
+ * @param width The new offscreen buffer width.
+ * @param height The new offscreen buffer height.
+ * @return `true` on success and `false` if resizing failed.
+ */
+bool ResizeOffscreenContext(context_handle context, std::uint32_t width, std::uint32_t height);
+
+/**
  * Destroy a context created with CreateSDLContext. Frees all memory associated to the context
  * (e.g. color buffers, depth buffers, texture memory).
  *

@@ -155,10 +155,20 @@ public:
     }
 };
 
-/** a general render context (not associated to any output device/window). */
-class render_context
+/** the context type. */
+enum class context_type
 {
-public:
+    generic,  /** generic context. */
+    sdl,      /** SDL context. */
+    offscreen /** offscreen context. */
+};
+
+/** a general render context (not associated to any output device/window). */
+struct render_context
+{
+    /** the context type. */
+    context_type type{context_type::generic};
+
     /*
      * frame buffers.
      */
@@ -377,6 +387,8 @@ public:
     sdl_render_context(
       [[maybe_unused]] std::uint32_t thread_hint)
     {
+        type = context_type::sdl;
+
 #ifdef SWR_ENABLE_MULTI_THREADING
         if(thread_hint > 0)
         {
@@ -431,6 +443,8 @@ public:
     offscreen_render_context(
       [[maybe_unused]] std::uint32_t thread_hint)
     {
+        type = context_type::offscreen;
+
 #ifdef SWR_ENABLE_MULTI_THREADING
         if(thread_hint > 0)
         {
@@ -457,7 +471,7 @@ public:
       int height);
 
     /** (re-)create depth- and color buffers using the given width and height. */
-    void update_buffers(int width, int height);
+    bool update_buffers(int width, int height);
 };
 
 /*

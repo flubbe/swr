@@ -343,7 +343,11 @@ void offscreen_render_context::initialize(
     states.set_scissor_box(0, width, 0, height);
 
     // Update buffers with the given width and height.
-    update_buffers(width, height);
+    if(!update_buffers(width, height))
+    {
+        throw std::runtime_error(
+          "offscreen_render_context: initial buffer update failed.");
+    }
 
     // create default texture.
     create_default_texture(this);
@@ -363,7 +367,10 @@ void offscreen_render_context::initialize(
     }
     catch(std::bad_alloc& e)
     {
-        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
+        throw std::runtime_error(
+          std::format(
+            "offscreen_render_context: bad_alloc on allocating sweep_rasterizer: {}",
+            e.what()));
     }
 #else
     try
@@ -372,7 +379,10 @@ void offscreen_render_context::initialize(
     }
     catch(std::bad_alloc& e)
     {
-        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
+        throw std::runtime_error(
+          std::format(
+            "offscreen_render_context: bad_alloc on allocating sweep_rasterizer: {}",
+            e.what()));
     }
 #endif
 
@@ -394,21 +404,25 @@ void offscreen_render_context::shutdown()
     render_context::shutdown();
 }
 
-void offscreen_render_context::update_buffers(int width, int height)
+bool offscreen_render_context::update_buffers(int width, int height)
 {
-    if(!locked)
+    if(locked)
     {
-        rgba_buffer.resize(width * height);
-        framebuffer.setup(
-          width,
-          height,
-          width * sizeof(std::uint32_t),
-          swr::pixel_format::argb8888,
-          nullptr);
-
-        this->width = width;
-        this->height = height;
+        return false;
     }
+
+    rgba_buffer.resize(width * height);
+    framebuffer.setup(
+      width,
+      height,
+      width * sizeof(std::uint32_t),
+      swr::pixel_format::argb8888,
+      nullptr);
+
+    this->width = width;
+    this->height = height;
+
+    return true;
 }
 
 bool offscreen_render_context::lock()
@@ -476,6 +490,26 @@ context_handle CreateOffscreenContext(
     auto* context = new impl::offscreen_render_context(thread_hint);
     context->initialize(width, height);
     return context;
+}
+
+bool ResizeOffscreenContext(
+  context_handle context,
+  std::uint32_t width,
+  std::uint32_t height)
+{
+    if(context == nullptr)
+    {
+        return false;
+    }
+
+    auto* internal_context = static_cast<swr::impl::render_context*>(context);
+    if(internal_context->type != impl::context_type::offscreen)
+    {
+        return false;
+    }
+
+    auto* offscreen_context = static_cast<swr::impl::offscreen_render_context*>(internal_context);
+    return offscreen_context->update_buffers(width, height);
 }
 
 void DestroyContext(context_handle context)
