@@ -31,6 +31,37 @@ thread_local render_context* global_context = nullptr;
  * render context implementation.
  */
 
+void render_context::create_rasterizer()
+{
+#ifdef SWR_ENABLE_MULTI_THREADING
+    // create thread pool
+    // we don't use more threads than reported by std::thread::hardware_concurrence and default to half of it.
+    if(thread_pool_size == 0 || thread_pool_size > std::thread::hardware_concurrency())
+    {
+        thread_pool_size = (std::thread::hardware_concurrency() > 1) ? (std::thread::hardware_concurrency() / 2) : 1;
+    }
+    thread_pool.reset(thread_pool_size);
+
+    try
+    {
+        rasterizer = std::make_unique<rast::sweep_rasterizer>(&thread_pool, &framebuffer);
+    }
+    catch(std::bad_alloc& e)
+    {
+        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
+    }
+#else
+    try
+    {
+        rasterizer = std::make_unique<rast::sweep_rasterizer>(nullptr, &framebuffer);
+    }
+    catch(std::bad_alloc& e)
+    {
+        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
+    }
+#endif
+}
+
 void render_context::shutdown()
 {
     // empty command list.
@@ -171,33 +202,8 @@ void sdl_render_context::initialize(SDL_Window* window, SDL_Renderer* renderer, 
     // create default texture.
     create_default_texture(this);
 
-#ifdef SWR_ENABLE_MULTI_THREADING
-    // create thread pool
-    // we don't use more threads than reported by std::thread::hardware_concurrence and default to half of it.
-    if(thread_pool_size == 0 || thread_pool_size > std::thread::hardware_concurrency())
-    {
-        thread_pool_size = (std::thread::hardware_concurrency() > 1) ? (std::thread::hardware_concurrency() / 2) : 1;
-    }
-    thread_pool.reset(thread_pool_size);
-
-    try
-    {
-        rasterizer = std::make_unique<rast::sweep_rasterizer>(&thread_pool, &framebuffer);
-    }
-    catch(std::bad_alloc& e)
-    {
-        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
-    }
-#else
-    try
-    {
-        rasterizer = std::make_unique<rast::sweep_rasterizer>(nullptr, &framebuffer);
-    }
-    catch(std::bad_alloc& e)
-    {
-        throw std::runtime_error(std::format("sdl_render_context: bad_alloc on allocating sweep_rasterizer: {}", e.what()));
-    }
-#endif
+    // create rasterizer.
+    create_rasterizer();
 
     // create default shader. this needs to happen after the thread pool
     // is set up, since we create one shader per thread.
@@ -392,39 +398,8 @@ void offscreen_render_context::initialize(
     // create default texture.
     create_default_texture(this);
 
-#ifdef SWR_ENABLE_MULTI_THREADING
-    // create thread pool
-    // we don't use more threads than reported by std::thread::hardware_concurrence and default to half of it.
-    if(thread_pool_size == 0 || thread_pool_size > std::thread::hardware_concurrency())
-    {
-        thread_pool_size = (std::thread::hardware_concurrency() > 1) ? (std::thread::hardware_concurrency() / 2) : 1;
-    }
-    thread_pool.reset(thread_pool_size);
-
-    try
-    {
-        rasterizer = std::make_unique<rast::sweep_rasterizer>(&thread_pool, &framebuffer);
-    }
-    catch(std::bad_alloc& e)
-    {
-        throw std::runtime_error(
-          std::format(
-            "offscreen_render_context: bad_alloc on allocating sweep_rasterizer: {}",
-            e.what()));
-    }
-#else
-    try
-    {
-        rasterizer = std::make_unique<rast::sweep_rasterizer>(nullptr, &framebuffer);
-    }
-    catch(std::bad_alloc& e)
-    {
-        throw std::runtime_error(
-          std::format(
-            "offscreen_render_context: bad_alloc on allocating sweep_rasterizer: {}",
-            e.what()));
-    }
-#endif
+    // create rasterizer.
+    create_rasterizer();
 
     // create default shader. this needs to happen after the thread pool
     // is set up, since we create one shader per thread.
@@ -594,7 +569,14 @@ bool ResizeOffscreenContext(
     }
 
     auto* offscreen_context = static_cast<swr::impl::offscreen_render_context*>(internal_context);
-    return offscreen_context->update_buffers(width, height);
+    if(!offscreen_context->update_buffers(width, height))
+    {
+        return false;
+    }
+
+    offscreen_context->create_rasterizer();
+
+    return true;
 }
 
 void DestroyContext(context_handle context)

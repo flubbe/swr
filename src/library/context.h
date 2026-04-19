@@ -204,7 +204,10 @@ struct render_context
     std::list<render_object> render_object_list;
 
     /** index buffers. */
-    utils::slot_map<std::vector<std::uint32_t>> index_buffers;
+    utils::slot_map<
+      std::vector<
+        std::uint32_t>>
+      index_buffers;
 
     /** vertex attribute buffers. */
     utils::slot_map<vertex_attribute_buffer> vertex_attribute_buffers;
@@ -224,10 +227,17 @@ struct render_context
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** storage for the shader instances. */
-    std::vector<std::byte, utils::allocator<std::byte>> program_storage;
+    std::vector<
+      std::byte,
+      utils::allocator<std::byte>>
+      program_storage;
 
     /** render object with their associated program instances, to avoid reallocations. */
-    std::vector<std::pair<swr::impl::render_object*, impl::vertex_shader_instance_container>> program_instances;
+    std::vector<
+      std::pair<
+        swr::impl::render_object*,
+        impl::vertex_shader_instance_container>>
+      program_instances;
 #endif /* SWR_ENDABLE_MULTI_THREADING */
 
     /** default shader. */
@@ -270,6 +280,9 @@ struct render_context
 
     /** rasterizes points, lines and triangles. */
     std::unique_ptr<rast::rasterizer> rasterizer;
+
+    /** create the rasterizer from the internal state. */
+    void create_rasterizer();
 
     /*
      * render_device_context implementation.
@@ -381,7 +394,8 @@ protected:
     SDL_Window* sdl_window{nullptr};
 
     /** return the window's pixel format, converted to swr::pixel_format. if out_sdl_pixel_format is non-null, the SDL pixel format will be written into it. */
-    swr::pixel_format get_window_pixel_format(SDL_PixelFormat* out_sdl_pixel_format = nullptr) const;
+    swr::pixel_format get_window_pixel_format(
+      SDL_PixelFormat* out_sdl_pixel_format = nullptr) const;
 
 public:
     sdl_render_context(
@@ -465,7 +479,9 @@ public:
       int height);
 
     /** (re-)create depth- and color buffers using the given width and height. */
-    bool update_buffers(int width, int height);
+    bool update_buffers(
+      int width,
+      int height);
 };
 
 /*
