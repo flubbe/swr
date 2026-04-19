@@ -274,6 +274,46 @@ void sdl_render_context::update_buffers(int width, int height)
       width * sizeof(std::uint32_t),    // FIXME This depends on the pixel format, but we only support 4-byte pf's.
       swr_pixel_format,
       nullptr);
+
+    // clamp viewport.
+    int x0 = states.x;
+    int y0 = states.y;
+    int x1 = states.x + static_cast<int>(states.width);
+    int y1 = states.y + static_cast<int>(states.height);
+
+    // clip to framebuffer
+    x0 = std::clamp(x0, 0, width);
+    y0 = std::clamp(y0, 0, height);
+    x1 = std::clamp(x1, 0, width);
+    y1 = std::clamp(y1, 0, height);
+
+    if(x1 < x0)
+    {
+        x1 = x0;
+    }
+    if(y1 < y0)
+    {
+        y1 = y0;
+    }
+
+    states.set_viewport(x0, y0, x1 - x0, y1 - y0);
+
+    // clamp scissor box.
+    int x_min = std::clamp(states.scissor_box.x_min, 0, width);
+    int x_max = std::clamp(states.scissor_box.x_max, 0, width);
+    int y_min = std::clamp(states.scissor_box.y_min, 0, height);
+    int y_max = std::clamp(states.scissor_box.y_max, 0, height);
+
+    if(x_max < x_min)
+    {
+        x_max = x_min;
+    }
+    if(y_max < y_min)
+    {
+        y_max = y_min;
+    }
+
+    states.set_scissor_box(x_min, x_max, y_min, y_max);
 }
 
 void sdl_render_context::copy_default_color_buffer()
@@ -406,6 +446,11 @@ void offscreen_render_context::shutdown()
 
 bool offscreen_render_context::update_buffers(int width, int height)
 {
+    if(width <= 0 || height <= 0)
+    {
+        return false;
+    }
+
     if(locked)
     {
         return false;
@@ -421,6 +466,46 @@ bool offscreen_render_context::update_buffers(int width, int height)
 
     this->width = width;
     this->height = height;
+
+    // clamp viewport.
+    int x0 = states.x;
+    int y0 = states.y;
+    int x1 = states.x + static_cast<int>(states.width);
+    int y1 = states.y + static_cast<int>(states.height);
+
+    // clip to framebuffer
+    x0 = std::clamp(x0, 0, width);
+    y0 = std::clamp(y0, 0, height);
+    x1 = std::clamp(x1, 0, width);
+    y1 = std::clamp(y1, 0, height);
+
+    if(x1 < x0)
+    {
+        x1 = x0;
+    }
+    if(y1 < y0)
+    {
+        y1 = y0;
+    }
+
+    states.set_viewport(x0, y0, x1 - x0, y1 - y0);
+
+    // clamp scissor box.
+    int x_min = std::clamp(states.scissor_box.x_min, 0, width);
+    int x_max = std::clamp(states.scissor_box.x_max, 0, width);
+    int y_min = std::clamp(states.scissor_box.y_min, 0, height);
+    int y_max = std::clamp(states.scissor_box.y_max, 0, height);
+
+    if(x_max < x_min)
+    {
+        x_max = x_min;
+    }
+    if(y_max < y_min)
+    {
+        y_max = y_min;
+    }
+
+    states.set_scissor_box(x_min, x_max, y_min, y_max);
 
     return true;
 }

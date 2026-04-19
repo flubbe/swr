@@ -96,7 +96,7 @@ struct render_states
         scissor_test_enabled = false;
         scissor_box = utils::rect{0, 0, 0, 0};
 
-        depth_test_enabled = false;
+        depth_test_enabled = true;
         write_depth = true;
         depth_func = comparison_func::less;
 

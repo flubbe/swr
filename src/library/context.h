@@ -397,12 +397,6 @@ public:
 #endif
     }
 
-    /** destructor. */
-    ~sdl_render_context()
-    {
-        shutdown();
-    }
-
     /*
      * render_device_context interface.
      */
