@@ -101,6 +101,7 @@ extern std::atomic<std::uint64_t> profile_raster_flush_clear_cycles;
 extern std::atomic<std::uint64_t> profile_raster_flush_nonempty_tiles;
 extern std::atomic<std::uint64_t> profile_raster_flush_primitives;
 extern std::atomic<std::uint64_t> profile_raster_flush_count;
+extern std::atomic<std::uint64_t> profile_raster_flush_scanned_tiles;
 extern std::atomic<std::uint64_t> profile_raster_block_total_cycles;
 extern std::atomic<std::uint64_t> profile_raster_block_fragment_cycles;
 extern std::atomic<std::uint64_t> profile_raster_block_merge_cycles;
@@ -109,6 +110,10 @@ extern std::atomic<std::uint64_t> profile_triangles_culled_degenerate;
 extern std::atomic<std::uint64_t> profile_triangles_culled_face;
 extern std::atomic<std::uint64_t> profile_triangles_submitted;
 extern std::atomic<std::uint64_t> profile_triangle_tile_refs;
+extern std::atomic<std::uint64_t> profile_raster_direct_blocks;
+extern std::atomic<std::uint64_t> profile_interp_varying_copies;
+extern std::atomic<std::uint64_t> profile_fragment_shader_invocations;
+extern std::atomic<std::uint64_t> profile_tile_shader_instance_probe_steps;
 #endif
 
 } /* namespace impl */

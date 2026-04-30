@@ -143,6 +143,7 @@ void sweep_rasterizer::process_fragment(
 #endif
     auto accept_fragment = in_shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, depth_value, color);
 #ifdef DO_BENCHMARKING
+    swr::impl::profile_fragment_shader_invocations.fetch_add(1, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
 #endif
@@ -342,6 +343,7 @@ void sweep_rasterizer::process_fragment_block(
     accept_mask |= in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
     accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
 #ifdef DO_BENCHMARKING
+    swr::impl::profile_fragment_shader_invocations.fetch_add(4, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
 #endif
@@ -584,6 +586,12 @@ void sweep_rasterizer::process_fragment_block(
         }
     }
 #ifdef DO_BENCHMARKING
+    const std::uint64_t fragment_invocations =
+      ((mask & 8) ? 1u : 0u)
+      + ((mask & 4) ? 1u : 0u)
+      + ((mask & 2) ? 1u : 0u)
+      + ((mask & 1) ? 1u : 0u);
+    swr::impl::profile_fragment_shader_invocations.fetch_add(fragment_invocations, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
 #endif

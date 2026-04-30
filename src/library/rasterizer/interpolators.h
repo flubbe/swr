@@ -182,24 +182,20 @@ struct basic_interpolation_data
 
         for(std::size_t i = 0; i < varying_count; ++i)
         {
-            auto it = varyings[i];
-            it.setup_block_processing();
+            const varying_interpolator& src = varyings[i];
+            const ml::vec4 v00 = src.value;
+            const ml::vec4 v10 = v00 + src.step.x;
+            const ml::vec4 v01 = src.row_start + src.step.y;
+            const ml::vec4 v11 = v01 + src.step.x;
 
-            // store value at (x,y)
-            out_varyings[0][i] = it;
-
-            // store value at (x+1,y)
-            it.advance_x();
-            out_varyings[1][i] = it;
-
-            // store value at (x,y+1)
-            it.advance_y();
-            out_varyings[2][i] = it;
-
-            // store value at (x+1,y+1)
-            it.advance_x();
-            out_varyings[3][i] = it;
+            out_varyings[0][i] = {v00, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[1][i] = {v10, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[2][i] = {v01, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[3][i] = {v11, ml::vec4::zero(), ml::vec4::zero()};
         }
+#ifdef DO_BENCHMARKING
+        swr::impl::profile_interp_varying_copies.fetch_add(varying_count * 4, std::memory_order_relaxed);
+#endif
     }
 };
 
@@ -388,7 +384,6 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
 
         assert(iqs.size() == v0_varyings.size());
         std::size_t varying_count = iqs.size();
-
         varyings.reserve(varying_count);
         for(std::size_t i = 0; i < varying_count; ++i)
         {

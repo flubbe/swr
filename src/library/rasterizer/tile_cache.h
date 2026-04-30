@@ -39,7 +39,7 @@ public:
     bool front_facing{true};
 
     /** attribute interpolators for this block. */
-    triangle_interpolator attributes;
+    triangle_interpolator* attributes{nullptr};
 
     /** rasterization mode. */
     rasterization_mode mode{rasterization_mode::block};
@@ -61,7 +61,7 @@ public:
       const swr::impl::render_states* in_states,
       std::size_t in_shader_index,
       const geom::barycentric_coordinate_block& in_lambdas,
-      const triangle_interpolator& in_attributes,
+      triangle_interpolator* in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
     : states{in_states}
@@ -147,6 +147,7 @@ struct tile
 
     /** primitives associated to this tile. */
     boost::container::static_vector<tile_info, max_primitive_count> primitives;
+    boost::container::static_vector<triangle_interpolator, max_primitive_count> primitive_attributes;
     std::vector<tile_fragment_shader_instance, utils::allocator<tile_fragment_shader_instance>> shader_instances;
 
     /** constructors. */
@@ -168,6 +169,9 @@ struct tile
     {
         for(std::size_t i = 0; i < shader_instances.size(); ++i)
         {
+#ifdef DO_BENCHMARKING
+            swr::impl::profile_tile_shader_instance_probe_steps.fetch_add(1, std::memory_order_relaxed);
+#endif
             if(shader_instances[i].states == in_states)
             {
                 return i;
@@ -225,6 +229,7 @@ struct tile_cache
         for(auto& it: entries)
         {
             it.primitives.clear();
+            it.primitive_attributes.clear();
         }
     }
 
@@ -259,18 +264,19 @@ struct tile_cache
         }
 
         const std::size_t shader_index = tile.get_fragment_shader_index(in_states);
+        auto& attributes_ref = tile.primitive_attributes.emplace_back(in_attributes);
 
         // add triangle to the primitives list in-place.
         auto& triangle_ref = tile.primitives.emplace_back(
           in_states,
           shader_index,
           in_lambdas,
-          in_attributes,
+          &attributes_ref,
           in_front_facing,
           in_mode);
 
         // set up triangle attributes.
-        triangle_ref.attributes.setup_block_processing();
+        triangle_ref.attributes->setup_block_processing();
 
         return tile.primitives.size() == tile.primitives.max_size();
     }

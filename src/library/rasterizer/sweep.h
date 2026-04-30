@@ -119,6 +119,7 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t stage_clear = 0;
         std::uint64_t nonempty_tiles = 0;
         std::uint64_t primitive_count = 0;
+        const std::uint64_t scanned_tiles = tiles.entries.size();
         utils::clock(stage_scan);
 #    endif
         // for each non-empty tile, add a job to the thread pool.
@@ -155,6 +156,7 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_nonempty_tiles.fetch_add(nonempty_tiles, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
 #    endif
     }
 #else /* SWR_ENABLE_MULTI_THREADING */
@@ -167,6 +169,7 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t stage_clear = 0;
         std::uint64_t nonempty_tiles = 0;
         std::uint64_t primitive_count = 0;
+        const std::uint64_t scanned_tiles = tiles.entries.size();
         bool process_started = false;
         utils::clock(stage_scan);
 #    endif
@@ -208,6 +211,7 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_nonempty_tiles.fetch_add(nonempty_tiles, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
 #    endif
     }
 #endif /* SWR_ENABLE_MULTI_THREADING */
@@ -236,17 +240,6 @@ class sweep_rasterizer : public rasterizer
       std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
-    /**
-     * generate color values along with depth- and stencil masks for a 2x2 block of fragments. writes to the depth buffer.
-     *
-     * @param x x-coordinate of the top-left corner of the block.
-     * @param y y-coordinate of the top-left corner of the block.
-     * @param mask block mask `tl|tr|bl|br`, i.e., `tl` corresponds to mask `0x8`, `tr` to `0x4`, `bl` to `0x2`, `br` to `0x1`.
-     * @param states active render states.
-     * @param one_over_viewport_z `1/z` for viewport `z` for each fragment (order `tl`, `tr`, `bl`, `br`).
-     * @param info fragment infos (order `tl`, `tr`, `bl`, `br`).
-     * @param out output fragment block.
-     */
     void process_fragment_block(
       int x,
       int y,

@@ -34,7 +34,9 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
         swr::limits::max::varyings>,
       4>
       temp_varyings;
-    const std::size_t varying_count = in_data.attributes.varyings.size();
+    assert(in_data.attributes);
+    auto& attributes = *in_data.attributes;
+    const std::size_t varying_count = attributes.varyings.size();
     temp_varyings[0].resize(varying_count);
     temp_varyings[1].resize(varying_count);
     temp_varyings[2].resize(varying_count);
@@ -53,7 +55,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
     for_each_quad_in_triangle_block(
       block_x,
       block_y,
-      in_data.attributes,
+      attributes,
       [&](unsigned int x,
           unsigned int y,
           rast::triangle_interpolator& attributes_quad)
@@ -137,7 +139,9 @@ void sweep_rasterizer::process_block_checked(
         swr::limits::max::varyings>,
       4>
       temp_varyings;
-    const std::size_t varying_count = in_data.attributes.varyings.size();
+    assert(in_data.attributes);
+    auto& attributes = *in_data.attributes;
+    const std::size_t varying_count = attributes.varyings.size();
     temp_varyings[0].resize(varying_count);
     temp_varyings[1].resize(varying_count);
     temp_varyings[2].resize(varying_count);
@@ -157,7 +161,7 @@ void sweep_rasterizer::process_block_checked(
       block_x,
       block_y,
       in_data.checked_lambdas,
-      in_data.attributes,
+      attributes,
       [&](int x,
           int y,
           int mask,
@@ -326,6 +330,23 @@ void sweep_rasterizer::draw_filled_triangle(
     }
 
     const bool y_needs_flip = states.draw_target == framebuffer;
+#ifdef SWR_ENABLE_MULTI_THREADING
+    const bool allow_direct_block_path =
+      !thread_pool || thread_pool->get_thread_count() <= 1;
+#else
+    const bool allow_direct_block_path = true;
+#endif
+    bool is_single_block_triangle = false;
+    if(allow_direct_block_path)
+    {
+        const bounding_box bounds = compute_triangle_bounds(
+          states,
+          info,
+          y_needs_flip);
+        is_single_block_triangle =
+          (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
+          && (bounds.end_y - bounds.start_y) == static_cast<int>(swr::impl::rasterizer_block_size);
+    }
 
 #ifdef DO_BENCHMARKING
     std::uint64_t triangle_tile_ref_count = 0;
@@ -346,14 +367,55 @@ void sweep_rasterizer::draw_filled_triangle(
           std::uint64_t stage_add_triangle = 0;
           utils::clock(stage_add_triangle);
 #endif
-          const bool needs_flush = tiles.add_triangle(
-            x,
-            y,
-            &states,
-            lambdas_box,
-            attributes_row,
-            is_front_facing,
-            mode);
+          bool needs_flush = false;
+          if(is_single_block_triangle && allow_direct_block_path)
+          {
+#ifdef DO_BENCHMARKING
+              swr::impl::profile_raster_direct_blocks.fetch_add(1, std::memory_order_relaxed);
+#endif
+              const std::size_t tile_index =
+                (static_cast<unsigned int>(y) >> swr::impl::rasterizer_block_shift) * tiles.pitch
+                + (static_cast<unsigned int>(x) >> swr::impl::rasterizer_block_shift);
+              assert(tile_index < tiles.entries.size());
+
+              auto& tile = tiles.entries[tile_index];
+              const std::size_t shader_index = tile.get_fragment_shader_index(&states);
+              auto direct_attributes = attributes_row;
+              tile_info direct_info{
+                &states,
+                shader_index,
+                lambdas_box,
+                &direct_attributes,
+                is_front_facing,
+                mode};
+              direct_info.attributes->setup_block_processing();
+
+              if(mode == tile_info::rasterization_mode::block)
+              {
+                  process_block(
+                    x,
+                    y,
+                    direct_info);
+              }
+              else
+              {
+                  process_block_checked(
+                    x,
+                    y,
+                    direct_info);
+              }
+          }
+          else
+          {
+              needs_flush = tiles.add_triangle(
+                x,
+                y,
+                &states,
+                lambdas_box,
+                attributes_row,
+                is_front_facing,
+                mode);
+          }
 #ifdef DO_BENCHMARKING
           ++triangle_tile_ref_count;
 #endif
