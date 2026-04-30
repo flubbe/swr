@@ -20,7 +20,7 @@ class tile_info
 {
 public:
     /** rasterization modes for this block. */
-    enum class rasterization_mode
+    enum class rasterization_mode : unsigned char
     {
         block = 0,  /** we unconditionally rasterize the whole block. */
         checked = 1 /** we need to check each pixel if it belongs to the primitive. */
@@ -29,20 +29,20 @@ public:
     /** render states. points to an entry in the context's draw list. */
     const swr::impl::render_states* states{nullptr};
 
-    /** index into tile::shader_instances. */
-    std::size_t shader_index{0};
-
-    /** barycentric coordinates and steps for checked rasterization mode. */
-    geom::barycentric_coordinate_block checked_lambdas{};
-
-    /** whether this corresponding triangle is front-facing. */
-    bool front_facing{true};
-
     /** attribute interpolators for this block. */
     triangle_interpolator* attributes{nullptr};
 
+    /** barycentric coordinates for checked mode; nullptr for full block mode. */
+    const geom::barycentric_coordinate_block* checked_lambdas{nullptr};
+
+    /** index into tile::shader_instances. */
+    std::size_t shader_index{0};
+
     /** rasterization mode. */
     rasterization_mode mode{rasterization_mode::block};
+
+    /** whether this corresponding triangle is front-facing. */
+    bool front_facing{true};
 
     /** constructors. */
     tile_info() = default;
@@ -60,20 +60,18 @@ public:
     tile_info(
       const swr::impl::render_states* in_states,
       std::size_t in_shader_index,
-      const geom::barycentric_coordinate_block& in_lambdas,
+      const geom::barycentric_coordinate_block* in_checked_lambdas,
       triangle_interpolator* in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
     : states{in_states}
-    , shader_index{in_shader_index}
-    , front_facing{in_front_facing}
     , attributes{in_attributes}
+    , checked_lambdas{in_checked_lambdas}
+    , shader_index{in_shader_index}
     , mode{in_mode}
+    , front_facing{in_front_facing}
     {
-        if(mode == rasterization_mode::checked)
-        {
-            checked_lambdas = in_lambdas;
-        }
+        assert(mode == rasterization_mode::block || checked_lambdas);
     }
 };
 
@@ -148,6 +146,7 @@ struct tile
     /** primitives associated to this tile. */
     boost::container::static_vector<tile_info, max_primitive_count> primitives;
     boost::container::static_vector<triangle_interpolator, max_primitive_count> primitive_attributes;
+    boost::container::static_vector<geom::barycentric_coordinate_block, max_primitive_count> primitive_checked_lambdas;
     std::vector<tile_fragment_shader_instance, utils::allocator<tile_fragment_shader_instance>> shader_instances;
 
     /** constructors. */
@@ -230,6 +229,7 @@ struct tile_cache
         {
             it.primitives.clear();
             it.primitive_attributes.clear();
+            it.primitive_checked_lambdas.clear();
         }
     }
 
@@ -242,6 +242,46 @@ struct tile_cache
     }
 
     /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
+    bool add_triangle_checked(
+      unsigned int in_x,
+      unsigned int in_y,
+      const swr::impl::render_states* in_states,
+      const geom::barycentric_coordinate_block& in_lambdas,
+      const triangle_interpolator& in_attributes,
+      bool in_front_facing)
+    {
+        // find the tile's coordinates.
+        unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
+        assert(tile_index < entries.size());
+
+        auto& tile = entries[tile_index];
+        if(tile.primitives.size() == tile.primitives.max_size())
+        {
+            // the cache was full.
+            // FIXME this should not happen
+            return true;
+        }
+
+        const std::size_t shader_index = tile.get_fragment_shader_index(in_states);
+        auto& attributes_ref = tile.primitive_attributes.emplace_back(in_attributes);
+        auto& checked_lambdas_ref = tile.primitive_checked_lambdas.emplace_back(in_lambdas);
+
+        // add triangle to the primitives list in-place.
+        auto& triangle_ref = tile.primitives.emplace_back(
+          in_states,
+          shader_index,
+          &checked_lambdas_ref,
+          &attributes_ref,
+          in_front_facing,
+          tile_info::rasterization_mode::checked);
+
+        // set up triangle attributes.
+        triangle_ref.attributes->setup_block_processing();
+
+        return tile.primitives.size() == tile.primitives.max_size();
+    }
+
+    /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
     bool add_triangle(
       unsigned int in_x,
       unsigned int in_y,
@@ -251,6 +291,17 @@ struct tile_cache
       bool in_front_facing,
       tile_info::rasterization_mode in_mode)
     {
+        if(in_mode == tile_info::rasterization_mode::checked)
+        {
+            return add_triangle_checked(
+              in_x,
+              in_y,
+              in_states,
+              in_lambdas,
+              in_attributes,
+              in_front_facing);
+        }
+
         // find the tile's coordinates.
         unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
         assert(tile_index < entries.size());
@@ -270,7 +321,7 @@ struct tile_cache
         auto& triangle_ref = tile.primitives.emplace_back(
           in_states,
           shader_index,
-          in_lambdas,
+          nullptr,
           &attributes_ref,
           in_front_facing,
           in_mode);

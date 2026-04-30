@@ -156,11 +156,12 @@ void sweep_rasterizer::process_block_checked(
     const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
                                         .shader_instances[in_data.shader_index]
                                         .shader;
+    assert(in_data.checked_lambdas);
 
     for_each_covered_quad_in_checked_triangle_block(
       block_x,
       block_y,
-      in_data.checked_lambdas,
+      *in_data.checked_lambdas,
       attributes,
       [&](int x,
           int y,
@@ -350,6 +351,8 @@ void sweep_rasterizer::draw_filled_triangle(
 
 #ifdef DO_BENCHMARKING
     std::uint64_t triangle_tile_ref_count = 0;
+    std::uint64_t triangle_block_tile_ref_count = 0;
+    std::uint64_t triangle_checked_tile_ref_count = 0;
 #endif
     for_each_covered_triangle_block(
       states,
@@ -381,10 +384,12 @@ void sweep_rasterizer::draw_filled_triangle(
               auto& tile = tiles.entries[tile_index];
               const std::size_t shader_index = tile.get_fragment_shader_index(&states);
               auto direct_attributes = attributes_row;
+              const geom::barycentric_coordinate_block* direct_checked_lambdas =
+                (mode == tile_info::rasterization_mode::checked) ? &lambdas_box : nullptr;
               tile_info direct_info{
                 &states,
                 shader_index,
-                lambdas_box,
+                direct_checked_lambdas,
                 &direct_attributes,
                 is_front_facing,
                 mode};
@@ -407,17 +412,38 @@ void sweep_rasterizer::draw_filled_triangle(
           }
           else
           {
-              needs_flush = tiles.add_triangle(
-                x,
-                y,
-                &states,
-                lambdas_box,
-                attributes_row,
-                is_front_facing,
-                mode);
+              if(mode == tile_info::rasterization_mode::checked)
+              {
+                  needs_flush = tiles.add_triangle_checked(
+                    x,
+                    y,
+                    &states,
+                    lambdas_box,
+                    attributes_row,
+                    is_front_facing);
+              }
+              else
+              {
+                  needs_flush = tiles.add_triangle(
+                    x,
+                    y,
+                    &states,
+                    lambdas_box,
+                    attributes_row,
+                    is_front_facing,
+                    mode);
+              }
           }
 #ifdef DO_BENCHMARKING
           ++triangle_tile_ref_count;
+          if(mode == tile_info::rasterization_mode::block)
+          {
+              ++triangle_block_tile_ref_count;
+          }
+          else
+          {
+              ++triangle_checked_tile_ref_count;
+          }
 #endif
 #ifdef DO_BENCHMARKING
           utils::unclock(stage_add_triangle);
@@ -438,6 +464,8 @@ void sweep_rasterizer::draw_filled_triangle(
       });
 #ifdef DO_BENCHMARKING
     swr::impl::profile_triangle_tile_refs.fetch_add(triangle_tile_ref_count, std::memory_order_relaxed);
+    swr::impl::profile_triangle_block_tile_refs.fetch_add(triangle_block_tile_ref_count, std::memory_order_relaxed);
+    swr::impl::profile_triangle_checked_tile_refs.fetch_add(triangle_checked_tile_ref_count, std::memory_order_relaxed);
     utils::unclock(stage_raster_setup);
     swr::impl::profile_raster_setup_cycles.fetch_add(stage_raster_setup, std::memory_order_relaxed);
 #endif

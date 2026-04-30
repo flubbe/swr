@@ -110,6 +110,8 @@ extern std::atomic<std::uint64_t> profile_triangles_culled_degenerate;
 extern std::atomic<std::uint64_t> profile_triangles_culled_face;
 extern std::atomic<std::uint64_t> profile_triangles_submitted;
 extern std::atomic<std::uint64_t> profile_triangle_tile_refs;
+extern std::atomic<std::uint64_t> profile_triangle_block_tile_refs;
+extern std::atomic<std::uint64_t> profile_triangle_checked_tile_refs;
 extern std::atomic<std::uint64_t> profile_raster_direct_blocks;
 extern std::atomic<std::uint64_t> profile_interp_varying_copies;
 extern std::atomic<std::uint64_t> profile_fragment_shader_invocations;

@@ -50,6 +50,8 @@ std::atomic<std::uint64_t> profile_triangles_culled_degenerate{0};
 std::atomic<std::uint64_t> profile_triangles_culled_face{0};
 std::atomic<std::uint64_t> profile_triangles_submitted{0};
 std::atomic<std::uint64_t> profile_triangle_tile_refs{0};
+std::atomic<std::uint64_t> profile_triangle_block_tile_refs{0};
+std::atomic<std::uint64_t> profile_triangle_checked_tile_refs{0};
 std::atomic<std::uint64_t> profile_raster_direct_blocks{0};
 std::atomic<std::uint64_t> profile_interp_varying_copies{0};
 std::atomic<std::uint64_t> profile_fragment_shader_invocations{0};
@@ -91,6 +93,8 @@ struct pipeline_cycle_profile
     std::uint64_t triangles_culled_face{0};
     std::uint64_t triangles_submitted{0};
     std::uint64_t triangle_tile_refs{0};
+    std::uint64_t triangle_block_tile_refs{0};
+    std::uint64_t triangle_checked_tile_refs{0};
     std::uint64_t raster_direct_blocks{0};
     std::uint64_t interp_varying_copies{0};
     std::uint64_t fragment_shader_invocations{0};
@@ -115,6 +119,12 @@ inline void log_pipeline_profile_if_needed()
     const double tiles_per_tri = triangles_submitted > 0.0
                                    ? triangle_tile_refs / triangles_submitted
                                    : 0.0;
+    const double block_tile_ref_ratio = triangle_tile_refs > 0.0
+                                          ? static_cast<double>(g_pipeline_cycles.triangle_block_tile_refs) / triangle_tile_refs
+                                          : 0.0;
+    const double checked_tile_ref_ratio = triangle_tile_refs > 0.0
+                                            ? static_cast<double>(g_pipeline_cycles.triangle_checked_tile_refs) / triangle_tile_refs
+                                            : 0.0;
     const double flush_count = static_cast<double>(g_pipeline_cycles.raster_flush_count);
     const double scanned_tiles_per_flush = flush_count > 0.0
                                              ? static_cast<double>(g_pipeline_cycles.raster_flush_scanned_tiles) / flush_count
@@ -127,7 +137,7 @@ inline void log_pipeline_profile_if_needed()
                                         : 0.0;
 
     std::println(
-      "[swr][rdtsc] avg cycles/frame over {} frames: present={:.0f} vertex={:.0f} clip={:.0f} viewport={:.0f} assembly={:.0f} raster={:.0f} frag_shader={:.0f} depth={:.0f} merge={:.0f} raster_setup={:.0f} interp={:.0f} add_tri={:.0f} flush={:.0f} flush_scan={:.0f} flush_process={:.0f} flush_clear={:.0f} flush_count={:.1f} flush_tiles={:.1f} flush_prims={:.1f} scan_tiles={:.1f} scan_tiles_per_flush={:.1f} block_total={:.0f} block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} direct_blocks={:.1f} direct_block_ratio={:.2f} interp_var_copies={:.1f} frag_invocations={:.1f} shader_probe_steps={:.1f} probe_steps_per_tile_ref={:.2f} tile_size={}",
+      "[swr][rdtsc] avg cycles/frame over {} frames: present={:.0f} vertex={:.0f} clip={:.0f} viewport={:.0f} assembly={:.0f} raster={:.0f} frag_shader={:.0f} depth={:.0f} merge={:.0f} raster_setup={:.0f} interp={:.0f} add_tri={:.0f} flush={:.0f} flush_scan={:.0f} flush_process={:.0f} flush_clear={:.0f} flush_count={:.1f} flush_tiles={:.1f} flush_prims={:.1f} scan_tiles={:.1f} scan_tiles_per_flush={:.1f} block_total={:.0f} block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} block_tile_refs={:.1f} checked_tile_refs={:.1f} block_tile_ref_ratio={:.2f} checked_tile_ref_ratio={:.2f} direct_blocks={:.1f} direct_block_ratio={:.2f} interp_var_copies={:.1f} frag_invocations={:.1f} shader_probe_steps={:.1f} probe_steps_per_tile_ref={:.2f} tile_size={}",
       profile_log_interval_frames,
       static_cast<double>(g_pipeline_cycles.present_total) / f,
       static_cast<double>(g_pipeline_cycles.vertex) / f,
@@ -159,6 +169,10 @@ inline void log_pipeline_profile_if_needed()
       triangles_submitted / f,
       triangle_tile_refs / f,
       tiles_per_tri,
+      static_cast<double>(g_pipeline_cycles.triangle_block_tile_refs) / f,
+      static_cast<double>(g_pipeline_cycles.triangle_checked_tile_refs) / f,
+      block_tile_ref_ratio,
+      checked_tile_ref_ratio,
       static_cast<double>(g_pipeline_cycles.raster_direct_blocks) / f,
       direct_block_ratio,
       static_cast<double>(g_pipeline_cycles.interp_varying_copies) / f,
@@ -195,6 +209,8 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.triangles_culled_face = 0;
     g_pipeline_cycles.triangles_submitted = 0;
     g_pipeline_cycles.triangle_tile_refs = 0;
+    g_pipeline_cycles.triangle_block_tile_refs = 0;
+    g_pipeline_cycles.triangle_checked_tile_refs = 0;
     g_pipeline_cycles.raster_direct_blocks = 0;
     g_pipeline_cycles.interp_varying_copies = 0;
     g_pipeline_cycles.fragment_shader_invocations = 0;
@@ -808,6 +824,8 @@ void Present()
     g_pipeline_cycles.triangles_culled_face += impl::profile_triangles_culled_face.exchange(0, std::memory_order_relaxed);
     g_pipeline_cycles.triangles_submitted += impl::profile_triangles_submitted.exchange(0, std::memory_order_relaxed);
     g_pipeline_cycles.triangle_tile_refs += impl::profile_triangle_tile_refs.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.triangle_block_tile_refs += impl::profile_triangle_block_tile_refs.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.triangle_checked_tile_refs += impl::profile_triangle_checked_tile_refs.exchange(0, std::memory_order_relaxed);
     g_pipeline_cycles.raster_direct_blocks += impl::profile_raster_direct_blocks.exchange(0, std::memory_order_relaxed);
     g_pipeline_cycles.interp_varying_copies += impl::profile_interp_varying_copies.exchange(0, std::memory_order_relaxed);
     g_pipeline_cycles.fragment_shader_invocations += impl::profile_fragment_shader_invocations.exchange(0, std::memory_order_relaxed);
