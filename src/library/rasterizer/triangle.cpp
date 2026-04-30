@@ -46,6 +46,10 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
+    const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
+                                        .shader_instances[in_data.shader_index]
+                                        .shader;
+
     for_each_quad_in_triangle_block(
       block_x,
       block_y,
@@ -73,14 +77,14 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
               {frag_depth[2], front_facing, temp_varyings[2]},
               {frag_depth[3], front_facing, temp_varyings[3]}}};
 
- #ifdef DO_BENCHMARKING
+#ifdef DO_BENCHMARKING
           std::uint64_t stage_fragment_block = 0;
           utils::clock(stage_fragment_block);
 #endif
           process_fragment_block(
             x, y,
             *in_data.states,
-            in_data.shader,
+            shader,
             one_over_viewport_z,
             frag_info,
             out);
@@ -145,6 +149,10 @@ void sweep_rasterizer::process_block_checked(
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
+    const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
+                                        .shader_instances[in_data.shader_index]
+                                        .shader;
+
     for_each_covered_quad_in_checked_triangle_block(
       block_x,
       block_y,
@@ -174,7 +182,7 @@ void sweep_rasterizer::process_block_checked(
               {frag_depth[2], front_facing, temp_varyings[2]},
               {frag_depth[3], front_facing, temp_varyings[3]}}};
 
- #ifdef DO_BENCHMARKING
+#ifdef DO_BENCHMARKING
           std::uint64_t stage_fragment_block = 0;
           utils::clock(stage_fragment_block);
 #endif
@@ -183,7 +191,7 @@ void sweep_rasterizer::process_block_checked(
             y,
             mask,
             *in_data.states,
-            in_data.shader,
+            shader,
             one_over_viewport_z,
             frag_info,
             out);

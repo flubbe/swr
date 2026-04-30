@@ -29,8 +29,8 @@ public:
     /** render states. points to an entry in the context's draw list. */
     const swr::impl::render_states* states{nullptr};
 
-    /** shader. */
-    const swr::program_base* shader;
+    /** index into tile::shader_instances. */
+    std::size_t shader_index{0};
 
     /** barycentric coordinates and steps for checked rasterization mode. */
     geom::barycentric_coordinate_block checked_lambdas{};
@@ -59,13 +59,13 @@ public:
      */
     tile_info(
       const swr::impl::render_states* in_states,
-      const swr::program_base* in_shader,
+      std::size_t in_shader_index,
       const geom::barycentric_coordinate_block& in_lambdas,
       const triangle_interpolator& in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
     : states{in_states}
-    , shader{in_shader}
+    , shader_index{in_shader_index}
     , front_facing{in_front_facing}
     , attributes{in_attributes}
     , mode{in_mode}
@@ -164,18 +164,18 @@ struct tile
     {
     }
 
-    const swr::program_base* get_fragment_shader(const swr::impl::render_states* in_states)
+    std::size_t get_fragment_shader_index(const swr::impl::render_states* in_states)
     {
-        for(auto& it: shader_instances)
+        for(std::size_t i = 0; i < shader_instances.size(); ++i)
         {
-            if(it.states == in_states)
+            if(shader_instances[i].states == in_states)
             {
-                return it.shader;
+                return i;
             }
         }
 
         shader_instances.emplace_back(in_states);
-        return shader_instances.back().shader;
+        return shader_instances.size() - 1;
     }
 };
 
@@ -258,12 +258,12 @@ struct tile_cache
             return true;
         }
 
-        const swr::program_base* shader = tile.get_fragment_shader(in_states);
+        const std::size_t shader_index = tile.get_fragment_shader_index(in_states);
 
         // add triangle to the primitives list in-place.
         auto& triangle_ref = tile.primitives.emplace_back(
           in_states,
-          shader,
+          shader_index,
           in_lambdas,
           in_attributes,
           in_front_facing,

@@ -113,23 +113,23 @@ class sweep_rasterizer : public rasterizer
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
         std::uint64_t stage_scan = 0;
         std::uint64_t stage_process = 0;
         std::uint64_t stage_clear = 0;
         std::uint64_t nonempty_tiles = 0;
         std::uint64_t primitive_count = 0;
         utils::clock(stage_scan);
-#endif
+#    endif
         // for each non-empty tile, add a job to the thread pool.
         for(auto& entry: tiles.entries)
         {
             if(entry.primitives.size())
             {
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
                 ++nonempty_tiles;
                 primitive_count += entry.primitives.size();
-#endif
+#    endif
                 thread_pool->push_task(
                   process_tile_static,
                   this,
@@ -137,17 +137,17 @@ class sweep_rasterizer : public rasterizer
             }
         }
 
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
         utils::unclock(stage_scan);
         utils::clock(stage_process);
-#endif
+#    endif
         thread_pool->run_tasks_and_wait();
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
         utils::unclock(stage_process);
         utils::clock(stage_clear);
-#endif
+#    endif
         tiles.clear_tiles();
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
         utils::unclock(stage_clear);
         swr::impl::profile_raster_flush_scan_cycles.fetch_add(stage_scan, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_process_cycles.fetch_add(stage_process, std::memory_order_relaxed);
@@ -155,13 +155,13 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_nonempty_tiles.fetch_add(nonempty_tiles, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
-#endif
+#    endif
     }
-#else  /* SWR_ENABLE_MULTI_THREADING */
+#else /* SWR_ENABLE_MULTI_THREADING */
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
         std::uint64_t stage_scan = 0;
         std::uint64_t stage_process = 0;
         std::uint64_t stage_clear = 0;
@@ -169,13 +169,13 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t primitive_count = 0;
         bool process_started = false;
         utils::clock(stage_scan);
-#endif
+#    endif
         // for each non-empty tile, add a job to the thread pool.
         for(auto& entry: tiles.entries)
         {
             if(entry.primitives.size())
             {
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
                 ++nonempty_tiles;
                 primitive_count += entry.primitives.size();
                 if(!process_started)
@@ -184,23 +184,23 @@ class sweep_rasterizer : public rasterizer
                     process_started = true;
                 }
                 utils::clock(stage_process);
-#endif
+#    endif
                 process_tile(entry);
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
                 utils::unclock(stage_process);
-#endif
+#    endif
             }
         }
 
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
         if(!process_started)
         {
             utils::unclock(stage_scan);
         }
         utils::clock(stage_clear);
-#endif
+#    endif
         tiles.clear_tiles();
-#ifdef DO_BENCHMARKING
+#    ifdef DO_BENCHMARKING
         utils::unclock(stage_clear);
         swr::impl::profile_raster_flush_scan_cycles.fetch_add(stage_scan, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_process_cycles.fetch_add(stage_process, std::memory_order_relaxed);
@@ -208,7 +208,7 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_nonempty_tiles.fetch_add(nonempty_tiles, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
-#endif
+#    endif
     }
 #endif /* SWR_ENABLE_MULTI_THREADING */
 

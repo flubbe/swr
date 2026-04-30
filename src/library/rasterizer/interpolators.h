@@ -174,24 +174,31 @@ struct basic_interpolation_data
          * varyings.
          */
 
-        for(auto it: varyings)
+        const std::size_t varying_count = varyings.size();
+        out_varyings[0].resize(varying_count);
+        out_varyings[1].resize(varying_count);
+        out_varyings[2].resize(varying_count);
+        out_varyings[3].resize(varying_count);
+
+        for(std::size_t i = 0; i < varying_count; ++i)
         {
+            auto it = varyings[i];
             it.setup_block_processing();
 
             // store value at (x,y)
-            out_varyings[0].emplace_back(it);
+            out_varyings[0][i] = it;
 
             // store value at (x+1,y)
             it.advance_x();
-            out_varyings[1].emplace_back(it);
+            out_varyings[1][i] = it;
 
             // store value at (x,y+1)
             it.advance_y();
-            out_varyings[2].emplace_back(it);
+            out_varyings[2][i] = it;
 
             // store value at (x+1,y+1)
             it.advance_x();
-            out_varyings[3].emplace_back(it);
+            out_varyings[3][i] = it;
         }
     }
 };
