@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <type_traits>
 
 #include <boost/container/static_vector.hpp>
@@ -60,7 +61,11 @@ namespace impl
 {
 
 /** block size for triangle rasterization. */
-constexpr std::uint32_t rasterizer_block_shift{5};
+#ifndef SWR_RASTERIZER_BLOCK_SHIFT
+constexpr std::uint32_t rasterizer_block_shift{4};
+#else
+constexpr std::uint32_t rasterizer_block_shift{SWR_RASTERIZER_BLOCK_SHIFT};
+#endif
 
 /** Block size for triangle rasterization. The context buffer sizes have to be aligned on this value. */
 constexpr std::uint32_t rasterizer_block_size{1 << rasterizer_block_shift};
@@ -81,6 +86,30 @@ inline T upper_align_on_block_size(const T& v)
 {
     return (v + (rasterizer_block_size - 1)) & ~(rasterizer_block_size - 1);
 }
+
+#ifdef DO_BENCHMARKING
+extern std::atomic<std::uint64_t> profile_fragment_shader_cycles;
+extern std::atomic<std::uint64_t> profile_depth_cycles;
+extern std::atomic<std::uint64_t> profile_merge_cycles;
+extern std::atomic<std::uint64_t> profile_raster_setup_cycles;
+extern std::atomic<std::uint64_t> profile_interp_cycles;
+extern std::atomic<std::uint64_t> profile_raster_add_triangle_cycles;
+extern std::atomic<std::uint64_t> profile_raster_flush_cycles;
+extern std::atomic<std::uint64_t> profile_raster_flush_scan_cycles;
+extern std::atomic<std::uint64_t> profile_raster_flush_process_cycles;
+extern std::atomic<std::uint64_t> profile_raster_flush_clear_cycles;
+extern std::atomic<std::uint64_t> profile_raster_flush_nonempty_tiles;
+extern std::atomic<std::uint64_t> profile_raster_flush_primitives;
+extern std::atomic<std::uint64_t> profile_raster_flush_count;
+extern std::atomic<std::uint64_t> profile_raster_block_total_cycles;
+extern std::atomic<std::uint64_t> profile_raster_block_fragment_cycles;
+extern std::atomic<std::uint64_t> profile_raster_block_merge_cycles;
+extern std::atomic<std::uint64_t> profile_triangles_input;
+extern std::atomic<std::uint64_t> profile_triangles_culled_degenerate;
+extern std::atomic<std::uint64_t> profile_triangles_culled_face;
+extern std::atomic<std::uint64_t> profile_triangles_submitted;
+extern std::atomic<std::uint64_t> profile_triangle_tile_refs;
+#endif
 
 } /* namespace impl */
 

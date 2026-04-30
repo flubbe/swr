@@ -42,3 +42,13 @@ target_link_libraries(swrast
     swr_project_options
     swr_project_warnings
 )
+
+if(SWR_ENABLE_PIPELINE_PROFILING)
+    target_compile_definitions(swrast PRIVATE DO_BENCHMARKING)
+endif()
+
+target_compile_definitions(swrast
+    PRIVATE
+    SWR_TILE_CACHE_PRIMITIVE_CAPACITY=${SWR_TILE_CACHE_PRIMITIVE_CAPACITY}
+    SWR_RASTERIZER_BLOCK_SHIFT=${SWR_RASTERIZER_BLOCK_SHIFT}
+)

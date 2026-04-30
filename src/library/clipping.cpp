@@ -53,6 +53,23 @@ constexpr float W_CLIPPING_PLANE = 1e-5f;
  */
 constexpr float SCALE_INTERSECTION_PARAMETER = 1.0001f;
 
+inline void load_vertex_from_render_object(
+  const render_object& obj,
+  std::uint32_t vertex_index,
+  std::uint32_t varying_count,
+  geom::vertex& out_vertex)
+{
+    out_vertex.coords = obj.coords[vertex_index];
+    out_vertex.flags = obj.vertex_flags[vertex_index];
+
+    const std::size_t varying_offset = static_cast<std::size_t>(vertex_index) * varying_count;
+    out_vertex.varyings.clear();
+    for(std::uint32_t i = 0; i < varying_count; ++i)
+    {
+        out_vertex.varyings.emplace_back(obj.varyings[varying_offset + i]);
+    }
+}
+
 /**
  * clip with respect to these axes. more precisely, clip against the
  * planes with plane equations (x=w,x=-w), (y=w,y=-w), (z=w,z=-w).
@@ -291,6 +308,7 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
 {
     vertex_buffer clipped_line{2};
     vertex_buffer temp_line{2};
+    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
 
     /*
      * Algorithm:
@@ -303,9 +321,8 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
     obj.clipped_vertices.clear();
     obj.clipped_vertices.reserve(obj.coord_count);
 
-    // TODO temporary
     geom::vertex v;
-    v.varyings.reserve(obj.states.shader_info->varying_count);
+    v.varyings.reserve(varying_count);
 
     for(std::size_t index_it = 0; index_it < obj.indices.size(); index_it += 2)
     {
@@ -320,19 +337,9 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
             // fill temporary vertex buffer.
             temp_line.clear();
 
-            // TODO temporary
             for(std::size_t i = 0; i < 2; ++i)
             {
-                v.coords = obj.coords[indices[i]];
-
-                v.varyings.clear();
-                for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-                {
-                    v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
-                }
-
-                v.flags = obj.vertex_flags[indices[i]];
-
+                load_vertex_from_render_object(obj, indices[i], varying_count, v);
                 temp_line.emplace_back(v);
             }
 
@@ -363,40 +370,18 @@ void clip_line_buffer(render_object& obj, clip_output output_type)
             if(output_type == point_list)
             {
                 // write a list of points.
-
-                // TODO temporary
                 for(std::size_t i = 0; i < 2; ++i)
                 {
-                    v.coords = obj.coords[indices[i]];
-
-                    v.varyings.clear();
-                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-                    {
-                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
-                    }
-
-                    v.flags = obj.vertex_flags[indices[i]];
-
+                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
                     obj.clipped_vertices.emplace_back(v);
                 }
             }
             else if(output_type == line_list)
             {
                 // construct lines.
-
-                // TODO temporary
                 for(std::size_t i = 0; i < 2; ++i)
                 {
-                    v.coords = obj.coords[indices[i]];
-
-                    v.varyings.clear();
-                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-                    {
-                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
-                    }
-
-                    v.flags = obj.vertex_flags[indices[i]];
-
+                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
                     obj.clipped_vertices.emplace_back(v);
                 }
             }
@@ -481,6 +466,7 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
      */
     vertex_buffer clipped_triangle{8};
     vertex_buffer temp_triangle{3};
+    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
 
     /*
      * Algorithm:
@@ -493,9 +479,8 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
     obj.clipped_vertices.clear();
     obj.clipped_vertices.reserve(obj.coord_count);
 
-    // TODO temporary
     geom::vertex v;
-    v.varyings.reserve(obj.states.shader_info->varying_count);
+    v.varyings.reserve(varying_count);
 
     for(std::size_t index_it = 0; index_it < obj.indices.size(); index_it += 3)
     {
@@ -512,19 +497,9 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
             // fill temporary vertex buffer.
             temp_triangle.clear();
 
-            // TODO temporary
             for(std::size_t i = 0; i < 3; ++i)
             {
-                v.coords = obj.coords[indices[i]];
-
-                v.varyings.clear();
-                for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-                {
-                    v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
-                }
-
-                v.flags = obj.vertex_flags[indices[i]];
-
+                load_vertex_from_render_object(obj, indices[i], varying_count, v);
                 temp_triangle.emplace_back(v);
             }
 
@@ -576,38 +551,18 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
             // copy clipped vertices to output buffer.
             if(output_type == point_list)
             {
-                // TODO temporary
                 for(std::size_t i = 0; i < 3; ++i)
                 {
-                    v.coords = obj.coords[indices[i]];
-
-                    v.varyings.clear();
-                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-                    {
-                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
-                    }
-
-                    v.flags = obj.vertex_flags[indices[i]];
-
+                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
                     obj.clipped_vertices.emplace_back(v);
                 }
             }
             else if(output_type == line_list)
             {
                 // construct lines.
-                // TODO temporary
                 for(std::size_t i = 0; i < 3; ++i)
                 {
-                    v.coords = obj.coords[indices[i]];
-
-                    v.varyings.clear();
-                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-                    {
-                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
-                    }
-
-                    v.flags = obj.vertex_flags[indices[i]];
-
+                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
                     obj.clipped_vertices.emplace_back(v);
                 }
 
@@ -617,19 +572,9 @@ void clip_triangle_buffer(render_object& obj, clip_output output_type)
             else if(output_type == triangle_list)
             {
                 // copy triangle.
-                // TODO temporary
                 for(std::size_t i = 0; i < 3; ++i)
                 {
-                    v.coords = obj.coords[indices[i]];
-
-                    v.varyings.clear();
-                    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-                    {
-                        v.varyings.emplace_back(obj.varyings[indices[i] * obj.states.shader_info->varying_count + j]);
-                    }
-
-                    v.flags = obj.vertex_flags[indices[i]];
-
+                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
                     obj.clipped_vertices.emplace_back(v);
                 }
             }

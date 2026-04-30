@@ -10,6 +10,10 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#ifdef DO_BENCHMARKING
+#    include <print>
+#endif /* DO_BENCHMARKING */
+
 /* user headers. */
 #include "swr_internal.h"
 #include "clipping.h"
@@ -20,6 +24,152 @@ namespace swr
 /*
  * rendering pipeline.
  */
+
+#ifdef DO_BENCHMARKING
+namespace impl
+{
+std::atomic<std::uint64_t> profile_fragment_shader_cycles{0};
+std::atomic<std::uint64_t> profile_depth_cycles{0};
+std::atomic<std::uint64_t> profile_merge_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_cycles{0};
+std::atomic<std::uint64_t> profile_interp_cycles{0};
+std::atomic<std::uint64_t> profile_raster_add_triangle_cycles{0};
+std::atomic<std::uint64_t> profile_raster_flush_cycles{0};
+std::atomic<std::uint64_t> profile_raster_flush_scan_cycles{0};
+std::atomic<std::uint64_t> profile_raster_flush_process_cycles{0};
+std::atomic<std::uint64_t> profile_raster_flush_clear_cycles{0};
+std::atomic<std::uint64_t> profile_raster_flush_nonempty_tiles{0};
+std::atomic<std::uint64_t> profile_raster_flush_primitives{0};
+std::atomic<std::uint64_t> profile_raster_flush_count{0};
+std::atomic<std::uint64_t> profile_raster_block_total_cycles{0};
+std::atomic<std::uint64_t> profile_raster_block_fragment_cycles{0};
+std::atomic<std::uint64_t> profile_raster_block_merge_cycles{0};
+std::atomic<std::uint64_t> profile_triangles_input{0};
+std::atomic<std::uint64_t> profile_triangles_culled_degenerate{0};
+std::atomic<std::uint64_t> profile_triangles_culled_face{0};
+std::atomic<std::uint64_t> profile_triangles_submitted{0};
+std::atomic<std::uint64_t> profile_triangle_tile_refs{0};
+} /* namespace impl */
+#endif
+
+#ifdef DO_BENCHMARKING
+namespace
+{
+
+struct pipeline_cycle_profile
+{
+    std::uint64_t vertex{0};
+    std::uint64_t clipping{0};
+    std::uint64_t viewport{0};
+    std::uint64_t assembly{0};
+    std::uint64_t rasterizer{0};
+    std::uint64_t present_total{0};
+    std::uint64_t fragment_shader{0};
+    std::uint64_t depth{0};
+    std::uint64_t merge{0};
+    std::uint64_t raster_setup{0};
+    std::uint64_t interp{0};
+    std::uint64_t raster_add_triangle{0};
+    std::uint64_t raster_flush{0};
+    std::uint64_t raster_flush_scan{0};
+    std::uint64_t raster_flush_process{0};
+    std::uint64_t raster_flush_clear{0};
+    std::uint64_t raster_flush_nonempty_tiles{0};
+    std::uint64_t raster_flush_primitives{0};
+    std::uint64_t raster_flush_count{0};
+    std::uint64_t raster_block_total{0};
+    std::uint64_t raster_block_fragment{0};
+    std::uint64_t raster_block_merge{0};
+    std::uint64_t triangles_input{0};
+    std::uint64_t triangles_culled_degenerate{0};
+    std::uint64_t triangles_culled_face{0};
+    std::uint64_t triangles_submitted{0};
+    std::uint64_t triangle_tile_refs{0};
+    std::uint64_t frame_count{0};
+};
+
+pipeline_cycle_profile g_pipeline_cycles;
+constexpr std::uint64_t profile_log_interval_frames = 120;
+
+inline void log_pipeline_profile_if_needed()
+{
+    if(g_pipeline_cycles.frame_count == 0
+       || (g_pipeline_cycles.frame_count % profile_log_interval_frames) != 0)
+    {
+        return;
+    }
+
+    const auto f = static_cast<double>(profile_log_interval_frames);
+    const double triangles_submitted = static_cast<double>(g_pipeline_cycles.triangles_submitted);
+    const double triangle_tile_refs = static_cast<double>(g_pipeline_cycles.triangle_tile_refs);
+    const double tiles_per_tri = triangles_submitted > 0.0
+                                   ? triangle_tile_refs / triangles_submitted
+                                   : 0.0;
+
+    std::println(
+      "[swr][rdtsc] avg cycles/frame over {} frames: present={:.0f} vertex={:.0f} clip={:.0f} viewport={:.0f} assembly={:.0f} raster={:.0f} frag_shader={:.0f} depth={:.0f} merge={:.0f} raster_setup={:.0f} interp={:.0f} add_tri={:.0f} flush={:.0f} flush_scan={:.0f} flush_process={:.0f} flush_clear={:.0f} flush_count={:.1f} flush_tiles={:.1f} flush_prims={:.1f} block_total={:.0f} block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} tile_size={}",
+      profile_log_interval_frames,
+      static_cast<double>(g_pipeline_cycles.present_total) / f,
+      static_cast<double>(g_pipeline_cycles.vertex) / f,
+      static_cast<double>(g_pipeline_cycles.clipping) / f,
+      static_cast<double>(g_pipeline_cycles.viewport) / f,
+      static_cast<double>(g_pipeline_cycles.assembly) / f,
+      static_cast<double>(g_pipeline_cycles.rasterizer) / f,
+      static_cast<double>(g_pipeline_cycles.fragment_shader) / f,
+      static_cast<double>(g_pipeline_cycles.depth) / f,
+      static_cast<double>(g_pipeline_cycles.merge) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup) / f,
+      static_cast<double>(g_pipeline_cycles.interp) / f,
+      static_cast<double>(g_pipeline_cycles.raster_add_triangle) / f,
+      static_cast<double>(g_pipeline_cycles.raster_flush) / f,
+      static_cast<double>(g_pipeline_cycles.raster_flush_scan) / f,
+      static_cast<double>(g_pipeline_cycles.raster_flush_process) / f,
+      static_cast<double>(g_pipeline_cycles.raster_flush_clear) / f,
+      static_cast<double>(g_pipeline_cycles.raster_flush_count) / f,
+      static_cast<double>(g_pipeline_cycles.raster_flush_nonempty_tiles) / f,
+      static_cast<double>(g_pipeline_cycles.raster_flush_primitives) / f,
+      static_cast<double>(g_pipeline_cycles.raster_block_total) / f,
+      static_cast<double>(g_pipeline_cycles.raster_block_fragment) / f,
+      static_cast<double>(g_pipeline_cycles.raster_block_merge) / f,
+      static_cast<double>(g_pipeline_cycles.triangles_input) / f,
+      static_cast<double>(g_pipeline_cycles.triangles_culled_degenerate) / f,
+      static_cast<double>(g_pipeline_cycles.triangles_culled_face) / f,
+      triangles_submitted / f,
+      triangle_tile_refs / f,
+      tiles_per_tri,
+      impl::rasterizer_block_size);
+
+    g_pipeline_cycles.vertex = 0;
+    g_pipeline_cycles.clipping = 0;
+    g_pipeline_cycles.viewport = 0;
+    g_pipeline_cycles.assembly = 0;
+    g_pipeline_cycles.rasterizer = 0;
+    g_pipeline_cycles.present_total = 0;
+    g_pipeline_cycles.fragment_shader = 0;
+    g_pipeline_cycles.depth = 0;
+    g_pipeline_cycles.merge = 0;
+    g_pipeline_cycles.raster_setup = 0;
+    g_pipeline_cycles.interp = 0;
+    g_pipeline_cycles.raster_add_triangle = 0;
+    g_pipeline_cycles.raster_flush = 0;
+    g_pipeline_cycles.raster_flush_scan = 0;
+    g_pipeline_cycles.raster_flush_process = 0;
+    g_pipeline_cycles.raster_flush_clear = 0;
+    g_pipeline_cycles.raster_flush_nonempty_tiles = 0;
+    g_pipeline_cycles.raster_flush_primitives = 0;
+    g_pipeline_cycles.raster_flush_count = 0;
+    g_pipeline_cycles.raster_block_total = 0;
+    g_pipeline_cycles.raster_block_fragment = 0;
+    g_pipeline_cycles.raster_block_merge = 0;
+    g_pipeline_cycles.triangles_input = 0;
+    g_pipeline_cycles.triangles_culled_degenerate = 0;
+    g_pipeline_cycles.triangles_culled_face = 0;
+    g_pipeline_cycles.triangles_submitted = 0;
+    g_pipeline_cycles.triangle_tile_refs = 0;
+}
+
+} /* anonymous namespace */
+#endif /* DO_BENCHMARKING */
 
 #ifndef SWR_ENABLE_MULTI_THREADING
 
@@ -151,19 +301,22 @@ static void process_vertices(swr::impl::render_object& obj)
     if(obj.mode == vertex_buffer_mode::points
        || obj.states.poly_mode == polygon_mode::point)
     {
+        const auto varying_count = obj.states.shader_info->varying_count;
+        obj.clipped_vertices.reserve(obj.indices.size());
+
+        geom::vertex v;
+        v.varyings.resize(varying_count);
+
         // copy the correct points.
         for(const auto& i: obj.indices)
         {
             if(!(obj.vertex_flags[i] & geom::vf_clip_discard))
             {
-                // TODO temporary.
-                geom::vertex v;
                 v.coords = obj.coords[i];
                 v.flags = obj.vertex_flags[i];
-                v.varyings.reserve(obj.states.shader_info->varying_count);
-                for(std::size_t j = 0; j < obj.states.shader_info->varying_count; ++j)
+                for(std::size_t j = 0; j < varying_count; ++j)
                 {
-                    v.varyings.emplace_back(obj.varyings[i * obj.states.shader_info->varying_count + j]);
+                    v.varyings[j] = obj.varyings[i * varying_count + j];
                 }
 
                 obj.clipped_vertices.emplace_back(v);
@@ -361,8 +514,11 @@ static void clip_vertex_buffer(swr::impl::render_object* obj)
      */
     if(obj->mode == vertex_buffer_mode::points || obj->states.poly_mode == polygon_mode::point)
     {
-        // TODO temporary.
+        const auto varying_count = obj->states.shader_info->varying_count;
+        obj->clipped_vertices.reserve(obj->indices.size());
+
         geom::vertex v;
+        v.varyings.resize(varying_count);
 
         // copy the correct points.
         for(const auto& i: obj->indices)
@@ -371,10 +527,9 @@ static void clip_vertex_buffer(swr::impl::render_object* obj)
             {
                 v.coords = obj->coords[i];
                 v.flags = obj->vertex_flags[i];
-                v.varyings.clear();
-                for(std::size_t j = 0; j < obj->states.shader_info->varying_count; ++j)
+                for(std::size_t j = 0; j < varying_count; ++j)
                 {
-                    v.varyings.emplace_back(obj->varyings[i * obj->states.shader_info->varying_count + j]);
+                    v.varyings[j] = obj->varyings[i * varying_count + j];
                 }
 
                 obj->clipped_vertices.emplace_back(v);
@@ -421,6 +576,10 @@ static void process_vertices(impl::render_context* context)
     }
 
     // invoke vertex shaders.
+#    ifdef DO_BENCHMARKING
+    std::uint64_t stage_vertex = 0;
+    utils::clock(stage_vertex);
+#    endif
     for(auto& [obj, shader]: context->program_instances)
     {
         if(obj->attrib_count != 0
@@ -433,15 +592,31 @@ static void process_vertices(impl::render_context* context)
         }
     }
     context->thread_pool.run_tasks_and_wait();
+#    ifdef DO_BENCHMARKING
+    utils::unclock(stage_vertex);
+    g_pipeline_cycles.vertex += stage_vertex;
+#    endif
 
     // clipping.
+#    ifdef DO_BENCHMARKING
+    std::uint64_t stage_clipping = 0;
+    utils::clock(stage_clipping);
+#    endif
     for(auto& [obj, shader]: context->program_instances)
     {
         context->thread_pool.push_task(clip_vertex_buffer, obj);
     }
     context->thread_pool.run_tasks_and_wait();
+#    ifdef DO_BENCHMARKING
+    utils::unclock(stage_clipping);
+    g_pipeline_cycles.clipping += stage_clipping;
+#    endif
 
     // viewport transform.
+#    ifdef DO_BENCHMARKING
+    std::uint64_t stage_viewport = 0;
+    utils::clock(stage_viewport);
+#    endif
     for(auto& [obj, shader]: context->program_instances)
     {
         // skip the rest of the pipeline if no clipped vertices were produced.
@@ -457,6 +632,10 @@ static void process_vertices(impl::render_context* context)
         }
     }
     context->thread_pool.run_tasks_and_wait();
+#    ifdef DO_BENCHMARKING
+    utils::unclock(stage_viewport);
+    g_pipeline_cycles.viewport += stage_viewport;
+#    endif
 
     // clear shaders to force destructors being called, so that we do not have to care about the storage anymore.
     context->program_instances.clear();
@@ -490,10 +669,19 @@ void Present()
         return;
     }
 
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_present_total = 0;
+    utils::clock(stage_present_total);
+#endif
+
 #ifdef SWR_ENABLE_MULTI_THREADING
     mt::process_vertices(context);
 
     // primitive assembly.
+#    ifdef DO_BENCHMARKING
+    std::uint64_t stage_assembly = 0;
+    utils::clock(stage_assembly);
+#    endif
     for(auto& it: context->render_object_list)
     {
         if(it.clipped_vertices.size() != 0)
@@ -505,28 +693,90 @@ void Present()
               it.clipped_vertices);
         }
     }
+#    ifdef DO_BENCHMARKING
+    utils::unclock(stage_assembly);
+    g_pipeline_cycles.assembly += stage_assembly;
+#    endif
 #else
     // process render commands.
+#    ifdef DO_BENCHMARKING
+    std::uint64_t stage_assembly = 0;
+    std::uint64_t stage_vertex = 0;
+    std::uint64_t stage_clipping = 0;
+    std::uint64_t stage_viewport = 0;
+#    endif
     for(auto& it: context->render_object_list)
     {
+#    ifdef DO_BENCHMARKING
+        utils::clock(stage_vertex);
+#    endif
         st::process_vertices(it);
+#    ifdef DO_BENCHMARKING
+        utils::unclock(stage_vertex);
+        g_pipeline_cycles.vertex += stage_vertex;
+        stage_vertex = 0;
+#    endif
 
         if(it.clipped_vertices.size() != 0)
         {
+#    ifdef DO_BENCHMARKING
+            utils::clock(stage_assembly);
+#    endif
             // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
             context->assemble_primitives(
               &it.states,
               it.mode,
               it.clipped_vertices);
+#    ifdef DO_BENCHMARKING
+            utils::unclock(stage_assembly);
+            g_pipeline_cycles.assembly += stage_assembly;
+            stage_assembly = 0;
+#    endif
         }
     }
 #endif
 
     // invoke triangle rasterizer.
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_rasterizer = 0;
+    utils::clock(stage_rasterizer);
+#endif
     context->rasterizer->draw_primitives();
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_rasterizer);
+    g_pipeline_cycles.rasterizer += stage_rasterizer;
+#endif
 
     // flush all lists.
     context->render_object_list.clear();
+
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_present_total);
+    g_pipeline_cycles.present_total += stage_present_total;
+    g_pipeline_cycles.fragment_shader += impl::profile_fragment_shader_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.depth += impl::profile_depth_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.merge += impl::profile_merge_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup += impl::profile_raster_setup_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.interp += impl::profile_interp_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_add_triangle += impl::profile_raster_add_triangle_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush += impl::profile_raster_flush_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_scan += impl::profile_raster_flush_scan_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_process += impl::profile_raster_flush_process_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_clear += impl::profile_raster_flush_clear_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_nonempty_tiles += impl::profile_raster_flush_nonempty_tiles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_primitives += impl::profile_raster_flush_primitives.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_count += impl::profile_raster_flush_count.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_block_total += impl::profile_raster_block_total_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_block_fragment += impl::profile_raster_block_fragment_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_block_merge += impl::profile_raster_block_merge_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.triangles_input += impl::profile_triangles_input.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.triangles_culled_degenerate += impl::profile_triangles_culled_degenerate.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.triangles_culled_face += impl::profile_triangles_culled_face.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.triangles_submitted += impl::profile_triangles_submitted.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.triangle_tile_refs += impl::profile_triangle_tile_refs.exchange(0, std::memory_order_relaxed);
+    ++g_pipeline_cycles.frame_count;
+    log_pipeline_profile_if_needed();
+#endif
 }
 
 /*

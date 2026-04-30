@@ -22,12 +22,23 @@ namespace rast
 
 void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y, tile_info& in_data)
 {
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_block_total = 0;
+    std::uint64_t stage_block_fragment = 0;
+    std::uint64_t stage_block_merge = 0;
+    utils::clock(stage_block_total);
+#endif
     std::array<
       boost::container::static_vector<
         swr::varying,
         swr::limits::max::varyings>,
       4>
       temp_varyings;
+    const std::size_t varying_count = in_data.attributes.varyings.size();
+    temp_varyings[0].resize(varying_count);
+    temp_varyings[1].resize(varying_count);
+    temp_varyings[2].resize(varying_count);
+    temp_varyings[3].resize(varying_count);
 
     const bool front_facing = in_data.front_facing;
 
@@ -43,15 +54,18 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
           unsigned int y,
           rast::triangle_interpolator& attributes_quad)
       {
-          temp_varyings[0].clear();
-          temp_varyings[1].clear();
-          temp_varyings[2].clear();
-          temp_varyings[3].clear();
-
+#ifdef DO_BENCHMARKING
+          std::uint64_t stage_interp = 0;
+          utils::clock(stage_interp);
+#endif
           attributes_quad.get_data_block(
             temp_varyings,
             frag_depth,
             one_over_viewport_z);
+#ifdef DO_BENCHMARKING
+          utils::unclock(stage_interp);
+          swr::impl::profile_interp_cycles.fetch_add(stage_interp, std::memory_order_relaxed);
+#endif
 
           std::array<rast::fragment_info, 4> frag_info =
             {{{frag_depth[0], front_facing, temp_varyings[0]},
@@ -59,6 +73,10 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
               {frag_depth[2], front_facing, temp_varyings[2]},
               {frag_depth[3], front_facing, temp_varyings[3]}}};
 
+ #ifdef DO_BENCHMARKING
+          std::uint64_t stage_fragment_block = 0;
+          utils::clock(stage_fragment_block);
+#endif
           process_fragment_block(
             x, y,
             *in_data.states,
@@ -66,15 +84,36 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
             one_over_viewport_z,
             frag_info,
             out);
+#ifdef DO_BENCHMARKING
+          utils::unclock(stage_fragment_block);
+          stage_block_fragment += stage_fragment_block;
+#endif
 
-          in_data.states->draw_target->merge_color_block(
-            0,
-            x, y,
-            out,
-            in_data.states->blending_enabled,
-            in_data.states->blend_src,
-            in_data.states->blend_dst);
+#ifdef DO_BENCHMARKING
+          std::uint64_t stage_merge_block = 0;
+          utils::clock(stage_merge_block);
+#endif
+          if(out.write_color)
+          {
+              in_data.states->draw_target->merge_color_block(
+                0,
+                x, y,
+                out,
+                in_data.states->blending_enabled,
+                in_data.states->blend_src,
+                in_data.states->blend_dst);
+          }
+#ifdef DO_BENCHMARKING
+          utils::unclock(stage_merge_block);
+          stage_block_merge += stage_merge_block;
+#endif
       });
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_block_total);
+    swr::impl::profile_raster_block_total_cycles.fetch_add(stage_block_total, std::memory_order_relaxed);
+    swr::impl::profile_raster_block_fragment_cycles.fetch_add(stage_block_fragment, std::memory_order_relaxed);
+    swr::impl::profile_raster_block_merge_cycles.fetch_add(stage_block_merge, std::memory_order_relaxed);
+#endif
 }
 
 void sweep_rasterizer::process_block_checked(
@@ -82,12 +121,23 @@ void sweep_rasterizer::process_block_checked(
   unsigned int block_y,
   tile_info& in_data)
 {
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_block_total = 0;
+    std::uint64_t stage_block_fragment = 0;
+    std::uint64_t stage_block_merge = 0;
+    utils::clock(stage_block_total);
+#endif
     std::array<
       boost::container::static_vector<
         swr::varying,
         swr::limits::max::varyings>,
       4>
       temp_varyings;
+    const std::size_t varying_count = in_data.attributes.varyings.size();
+    temp_varyings[0].resize(varying_count);
+    temp_varyings[1].resize(varying_count);
+    temp_varyings[2].resize(varying_count);
+    temp_varyings[3].resize(varying_count);
 
     const bool front_facing = in_data.front_facing;
 
@@ -98,22 +148,25 @@ void sweep_rasterizer::process_block_checked(
     for_each_covered_quad_in_checked_triangle_block(
       block_x,
       block_y,
-      in_data.lambdas,
+      in_data.checked_lambdas,
       in_data.attributes,
       [&](int x,
           int y,
           int mask,
           rast::triangle_interpolator& attributes_quad)
       {
-          temp_varyings[0].clear();
-          temp_varyings[1].clear();
-          temp_varyings[2].clear();
-          temp_varyings[3].clear();
-
+#ifdef DO_BENCHMARKING
+          std::uint64_t stage_interp = 0;
+          utils::clock(stage_interp);
+#endif
           attributes_quad.get_data_block(
             temp_varyings,
             frag_depth,
             one_over_viewport_z);
+#ifdef DO_BENCHMARKING
+          utils::unclock(stage_interp);
+          swr::impl::profile_interp_cycles.fetch_add(stage_interp, std::memory_order_relaxed);
+#endif
 
           std::array<rast::fragment_info, 4> frag_info =
             {{{frag_depth[0], front_facing, temp_varyings[0]},
@@ -121,6 +174,10 @@ void sweep_rasterizer::process_block_checked(
               {frag_depth[2], front_facing, temp_varyings[2]},
               {frag_depth[3], front_facing, temp_varyings[3]}}};
 
+ #ifdef DO_BENCHMARKING
+          std::uint64_t stage_fragment_block = 0;
+          utils::clock(stage_fragment_block);
+#endif
           process_fragment_block(
             x,
             y,
@@ -130,16 +187,37 @@ void sweep_rasterizer::process_block_checked(
             one_over_viewport_z,
             frag_info,
             out);
+#ifdef DO_BENCHMARKING
+          utils::unclock(stage_fragment_block);
+          stage_block_fragment += stage_fragment_block;
+#endif
 
-          in_data.states->draw_target->merge_color_block(
-            0,
-            x,
-            y,
-            out,
-            in_data.states->blending_enabled,
-            in_data.states->blend_src,
-            in_data.states->blend_dst);
+#ifdef DO_BENCHMARKING
+          std::uint64_t stage_merge_block = 0;
+          utils::clock(stage_merge_block);
+#endif
+          if(out.write_color)
+          {
+              in_data.states->draw_target->merge_color_block(
+                0,
+                x,
+                y,
+                out,
+                in_data.states->blending_enabled,
+                in_data.states->blend_src,
+                in_data.states->blend_dst);
+          }
+#ifdef DO_BENCHMARKING
+          utils::unclock(stage_merge_block);
+          stage_block_merge += stage_merge_block;
+#endif
       });
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_block_total);
+    swr::impl::profile_raster_block_total_cycles.fetch_add(stage_block_total, std::memory_order_relaxed);
+    swr::impl::profile_raster_block_fragment_cycles.fetch_add(stage_block_fragment, std::memory_order_relaxed);
+    swr::impl::profile_raster_block_merge_cycles.fetch_add(stage_block_merge, std::memory_order_relaxed);
+#endif
 }
 
 /**
@@ -219,9 +297,17 @@ void sweep_rasterizer::draw_filled_triangle(
   const geom::vertex& v1,
   const geom::vertex& v2)
 {
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_raster_setup = 0;
+    utils::clock(stage_raster_setup);
+#endif
     triangle_info info = setup_triangle(v0, v1, v2);
     if(info.is_degenerate)
     {
+#ifdef DO_BENCHMARKING
+        utils::unclock(stage_raster_setup);
+        swr::impl::profile_raster_setup_cycles.fetch_add(stage_raster_setup, std::memory_order_relaxed);
+#endif
         return;
     }
 
@@ -233,6 +319,9 @@ void sweep_rasterizer::draw_filled_triangle(
 
     const bool y_needs_flip = states.draw_target == framebuffer;
 
+#ifdef DO_BENCHMARKING
+    std::uint64_t triangle_tile_ref_count = 0;
+#endif
     for_each_covered_triangle_block(
       states,
       info,
@@ -245,11 +334,43 @@ void sweep_rasterizer::draw_filled_triangle(
           const rast::triangle_interpolator& attributes_row,
           tile_info::rasterization_mode mode)
       {
-          if(tiles.add_triangle(x, y, {&states, lambdas_box, attributes_row, is_front_facing, mode}))
+#ifdef DO_BENCHMARKING
+          std::uint64_t stage_add_triangle = 0;
+          utils::clock(stage_add_triangle);
+#endif
+          const bool needs_flush = tiles.add_triangle(
+            x,
+            y,
+            &states,
+            lambdas_box,
+            attributes_row,
+            is_front_facing,
+            mode);
+#ifdef DO_BENCHMARKING
+          ++triangle_tile_ref_count;
+#endif
+#ifdef DO_BENCHMARKING
+          utils::unclock(stage_add_triangle);
+          swr::impl::profile_raster_add_triangle_cycles.fetch_add(stage_add_triangle, std::memory_order_relaxed);
+#endif
+          if(needs_flush)
           {
+#ifdef DO_BENCHMARKING
+              std::uint64_t stage_flush = 0;
+              utils::clock(stage_flush);
+#endif
               process_tile_cache();
+#ifdef DO_BENCHMARKING
+              utils::unclock(stage_flush);
+              swr::impl::profile_raster_flush_cycles.fetch_add(stage_flush, std::memory_order_relaxed);
+#endif
           }
       });
+#ifdef DO_BENCHMARKING
+    swr::impl::profile_triangle_tile_refs.fetch_add(triangle_tile_ref_count, std::memory_order_relaxed);
+    utils::unclock(stage_raster_setup);
+    swr::impl::profile_raster_setup_cycles.fetch_add(stage_raster_setup, std::memory_order_relaxed);
+#endif
 }
 
 } /* namespace rast */

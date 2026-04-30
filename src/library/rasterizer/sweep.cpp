@@ -59,6 +59,8 @@ void sweep_rasterizer::add_triangle(
 
 void sweep_rasterizer::draw_primitives()
 {
+    tiles.clear_shader_instances();
+
 #ifdef SWR_ENABLE_MULTI_THREADING
     if(thread_pool->get_thread_count() > 1)
     {

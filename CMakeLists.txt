@@ -12,6 +12,17 @@ option(SWR_BUILD_DEMOS "Build swr demos" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_APP "Build swr app" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_TESTS "Build swr tests" ${PROJECT_IS_TOP_LEVEL})
+option(SWR_ENABLE_PIPELINE_PROFILING "Enable rdtsc-based pipeline profiling counters in swrast (DO_BENCHMARKING)" OFF)
+set(SWR_TILE_CACHE_PRIMITIVE_CAPACITY "1024" CACHE STRING "Max primitive entries per rasterizer tile cache bucket")
+set(SWR_RASTERIZER_BLOCK_SHIFT "5" CACHE STRING "Rasterizer tile block shift (4=16px, 5=32px, 6=64px)")
+
+if(NOT SWR_TILE_CACHE_PRIMITIVE_CAPACITY MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "SWR_TILE_CACHE_PRIMITIVE_CAPACITY must be a positive integer, got '${SWR_TILE_CACHE_PRIMITIVE_CAPACITY}'.")
+endif()
+
+if(NOT SWR_RASTERIZER_BLOCK_SHIFT MATCHES "^[0-9]+$")
+    message(FATAL_ERROR "SWR_RASTERIZER_BLOCK_SHIFT must be a non-negative integer, got '${SWR_RASTERIZER_BLOCK_SHIFT}'.")
+endif()
 
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SWR_SOURCE_DIR}/bin")

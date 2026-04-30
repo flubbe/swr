@@ -49,23 +49,28 @@ void sweep_rasterizer::process_fragment(
   fragment_info& frag_info,
   swr::impl::fragment_output& out)
 {
+    const bool is_default_framebuffer = (states.draw_target == framebuffer);
+    const int framebuffer_height = states.draw_target->properties.height;
+
     /*
      * Scissor test.
      */
     if(states.scissor_test_enabled)
     {
+        const int x_min = states.scissor_box.x_min;
+        const int x_max = states.scissor_box.x_max;
         int y_min{states.scissor_box.y_min};
         int y_max{states.scissor_box.y_max};
 
         // the default framebuffer needs a flip.
-        if(states.draw_target == framebuffer)
+        if(is_default_framebuffer)
         {
             int y_temp = y_min;
-            y_min = states.draw_target->properties.height - y_max;
-            y_max = states.draw_target->properties.height - y_temp;
+            y_min = framebuffer_height - y_max;
+            y_max = framebuffer_height - y_temp;
         }
 
-        if(x < states.scissor_box.x_min || x >= states.scissor_box.x_max
+        if(x < x_min || x >= x_max
            || y < y_min || y >= y_max)
         {
             out.write_flags = 0;
@@ -115,11 +120,11 @@ void sweep_rasterizer::process_fragment(
      * note that we need to reverse the y-axis for the default framebuffer.
      */
     ml::vec4 frag_coord;
-    if(states.draw_target == framebuffer)
+    if(is_default_framebuffer)
     {
         frag_coord = {
           static_cast<float>(x) - pixel_center.x,
-          framebuffer->properties.height - (static_cast<float>(y) - pixel_center.y),
+          framebuffer_height - (static_cast<float>(y) - pixel_center.y),
           depth_value,
           z};
     }
@@ -132,7 +137,15 @@ void sweep_rasterizer::process_fragment(
           z};
     }
 
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_fragment_shader = 0;
+    utils::clock(stage_fragment_shader);
+#endif
     auto accept_fragment = in_shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, depth_value, color);
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_fragment_shader);
+    swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
+#endif
     if(accept_fragment == swr::discard)
     {
         out.write_flags = 0;
@@ -146,7 +159,15 @@ void sweep_rasterizer::process_fragment(
     if(states.depth_test_enabled)
     {
         depth_value = std::clamp(depth_value, 0.f, 1.f);
+#ifdef DO_BENCHMARKING
+        std::uint64_t stage_depth = 0;
+        utils::clock(stage_depth);
+#endif
         states.draw_target->depth_compare_write(x, y, depth_value, states.depth_func, states.write_depth, depth_write_mask);
+#ifdef DO_BENCHMARKING
+        utils::unclock(stage_depth);
+        swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
+#endif
     }
 
     auto to_mask = [](bool b) -> std::uint32_t
@@ -170,6 +191,9 @@ void sweep_rasterizer::process_fragment_block(
   std::array<fragment_info, 4>& frag_info,
   swr::impl::fragment_output_block& out)
 {
+    const bool is_default_framebuffer = (states.draw_target == framebuffer);
+    const int framebuffer_height = states.draw_target->properties.height;
+
     // initialize masks.
     std::uint8_t depth_mask = 0xF;
     depth_mask &= states.write_depth ? 0xF : 0;
@@ -179,36 +203,34 @@ void sweep_rasterizer::process_fragment_block(
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
-    // block coordinates
-    const std::array<ml::tvec2<int>, 4> coords =
-      {{{x, y},
-        {x + 1, y},
-        {x, y + 1},
-        {x + 1, y + 1}}};
+    const int x0 = x;
+    const int x1 = x + 1;
+    const int y0 = y;
+    const int y1 = y + 1;
 
     /*
      * Scissor test.
      */
     if(states.scissor_test_enabled)
     {
+        const int x_min = states.scissor_box.x_min;
+        const int x_max = states.scissor_box.x_max;
         int y_min{states.scissor_box.y_min};
         int y_max{states.scissor_box.y_max};
 
         // the default framebuffer needs a flip.
-        if(states.draw_target == framebuffer)
+        if(is_default_framebuffer)
         {
             int y_temp = y_min;
-            y_min = states.draw_target->properties.height - y_max;
-            y_max = states.draw_target->properties.height - y_temp;
+            y_min = framebuffer_height - y_max;
+            y_max = framebuffer_height - y_temp;
         }
 
-        auto scissor_check = [y_min, y_max, &states](int _x, int _y) -> bool
-        { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= y_min && _y < y_max; };
-        std::uint8_t scissor_mask =
-          (scissor_check(coords[0].x, coords[0].y) << 3)
-          | (scissor_check(coords[1].x, coords[1].y) << 2)
-          | (scissor_check(coords[2].x, coords[2].y) << 1)
-          | scissor_check(coords[3].x, coords[3].y);
+        const std::uint8_t scissor_mask =
+          (((x0 >= x_min && x0 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 3)
+          | (((x1 >= x_min && x1 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 2)
+          | (((x0 >= x_min && x0 < x_max && y1 >= y_min && y1 < y_max) ? 1 : 0) << 1)
+          | ((x1 >= x_min && x1 < x_max && y1 >= y_min && y1 < y_max) ? 1 : 0);
 
         if(scissor_mask == 0)
         {
@@ -292,25 +314,37 @@ void sweep_rasterizer::process_fragment_block(
      * set up the fragment coordinate. this should match (15.1) on p. 415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
      * note that we need to reverse the y-axis.
      */
-    std::array<ml::vec4, 4> frag_coord =
-      {{{static_cast<float>(coords[0].x) - pixel_center.x, static_cast<float>(coords[0].y) - pixel_center.y, depth_value[0], z[0]},
-        {static_cast<float>(coords[1].x) - pixel_center.x, static_cast<float>(coords[1].y) - pixel_center.y, depth_value[1], z[1]},
-        {static_cast<float>(coords[2].x) - pixel_center.x, static_cast<float>(coords[2].y) - pixel_center.y, depth_value[2], z[2]},
-        {static_cast<float>(coords[3].x) - pixel_center.x, static_cast<float>(coords[3].y) - pixel_center.y, depth_value[3], z[3]}}};
+    const float fx0 = static_cast<float>(x0) - pixel_center.x;
+    const float fx1 = static_cast<float>(x1) - pixel_center.x;
+    const float fy0 = static_cast<float>(y0) - pixel_center.y;
+    const float fy1 = static_cast<float>(y1) - pixel_center.y;
+    std::array<ml::vec4, 4> frag_coord = {
+      ml::vec4{fx0, fy0, depth_value[0], z[0]},
+      ml::vec4{fx1, fy0, depth_value[1], z[1]},
+      ml::vec4{fx0, fy1, depth_value[2], z[2]},
+      ml::vec4{fx1, fy1, depth_value[3], z[3]}};
 
-    if(states.draw_target == framebuffer)
+    if(is_default_framebuffer)
     {
-        frag_coord[0].y = framebuffer->properties.height - frag_coord[0].y;
-        frag_coord[1].y = framebuffer->properties.height - frag_coord[1].y;
-        frag_coord[2].y = framebuffer->properties.height - frag_coord[2].y;
-        frag_coord[3].y = framebuffer->properties.height - frag_coord[3].y;
+        frag_coord[0].y = framebuffer_height - frag_coord[0].y;
+        frag_coord[1].y = framebuffer_height - frag_coord[1].y;
+        frag_coord[2].y = framebuffer_height - frag_coord[2].y;
+        frag_coord[3].y = framebuffer_height - frag_coord[3].y;
     }
 
     std::uint8_t accept_mask = 0;
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_fragment_shader = 0;
+    utils::clock(stage_fragment_shader);
+#endif
     accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
     accept_mask |= in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
     accept_mask |= in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
     accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_fragment_shader);
+    swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
+#endif
 
     if(accept_mask == 0)
     {
@@ -338,12 +372,20 @@ void sweep_rasterizer::process_fragment_block(
         depth_value[3] = std::clamp(depth_value[3], 0.f, 1.f);
 #endif /* SWR_USE_SIMD */
 
+#ifdef DO_BENCHMARKING
+        std::uint64_t stage_depth = 0;
+        utils::clock(stage_depth);
+#endif
         states.draw_target->depth_compare_write_block(
           x, y,
           depth_value,
           states.depth_func,
           states.write_depth,
           depth_mask);
+#ifdef DO_BENCHMARKING
+        utils::unclock(stage_depth);
+        swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
+#endif
     }
 
     write_color &= depth_mask;
@@ -369,6 +411,9 @@ void sweep_rasterizer::process_fragment_block(
   std::array<fragment_info, 4>& frag_info,
   swr::impl::fragment_output_block& out)
 {
+    const bool is_default_framebuffer = (states.draw_target == framebuffer);
+    const int framebuffer_height = states.draw_target->properties.height;
+
     // initialize masks.
     std::uint8_t depth_mask = mask;
     depth_mask &= states.write_depth ? 0xF : 0;
@@ -378,36 +423,34 @@ void sweep_rasterizer::process_fragment_block(
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to 0. */
 
-    // block coordinates
-    const std::array<ml::tvec2<int>, 4> coords =
-      {{{x, y},
-        {x + 1, y},
-        {x, y + 1},
-        {x + 1, y + 1}}};
+    const int x0 = x;
+    const int x1 = x + 1;
+    const int y0 = y;
+    const int y1 = y + 1;
 
     /*
      * Scissor test.
      */
     if(states.scissor_test_enabled)
     {
+        const int x_min = states.scissor_box.x_min;
+        const int x_max = states.scissor_box.x_max;
         int y_min{states.scissor_box.y_min};
         int y_max{states.scissor_box.y_max};
 
         // the default framebuffer needs a flip.
-        if(states.draw_target == framebuffer)
+        if(is_default_framebuffer)
         {
             int y_temp = y_min;
-            y_min = states.draw_target->properties.height - y_max;
-            y_max = states.draw_target->properties.height - y_temp;
+            y_min = framebuffer_height - y_max;
+            y_max = framebuffer_height - y_temp;
         }
 
-        auto scissor_check = [y_min, y_max, &states](int _x, int _y) -> bool
-        { return _x >= states.scissor_box.x_min && _x < states.scissor_box.x_max && _y >= y_min && _y < y_max; };
-        std::uint8_t scissor_mask =
-          (scissor_check(coords[0].x, coords[0].y) << 3)
-          | (scissor_check(coords[1].x, coords[1].y) << 2)
-          | (scissor_check(coords[2].x, coords[2].y) << 1)
-          | scissor_check(coords[3].x, coords[3].y);
+        const std::uint8_t scissor_mask =
+          (((x0 >= x_min && x0 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 3)
+          | (((x1 >= x_min && x1 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 2)
+          | (((x0 >= x_min && x0 < x_max && y1 >= y_min && y1 < y_max) ? 1 : 0) << 1)
+          | ((x1 >= x_min && x1 < x_max && y1 >= y_min && y1 < y_max) ? 1 : 0);
 
         if(scissor_mask == 0)
         {
@@ -491,21 +534,29 @@ void sweep_rasterizer::process_fragment_block(
      * set up the fragment coordinate. this should match (15.1) on p. 415 in https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
      * note that we need to reverse the y-axis.
      */
-    std::array<ml::vec4, 4> frag_coord =
-      {{{static_cast<float>(coords[0].x) - pixel_center.x, static_cast<float>(coords[0].y) - pixel_center.y, depth_value[0], z[0]},
-        {static_cast<float>(coords[1].x) - pixel_center.x, static_cast<float>(coords[1].y) - pixel_center.y, depth_value[1], z[1]},
-        {static_cast<float>(coords[2].x) - pixel_center.x, static_cast<float>(coords[2].y) - pixel_center.y, depth_value[2], z[2]},
-        {static_cast<float>(coords[3].x) - pixel_center.x, static_cast<float>(coords[3].y) - pixel_center.y, depth_value[3], z[3]}}};
+    const float fx0 = static_cast<float>(x0) - pixel_center.x;
+    const float fx1 = static_cast<float>(x1) - pixel_center.x;
+    const float fy0 = static_cast<float>(y0) - pixel_center.y;
+    const float fy1 = static_cast<float>(y1) - pixel_center.y;
+    std::array<ml::vec4, 4> frag_coord = {
+      ml::vec4{fx0, fy0, depth_value[0], z[0]},
+      ml::vec4{fx1, fy0, depth_value[1], z[1]},
+      ml::vec4{fx0, fy1, depth_value[2], z[2]},
+      ml::vec4{fx1, fy1, depth_value[3], z[3]}};
 
-    if(states.draw_target == framebuffer)
+    if(is_default_framebuffer)
     {
-        frag_coord[0].y = framebuffer->properties.height - frag_coord[0].y;
-        frag_coord[1].y = framebuffer->properties.height - frag_coord[1].y;
-        frag_coord[2].y = framebuffer->properties.height - frag_coord[2].y;
-        frag_coord[3].y = framebuffer->properties.height - frag_coord[3].y;
+        frag_coord[0].y = framebuffer_height - frag_coord[0].y;
+        frag_coord[1].y = framebuffer_height - frag_coord[1].y;
+        frag_coord[2].y = framebuffer_height - frag_coord[2].y;
+        frag_coord[3].y = framebuffer_height - frag_coord[3].y;
     }
 
     std::uint8_t accept_mask = 0;
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_fragment_shader = 0;
+    utils::clock(stage_fragment_shader);
+#endif
     if(mask == 0xF)
     {
         accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
@@ -532,6 +583,10 @@ void sweep_rasterizer::process_fragment_block(
             accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
         }
     }
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_fragment_shader);
+    swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
+#endif
 
     if(accept_mask == 0)
     {
@@ -559,7 +614,15 @@ void sweep_rasterizer::process_fragment_block(
         depth_value[3] = std::clamp(depth_value[3], 0.f, 1.f);
 #endif /* SWR_USE_SIMD */
 
+#ifdef DO_BENCHMARKING
+        std::uint64_t stage_depth = 0;
+        utils::clock(stage_depth);
+#endif
         states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
+#ifdef DO_BENCHMARKING
+        utils::unclock(stage_depth);
+        swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
+#endif
     }
 
     write_color &= depth_mask;

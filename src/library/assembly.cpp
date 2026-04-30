@@ -10,7 +10,6 @@
 
 /* user headers. */
 #include "swr_internal.h"
-#include "culling.h"
 
 namespace swr
 {
@@ -154,8 +153,21 @@ static bool face_cull_polygon(swr::cull_face_direction cull_mode, swr::front_fac
     return false;
 }
 
+/** check if a given face orientation should be rejected based on the cull mode. */
+static bool cull_reject(cull_face_direction mode, cull_face_direction test_direction)
+{
+    return (mode == cull_face_direction::front_and_back) || (mode == test_direction);
+}
+
 void render_context::assemble_primitives(const render_states* states, vertex_buffer_mode mode, vertex_buffer& vb)
 {
+#ifdef DO_BENCHMARKING
+    std::uint64_t tri_input_count = 0;
+    std::uint64_t tri_cull_degenerate_count = 0;
+    std::uint64_t tri_cull_face_count = 0;
+    std::uint64_t tri_submit_count = 0;
+#endif
+
     // choose drawing mode.
     if(mode == vertex_buffer_mode::points
        || states->poly_mode == polygon_mode::point)
@@ -238,15 +250,40 @@ void render_context::assemble_primitives(const render_states* states, vertex_buf
                 auto& v2 = vb[i + 1];
                 auto& v3 = vb[i + 2];
 
-                // triangle culling.
-                cull_face_direction orient = get_face_orientation(states->front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
-                if(states->culling_enabled && cull_reject(states->cull_mode, orient))
+#ifdef DO_BENCHMARKING
+                ++tri_input_count;
+#endif
+
+                const int area_sign = triangle_area_sign(v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
+                if(area_sign == 0)
                 {
-                    // reject
+#ifdef DO_BENCHMARKING
+                    ++tri_cull_degenerate_count;
+#endif
                     continue;
                 }
 
-                rasterizer->add_triangle(states, orient == cull_face_direction::front, &v1, &v2, &v3);
+                const bool is_front_facing =
+                  (states->front_face == front_face_orientation::cw && area_sign >= 0)
+                  || (states->front_face == front_face_orientation::ccw && area_sign <= 0);
+
+                const cull_face_direction orient = is_front_facing
+                                                     ? cull_face_direction::front
+                                                     : cull_face_direction::back;
+
+                if(states->culling_enabled && cull_reject(states->cull_mode, orient))
+                {
+                    // reject
+#ifdef DO_BENCHMARKING
+                    ++tri_cull_face_count;
+#endif
+                    continue;
+                }
+
+                rasterizer->add_triangle(states, is_front_facing, &v1, &v2, &v3);
+#ifdef DO_BENCHMARKING
+                ++tri_submit_count;
+#endif
             }
         }
         else
@@ -255,6 +292,17 @@ void render_context::assemble_primitives(const render_states* states, vertex_buf
             assert(states->poly_mode == polygon_mode::line || states->poly_mode == polygon_mode::fill);
         }
     }
+
+#ifdef DO_BENCHMARKING
+    if(mode == vertex_buffer_mode::triangles
+       && states->poly_mode == polygon_mode::fill)
+    {
+        profile_triangles_input.fetch_add(tri_input_count, std::memory_order_relaxed);
+        profile_triangles_culled_degenerate.fetch_add(tri_cull_degenerate_count, std::memory_order_relaxed);
+        profile_triangles_culled_face.fetch_add(tri_cull_face_count, std::memory_order_relaxed);
+        profile_triangles_submitted.fetch_add(tri_submit_count, std::memory_order_relaxed);
+    }
+#endif
 }
 
 } /* namespace impl */

@@ -11,12 +11,13 @@
 namespace rast
 {
 
+#ifndef SWR_TILE_CACHE_PRIMITIVE_CAPACITY
+#    define SWR_TILE_CACHE_PRIMITIVE_CAPACITY 1024
+#endif
+
 /** primitive data associated to a tile. currently only implemented for triangles. */
 class tile_info
 {
-    /** shader storage */
-    std::vector<std::byte> shader_storage;
-
 public:
     /** rasterization modes for this block. */
     enum class rasterization_mode
@@ -31,8 +32,8 @@ public:
     /** shader. */
     const swr::program_base* shader;
 
-    /** barycentric coordinates and steps for this block. */
-    geom::barycentric_coordinate_block lambdas;
+    /** barycentric coordinates and steps for checked rasterization mode. */
+    geom::barycentric_coordinate_block checked_lambdas{};
 
     /** whether this corresponding triangle is front-facing. */
     bool front_facing{true};
@@ -47,23 +48,8 @@ public:
     tile_info() = default;
     tile_info(tile_info&&) = default;
 
-    tile_info(const tile_info& other)
-    : shader_storage{other.shader->size()}
-    , states{other.states}
-    , shader{other.shader->create_fragment_shader_instance(shader_storage.data(), other.states->uniforms, other.states->texture_2d_samplers)}
-    , lambdas{other.lambdas}
-    , front_facing{other.front_facing}
-    , attributes{other.attributes}
-    , mode{other.mode}
-    {
-    }
-
-    ~tile_info()
-    {
-        shader->~program_base();
-    }
-
-    tile_info& operator=(const tile_info&) = delete;
+    tile_info(const tile_info&) = default;
+    tile_info& operator=(const tile_info&) = default;
     tile_info& operator=(tile_info&&) = default;
 
     /**
@@ -73,26 +59,85 @@ public:
      */
     tile_info(
       const swr::impl::render_states* in_states,
+      const swr::program_base* in_shader,
       const geom::barycentric_coordinate_block& in_lambdas,
       const triangle_interpolator& in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
-    : shader_storage{in_states->shader_info->shader->size()}
-    , states{in_states}
-    , shader{in_states->shader_info->shader->create_fragment_shader_instance(shader_storage.data(), in_states->uniforms, in_states->texture_2d_samplers)}
-    , lambdas{in_lambdas}
+    : states{in_states}
+    , shader{in_shader}
     , front_facing{in_front_facing}
     , attributes{in_attributes}
     , mode{in_mode}
     {
+        if(mode == rasterization_mode::checked)
+        {
+            checked_lambdas = in_lambdas;
+        }
     }
 };
 
 /** a tile waiting to be processed. currently only used for triangles. */
 struct tile
 {
+    struct tile_fragment_shader_instance
+    {
+        const swr::impl::render_states* states{nullptr};
+        std::vector<std::byte> shader_storage;
+        const swr::program_base* shader{nullptr};
+
+        tile_fragment_shader_instance() = default;
+        tile_fragment_shader_instance(const tile_fragment_shader_instance&) = delete;
+        tile_fragment_shader_instance& operator=(const tile_fragment_shader_instance&) = delete;
+
+        tile_fragment_shader_instance(tile_fragment_shader_instance&& other) noexcept
+        : states{other.states}
+        , shader_storage{std::move(other.shader_storage)}
+        , shader{other.shader}
+        {
+            other.shader = nullptr;
+            other.states = nullptr;
+        }
+
+        tile_fragment_shader_instance& operator=(tile_fragment_shader_instance&& other) noexcept
+        {
+            if(this != &other)
+            {
+                if(shader)
+                {
+                    shader->~program_base();
+                }
+                states = other.states;
+                shader_storage = std::move(other.shader_storage);
+                shader = other.shader;
+                other.shader = nullptr;
+                other.states = nullptr;
+            }
+            return *this;
+        }
+
+        explicit tile_fragment_shader_instance(const swr::impl::render_states* in_states)
+        : states{in_states}
+        , shader_storage{in_states->shader_info->shader->size()}
+        , shader{in_states->shader_info->shader->create_fragment_shader_instance(
+            shader_storage.data(),
+            in_states->uniforms,
+            in_states->texture_2d_samplers)}
+        {
+        }
+
+        ~tile_fragment_shader_instance()
+        {
+            if(shader)
+            {
+                shader->~program_base();
+            }
+        }
+    };
+
     /** maximum number of primitives for a tile. */
-    constexpr static int max_primitive_count = 32;
+    constexpr static int max_primitive_count = SWR_TILE_CACHE_PRIMITIVE_CAPACITY;
+    static_assert(max_primitive_count > 0, "SWR_TILE_CACHE_PRIMITIVE_CAPACITY must be > 0");
 
     /** viewport x coordinate of the upper-left corner. */
     unsigned int x{0};
@@ -102,6 +147,7 @@ struct tile
 
     /** primitives associated to this tile. */
     boost::container::static_vector<tile_info, max_primitive_count> primitives;
+    std::vector<tile_fragment_shader_instance, utils::allocator<tile_fragment_shader_instance>> shader_instances;
 
     /** constructors. */
     tile() = default;
@@ -116,6 +162,20 @@ struct tile
     : x{in_x}
     , y{in_y}
     {
+    }
+
+    const swr::program_base* get_fragment_shader(const swr::impl::render_states* in_states)
+    {
+        for(auto& it: shader_instances)
+        {
+            if(it.states == in_states)
+            {
+                return it.shader;
+            }
+        }
+
+        shader_instances.emplace_back(in_states);
+        return shader_instances.back().shader;
     }
 };
 
@@ -168,8 +228,23 @@ struct tile_cache
         }
     }
 
+    void clear_shader_instances()
+    {
+        for(auto& it: entries)
+        {
+            it.shader_instances.clear();
+        }
+    }
+
     /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
-    bool add_triangle(unsigned int in_x, unsigned int in_y, const tile_info& info)
+    bool add_triangle(
+      unsigned int in_x,
+      unsigned int in_y,
+      const swr::impl::render_states* in_states,
+      const geom::barycentric_coordinate_block& in_lambdas,
+      const triangle_interpolator& in_attributes,
+      bool in_front_facing,
+      tile_info::rasterization_mode in_mode)
     {
         // find the tile's coordinates.
         unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
@@ -183,9 +258,16 @@ struct tile_cache
             return true;
         }
 
-        // add triangle to the primitives list.
-        // NOTE no std::move here, since the copy creates the shader instance
-        auto& triangle_ref = tile.primitives.emplace_back(info);
+        const swr::program_base* shader = tile.get_fragment_shader(in_states);
+
+        // add triangle to the primitives list in-place.
+        auto& triangle_ref = tile.primitives.emplace_back(
+          in_states,
+          shader,
+          in_lambdas,
+          in_attributes,
+          in_front_facing,
+          in_mode);
 
         // set up triangle attributes.
         triangle_ref.attributes.setup_block_processing();

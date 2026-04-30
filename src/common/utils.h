@@ -13,6 +13,7 @@
 #include <algorithm> /* std::find */
 #include <bit>       /* std::bit_ceil */
 #include <cassert>   /* assert */
+#include <chrono>
 #include <cstring>   /* std::memcpy */
 #include <list>
 #include <limits> /* std::numeric_limits<std::size_t>::max() */
@@ -319,10 +320,18 @@ namespace utils
 /** read the time stamp counter */
 inline std::uint64_t get_tsc()
 {
+#if defined(__x86_64__) || defined(_M_X64)
     lfence();
     std::uint64_t ret = rdtsc();
     lfence();
     return ret;
+#else
+    // Fallback for non-x86 targets (e.g. ARM): monotonic nanoseconds.
+    return static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch())
+        .count());
+#endif
 }
 
 /** start a measurement. */
