@@ -13,6 +13,7 @@ option(SWR_BUILD_APP "Build swr app" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_TESTS "Build swr tests" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_ENABLE_PIPELINE_PROFILING "Enable rdtsc-based pipeline profiling counters in swrast (DO_BENCHMARKING)" OFF)
+option(SWR_ENABLE_DEV_BENCH_TESTS "Enable development performance benchmark tests in CTest." OFF)
 set(SWR_TILE_CACHE_PRIMITIVE_CAPACITY "1024" CACHE STRING "Max primitive entries per rasterizer tile cache bucket")
 set(SWR_RASTERIZER_BLOCK_SHIFT "5" CACHE STRING "Rasterizer tile block shift (4=16px, 5=32px, 6=64px)")
 

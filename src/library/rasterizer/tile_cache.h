@@ -148,6 +148,8 @@ struct tile
     boost::container::static_vector<triangle_interpolator, max_primitive_count> primitive_attributes;
     boost::container::static_vector<geom::barycentric_coordinate_block, max_primitive_count> primitive_checked_lambdas;
     std::vector<tile_fragment_shader_instance, utils::allocator<tile_fragment_shader_instance>> shader_instances;
+    const swr::impl::render_states* last_shader_state{nullptr};
+    std::size_t last_shader_index{0};
 
     /** constructors. */
     tile() = default;
@@ -166,6 +168,16 @@ struct tile
 
     std::size_t get_fragment_shader_index(const swr::impl::render_states* in_states)
     {
+        if(last_shader_state == in_states
+           && last_shader_index < shader_instances.size()
+           && shader_instances[last_shader_index].states == in_states)
+        {
+#ifdef DO_BENCHMARKING
+            swr::impl::profile_tile_shader_instance_probe_steps.fetch_add(1, std::memory_order_relaxed);
+#endif
+            return last_shader_index;
+        }
+
         for(std::size_t i = 0; i < shader_instances.size(); ++i)
         {
 #ifdef DO_BENCHMARKING
@@ -173,12 +185,16 @@ struct tile
 #endif
             if(shader_instances[i].states == in_states)
             {
+                last_shader_state = in_states;
+                last_shader_index = i;
                 return i;
             }
         }
 
         shader_instances.emplace_back(in_states);
-        return shader_instances.size() - 1;
+        last_shader_state = in_states;
+        last_shader_index = shader_instances.size() - 1;
+        return last_shader_index;
     }
 };
 
@@ -238,6 +254,8 @@ struct tile_cache
         for(auto& it: entries)
         {
             it.shader_instances.clear();
+            it.last_shader_state = nullptr;
+            it.last_shader_index = 0;
         }
     }
 
