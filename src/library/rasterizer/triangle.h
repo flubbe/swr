@@ -232,19 +232,14 @@ bounding_box compute_triangle_bounds(
 }
 
 template<typename F>
-inline void for_each_covered_triangle_block(
+inline void for_each_covered_triangle_block_with_bounds(
   const swr::impl::render_states& states,
+  const bounding_box& bounds,
   const triangle_info& info,
   const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
   float polygon_offset,
-  bool y_needs_flip,
   F&& f)
 {
-    const bounding_box bounds = compute_triangle_bounds(
-      states,
-      info,
-      y_needs_flip);
-
     const auto start_coord = ml::vec2_fixed<4>{
       ml::fixed_28_4_t{bounds.start_x} + ml::fixed_28_4_t{0.5f},
       ml::fixed_28_4_t{bounds.start_y} + ml::fixed_28_4_t{0.5f}};
@@ -308,6 +303,28 @@ inline void for_each_covered_triangle_block(
 
         attributes.advance_y(swr::impl::rasterizer_block_size);
     }
+}
+
+template<typename F>
+inline void for_each_covered_triangle_block(
+  const swr::impl::render_states& states,
+  const triangle_info& info,
+  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  float polygon_offset,
+  bool y_needs_flip,
+  F&& f)
+{
+    const bounding_box bounds = compute_triangle_bounds(
+      states,
+      info,
+      y_needs_flip);
+    for_each_covered_triangle_block_with_bounds(
+      states,
+      bounds,
+      info,
+      base_varyings,
+      polygon_offset,
+      std::forward<F>(f));
 }
 
 }    // namespace rast

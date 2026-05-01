@@ -332,34 +332,32 @@ void sweep_rasterizer::draw_filled_triangle(
 
     const bool y_needs_flip = states.draw_target == framebuffer;
 #ifdef SWR_ENABLE_MULTI_THREADING
+    const bool has_pending_tile_work = !tiles.active_tile_indices.empty();
     const bool allow_direct_block_path =
-      !thread_pool || thread_pool->get_thread_count() <= 1;
+      !thread_pool || thread_pool->get_thread_count() <= 1 || !has_pending_tile_work;
 #else
     const bool allow_direct_block_path = true;
 #endif
-    bool is_single_block_triangle = false;
-    if(allow_direct_block_path)
-    {
-        const bounding_box bounds = compute_triangle_bounds(
-          states,
-          info,
-          y_needs_flip);
-        is_single_block_triangle =
-          (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
-          && (bounds.end_y - bounds.start_y) == static_cast<int>(swr::impl::rasterizer_block_size);
-    }
+    const bounding_box bounds = compute_triangle_bounds(
+      states,
+      info,
+      y_needs_flip);
+    const bool is_single_block_triangle =
+      allow_direct_block_path
+      && (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
+      && (bounds.end_y - bounds.start_y) == static_cast<int>(swr::impl::rasterizer_block_size);
 
 #ifdef DO_BENCHMARKING
     std::uint64_t triangle_tile_ref_count = 0;
     std::uint64_t triangle_block_tile_ref_count = 0;
     std::uint64_t triangle_checked_tile_ref_count = 0;
 #endif
-    for_each_covered_triangle_block(
+    for_each_covered_triangle_block_with_bounds(
       states,
+      bounds,
       info,
       v0.varyings,
       polygon_offset,
-      y_needs_flip,
       [&](int x,
           int y,
           const geom::barycentric_coordinate_block& lambdas_box,

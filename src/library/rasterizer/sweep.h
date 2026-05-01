@@ -126,17 +126,14 @@ class sweep_rasterizer : public rasterizer
         for(const auto tile_index: tiles.active_tile_indices)
         {
             auto& entry = tiles.entries[tile_index];
-            if(entry.primitives.size())
-            {
 #    ifdef DO_BENCHMARKING
-                ++nonempty_tiles;
-                primitive_count += entry.primitives.size();
+            ++nonempty_tiles;
+            primitive_count += entry.primitives.size();
 #    endif
-                thread_pool->push_task(
-                  process_tile_static,
-                  this,
-                  &entry);
-            }
+            thread_pool->push_task(
+              process_tile_static,
+              this,
+              &entry);
         }
 
 #    ifdef DO_BENCHMARKING
@@ -178,23 +175,20 @@ class sweep_rasterizer : public rasterizer
         for(const auto tile_index: tiles.active_tile_indices)
         {
             auto& entry = tiles.entries[tile_index];
-            if(entry.primitives.size())
+#    ifdef DO_BENCHMARKING
+            ++nonempty_tiles;
+            primitive_count += entry.primitives.size();
+            if(!process_started)
             {
-#    ifdef DO_BENCHMARKING
-                ++nonempty_tiles;
-                primitive_count += entry.primitives.size();
-                if(!process_started)
-                {
-                    utils::unclock(stage_scan);
-                    process_started = true;
-                }
-                utils::clock(stage_process);
-#    endif
-                process_tile(entry);
-#    ifdef DO_BENCHMARKING
-                utils::unclock(stage_process);
-#    endif
+                utils::unclock(stage_scan);
+                process_started = true;
             }
+            utils::clock(stage_process);
+#    endif
+            process_tile(entry);
+#    ifdef DO_BENCHMARKING
+            utils::unclock(stage_process);
+#    endif
         }
 
 #    ifdef DO_BENCHMARKING

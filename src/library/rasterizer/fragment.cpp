@@ -416,11 +416,13 @@ void sweep_rasterizer::process_fragment_block(
     const bool is_default_framebuffer = (states.draw_target == framebuffer);
     const int framebuffer_height = states.draw_target->properties.height;
 
+    std::uint8_t active_mask = mask;
+
     // initialize masks.
-    std::uint8_t depth_mask = mask;
+    std::uint8_t depth_mask = active_mask;
     depth_mask &= states.write_depth ? 0xF : 0;
 
-    std::uint8_t write_color = mask;
+    std::uint8_t write_color = active_mask;
     std::uint8_t write_stencil = 0x0; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to 0. */
@@ -463,9 +465,17 @@ void sweep_rasterizer::process_fragment_block(
             return;
         }
 
-        depth_mask &= scissor_mask;
-        write_color &= scissor_mask;
-        write_stencil &= scissor_mask;
+        active_mask &= scissor_mask;
+        if(active_mask == 0)
+        {
+            out.write_color = 0;
+            out.write_stencil = 0;
+            return;
+        }
+
+        depth_mask &= active_mask;
+        write_color &= active_mask;
+        write_stencil &= active_mask;
     }
 
     /*
@@ -559,7 +569,7 @@ void sweep_rasterizer::process_fragment_block(
     std::uint64_t stage_fragment_shader = 0;
     utils::clock(stage_fragment_shader);
 #endif
-    if(mask == 0xF)
+    if(active_mask == 0xF)
     {
         accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
         accept_mask |= in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
@@ -568,29 +578,29 @@ void sweep_rasterizer::process_fragment_block(
     }
     else
     {
-        if(mask & 8)
+        if(active_mask & 8)
         {
             accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
         }
-        if(mask & 4)
+        if(active_mask & 4)
         {
             accept_mask |= in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
         }
-        if(mask & 2)
+        if(active_mask & 2)
         {
             accept_mask |= in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
         }
-        if(mask & 1)
+        if(active_mask & 1)
         {
             accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
         }
     }
 #ifdef DO_BENCHMARKING
     const std::uint64_t fragment_invocations =
-      ((mask & 8) ? 1u : 0u)
-      + ((mask & 4) ? 1u : 0u)
-      + ((mask & 2) ? 1u : 0u)
-      + ((mask & 1) ? 1u : 0u);
+      ((active_mask & 8) ? 1u : 0u)
+      + ((active_mask & 4) ? 1u : 0u)
+      + ((active_mask & 2) ? 1u : 0u)
+      + ((active_mask & 1) ? 1u : 0u);
     swr::impl::profile_fragment_shader_invocations.fetch_add(fragment_invocations, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
