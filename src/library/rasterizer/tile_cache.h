@@ -206,6 +206,7 @@ struct tile_cache
 
     /** tiles. */
     std::vector<tile, utils::allocator<tile>> entries;
+    std::vector<std::uint32_t> active_tile_indices;
 
     /** constructors. */
     tile_cache() = default;
@@ -219,6 +220,7 @@ struct tile_cache
     void reset(unsigned int in_tiles_x = 0, unsigned int in_tiles_y = 0)
     {
         entries.clear();
+        active_tile_indices.clear();
         pitch = 0;
 
         if(in_tiles_x > 0 && in_tiles_y > 0)
@@ -241,12 +243,14 @@ struct tile_cache
     /** mark each tile in the cache as clear. */
     void clear_tiles()
     {
-        for(auto& it: entries)
+        for(const auto tile_index: active_tile_indices)
         {
+            auto& it = entries[tile_index];
             it.primitives.clear();
             it.primitive_attributes.clear();
             it.primitive_checked_lambdas.clear();
         }
+        active_tile_indices.clear();
     }
 
     void clear_shader_instances()
@@ -278,6 +282,10 @@ struct tile_cache
             // the cache was full.
             // FIXME this should not happen
             return true;
+        }
+        if(tile.primitives.empty())
+        {
+            active_tile_indices.push_back(tile_index);
         }
 
         const std::size_t shader_index = tile.get_fragment_shader_index(in_states);
@@ -330,6 +338,10 @@ struct tile_cache
             // the cache was full.
             // FIXME this should not happen
             return true;
+        }
+        if(tile.primitives.empty())
+        {
+            active_tile_indices.push_back(tile_index);
         }
 
         const std::size_t shader_index = tile.get_fragment_shader_index(in_states);

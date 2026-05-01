@@ -363,7 +363,6 @@ int main(int argc, char** argv)
 
         swr::BindShader(0);
         swr::Present();
-        swr::CopyDefaultColorBuffer(context);
     }
     const auto end = std::chrono::steady_clock::now();
 

@@ -119,12 +119,13 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t stage_clear = 0;
         std::uint64_t nonempty_tiles = 0;
         std::uint64_t primitive_count = 0;
-        const std::uint64_t scanned_tiles = tiles.entries.size();
+        const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
         utils::clock(stage_scan);
 #    endif
         // for each non-empty tile, add a job to the thread pool.
-        for(auto& entry: tiles.entries)
+        for(const auto tile_index: tiles.active_tile_indices)
         {
+            auto& entry = tiles.entries[tile_index];
             if(entry.primitives.size())
             {
 #    ifdef DO_BENCHMARKING
@@ -169,13 +170,14 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t stage_clear = 0;
         std::uint64_t nonempty_tiles = 0;
         std::uint64_t primitive_count = 0;
-        const std::uint64_t scanned_tiles = tiles.entries.size();
+        const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
         bool process_started = false;
         utils::clock(stage_scan);
 #    endif
         // for each non-empty tile, add a job to the thread pool.
-        for(auto& entry: tiles.entries)
+        for(const auto tile_index: tiles.active_tile_indices)
         {
+            auto& entry = tiles.entries[tile_index];
             if(entry.primitives.size())
             {
 #    ifdef DO_BENCHMARKING
