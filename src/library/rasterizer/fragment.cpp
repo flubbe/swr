@@ -550,49 +550,75 @@ void sweep_rasterizer::process_fragment_block(
     const float fx1 = static_cast<float>(x1) - pixel_center.x;
     const float fy0 = static_cast<float>(y0) - pixel_center.y;
     const float fy1 = static_cast<float>(y1) - pixel_center.y;
-    std::array<ml::vec4, 4> frag_coord = {
-      ml::vec4{fx0, fy0, depth_value[0], z[0]},
-      ml::vec4{fx1, fy0, depth_value[1], z[1]},
-      ml::vec4{fx0, fy1, depth_value[2], z[2]},
-      ml::vec4{fx1, fy1, depth_value[3], z[3]}};
-
-    if(is_default_framebuffer)
-    {
-        frag_coord[0].y = framebuffer_height - frag_coord[0].y;
-        frag_coord[1].y = framebuffer_height - frag_coord[1].y;
-        frag_coord[2].y = framebuffer_height - frag_coord[2].y;
-        frag_coord[3].y = framebuffer_height - frag_coord[3].y;
-    }
-
     std::uint8_t accept_mask = 0;
 #ifdef DO_BENCHMARKING
     std::uint64_t stage_fragment_shader = 0;
     utils::clock(stage_fragment_shader);
 #endif
+
+    auto make_frag_coord = [&](int lane) -> ml::vec4
+    {
+        float fx = fx0;
+        float fy = fy0;
+        switch(lane)
+        {
+            case 1:
+                fx = fx1;
+                fy = fy0;
+                break;
+            case 2:
+                fx = fx0;
+                fy = fy1;
+                break;
+            case 3:
+                fx = fx1;
+                fy = fy1;
+                break;
+            default:
+                break;
+        }
+
+        if(is_default_framebuffer)
+        {
+            fy = framebuffer_height - fy;
+        }
+
+        return {fx, fy, depth_value[lane], z[lane]};
+    };
+
     if(active_mask == 0xF)
     {
-        accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
-        accept_mask |= in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
-        accept_mask |= in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
-        accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
+        ml::vec4 frag_coord0 = make_frag_coord(0);
+        ml::vec4 frag_coord1 = make_frag_coord(1);
+        ml::vec4 frag_coord2 = make_frag_coord(2);
+        ml::vec4 frag_coord3 = make_frag_coord(3);
+
+        accept_mask |= in_shader->fragment_shader(frag_coord0, frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
+        accept_mask |= in_shader->fragment_shader(frag_coord1, frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
+        accept_mask |= in_shader->fragment_shader(frag_coord2, frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
+        accept_mask |= in_shader->fragment_shader(frag_coord3, frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
     }
     else
     {
         if(active_mask & 8)
         {
-            accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
+            ml::vec4 frag_coord0 = make_frag_coord(0);
+            accept_mask |= in_shader->fragment_shader(frag_coord0, frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
         }
         if(active_mask & 4)
         {
-            accept_mask |= in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
+            ml::vec4 frag_coord1 = make_frag_coord(1);
+            accept_mask |= in_shader->fragment_shader(frag_coord1, frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
         }
         if(active_mask & 2)
         {
-            accept_mask |= in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
+            ml::vec4 frag_coord2 = make_frag_coord(2);
+            accept_mask |= in_shader->fragment_shader(frag_coord2, frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
         }
         if(active_mask & 1)
         {
-            accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
+            ml::vec4 frag_coord3 = make_frag_coord(3);
+            accept_mask |= in_shader->fragment_shader(frag_coord3, frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
         }
     }
 #ifdef DO_BENCHMARKING

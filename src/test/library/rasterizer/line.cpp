@@ -19,6 +19,7 @@
 
 /* user headers. */
 #include "rasterizer/line.h"
+#include "rasterizer/interpolators.h"
 
 /*
  * Helpers.
@@ -818,6 +819,59 @@ BOOST_AUTO_TEST_CASE(reverse_direction_consistency)
       std::back_inserter(diff));
 
     BOOST_CHECK(diff.size() <= 2);
+}
+
+BOOST_AUTO_TEST_CASE(varying_interpolation_smooth_and_flat)
+{
+    geom::vertex v1{};
+    geom::vertex v2{};
+    geom::vertex v_ref{};
+
+    v1.coords = {0.0f, 0.0f, 0.0f, 1.0f};
+    v2.coords = {4.0f, 0.0f, 0.0f, 1.0f};
+    v_ref.coords = v1.coords;
+
+    v1.varyings.emplace_back(ml::vec4{2.0f, 0.0f, 0.0f, 0.0f});
+    v2.varyings.emplace_back(ml::vec4{10.0f, 0.0f, 0.0f, 0.0f});
+    v_ref.varyings.emplace_back(ml::vec4{42.0f, 0.0f, 0.0f, 0.0f});
+
+    boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings> iqs;
+    iqs.emplace_back(swr::interpolation_qualifier::smooth);
+
+    rast::line_interpolator smooth_attr{
+      v1,
+      v2,
+      v_ref,
+      iqs,
+      1.0f / 4.0f};
+
+    for(int i = 0; i <= 4; ++i)
+    {
+        const float expected_x = 2.0f + 2.0f * i;
+        BOOST_CHECK_SMALL(smooth_attr.varyings[0].value.x - expected_x, 1e-6f);
+        if(i != 4)
+        {
+            smooth_attr.advance();
+        }
+    }
+
+    iqs[0] = swr::interpolation_qualifier::flat;
+
+    rast::line_interpolator flat_attr{
+      v1,
+      v2,
+      v_ref,
+      iqs,
+      1.0f / 4.0f};
+
+    for(int i = 0; i <= 4; ++i)
+    {
+        BOOST_CHECK_SMALL(flat_attr.varyings[0].value.x - 42.0f, 1e-6f);
+        if(i != 4)
+        {
+            flat_attr.advance();
+        }
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END();
