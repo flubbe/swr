@@ -119,6 +119,8 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t stage_clear = 0;
         std::uint64_t nonempty_tiles = 0;
         std::uint64_t primitive_count = 0;
+        std::uint64_t max_tile_prims = 0;
+        std::uint64_t near_full_tiles = 0;
         const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
         utils::clock(stage_scan);
 #    endif
@@ -128,7 +130,13 @@ class sweep_rasterizer : public rasterizer
             auto& entry = tiles.entries[tile_index];
 #    ifdef DO_BENCHMARKING
             ++nonempty_tiles;
-            primitive_count += entry.primitives.size();
+            const std::uint64_t prims = entry.primitives.size();
+            primitive_count += prims;
+            max_tile_prims = std::max(max_tile_prims, prims);
+            if(prims + 16 >= entry.primitives.max_size())
+            {
+                ++near_full_tiles;
+            }
 #    endif
             thread_pool->push_task(
               process_tile_static,
@@ -155,6 +163,8 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_max_tile_prims.fetch_add(max_tile_prims, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_near_full_tiles.fetch_add(near_full_tiles, std::memory_order_relaxed);
 #    endif
     }
 #else /* SWR_ENABLE_MULTI_THREADING */
@@ -167,6 +177,8 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t stage_clear = 0;
         std::uint64_t nonempty_tiles = 0;
         std::uint64_t primitive_count = 0;
+        std::uint64_t max_tile_prims = 0;
+        std::uint64_t near_full_tiles = 0;
         const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
         bool process_started = false;
         utils::clock(stage_scan);
@@ -177,7 +189,13 @@ class sweep_rasterizer : public rasterizer
             auto& entry = tiles.entries[tile_index];
 #    ifdef DO_BENCHMARKING
             ++nonempty_tiles;
-            primitive_count += entry.primitives.size();
+            const std::uint64_t prims = entry.primitives.size();
+            primitive_count += prims;
+            max_tile_prims = std::max(max_tile_prims, prims);
+            if(prims + 16 >= entry.primitives.max_size())
+            {
+                ++near_full_tiles;
+            }
             if(!process_started)
             {
                 utils::unclock(stage_scan);
@@ -208,9 +226,12 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_max_tile_prims.fetch_add(max_tile_prims, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_near_full_tiles.fetch_add(near_full_tiles, std::memory_order_relaxed);
 #    endif
     }
 #endif /* SWR_ENABLE_MULTI_THREADING */
+
 
     /*
      * fragment processing.

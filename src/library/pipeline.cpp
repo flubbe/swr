@@ -56,6 +56,27 @@ std::atomic<std::uint64_t> profile_raster_direct_blocks{0};
 std::atomic<std::uint64_t> profile_interp_varying_copies{0};
 std::atomic<std::uint64_t> profile_fragment_shader_invocations{0};
 std::atomic<std::uint64_t> profile_tile_shader_instance_probe_steps{0};
+std::atomic<std::uint64_t> profile_clip_vertex_read_bytes{0};
+std::atomic<std::uint64_t> profile_clip_vertex_write_bytes{0};
+std::atomic<std::uint64_t> profile_raster_tile_payload_write_bytes{0};
+std::atomic<std::uint64_t> profile_raster_tile_payload_checked_write_bytes{0};
+std::atomic<std::uint64_t> profile_raster_tile_payload_block_write_bytes{0};
+std::atomic<std::uint64_t> profile_raster_tile_info_write_bytes{0};
+std::atomic<std::uint64_t> profile_raster_interp_write_bytes{0};
+std::atomic<std::uint64_t> profile_raster_checked_lambda_write_bytes{0};
+std::atomic<std::uint64_t> profile_raster_setup_triangle_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_bounds_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_iterate_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_direct_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_enqueue_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_iter_row_setup_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_iter_callback_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_cb_enqueue_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_cb_flush_inline_cycles{0};
+std::atomic<std::uint64_t> profile_raster_setup_cb_direct_cycles{0};
+std::atomic<std::uint64_t> profile_raster_flush_max_tile_prims{0};
+std::atomic<std::uint64_t> profile_raster_flush_near_full_tiles{0};
+std::atomic<std::uint64_t> profile_raster_flush_trigger_overflow_count{0};
 } /* namespace impl */
 #endif
 
@@ -99,6 +120,27 @@ struct pipeline_cycle_profile
     std::uint64_t interp_varying_copies{0};
     std::uint64_t fragment_shader_invocations{0};
     std::uint64_t tile_shader_instance_probe_steps{0};
+    std::uint64_t clip_vertex_read_bytes{0};
+    std::uint64_t clip_vertex_write_bytes{0};
+    std::uint64_t raster_tile_payload_write_bytes{0};
+    std::uint64_t raster_tile_payload_checked_write_bytes{0};
+    std::uint64_t raster_tile_payload_block_write_bytes{0};
+    std::uint64_t raster_tile_info_write_bytes{0};
+    std::uint64_t raster_interp_write_bytes{0};
+    std::uint64_t raster_checked_lambda_write_bytes{0};
+    std::uint64_t raster_setup_triangle{0};
+    std::uint64_t raster_setup_bounds{0};
+    std::uint64_t raster_setup_iterate{0};
+    std::uint64_t raster_setup_direct{0};
+    std::uint64_t raster_setup_enqueue{0};
+    std::uint64_t raster_setup_iter_row_setup{0};
+    std::uint64_t raster_setup_iter_callback{0};
+    std::uint64_t raster_setup_cb_enqueue{0};
+    std::uint64_t raster_setup_cb_flush_inline{0};
+    std::uint64_t raster_setup_cb_direct{0};
+    std::uint64_t raster_flush_max_tile_prims{0};
+    std::uint64_t raster_flush_near_full_tiles{0};
+    std::uint64_t raster_flush_trigger_overflow_count{0};
     std::uint64_t frame_count{0};
 };
 
@@ -129,15 +171,38 @@ inline void log_pipeline_profile_if_needed()
     const double scanned_tiles_per_flush = flush_count > 0.0
                                              ? static_cast<double>(g_pipeline_cycles.raster_flush_scanned_tiles) / flush_count
                                              : 0.0;
+    const double max_tile_prims_per_flush = flush_count > 0.0
+                                              ? static_cast<double>(g_pipeline_cycles.raster_flush_max_tile_prims) / flush_count
+                                              : 0.0;
+    const double near_full_tiles_per_flush = flush_count > 0.0
+                                               ? static_cast<double>(g_pipeline_cycles.raster_flush_near_full_tiles) / flush_count
+                                               : 0.0;
     const double shader_instance_probe_per_tile_ref = triangle_tile_refs > 0.0
                                                         ? static_cast<double>(g_pipeline_cycles.tile_shader_instance_probe_steps) / triangle_tile_refs
                                                         : 0.0;
     const double direct_block_ratio = triangle_tile_refs > 0.0
                                         ? static_cast<double>(g_pipeline_cycles.raster_direct_blocks) / triangle_tile_refs
                                         : 0.0;
+    const double clip_read_mib = static_cast<double>(g_pipeline_cycles.clip_vertex_read_bytes) / (1024.0 * 1024.0);
+    const double clip_write_mib = static_cast<double>(g_pipeline_cycles.clip_vertex_write_bytes) / (1024.0 * 1024.0);
+    const double tile_payload_write_mib = static_cast<double>(g_pipeline_cycles.raster_tile_payload_write_bytes) / (1024.0 * 1024.0);
+    const double tile_payload_checked_write_mib = static_cast<double>(g_pipeline_cycles.raster_tile_payload_checked_write_bytes) / (1024.0 * 1024.0);
+    const double tile_payload_block_write_mib = static_cast<double>(g_pipeline_cycles.raster_tile_payload_block_write_bytes) / (1024.0 * 1024.0);
+    const double tile_info_write_mib = static_cast<double>(g_pipeline_cycles.raster_tile_info_write_bytes) / (1024.0 * 1024.0);
+    const double interp_write_mib = static_cast<double>(g_pipeline_cycles.raster_interp_write_bytes) / (1024.0 * 1024.0);
+    const double checked_lambda_write_mib = static_cast<double>(g_pipeline_cycles.raster_checked_lambda_write_bytes) / (1024.0 * 1024.0);
+    const double setup_iter_other =
+      static_cast<double>(g_pipeline_cycles.raster_setup_iterate)
+      - static_cast<double>(g_pipeline_cycles.raster_setup_iter_row_setup)
+      - static_cast<double>(g_pipeline_cycles.raster_setup_iter_callback);
+    const double setup_cb_other =
+      static_cast<double>(g_pipeline_cycles.raster_setup_iter_callback)
+      - static_cast<double>(g_pipeline_cycles.raster_setup_cb_enqueue)
+      - static_cast<double>(g_pipeline_cycles.raster_setup_cb_flush_inline)
+      - static_cast<double>(g_pipeline_cycles.raster_setup_cb_direct);
 
     std::println(
-      "[swr][rdtsc] avg cycles/frame over {} frames: present={:.0f} vertex={:.0f} clip={:.0f} viewport={:.0f} assembly={:.0f} raster={:.0f} frag_shader={:.0f} depth={:.0f} merge={:.0f} raster_setup={:.0f} interp={:.0f} add_tri={:.0f} flush={:.0f} flush_scan={:.0f} flush_process={:.0f} flush_clear={:.0f} flush_count={:.1f} flush_tiles={:.1f} flush_prims={:.1f} scan_tiles={:.1f} scan_tiles_per_flush={:.1f} block_total={:.0f} block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} block_tile_refs={:.1f} checked_tile_refs={:.1f} block_tile_ref_ratio={:.2f} checked_tile_ref_ratio={:.2f} direct_blocks={:.1f} direct_block_ratio={:.2f} interp_var_copies={:.1f} frag_invocations={:.1f} shader_probe_steps={:.1f} probe_steps_per_tile_ref={:.2f} tile_size={}",
+      "[swr][rdtsc] avg cycles/frame over {} frames: present={:.0f} vertex={:.0f} clip={:.0f} viewport={:.0f} assembly={:.0f} raster={:.0f} frag_shader={:.0f} depth={:.0f} merge={:.0f} raster_setup={:.0f} interp={:.0f} add_tri={:.0f} flush={:.0f} flush_scan={:.0f} flush_process={:.0f} flush_clear={:.0f} flush_count={:.1f} flush_tiles={:.1f} flush_prims={:.1f} scan_tiles={:.1f} scan_tiles_per_flush={:.1f} flush_max_tile_prims={:.1f} flush_near_full_tiles={:.1f} flush_overflow_triggers={:.1f} block_total={:.0f} block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} block_tile_refs={:.1f} checked_tile_refs={:.1f} block_tile_ref_ratio={:.2f} checked_tile_ref_ratio={:.2f} direct_blocks={:.1f} direct_block_ratio={:.2f} interp_var_copies={:.1f} frag_invocations={:.1f} shader_probe_steps={:.1f} probe_steps_per_tile_ref={:.2f} clip_read_bytes={:.1f} clip_write_bytes={:.1f} tile_payload_write_bytes={:.1f} tile_payload_checked_bytes={:.1f} tile_payload_block_bytes={:.1f} tile_info_bytes={:.1f} interp_bytes={:.1f} checked_lambda_bytes={:.1f} setup_tri={:.0f} setup_bounds={:.0f} setup_iter={:.0f} setup_iter_row={:.0f} setup_iter_cb={:.0f} setup_iter_other={:.0f} setup_cb_enqueue={:.0f} setup_cb_flush={:.0f} setup_cb_direct={:.0f} setup_cb_other={:.0f} setup_direct={:.0f} setup_enqueue={:.0f} clip_read_mib={:.2f} clip_write_mib={:.2f} tile_payload_write_mib={:.2f} tile_payload_checked_mib={:.2f} tile_payload_block_mib={:.2f} tile_info_mib={:.2f} interp_mib={:.2f} checked_lambda_mib={:.2f} tile_size={}",
       profile_log_interval_frames,
       static_cast<double>(g_pipeline_cycles.present_total) / f,
       static_cast<double>(g_pipeline_cycles.vertex) / f,
@@ -160,6 +225,9 @@ inline void log_pipeline_profile_if_needed()
       static_cast<double>(g_pipeline_cycles.raster_flush_primitives) / f,
       static_cast<double>(g_pipeline_cycles.raster_flush_scanned_tiles) / f,
       scanned_tiles_per_flush,
+      max_tile_prims_per_flush,
+      near_full_tiles_per_flush,
+      static_cast<double>(g_pipeline_cycles.raster_flush_trigger_overflow_count) / f,
       static_cast<double>(g_pipeline_cycles.raster_block_total) / f,
       static_cast<double>(g_pipeline_cycles.raster_block_fragment) / f,
       static_cast<double>(g_pipeline_cycles.raster_block_merge) / f,
@@ -179,6 +247,34 @@ inline void log_pipeline_profile_if_needed()
       static_cast<double>(g_pipeline_cycles.fragment_shader_invocations) / f,
       static_cast<double>(g_pipeline_cycles.tile_shader_instance_probe_steps) / f,
       shader_instance_probe_per_tile_ref,
+      static_cast<double>(g_pipeline_cycles.clip_vertex_read_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.clip_vertex_write_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_tile_payload_write_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_tile_payload_checked_write_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_tile_payload_block_write_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_tile_info_write_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_interp_write_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_checked_lambda_write_bytes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_triangle) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_bounds) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_iterate) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_iter_row_setup) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_iter_callback) / f,
+      setup_iter_other / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_cb_enqueue) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_cb_flush_inline) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_cb_direct) / f,
+      setup_cb_other / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_direct) / f,
+      static_cast<double>(g_pipeline_cycles.raster_setup_enqueue) / f,
+      clip_read_mib / f,
+      clip_write_mib / f,
+      tile_payload_write_mib / f,
+      tile_payload_checked_write_mib / f,
+      tile_payload_block_write_mib / f,
+      tile_info_write_mib / f,
+      interp_write_mib / f,
+      checked_lambda_write_mib / f,
       impl::rasterizer_block_size);
 
     g_pipeline_cycles.vertex = 0;
@@ -215,6 +311,27 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.interp_varying_copies = 0;
     g_pipeline_cycles.fragment_shader_invocations = 0;
     g_pipeline_cycles.tile_shader_instance_probe_steps = 0;
+    g_pipeline_cycles.clip_vertex_read_bytes = 0;
+    g_pipeline_cycles.clip_vertex_write_bytes = 0;
+    g_pipeline_cycles.raster_tile_payload_write_bytes = 0;
+    g_pipeline_cycles.raster_tile_payload_checked_write_bytes = 0;
+    g_pipeline_cycles.raster_tile_payload_block_write_bytes = 0;
+    g_pipeline_cycles.raster_tile_info_write_bytes = 0;
+    g_pipeline_cycles.raster_interp_write_bytes = 0;
+    g_pipeline_cycles.raster_checked_lambda_write_bytes = 0;
+    g_pipeline_cycles.raster_setup_triangle = 0;
+    g_pipeline_cycles.raster_setup_bounds = 0;
+    g_pipeline_cycles.raster_setup_iterate = 0;
+    g_pipeline_cycles.raster_setup_iter_row_setup = 0;
+    g_pipeline_cycles.raster_setup_iter_callback = 0;
+    g_pipeline_cycles.raster_setup_cb_enqueue = 0;
+    g_pipeline_cycles.raster_setup_cb_flush_inline = 0;
+    g_pipeline_cycles.raster_setup_cb_direct = 0;
+    g_pipeline_cycles.raster_flush_max_tile_prims = 0;
+    g_pipeline_cycles.raster_flush_near_full_tiles = 0;
+    g_pipeline_cycles.raster_flush_trigger_overflow_count = 0;
+    g_pipeline_cycles.raster_setup_direct = 0;
+    g_pipeline_cycles.raster_setup_enqueue = 0;
 }
 
 } /* anonymous namespace */
@@ -830,6 +947,27 @@ void Present()
     g_pipeline_cycles.interp_varying_copies += impl::profile_interp_varying_copies.exchange(0, std::memory_order_relaxed);
     g_pipeline_cycles.fragment_shader_invocations += impl::profile_fragment_shader_invocations.exchange(0, std::memory_order_relaxed);
     g_pipeline_cycles.tile_shader_instance_probe_steps += impl::profile_tile_shader_instance_probe_steps.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.clip_vertex_read_bytes += impl::profile_clip_vertex_read_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.clip_vertex_write_bytes += impl::profile_clip_vertex_write_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_tile_payload_write_bytes += impl::profile_raster_tile_payload_write_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_tile_payload_checked_write_bytes += impl::profile_raster_tile_payload_checked_write_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_tile_payload_block_write_bytes += impl::profile_raster_tile_payload_block_write_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_tile_info_write_bytes += impl::profile_raster_tile_info_write_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_interp_write_bytes += impl::profile_raster_interp_write_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_checked_lambda_write_bytes += impl::profile_raster_checked_lambda_write_bytes.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_triangle += impl::profile_raster_setup_triangle_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_bounds += impl::profile_raster_setup_bounds_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_iterate += impl::profile_raster_setup_iterate_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_iter_row_setup += impl::profile_raster_setup_iter_row_setup_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_iter_callback += impl::profile_raster_setup_iter_callback_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_cb_enqueue += impl::profile_raster_setup_cb_enqueue_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_cb_flush_inline += impl::profile_raster_setup_cb_flush_inline_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_cb_direct += impl::profile_raster_setup_cb_direct_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_max_tile_prims += impl::profile_raster_flush_max_tile_prims.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_near_full_tiles += impl::profile_raster_flush_near_full_tiles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_flush_trigger_overflow_count += impl::profile_raster_flush_trigger_overflow_count.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_direct += impl::profile_raster_setup_direct_cycles.exchange(0, std::memory_order_relaxed);
+    g_pipeline_cycles.raster_setup_enqueue += impl::profile_raster_setup_enqueue_cycles.exchange(0, std::memory_order_relaxed);
     ++g_pipeline_cycles.frame_count;
     log_pipeline_profile_if_needed();
 #endif

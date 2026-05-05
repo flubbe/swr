@@ -240,6 +240,10 @@ inline void for_each_covered_triangle_block_with_bounds(
   float polygon_offset,
   F&& f)
 {
+#ifdef DO_BENCHMARKING
+    std::uint64_t stage_row_setup = 0;
+    std::uint64_t stage_callback = 0;
+#endif
     const auto start_coord = ml::vec2_fixed<4>{
       ml::fixed_28_4_t{bounds.start_x} + ml::fixed_28_4_t{0.5f},
       ml::fixed_28_4_t{bounds.start_y} + ml::fixed_28_4_t{0.5f}};
@@ -267,6 +271,10 @@ inline void for_each_covered_triangle_block_with_bounds(
 
     for(auto y = bounds.start_y; y < bounds.end_y; y += swr::impl::rasterizer_block_size)
     {
+#ifdef DO_BENCHMARKING
+        std::uint64_t row_setup_cycles = 0;
+        utils::clock(row_setup_cycles);
+#endif
         geom::barycentric_coordinate_block lambdas_box{
           lambda_row_top_left[0].value, lambda_row_top_left[0].step,
           lambda_row_top_left[1].value, lambda_row_top_left[1].step,
@@ -276,6 +284,10 @@ inline void for_each_covered_triangle_block_with_bounds(
           swr::impl::rasterizer_block_size);
 
         rast::triangle_interpolator attributes_row = attributes;
+#ifdef DO_BENCHMARKING
+        utils::unclock(row_setup_cycles);
+        stage_row_setup += row_setup_cycles;
+#endif
 
         for(auto x = bounds.start_x; x < bounds.end_x; x += swr::impl::rasterizer_block_size)
         {
@@ -290,7 +302,15 @@ inline void for_each_covered_triangle_block_with_bounds(
                 const auto mode =
                   static_cast<tile_info::rasterization_mode>(static_cast<int>(mask != 0xf));
 
+#ifdef DO_BENCHMARKING
+                std::uint64_t callback_cycles = 0;
+                utils::clock(callback_cycles);
+#endif
                 f(x, y, lambdas_box, attributes_row, mode);
+#ifdef DO_BENCHMARKING
+                utils::unclock(callback_cycles);
+                stage_callback += callback_cycles;
+#endif
             }
 
             lambdas_box.step_x(swr::impl::rasterizer_block_size);
@@ -303,6 +323,10 @@ inline void for_each_covered_triangle_block_with_bounds(
 
         attributes.advance_y(swr::impl::rasterizer_block_size);
     }
+#ifdef DO_BENCHMARKING
+    swr::impl::profile_raster_setup_iter_row_setup_cycles.fetch_add(stage_row_setup, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_iter_callback_cycles.fetch_add(stage_callback, std::memory_order_relaxed);
+#endif
 }
 
 template<typename F>

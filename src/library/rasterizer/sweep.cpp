@@ -191,6 +191,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
     }
 }
 
+
 #ifdef SWR_ENABLE_MULTI_THREADING
 
 void sweep_rasterizer::process_tile_static(

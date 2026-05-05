@@ -293,16 +293,29 @@ struct tile_cache
         auto& checked_lambdas_ref = tile.primitive_checked_lambdas.emplace_back(in_lambdas);
 
         // add triangle to the primitives list in-place.
-        auto& triangle_ref = tile.primitives.emplace_back(
+        tile.primitives.emplace_back(
           in_states,
           shader_index,
           &checked_lambdas_ref,
           &attributes_ref,
           in_front_facing,
           tile_info::rasterization_mode::checked);
-
-        // set up triangle attributes.
-        triangle_ref.attributes->setup_block_processing();
+#ifdef DO_BENCHMARKING
+        constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
+        constexpr std::uint64_t interp_bytes = sizeof(triangle_interpolator);
+        constexpr std::uint64_t checked_lambda_bytes = sizeof(geom::barycentric_coordinate_block);
+        const std::uint64_t checked_payload_bytes =
+          static_cast<std::uint64_t>(tile_info_bytes + interp_bytes + checked_lambda_bytes);
+        swr::impl::profile_raster_tile_payload_write_bytes.fetch_add(
+          checked_payload_bytes,
+          std::memory_order_relaxed);
+        swr::impl::profile_raster_tile_payload_checked_write_bytes.fetch_add(
+          checked_payload_bytes,
+          std::memory_order_relaxed);
+        swr::impl::profile_raster_tile_info_write_bytes.fetch_add(tile_info_bytes, std::memory_order_relaxed);
+        swr::impl::profile_raster_interp_write_bytes.fetch_add(interp_bytes, std::memory_order_relaxed);
+        swr::impl::profile_raster_checked_lambda_write_bytes.fetch_add(checked_lambda_bytes, std::memory_order_relaxed);
+#endif
 
         return tile.primitives.size() == tile.primitives.max_size();
     }
@@ -348,16 +361,27 @@ struct tile_cache
         auto& attributes_ref = tile.primitive_attributes.emplace_back(in_attributes);
 
         // add triangle to the primitives list in-place.
-        auto& triangle_ref = tile.primitives.emplace_back(
+        tile.primitives.emplace_back(
           in_states,
           shader_index,
           nullptr,
           &attributes_ref,
           in_front_facing,
           in_mode);
-
-        // set up triangle attributes.
-        triangle_ref.attributes->setup_block_processing();
+#ifdef DO_BENCHMARKING
+        constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
+        constexpr std::uint64_t interp_bytes = sizeof(triangle_interpolator);
+        const std::uint64_t block_payload_bytes =
+          static_cast<std::uint64_t>(tile_info_bytes + interp_bytes);
+        swr::impl::profile_raster_tile_payload_write_bytes.fetch_add(
+          block_payload_bytes,
+          std::memory_order_relaxed);
+        swr::impl::profile_raster_tile_payload_block_write_bytes.fetch_add(
+          block_payload_bytes,
+          std::memory_order_relaxed);
+        swr::impl::profile_raster_tile_info_write_bytes.fetch_add(tile_info_bytes, std::memory_order_relaxed);
+        swr::impl::profile_raster_interp_write_bytes.fetch_add(interp_bytes, std::memory_order_relaxed);
+#endif
 
         return tile.primitives.size() == tile.primitives.max_size();
     }

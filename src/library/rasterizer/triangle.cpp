@@ -36,6 +36,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
       temp_varyings;
     assert(in_data.attributes);
     auto& attributes = *in_data.attributes;
+    attributes.setup_block_processing();
     const std::size_t varying_count = attributes.varyings.size();
     temp_varyings[0].resize(varying_count);
     temp_varyings[1].resize(varying_count);
@@ -141,6 +142,7 @@ void sweep_rasterizer::process_block_checked(
       temp_varyings;
     assert(in_data.attributes);
     auto& attributes = *in_data.attributes;
+    attributes.setup_block_processing();
     const std::size_t varying_count = attributes.varyings.size();
     temp_varyings[0].resize(varying_count);
     temp_varyings[1].resize(varying_count);
@@ -312,14 +314,29 @@ void sweep_rasterizer::draw_filled_triangle(
 {
 #ifdef DO_BENCHMARKING
     std::uint64_t stage_raster_setup = 0;
+    std::uint64_t stage_setup_triangle = 0;
+    std::uint64_t stage_setup_bounds = 0;
+    std::uint64_t stage_setup_iterate = 0;
+    std::uint64_t stage_setup_direct = 0;
+    std::uint64_t stage_setup_enqueue = 0;
+    std::uint64_t stage_cb_enqueue = 0;
+    std::uint64_t stage_cb_flush_inline = 0;
+    std::uint64_t stage_cb_direct = 0;
     utils::clock(stage_raster_setup);
 #endif
+#ifdef DO_BENCHMARKING
+    utils::clock(stage_setup_triangle);
+#endif
     triangle_info info = setup_triangle(v0, v1, v2);
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_setup_triangle);
+#endif
     if(info.is_degenerate)
     {
 #ifdef DO_BENCHMARKING
         utils::unclock(stage_raster_setup);
         swr::impl::profile_raster_setup_cycles.fetch_add(stage_raster_setup, std::memory_order_relaxed);
+        swr::impl::profile_raster_setup_triangle_cycles.fetch_add(stage_setup_triangle, std::memory_order_relaxed);
 #endif
         return;
     }
@@ -338,10 +355,17 @@ void sweep_rasterizer::draw_filled_triangle(
 #else
     const bool allow_direct_block_path = true;
 #endif
+#ifdef DO_BENCHMARKING
+    utils::clock(stage_setup_bounds);
+#endif
     const bounding_box bounds = compute_triangle_bounds(
       states,
       info,
       y_needs_flip);
+#ifdef DO_BENCHMARKING
+    utils::unclock(stage_setup_bounds);
+    utils::clock(stage_setup_iterate);
+#endif
     const bool is_single_block_triangle =
       allow_direct_block_path
       && (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
@@ -372,6 +396,8 @@ void sweep_rasterizer::draw_filled_triangle(
           if(is_single_block_triangle && allow_direct_block_path)
           {
 #ifdef DO_BENCHMARKING
+              std::uint64_t stage_direct = 0;
+              utils::clock(stage_direct);
               swr::impl::profile_raster_direct_blocks.fetch_add(1, std::memory_order_relaxed);
 #endif
               const std::size_t tile_index =
@@ -407,9 +433,18 @@ void sweep_rasterizer::draw_filled_triangle(
                     y,
                     direct_info);
               }
+#ifdef DO_BENCHMARKING
+              utils::unclock(stage_direct);
+              stage_setup_direct += stage_direct;
+              stage_cb_direct += stage_direct;
+#endif
           }
           else
           {
+#ifdef DO_BENCHMARKING
+              std::uint64_t stage_enqueue = 0;
+              utils::clock(stage_enqueue);
+#endif
               if(mode == tile_info::rasterization_mode::checked)
               {
                   needs_flush = tiles.add_triangle_checked(
@@ -431,6 +466,11 @@ void sweep_rasterizer::draw_filled_triangle(
                     is_front_facing,
                     mode);
               }
+#ifdef DO_BENCHMARKING
+              utils::unclock(stage_enqueue);
+              stage_setup_enqueue += stage_enqueue;
+              stage_cb_enqueue += stage_enqueue;
+#endif
           }
 #ifdef DO_BENCHMARKING
           ++triangle_tile_ref_count;
@@ -450,6 +490,9 @@ void sweep_rasterizer::draw_filled_triangle(
           if(needs_flush)
           {
 #ifdef DO_BENCHMARKING
+              swr::impl::profile_raster_flush_trigger_overflow_count.fetch_add(1, std::memory_order_relaxed);
+#endif
+#ifdef DO_BENCHMARKING
               std::uint64_t stage_flush = 0;
               utils::clock(stage_flush);
 #endif
@@ -457,13 +500,23 @@ void sweep_rasterizer::draw_filled_triangle(
 #ifdef DO_BENCHMARKING
               utils::unclock(stage_flush);
               swr::impl::profile_raster_flush_cycles.fetch_add(stage_flush, std::memory_order_relaxed);
+              stage_cb_flush_inline += stage_flush;
 #endif
           }
       });
 #ifdef DO_BENCHMARKING
+    utils::unclock(stage_setup_iterate);
     swr::impl::profile_triangle_tile_refs.fetch_add(triangle_tile_ref_count, std::memory_order_relaxed);
     swr::impl::profile_triangle_block_tile_refs.fetch_add(triangle_block_tile_ref_count, std::memory_order_relaxed);
     swr::impl::profile_triangle_checked_tile_refs.fetch_add(triangle_checked_tile_ref_count, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_triangle_cycles.fetch_add(stage_setup_triangle, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_bounds_cycles.fetch_add(stage_setup_bounds, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_iterate_cycles.fetch_add(stage_setup_iterate, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_direct_cycles.fetch_add(stage_setup_direct, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_enqueue_cycles.fetch_add(stage_setup_enqueue, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_cb_enqueue_cycles.fetch_add(stage_cb_enqueue, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_cb_flush_inline_cycles.fetch_add(stage_cb_flush_inline, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_cb_direct_cycles.fetch_add(stage_cb_direct, std::memory_order_relaxed);
     utils::unclock(stage_raster_setup);
     swr::impl::profile_raster_setup_cycles.fetch_add(stage_raster_setup, std::memory_order_relaxed);
 #endif
