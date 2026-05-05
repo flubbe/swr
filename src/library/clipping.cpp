@@ -100,7 +100,7 @@ enum clip_axis
 static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_axis axis, vertex_buffer& out_vb)
 {
     // early-out for empty buffers.
-    if(in_vb.size() == 0)
+    if(in_vb.empty())
     {
         // empty the output buffer.
         out_vb.clear();
@@ -211,7 +211,7 @@ static void clip_vertex_buffer_on_plane(const vertex_buffer& in_vb, const clip_a
     out_vb.clear();
 
     // early-out for empty polygons.
-    if(temp.size() == 0)
+    if(temp.empty())
     {
         return;
     }

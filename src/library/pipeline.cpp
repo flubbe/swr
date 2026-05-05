@@ -426,7 +426,7 @@ static void process_vertices(swr::impl::render_object& obj)
 {
     obj.clipped_vertices.clear();
 
-    if(obj.coord_count == 0 || obj.indices.size() == 0)
+    if(obj.coord_count == 0 || obj.indices.empty())
     {
         return;
     }
@@ -505,7 +505,7 @@ static void process_vertices(swr::impl::render_object& obj)
     }
 
     // skip the rest of the pipeline if no clipped vertices were produced.
-    if(obj.clipped_vertices.size() != 0)
+    if(!obj.clipped_vertices.empty())
     {
         // perspective divide and viewport transformation.
         transform_to_viewport_coords(
@@ -749,7 +749,7 @@ static void process_vertices(impl::render_context* context)
     for(auto& [obj, shader]: context->program_instances)
     {
         if(obj->attrib_count != 0
-           && obj->indices.size() != 0)
+           && !obj->indices.empty())
         {
             invoke_vertex_shader_and_clip_preprocess(
               context->thread_pool,
@@ -786,7 +786,7 @@ static void process_vertices(impl::render_context* context)
     for(auto& [obj, shader]: context->program_instances)
     {
         // skip the rest of the pipeline if no clipped vertices were produced.
-        if(obj->clipped_vertices.size() != 0)
+        if(!obj->clipped_vertices.empty())
         {
             // perspective divide and viewport transformation.
             transform_to_viewport_coords(
@@ -830,7 +830,7 @@ void Present()
     auto context = impl::global_context;
 
     // immediately return if there is nothing to do.
-    if(context->render_object_list.size() == 0)
+    if(context->render_object_list.empty())
     {
         return;
     }
@@ -850,14 +850,16 @@ void Present()
 #    endif
     for(auto& it: context->render_object_list)
     {
-        if(it.clipped_vertices.size() != 0)
+        if(it.clipped_vertices.empty())
         {
-            // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
-            context->assemble_primitives(
-              &it.states,
-              it.mode,
-              it.clipped_vertices);
+            continue;
         }
+
+        // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
+        context->assemble_primitives(
+          &it.states,
+          it.mode,
+          it.clipped_vertices);
     }
 #    ifdef DO_BENCHMARKING
     utils::unclock(stage_assembly);
@@ -883,7 +885,7 @@ void Present()
         stage_vertex = 0;
 #    endif
 
-        if(it.clipped_vertices.size() != 0)
+        if(!it.clipped_vertices.empty())
         {
 #    ifdef DO_BENCHMARKING
             utils::clock(stage_assembly);

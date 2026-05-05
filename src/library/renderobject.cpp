@@ -27,7 +27,7 @@ void copy_attributes(
   const utils::slot_map<vertex_attribute_buffer>& vertex_attribute_buffers,
   TransformFn&& transform_fn)
 {
-    if(active_vabs.size() == 0)
+    if(active_vabs.empty())
     {
         return;
     }

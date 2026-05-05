@@ -166,8 +166,8 @@ using allocator = default_init_allocator<T>;
  * The internal container needs to support the operations emplace_back, size, clear, shrink_to_fit, operator[].
  *
  * Some remarks:
- *  *) The data is not automatically compacted/freed.
- *  *) freeing only marks slots as "free" (e.g., without invalidating or destructing them).
+ *  - The data is not automatically compacted/freed.
+ *  - freeing only marks slots as "free" (e.g., without invalidating or destructing them).
  */
 template<
   typename T,
@@ -248,6 +248,12 @@ struct slot_map
     {
         assert(data.size() - free_slots.size() >= 0);
         return data.size() - free_slots.size();
+    }
+
+    /** check whether the slot map is empty. */
+    bool empty() const
+    {
+        return size() == 0;
     }
 
     /** query the current capacity. */

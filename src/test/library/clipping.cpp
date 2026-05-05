@@ -296,8 +296,8 @@ BOOST_AUTO_TEST_CASE(line_clip)
         else
         {
             // this may generate a either a line segment (possibly degenerate), or nothing.
-            BOOST_TEST((out1.size() == 0 || out1.size() == 2));
-            BOOST_TEST((out2.size() == 0 || out2.size() == 2));
+            BOOST_TEST((out1.empty() || out1.size() == 2));
+            BOOST_TEST((out2.empty() || out2.size() == 2));
 
             BOOST_REQUIRE(out1.size() == out2.size());
             if(out1.size() == 2)

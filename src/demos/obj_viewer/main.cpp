@@ -528,7 +528,7 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
     bmin[0] = bmin[1] = bmin[2] = std::numeric_limits<float>::max();
     bmax[0] = bmax[1] = bmax[2] = -std::numeric_limits<float>::max();
 
-    bool regen_all_normals = inattrib.normals.size() == 0;
+    bool regen_all_normals = inattrib.normals.empty();
     tinyobj::attrib_t outattrib;
     std::vector<tinyobj::shape_t> outshapes;
     if(regen_all_normals)

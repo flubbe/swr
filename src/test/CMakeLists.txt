@@ -102,3 +102,13 @@ target_link_libraries(test_utils
     swr_project_warnings
 )
 add_test(NAME utils COMMAND test_utils --color_output=no)
+
+add_executable(test_slot_map slot_map.cpp)
+target_compile_definitions(test_slot_map PRIVATE BOOST_TEST_DYN_LINK)
+target_link_libraries(test_slot_map
+    PRIVATE
+    Boost::unit_test_framework
+    swr_project_options
+    swr_project_warnings
+)
+add_test(NAME slot_map COMMAND test_slot_map --color_output=no)
