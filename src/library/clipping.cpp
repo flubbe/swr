@@ -38,31 +38,6 @@ constexpr float W_CLIPPING_PLANE = 1e-5f;
  */
 constexpr float SCALE_INTERSECTION_PARAMETER = 1.0001f;
 
-inline void load_vertex_from_render_object(
-  const render_object& obj,
-  std::uint32_t vertex_index,
-  std::uint32_t varying_count,
-  geom::vertex& out_vertex)
-{
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    constexpr std::uint64_t coord_bytes = sizeof(ml::vec4);
-    constexpr std::uint64_t flag_bytes = sizeof(std::uint32_t);
-    const std::uint64_t varying_bytes = static_cast<std::uint64_t>(varying_count) * sizeof(ml::vec4);
-    swr::impl::profile_clip_vertex_read_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
-    swr::impl::profile_clip_vertex_write_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    out_vertex.coords = obj.coords[vertex_index];
-    out_vertex.flags = obj.vertex_flags[vertex_index];
-
-    const std::size_t varying_offset = static_cast<std::size_t>(vertex_index) * varying_count;
-    out_vertex.varyings.clear();
-    for(std::uint32_t i = 0; i < varying_count; ++i)
-    {
-        out_vertex.varyings.emplace_back(obj.varyings[varying_offset + i]);
-    }
-}
-
 /**
  * clip with respect to these axes. more precisely, clip against the
  * planes with plane equations (x=w,x=-w), (y=w,y=-w), (z=w,z=-w).
@@ -277,6 +252,15 @@ static geom::vertex load_vertex(
   const render_object& obj,
   const std::uint32_t index)
 {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    constexpr std::uint64_t coord_bytes = sizeof(ml::vec4);
+    constexpr std::uint64_t flag_bytes = sizeof(std::uint32_t);
+    const std::uint64_t varying_count = static_cast<std::uint64_t>(obj.states.shader_info->varying_count);
+    const std::uint64_t varying_bytes = varying_count * sizeof(ml::vec4);
+    swr::impl::profile_clip_vertex_read_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
+    swr::impl::profile_clip_vertex_write_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     geom::vertex v;
     v.coords = obj.coords[index];
     v.varyings.reserve(obj.states.shader_info->varying_count);
@@ -313,14 +297,6 @@ static std::vector<geom::vertex> load_triangle_vertices(
     return tri;
 }
 
-static void assign_vertex_buffer(
-  vertex_buffer& dst,
-  const std::vector<geom::vertex>& src)
-{
-    dst.clear();
-    dst.insert(std::end(dst), std::begin(src), std::end(src));
-}
-
 static void append_vertices(
   vertex_buffer& dst,
   const std::vector<geom::vertex>& src)
@@ -354,10 +330,6 @@ void clip_line_buffer_range(
   std::size_t index_end,
   vertex_buffer& out_vertices)
 {
-    vertex_buffer clipped_line{2};
-    vertex_buffer temp_line{2};
-    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
-
     /*
      * Algorithm:
      *
@@ -373,9 +345,6 @@ void clip_line_buffer_range(
 
     out_vertices.clear();
     out_vertices.reserve(index_end - index_begin);
-
-    geom::vertex v;
-    v.varyings.reserve(varying_count);
 
     for(std::size_t index_it = index_begin; index_it < index_end; index_it += 2)
     {
@@ -440,18 +409,6 @@ void clip_triangle_buffer_range(
   vertex_buffer& out_vertices)
 {
     /*
-     * temporary buffers.
-     *
-     * a note on the initial buffer size: if a large triangle is intersected with a small enough cube,
-     * it can produce a hexagonal-type polygon, i.e., 6 vertices. now if one vertex is inside
-     * the cube and the triangle is "flat enough", two additional vertices appear, so 8 seems
-     * to be a good guess as an initial buffer size for a clipped triangle.
-     */
-    vertex_buffer clipped_triangle{8};
-    vertex_buffer temp_triangle{3};
-    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
-
-    /*
      * Algorithm:
      *
      *  i)   Loop over triangles
@@ -466,9 +423,6 @@ void clip_triangle_buffer_range(
 
     out_vertices.clear();
     out_vertices.reserve((index_end - index_begin) * 2);
-
-    geom::vertex v;
-    v.varyings.reserve(varying_count);
 
     for(std::size_t index_it = index_begin; index_it < index_end; index_it += 3)
     {
