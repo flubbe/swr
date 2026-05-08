@@ -58,14 +58,14 @@ struct pixel_format_descriptor
       std::uint32_t in_alpha_bits,
       std::uint32_t in_alpha_shift)
     : name{name}
-    , red_bits(in_red_bits)
-    , red_shift(in_red_shift)
-    , green_bits(in_green_bits)
-    , green_shift(in_green_shift)
-    , blue_bits(in_blue_bits)
-    , blue_shift(in_blue_shift)
-    , alpha_bits(in_alpha_bits)
-    , alpha_shift(in_alpha_shift)
+    , red_bits{in_red_bits}
+    , red_shift{in_red_shift}
+    , green_bits{in_green_bits}
+    , green_shift{in_green_shift}
+    , blue_bits{in_blue_bits}
+    , blue_shift{in_blue_shift}
+    , alpha_bits{in_alpha_bits}
+    , alpha_shift{in_alpha_shift}
     {
     }
 
@@ -117,11 +117,28 @@ struct pixel_format_converter
     /** named pixel formats. */
     pixel_format name{pixel_format::unsupported};
 
-    /** update the helper variables above based on the pixel format. */
-    void update()
+    /** default constructor. */
+    pixel_format_converter() = default;
+    pixel_format_converter(const pixel_format_converter&) = default;
+    pixel_format_converter(pixel_format_converter&&) = default;
+
+    /** assignments. */
+    pixel_format_converter& operator=(const pixel_format_converter&) = default;
+    pixel_format_converter& operator=(pixel_format_converter&&) = default;
+
+    /** constructor. */
+    pixel_format_converter(const pixel_format_descriptor& in_pf)
     {
+        set_pixel_format(in_pf);
+    }
+
+    /** set a new pixel format. */
+    void set_pixel_format(const pixel_format_descriptor& in_pf)
+    {
+        pf = in_pf;
+
         // calculate the maximal representable color per channel.
-        std::array<std::uint32_t, 4> max_rgba = {
+        const std::array<std::uint32_t, 4> max_rgba = {
           static_cast<std::uint32_t>((1 << pf.red_bits) - 1),
           static_cast<std::uint32_t>((1 << pf.green_bits) - 1),
           static_cast<std::uint32_t>((1 << pf.blue_bits) - 1),
@@ -142,29 +159,6 @@ struct pixel_format_converter
         name = pf.name;
     }
 
-    /** default constructor. */
-    pixel_format_converter() = default;
-    pixel_format_converter(const pixel_format_converter&) = default;
-    pixel_format_converter(pixel_format_converter&&) = default;
-
-    /** assignments. */
-    pixel_format_converter& operator=(const pixel_format_converter&) = default;
-    pixel_format_converter& operator=(pixel_format_converter&&) = default;
-
-    /** constructor. */
-    pixel_format_converter(const pixel_format_descriptor& in_pf)
-    : pf{in_pf}
-    {
-        update();
-    }
-
-    /** set a new pixel format. */
-    void set_pixel_format(const pixel_format_descriptor& in_pf)
-    {
-        pf = in_pf;
-        update();
-    }
-
     /** get name for pixel format. */
     pixel_format get_name() const
     {
@@ -179,7 +173,10 @@ struct pixel_format_converter
         std::uint8_t g{static_cast<std::uint8_t>(scaled_color.g)};
         std::uint8_t b{static_cast<std::uint8_t>(scaled_color.b)};
         std::uint8_t a{static_cast<std::uint8_t>(scaled_color.a)};
-        return (r << pf.red_shift) | (g << pf.green_shift) | (b << pf.blue_shift) | (a << pf.alpha_shift);
+        return (static_cast<std::uint32_t>(r) << pf.red_shift)
+               | (static_cast<std::uint32_t>(g) << pf.green_shift)
+               | (static_cast<std::uint32_t>(b) << pf.blue_shift)
+               | (static_cast<std::uint32_t>(a) << pf.alpha_shift);
     }
 
     /** convert to color. */
