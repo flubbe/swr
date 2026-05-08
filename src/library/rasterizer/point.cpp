@@ -4,7 +4,7 @@
  * point rasterization.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -18,10 +18,6 @@
 
 namespace rast
 {
-
-/*
- * TODO Look up which values to put in dFdx, dFdy.
- */
 
 void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const geom::vertex& v)
 {
@@ -40,8 +36,24 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
     for(std::size_t i = 0; i < v.varyings.size(); ++i)
     {
         temp[i].value = v.varyings[i];
-        temp[i].dFdx = ml::vec4::zero();    // FIXME see comment above.
-        temp[i].dFdy = ml::vec4::zero();    // FIXME see comment above.
+
+        /*
+         * According to GLSL 4.6 spec, §8.14.1 [1]
+         *
+         * GLSL derivatives are computed using local differencing between neighboring
+         * fragments, and implementations may use approximations. For point primitives,
+         * neighboring fragments required for differencing may be unavailable or not
+         * well-constrained, so exact derivative behavior is implementation-dependent.
+         *
+         * This rasterizer chooses to return zero derivatives for points.
+         *
+         * Reference
+         * ---------
+         * [1] https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.html#fragment-processing-functions
+         */
+
+        temp[i].dFdx = ml::vec4::zero();
+        temp[i].dFdy = ml::vec4::zero();
     }
 
     // create shader instance.
