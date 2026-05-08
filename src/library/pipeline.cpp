@@ -536,10 +536,89 @@ static void process_vertices(swr::impl::render_object& obj)
 namespace mt
 {
 
+/** Minimum work units assigned when slicing vertex work per thread. */
 constexpr std::size_t min_tasks_per_thread = 4;
-constexpr std::size_t min_clip_primitives_per_task = 256;
-constexpr std::size_t min_parallel_clip_primitives = 2048;
+
+/** Target primitive chunk size for one clipping task. */
+constexpr std::size_t min_clip_primitives_per_task = 128;
+
+/** Minimum primitive count before per-object clipping chunking is enabled. */
+constexpr std::size_t min_parallel_clip_primitives = 256;
+
+/** Minimum fraction of discarded indices required to parallelize per-object clipping. */
 constexpr float min_parallel_clip_discard_ratio = 0.02f;
+
+/*
+ * Cross-object clipping parallelization targets two regimes:
+ * 1) high aggregate primitive work, and
+ * 2) many small draw objects that are individually too small to chunk efficiently.
+ */
+
+/** Minimum render-object count required before considering cross-object clipping parallelization. */
+constexpr std::size_t min_parallel_clip_render_objects = 2;
+
+/** Aggregate primitive budget per worker thread for cross-object clipping fan-out. */
+constexpr std::size_t min_parallel_clip_primitives_per_thread = 192;
+
+/** Per-object primitive floor used to allow parallelization of many tiny render objects. */
+constexpr std::size_t min_parallel_clip_primitives_per_object_floor = 64;
+
+static std::size_t clip_primitive_count(
+  const swr::impl::render_object* obj)
+{
+    if(obj->mode == vertex_buffer_mode::points
+       || obj->states.poly_mode == polygon_mode::point)
+    {
+        return obj->indices.size();
+    }
+
+    if(obj->mode == vertex_buffer_mode::lines)
+    {
+        return obj->indices.size() / 2;
+    }
+
+    // triangles rendered either as line strips (poly_mode::line) or filled triangles.
+    return obj->indices.size() / 3;
+}
+
+static bool should_parallelize_clipping_across_objects(
+  impl::sdl_render_context::thread_pool_type& thread_pool,
+  const std::vector<std::pair<
+    swr::impl::render_object*,
+    impl::vertex_shader_instance_container>>& program_instances)
+{
+    const std::size_t thread_count = thread_pool.get_thread_count();
+    const std::size_t object_count = program_instances.size();
+
+    if(thread_count <= 1
+       || object_count < min_parallel_clip_render_objects)
+    {
+        return false;
+    }
+
+    std::size_t total_clip_primitives = 0;
+    for(const auto& [obj, shader]: program_instances)
+    {
+        total_clip_primitives += clip_primitive_count(obj);
+    }
+
+    // Path 1: enough aggregate work to keep all threads busy.
+    const std::size_t total_work_threshold =
+      thread_count * min_parallel_clip_primitives_per_thread;
+    if(total_clip_primitives >= total_work_threshold)
+    {
+        return true;
+    }
+
+    // Path 2: lots of tiny objects; allow parallel fan-out with a lower per-object floor.
+    if(object_count >= thread_count
+       && total_clip_primitives >= object_count * min_parallel_clip_primitives_per_object_floor)
+    {
+        return true;
+    }
+
+    return false;
+}
 
 static void clip_lines_chunk_task(
   const swr::impl::render_object* obj,
@@ -680,6 +759,78 @@ static bool should_parallelize_clipping(
       static_cast<float>(discarded_index_count)
       / static_cast<float>(obj->indices.size());
     return discard_ratio >= min_parallel_clip_discard_ratio;
+}
+
+static void clip_vertex_buffer_serial(
+  swr::impl::render_object* obj)
+{
+    obj->clipped_vertices.clear();
+
+    // check we have valid drawing and polygon modes.
+    assert(obj->mode == vertex_buffer_mode::points
+           || obj->mode == vertex_buffer_mode::lines
+           || obj->mode == vertex_buffer_mode::triangles);
+    assert(obj->states.poly_mode == polygon_mode::point
+           || obj->states.poly_mode == polygon_mode::line
+           || obj->states.poly_mode == polygon_mode::fill);
+
+    /*
+     * clip the vertex buffer.
+     *
+     * if we only want to draw a list of points, we already have enough clipping
+     * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
+     *
+     * Clipping pre-assembles the primitives, i.e. it creates triangles.
+     */
+    if(obj->mode == vertex_buffer_mode::points
+       || obj->states.poly_mode == polygon_mode::point)
+    {
+        const auto varying_count = obj->states.shader_info->varying_count;
+        obj->clipped_vertices.reserve(obj->indices.size());
+
+        geom::vertex v;
+        v.varyings.resize(varying_count);
+
+        // copy the correct points.
+        for(const auto& i: obj->indices)
+        {
+            if(!(obj->vertex_flags[i] & geom::vf_clip_discard))
+            {
+                v.coords = obj->coords[i];
+                v.flags = obj->vertex_flags[i];
+                for(std::size_t j = 0; j < varying_count; ++j)
+                {
+                    v.varyings[j] = obj->varyings[i * varying_count + j];
+                }
+
+                obj->clipped_vertices.emplace_back(v);
+            }
+        }
+    }
+    else if(obj->mode == vertex_buffer_mode::lines)
+    {
+        clip_line_buffer(*obj, impl::line_list);
+    }
+    else if(obj->mode == vertex_buffer_mode::triangles
+            && obj->states.poly_mode == polygon_mode::line)
+    {
+        clip_triangle_buffer(
+          *obj,
+          impl::line_list);
+    }
+    else if(obj->states.poly_mode == polygon_mode::fill)
+    {
+        /* here we necessarily have list_it.Mode == triangles */
+        clip_triangle_buffer(
+          *obj,
+          impl::triangle_list);
+    }
+}
+
+static void clip_vertex_buffer_serial_task(
+  swr::impl::render_object* obj)
+{
+    clip_vertex_buffer_serial(obj);
 }
 
 static void vertex_shader_task(
@@ -848,50 +999,7 @@ static void clip_vertex_buffer(
   impl::sdl_render_context::thread_pool_type& thread_pool,
   swr::impl::render_object* obj)
 {
-    obj->clipped_vertices.clear();
-
-    // check we have valid drawing and polygon modes.
-    assert(obj->mode == vertex_buffer_mode::points
-           || obj->mode == vertex_buffer_mode::lines
-           || obj->mode == vertex_buffer_mode::triangles);
-    assert(obj->states.poly_mode == polygon_mode::point
-           || obj->states.poly_mode == polygon_mode::line
-           || obj->states.poly_mode == polygon_mode::fill);
-
-    /*
-     * clip the vertex buffer.
-     *
-     * if we only want to draw a list of points, we already have enough clipping
-     * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
-     *
-     * Clipping pre-assembles the primitives, i.e. it creates triangles.
-     */
-    if(obj->mode == vertex_buffer_mode::points
-       || obj->states.poly_mode == polygon_mode::point)
-    {
-        const auto varying_count = obj->states.shader_info->varying_count;
-        obj->clipped_vertices.reserve(obj->indices.size());
-
-        geom::vertex v;
-        v.varyings.resize(varying_count);
-
-        // copy the correct points.
-        for(const auto& i: obj->indices)
-        {
-            if(!(obj->vertex_flags[i] & geom::vf_clip_discard))
-            {
-                v.coords = obj->coords[i];
-                v.flags = obj->vertex_flags[i];
-                for(std::size_t j = 0; j < varying_count; ++j)
-                {
-                    v.varyings[j] = obj->varyings[i * varying_count + j];
-                }
-
-                obj->clipped_vertices.emplace_back(v);
-            }
-        }
-    }
-    else if(obj->mode == vertex_buffer_mode::lines)
+    if(obj->mode == vertex_buffer_mode::lines)
     {
         if(should_parallelize_clipping(
              thread_pool,
@@ -950,6 +1058,10 @@ static void clip_vertex_buffer(
               *obj,
               impl::triangle_list);
         }
+    }
+    else
+    {
+        clip_vertex_buffer_serial(obj);
     }
 }
 
@@ -1025,12 +1137,33 @@ static void process_vertices(
     utils::clock(stage_clipping);
 #    endif
 
-    // vertex buffers are split up into chunks which might be
-    // processed in parallel internally, so we don't need to
-    // wait/sync here.
-    for(auto& [obj, shader]: context->program_instances)
+    /*
+     * Avoid nested thread-pool waits in worker tasks: object-level parallel
+     * clipping uses serial per-object clipping, while single-object clipping
+     * can still use internal chunk parallelism.
+     */
+    const bool parallelize_across_objects =
+      should_parallelize_clipping_across_objects(
+        context->thread_pool,
+        context->program_instances);
+
+    if(parallelize_across_objects)
     {
-        clip_vertex_buffer(context->thread_pool, obj);
+        for(auto& [obj, shader]: context->program_instances)
+        {
+            context->thread_pool.push_immediate_task(
+              clip_vertex_buffer_serial_task,
+              obj);
+        }
+        context->thread_pool.run_tasks_and_wait();
+    }
+    else
+    {
+        // Single/few-object path can parallelize internally by primitive chunk.
+        for(auto& [obj, shader]: context->program_instances)
+        {
+            clip_vertex_buffer(context->thread_pool, obj);
+        }
     }
 
 #    ifdef DO_BENCHMARKING
