@@ -11,6 +11,10 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <span>
+#include <vector>
+#include <algorithm>
+
 /* user headers. */
 #include "swr_internal.h"
 #include "clipping.h"
@@ -21,62 +25,19 @@ namespace swr
 namespace impl
 {
 
-/**
- * clip against all planes (including the w-plane!)
- *
- * NOTE: if this is disabled, it may provoke segfault during fragment write,
- *       since we rely on the validity of the coordinates.
- */
-#define CLIP_ALL_PLANES
-
 /*
- * 1) A technical note: If we compile via Visual Studio, check that the compiler
- *    supports constexpr's. Support has been added in Visual Studio 2015 [1], which
- *    corresponds to the compiler version being 1900 [2].
+ * From https://fabiensanglard.net/polygon_codec/:
  *
- *     [1] https://msdn.microsoft.com/de-de/library/hh567368.aspx
- *     [2] https://sourceforge.net/p/predef/wiki/Compilers/#microsoft-visual-c
- *
- * 2) From https://fabiensanglard.net/polygon_codec/:
  *    The clipping actually produces vertices with a W=0 component. That would cause a
  *    divide by zero. A way to solve this is to clip against the W=0.00001 plane.
  */
-#if !defined(_MSC_VER) || _MSC_VER >= 1900
 constexpr float W_CLIPPING_PLANE = 1e-5f;
-#else
-#    define W_CLIPPING_PLANE (1e-5f)
-#endif
 
 /**
  * We scale the calculated intersection parameter slightly to account for floating-point inaccuracies.
  * The scaling is always towards the vertex outside the clipping region.
  */
 constexpr float SCALE_INTERSECTION_PARAMETER = 1.0001f;
-
-inline void load_vertex_from_render_object(
-  const render_object& obj,
-  std::uint32_t vertex_index,
-  std::uint32_t varying_count,
-  geom::vertex& out_vertex)
-{
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    constexpr std::uint64_t coord_bytes = sizeof(ml::vec4);
-    constexpr std::uint64_t flag_bytes = sizeof(std::uint32_t);
-    const std::uint64_t varying_bytes = static_cast<std::uint64_t>(varying_count) * sizeof(ml::vec4);
-    swr::impl::profile_clip_vertex_read_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
-    swr::impl::profile_clip_vertex_write_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    out_vertex.coords = obj.coords[vertex_index];
-    out_vertex.flags = obj.vertex_flags[vertex_index];
-
-    const std::size_t varying_offset = static_cast<std::size_t>(vertex_index) * varying_count;
-    out_vertex.varyings.clear();
-    for(std::uint32_t i = 0; i < varying_count; ++i)
-    {
-        out_vertex.varyings.emplace_back(obj.varyings[varying_offset + i]);
-    }
-}
 
 /**
  * clip with respect to these axes. more precisely, clip against the
@@ -89,228 +50,263 @@ enum clip_axis
     z_axis = 2
 };
 
-/**
- * Clip vertex buffer against the x/y/z=+/- w plane.
- *
- * The indices in in_vb have to be in ascending order, i.e. the polygon has the vertices
- * in_vb.Vertices[0], in_vb.Vertices[1], etc.
- *
- * Internally, the polygon is first clipped/copied into a temporary buffer, so that in_vb and out_vb
- * are allowed to refer to the same buffer.
- */
-static void clip_vertex_buffer_on_plane(
-  const vertex_buffer& in_vb,
-  const clip_axis axis,
-  vertex_buffer& out_vb)
+namespace clip_detail
 {
-    // early-out for empty buffers.
-    if(in_vb.empty())
+
+enum class plane_kind
+{
+    axis_positive,    // axis <= w
+    axis_negative,    // -axis <= w
+    w_min             // w >= W_CLIPPING_PLANE
+};
+
+struct plane
+{
+    plane_kind kind;
+    clip_axis axis;
+};
+
+static float plane_eval(
+  const geom::vertex& v,
+  const plane p)
+{
+    switch(p.kind)
     {
-        // empty the output buffer.
-        out_vb.clear();
-        return;
+    case plane_kind::axis_positive:
+        return v.coords.w - v.coords[p.axis];
+    case plane_kind::axis_negative:
+        return v.coords.w + v.coords[p.axis];
+    case plane_kind::w_min:
+        return v.coords.w - W_CLIPPING_PLANE;
     }
 
-    vertex_buffer temp;
+    assert(false);
+    return 0.0f;
+}
 
-    // special case for lines.
-    if(in_vb.size() == 2)
+static bool is_inside(
+  const geom::vertex& v,
+  const plane p)
+{
+    return plane_eval(v, p) >= 0.0f;
+}
+
+static float intersection_parameter_raw(
+  const geom::vertex& inside_vert,
+  const geom::vertex& outside_vert,
+  const plane p)
+{
+    const float inside_eval = plane_eval(inside_vert, p);
+    const float outside_eval = plane_eval(outside_vert, p);
+
+    assert(inside_eval >= 0.0f);
+    assert(outside_eval < 0.0f);
+
+    const float denom = inside_eval - outside_eval;
+    assert(denom > 0.0f);
+
+    const float t = inside_eval / denom;
+    assert(t >= 0.0f && t <= 1.0f);
+
+    return t;
+}
+
+static geom::vertex intersect(
+  const geom::vertex& inside_vert,
+  const geom::vertex& outside_vert,
+  const plane p)
+{
+    float t = intersection_parameter_raw(inside_vert, outside_vert, p);
+
+    // Preserve previous behavior: only axis-plane clipping gets the small outward bias.
+    if(p.kind != plane_kind::w_min)
     {
-        int dot1 = (in_vb[0].coords[axis] <= in_vb[0].coords.w) ? 1 : -1;
-        int dot2 = (in_vb[1].coords[axis] <= in_vb[1].coords.w) ? 1 : -1;
-
-        if(dot1 > 0)
-        {
-            temp.emplace_back(in_vb[0]);
-        }
-
-        // do consistent clipping.
-        if(dot1 * dot2 < 0)
-        {
-            // Need to clip against plane x/y/z = w, as specified by axis.
-
-            auto* inside_vert = (dot1 < 0) ? &in_vb[1] : &in_vb[0];
-            auto* outside_vert = (dot1 < 0) ? &in_vb[0] : &in_vb[1];
-
-            float t = (inside_vert->coords.w - inside_vert->coords[axis]) / ((inside_vert->coords.w - inside_vert->coords[axis]) - (outside_vert->coords.w - outside_vert->coords[axis]));
-            assert(t >= 0 && t <= 1);
-
-            temp.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
-        }
-
-        if(dot2 > 0)
-        {
-            temp.emplace_back(in_vb[1]);
-        }
-
-        out_vb.clear();
-        if(temp.size())
-        {
-            assert(temp.size() == 2);
-
-            int dot1 = (-temp[0].coords[axis] <= temp[0].coords.w) ? 1 : -1;
-            int dot2 = (-temp[1].coords[axis] <= temp[1].coords.w) ? 1 : -1;
-
-            if(dot1 > 0)
-            {
-                out_vb.emplace_back(temp[0]);
-            }
-
-            // do consistent clipping.
-            if(dot1 * dot2 < 0)
-            {
-                // Need to clip against plane x/y/z = -w, as specified by axis.
-
-                auto* inside_vert = (dot1 < 0) ? &temp[1] : &temp[0];
-                auto* outside_vert = (dot1 < 0) ? &temp[0] : &temp[1];
-
-                float t = -(inside_vert->coords.w + inside_vert->coords[axis]) / ((-inside_vert->coords.w - inside_vert->coords[axis]) + (outside_vert->coords.w + outside_vert->coords[axis]));
-                assert(t >= 0 && t <= 1);
-
-                out_vb.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
-            }
-
-            if(dot2 > 0)
-            {
-                out_vb.emplace_back(temp[1]);
-            }
-        }
-
-        return;
+        t *= SCALE_INTERSECTION_PARAMETER;
     }
 
-    auto* prev_vert = &in_vb.back();
-    int prev_dot = (prev_vert->coords[axis] <= prev_vert->coords.w) ? 1 : -1;
-
-    for(std::size_t i = 0; i < in_vb.size(); ++i)
-    {
-        auto* vert = &in_vb[i];
-        int dot = (vert->coords[axis] <= vert->coords.w) ? 1 : -1;
-
-        // do consistent clipping.
-        if(prev_dot * dot < 0)
-        {
-            // Need to clip against plane x/y/z = w, as specified by axis.
-
-            auto* inside_vert = (prev_dot < 0) ? vert : prev_vert;
-            auto* outside_vert = (prev_dot < 0) ? prev_vert : vert;
-
-            float t = (inside_vert->coords.w - inside_vert->coords[axis]) / ((inside_vert->coords.w - inside_vert->coords[axis]) - (outside_vert->coords.w - outside_vert->coords[axis]));
-            assert(t >= 0 && t <= 1);
-
-            temp.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
-        }
-
-        if(dot > 0)
-        {
-            temp.emplace_back(*vert);
-        }
-
-        prev_vert = vert;
-        prev_dot = dot;
-    }
-
-    // clear the output buffer. the clearing cannot be done in advance, since out_vb and in_vb
-    // may refer to the same object. Here, all 'active' vertices have beed copied into temp.
-    out_vb.clear();
-
-    // early-out for empty polygons.
-    if(temp.empty())
-    {
-        return;
-    }
-
-    prev_vert = &temp.back();
-    prev_dot = (-prev_vert->coords[axis] <= prev_vert->coords.w) ? 1 : -1;
-
-    for(std::size_t i = 0; i < temp.size(); ++i)
-    {
-        auto* vert = &temp[i];
-        int dot = (-vert->coords[axis] <= vert->coords.w) ? 1 : -1;
-
-        // do consistent clipping.
-        if(prev_dot * dot < 0)
-        {
-            // Need to clip against plane x/y/z = -w, as specified by axis.
-
-            auto* inside_vert = (prev_dot < 0) ? vert : prev_vert;
-            auto* outside_vert = (prev_dot < 0) ? prev_vert : vert;
-
-            float t = -(inside_vert->coords.w + inside_vert->coords[axis]) / ((-inside_vert->coords.w - inside_vert->coords[axis]) + (outside_vert->coords.w + outside_vert->coords[axis]));
-            assert(t >= 0 && t <= 1);
-
-            out_vb.emplace_back(lerp(SCALE_INTERSECTION_PARAMETER * t, *inside_vert, *outside_vert));
-        }
-
-        if(dot > 0)
-        {
-            out_vb.emplace_back(*vert);
-        }
-
-        prev_vert = vert;
-        prev_dot = dot;
-    }
+    return lerp(t, inside_vert, outside_vert);
 }
 
 /**
- * Clip a line against the w plane.
+ * Pure clipping of a single open line segment (2 vertices) against one plane.
  *
- * Recall that a visible vertex has to satisfy the relations
+ * Returns:
+ *   - 0 vertices if fully outside
+ *   - 2 vertices if partially or fully visible
  *
- *    -w <= x <= w
- *    -w <= y <= w
- *    -w <= z <= w
- *      0 < w.
- *
- * in_vb and out_vb are not allowed to refer to the same buffer.
- *
- * if in_vb does not contain a line (i.e., 2 vertices), we empty the output buffer and return.
+ * This is intentionally not treated as a closed polygon.
  */
-static void clip_line_on_w_plane(
-  const vertex_buffer& in_line,
-  vertex_buffer& out_vb)
+static std::vector<geom::vertex> clip_line_segment_against_plane(
+  std::span<const geom::vertex> in_line,
+  const plane p)
 {
-    // ensure the output buffer is empty.
-    out_vb.clear();
+    std::vector<geom::vertex> out;
 
-    // check that in_vb contains a line.
     if(in_line.size() != 2)
     {
-        return;
+        return out;
     }
 
-    int dots[2] = {
-      (in_line[0].coords.w < W_CLIPPING_PLANE) ? -1 : 1,
-      (in_line[1].coords.w < W_CLIPPING_PLANE) ? -1 : 1};
+    const geom::vertex& a = in_line[0];
+    const geom::vertex& b = in_line[1];
 
-    if(dots[0] > 0)
+    const bool a_inside = is_inside(a, p);
+    const bool b_inside = is_inside(b, p);
+
+    out.reserve(2);
+
+    if(a_inside)
     {
-        out_vb.emplace_back(in_line[0]);
+        out.emplace_back(a);
     }
 
-    // do consistent clipping.
-    if(dots[0] * dots[1] < 0)
+    if(a_inside != b_inside)
     {
-        // Need to clip against plane w=0.
-        //
-        // to avoid dividing by zero when converting to NDC, we clip
-        // against w=W_CLIPPING_PLANE.
-
-        // FIXME ? this selection could be condensed into a single comparison, since dots[0]*dots[1]<0 implies that exactly one of the dots[i] is positive.
-        auto* inside_vert = (dots[0] < 0) ? &in_line[0] : &in_line[1];
-        auto* outside_vert = (dots[1] < 0) ? &in_line[0] : &in_line[1];
-
-        float t = (inside_vert->coords.w - W_CLIPPING_PLANE) / (inside_vert->coords.w - outside_vert->coords.w);
-        assert(t >= 0 && t <= 1);
-
-        out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
+        const geom::vertex& inside_vert = a_inside ? a : b;
+        const geom::vertex& outside_vert = a_inside ? b : a;
+        out.emplace_back(intersect(inside_vert, outside_vert, p));
     }
 
-    if(dots[1] > 0)
+    if(b_inside)
     {
-        out_vb.emplace_back(in_line[1]);
+        out.emplace_back(b);
     }
+
+    return out;
 }
+
+/**
+ * Pure Sutherland-Hodgman clipping of a closed polygon against one plane.
+ *
+ * Handles triangles and general polygons.
+ */
+static std::vector<geom::vertex> clip_closed_polygon_against_plane(
+  std::span<const geom::vertex> in_poly,
+  const plane p)
+{
+    std::vector<geom::vertex> out;
+
+    if(in_poly.empty())
+    {
+        return out;
+    }
+
+    out.reserve(in_poly.size() + 1);
+
+    const geom::vertex* prev_vert = &in_poly.back();
+    bool prev_inside = is_inside(*prev_vert, p);
+
+    for(const geom::vertex& vert: in_poly)
+    {
+        const bool cur_inside = is_inside(vert, p);
+
+        if(prev_inside && cur_inside)
+        {
+            out.emplace_back(vert);
+        }
+        else if(prev_inside && !cur_inside)
+        {
+            out.emplace_back(intersect(*prev_vert, vert, p));
+        }
+        else if(!prev_inside && cur_inside)
+        {
+            out.emplace_back(intersect(vert, *prev_vert, p));
+            out.emplace_back(vert);
+        }
+
+        prev_vert = &vert;
+        prev_inside = cur_inside;
+    }
+
+    return out;
+}
+
+static std::vector<geom::vertex> clip_polygon_against_enabled_frustum_planes(std::span<const geom::vertex> poly)
+{
+    std::vector<geom::vertex> result = clip_closed_polygon_against_plane(poly, plane{plane_kind::w_min, z_axis});
+
+    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_positive, x_axis});
+    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_negative, x_axis});
+    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_positive, y_axis});
+    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_negative, y_axis});
+    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_positive, z_axis});
+    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_negative, z_axis});
+
+    return result;
+}
+
+static std::vector<geom::vertex> clip_line_against_enabled_frustum_planes(std::span<const geom::vertex> line)
+{
+    std::vector<geom::vertex> result = clip_line_segment_against_plane(line, plane{plane_kind::w_min, z_axis});
+
+    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_positive, x_axis});
+    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_negative, x_axis});
+    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_positive, y_axis});
+    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_negative, y_axis});
+    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_positive, z_axis});
+    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_negative, z_axis});
+
+    return result;
+}
+
+static geom::vertex load_vertex(
+  const render_object& obj,
+  const std::uint32_t index)
+{
+    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    constexpr std::uint64_t coord_bytes = sizeof(ml::vec4);
+    constexpr std::uint64_t flag_bytes = sizeof(std::uint32_t);
+    const std::uint64_t varying_bytes = static_cast<std::uint64_t>(varying_count) * sizeof(ml::vec4);
+    swr::impl::profile_clip_vertex_read_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
+    swr::impl::profile_clip_vertex_write_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    geom::vertex v;
+    v.coords = obj.coords[index];
+    v.varyings.resize(varying_count);
+    const std::size_t varying_offset = static_cast<std::size_t>(index) * varying_count;
+    std::copy_n(
+      obj.varyings + varying_offset,
+      varying_count,
+      v.varyings.begin());
+
+    v.flags = obj.vertex_flags[index];
+    return v;
+}
+
+static std::vector<geom::vertex> load_line_vertices(
+  const render_object& obj,
+  const std::array<std::uint32_t, 2>& indices)
+{
+    std::vector<geom::vertex> line;
+    line.reserve(2);
+    line.emplace_back(load_vertex(obj, indices[0]));
+    line.emplace_back(load_vertex(obj, indices[1]));
+    return line;
+}
+
+static std::vector<geom::vertex> load_triangle_vertices(
+  const render_object& obj,
+  const std::array<std::uint32_t, 3> indices)
+{
+    std::vector<geom::vertex> tri;
+    tri.reserve(3);
+    tri.emplace_back(load_vertex(obj, indices[0]));
+    tri.emplace_back(load_vertex(obj, indices[1]));
+    tri.emplace_back(load_vertex(obj, indices[2]));
+    return tri;
+}
+
+static void append_vertices(
+  vertex_buffer& dst,
+  const std::vector<geom::vertex>& src)
+{
+    dst.insert(std::end(dst), std::begin(src), std::end(src));
+}
+
+}    // namespace clip_detail
 
 /**
  * Clip a vertex buffer/index buffer pair against the view frustum. the index buffer/vertex buffer pair is assumed
@@ -336,10 +332,6 @@ void clip_line_buffer_range(
   std::size_t index_end,
   vertex_buffer& out_vertices)
 {
-    vertex_buffer clipped_line{2};
-    vertex_buffer temp_line{2};
-    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
-
     /*
      * Algorithm:
      *
@@ -356,139 +348,41 @@ void clip_line_buffer_range(
     out_vertices.clear();
     out_vertices.reserve(index_end - index_begin);
 
-    geom::vertex v;
-    v.varyings.reserve(varying_count);
-
     for(std::size_t index_it = index_begin; index_it < index_end; index_it += 2)
     {
-        const std::uint32_t indices[2] = {
+        const std::array<std::uint32_t, 2> indices = {
           obj.indices[index_it],
           obj.indices[index_it + 1]};
 
-        // perform clipping.
-        if((obj.vertex_flags[indices[0]] & geom::vf_clip_discard)
-           || (obj.vertex_flags[indices[1]] & geom::vf_clip_discard))
+        const bool needs_clipping =
+          (obj.vertex_flags[indices[0]] & geom::vf_clip_discard)
+          || (obj.vertex_flags[indices[1]] & geom::vf_clip_discard);
+
+        if(needs_clipping)
         {
-            // fill temporary vertex buffer.
-            temp_line.clear();
+            std::vector<geom::vertex> clipped_line =
+              clip_detail::clip_line_against_enabled_frustum_planes(
+                clip_detail::load_line_vertices(obj, indices));
 
-            for(std::size_t i = 0; i < 2; ++i)
+            if(output_type == point_list
+               || output_type == line_list)
             {
-                load_vertex_from_render_object(obj, indices[i], varying_count, v);
-                temp_line.emplace_back(v);
-            }
-
-            // perform clipping.
-            clipped_line.clear();
-            clip_line_on_w_plane(temp_line, clipped_line);
-#ifdef CLIP_ALL_PLANES
-            clip_vertex_buffer_on_plane(clipped_line, x_axis, clipped_line);
-            clip_vertex_buffer_on_plane(clipped_line, y_axis, clipped_line);
-#endif
-            clip_vertex_buffer_on_plane(clipped_line, z_axis, clipped_line);
-
-            // copy clipped vertices to output buffer.
-            if(output_type == point_list)
-            {
-                // write a list of points.
-                out_vertices.insert(
-                  std::end(out_vertices),
-                  std::begin(clipped_line),
-                  std::end(clipped_line));
-            }
-            else if(output_type == line_list)
-            {
-                // store vertex list.
-                out_vertices.insert(
-                  std::end(out_vertices),
-                  std::begin(clipped_line),
-                  std::end(clipped_line));
+                clip_detail::append_vertices(
+                  out_vertices,
+                  clipped_line);
             }
         }
         else
         {
-            // copy clipped vertices to output buffer.
-            if(output_type == point_list)
+            if(output_type == point_list
+               || output_type == line_list)
             {
-                // write a list of points.
-                for(std::size_t i = 0; i < 2; ++i)
-                {
-                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
-                    out_vertices.emplace_back(v);
-                }
-            }
-            else if(output_type == line_list)
-            {
-                // construct lines.
-                for(std::size_t i = 0; i < 2; ++i)
-                {
-                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
-                    out_vertices.emplace_back(v);
-                }
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[0]));
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[1]));
             }
         }
-    }
-}
-
-/**
- * Clip a triangle against the w plane.
- *
- * Recall that a visible vertex has to satisfy the relations
- *
- *    -w <= x <= w
- *    -w <= y <= w
- *    -w <= z <= w
- *      0 < w.
- *
- * in_vb and out_vb are not allowed to refer to the same buffer.
- *
- * if in_vb does not contain a triangle (i.e., 3 vertices), we empty the output buffer and return.
- */
-static void clip_triangle_on_w_plane(
-  const vertex_buffer& in_triangle,
-  vertex_buffer& out_vb)
-{
-    // ensure the output buffer is empty.
-    out_vb.clear();
-
-    // check that in_vb contains a triangle.
-    if(in_triangle.size() != 3)
-    {
-        return;
-    }
-
-    auto* prev_vert = &in_triangle[2]; /* last triangle vertex */
-    int prev_dot = (prev_vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
-
-    for(int i = 0; i < 3; ++i)
-    {
-        auto* vert = &in_triangle[i];
-        int dot = (vert->coords.w < W_CLIPPING_PLANE) ? -1 : 1;
-
-        // do consistent clipping.
-        if(prev_dot * dot < 0)
-        {
-            // Need to clip against plane w=0.
-            //
-            // to avoid dividing by zero when converting to NDC, we clip
-            // against w=W_CLIPPING_PLANE.
-
-            auto* inside_vert = (prev_dot < 0) ? vert : prev_vert;
-            auto* outside_vert = (prev_dot < 0) ? prev_vert : vert;
-
-            float t = (inside_vert->coords.w - W_CLIPPING_PLANE) / (inside_vert->coords.w - outside_vert->coords.w);
-            assert(t >= 0 && t <= 1);
-
-            out_vb.emplace_back(lerp(t, *inside_vert, *outside_vert));
-        }
-
-        if(dot > 0)
-        {
-            out_vb.emplace_back(*vert);
-        }
-
-        prev_vert = vert;
-        prev_dot = dot;
     }
 }
 
@@ -517,18 +411,6 @@ void clip_triangle_buffer_range(
   vertex_buffer& out_vertices)
 {
     /*
-     * temporary buffers.
-     *
-     * a note on the initial buffer size: if a large triangle is intersected with a small enough cube,
-     * it can produce a hexagonal-type polygon, i.e., 6 vertices. now if one vertex is inside
-     * the cube and the triangle is "flat enough", two additional vertices appear, so 8 seems
-     * to be a good guess as an initial buffer size for a clipped triangle.
-     */
-    vertex_buffer clipped_triangle{8};
-    vertex_buffer temp_triangle{3};
-    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
-
-    /*
      * Algorithm:
      *
      *  i)   Loop over triangles
@@ -544,64 +426,39 @@ void clip_triangle_buffer_range(
     out_vertices.clear();
     out_vertices.reserve((index_end - index_begin) * 2);
 
-    geom::vertex v;
-    v.varyings.reserve(varying_count);
-
     for(std::size_t index_it = index_begin; index_it < index_end; index_it += 3)
     {
-        const std::uint32_t indices[3] = {
+        const std::array<std::uint32_t, 3> indices = {
           obj.indices[index_it],
           obj.indices[index_it + 1],
           obj.indices[index_it + 2]};
 
-        // perform clipping.
-        if((obj.vertex_flags[indices[0]] & geom::vf_clip_discard)
-           || (obj.vertex_flags[indices[1]] & geom::vf_clip_discard)
-           || (obj.vertex_flags[indices[2]] & geom::vf_clip_discard))
+        const bool needs_clipping =
+          (obj.vertex_flags[indices[0]] & geom::vf_clip_discard)
+          || (obj.vertex_flags[indices[1]] & geom::vf_clip_discard)
+          || (obj.vertex_flags[indices[2]] & geom::vf_clip_discard);
+
+        if(needs_clipping)
         {
-            // fill temporary vertex buffer.
-            temp_triangle.clear();
+            std::vector<geom::vertex> clipped_triangle =
+              clip_detail::clip_polygon_against_enabled_frustum_planes(
+                clip_detail::load_triangle_vertices(obj, indices));
 
-            for(std::size_t i = 0; i < 3; ++i)
-            {
-                load_vertex_from_render_object(obj, indices[i], varying_count, v);
-                temp_triangle.emplace_back(v);
-            }
-
-            // perform clipping.
-            clipped_triangle.clear();
-            clip_triangle_on_w_plane(temp_triangle, clipped_triangle);
-#ifdef CLIP_ALL_PLANES
-            clip_vertex_buffer_on_plane(clipped_triangle, x_axis, clipped_triangle);
-            clip_vertex_buffer_on_plane(clipped_triangle, y_axis, clipped_triangle);
-#endif
-            clip_vertex_buffer_on_plane(clipped_triangle, z_axis, clipped_triangle);
-
-            // copy clipped vertices to output buffer.
             if(output_type == point_list)
             {
-                // write a list of points.
-                out_vertices.insert(
-                  std::end(out_vertices),
-                  std::begin(clipped_triangle),
-                  std::end(clipped_triangle));
+                clip_detail::append_vertices(out_vertices, clipped_triangle);
             }
             else if(output_type == line_list
                     && clipped_triangle.size() >= 2)
             {
-                // store vertex list. mark last vertex of the line,
-                // so that the polygons can all be reconstructed.
-                out_vertices.insert(
-                  std::end(out_vertices),
-                  std::begin(clipped_triangle),
-                  std::end(clipped_triangle));
+                clip_detail::append_vertices(out_vertices, clipped_triangle);
                 out_vertices.back().flags |= geom::vf_line_strip_end;
             }
-            else if(output_type == triangle_list && clipped_triangle.size() >= 3)
+            else if(output_type == triangle_list
+                    && clipped_triangle.size() >= 3)
             {
                 // By construction a clipped triangle forms a convex polygon.
                 // Thus, we can construct it as a triangle fan by selecting an arbitrary vertex as its center.
-
                 const geom::vertex& center = clipped_triangle.front();
                 const geom::vertex* previous = &clipped_triangle[1];
 
@@ -619,35 +476,33 @@ void clip_triangle_buffer_range(
         }
         else
         {
-            // copy clipped vertices to output buffer.
             if(output_type == point_list)
             {
-                for(std::size_t i = 0; i < 3; ++i)
-                {
-                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
-                    out_vertices.emplace_back(v);
-                }
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[0]));
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[1]));
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[2]));
             }
             else if(output_type == line_list)
             {
-                // construct lines.
-                for(std::size_t i = 0; i < 3; ++i)
-                {
-                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
-                    out_vertices.emplace_back(v);
-                }
-
-                // mark last index as end of line strip.
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[0]));
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[1]));
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[2]));
                 out_vertices.back().flags |= geom::vf_line_strip_end;
             }
             else if(output_type == triangle_list)
             {
-                // copy triangle.
-                for(std::size_t i = 0; i < 3; ++i)
-                {
-                    load_vertex_from_render_object(obj, indices[i], varying_count, v);
-                    out_vertices.emplace_back(v);
-                }
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[0]));
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[1]));
+                out_vertices.emplace_back(
+                  clip_detail::load_vertex(obj, indices[2]));
             }
         }
     }
