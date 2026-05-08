@@ -8,6 +8,10 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <format>
+#include <map>
+#include <tuple>
+
 /* boost test framework. */
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_ALTERNATIVE_INIT_API
@@ -900,6 +904,215 @@ BOOST_AUTO_TEST_CASE(d3d11_15)
             pixels.begin(), pixels.end(),
             expected.begin(), expected.end());
       });
+}
+
+BOOST_AUTO_TEST_CASE(varying_block_iteration_preserves_row_state)
+{
+    rast::triangle_interpolator attributes{};
+    attributes.varyings.emplace_back(
+      swr::varying{ml::vec4{10.0f, 0.0f, 0.0f, 0.0f}, ml::vec4::zero(), ml::vec4::zero()},
+      ml::tvec2<ml::vec4>{
+        ml::vec4{1.0f, 0.0f, 0.0f, 0.0f},
+        ml::vec4{10.0f, 0.0f, 0.0f, 0.0f}});
+    attributes.setup_block_processing();
+
+    std::vector<std::tuple<int, int, float>> samples;
+    rast::for_each_quad_in_triangle_block(
+      0,
+      0,
+      attributes,
+      [&](int x, int y, const rast::triangle_interpolator& attrs)
+      {
+          samples.emplace_back(x, y, attrs.varyings[0].value.x);
+      });
+
+    for(const auto& [x, y, value]: samples)
+    {
+        const float expected = 10.0f + static_cast<float>(x) + static_cast<float>(10 * y);
+        BOOST_CHECK_SMALL(value - expected, 1e-5f);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
+{
+    const int bs = static_cast<int>(swr::impl::rasterizer_block_size);
+    triangle_test_context ctx{static_cast<unsigned int>(3 * bs), static_cast<unsigned int>(3 * bs)};
+
+    ctx.program_info.varying_count = 1;
+    ctx.program_info.iqs.clear();
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::smooth);
+
+    auto make_v = [](float x, float y) -> geom::vertex
+    {
+        geom::vertex v{};
+        v.coords = {x, y, 0.0f, 1.0f};
+        v.varyings.emplace_back(ml::vec4{x + y, 0.0f, 0.0f, 0.0f});
+        return v;
+    };
+
+    const auto v0 = make_v(0.5f, 0.5f);
+    const auto v1 = make_v(0.5f + 2.0f * bs, 0.5f);
+    const auto v2 = make_v(0.5f, 0.5f + 2.0f * bs);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    std::map<std::pair<int, int>, float> values_all;
+    std::map<std::pair<int, int>, float> values_block;
+    std::map<std::pair<int, int>, float> values_checked;
+    bool ok = true;
+    std::string fail_msg;
+
+    auto expected_value_at = [&](int px, int py) -> float
+    {
+        rast::triangle_interpolator expected{
+          ml::vec2{static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f},
+          info.v0->coords, info.v1->coords, info.v2->coords,
+          info.v0->varyings, info.v1->varyings, info.v2->varyings, v0.varyings,
+          ctx.program_info.iqs, info.inv_area, 0.0f};
+        return expected.varyings[0].value.x;
+    };
+
+    rast::for_each_covered_triangle_block(
+      ctx.states,
+      info,
+      v0.varyings,
+      0.0f,
+      false,
+      [&](int block_x,
+          int block_y,
+          const geom::barycentric_coordinate_block& lambdas_box,
+          const rast::triangle_interpolator& attributes,
+          rast::tile_info::rasterization_mode mode)
+      {
+          auto emit_px = [&](int px, int py, float value)
+          {
+              if(!ok)
+              {
+                  return;
+              }
+
+              const float expected = expected_value_at(px, py);
+              if(std::abs(value - expected) > 1e-4f)
+              {
+                  ok = false;
+                  fail_msg = std::format(
+                    "analytic mismatch at pixel ({}, {}) in block ({}, {}), mode={}, got={}, expected={}",
+                    px, py,
+                    block_x, block_y,
+                    (mode == rast::tile_info::rasterization_mode::block ? "block" : "checked"),
+                    value, expected);
+                  return;
+              }
+
+              auto& values_mode =
+                (mode == rast::tile_info::rasterization_mode::block) ? values_block : values_checked;
+
+              const auto key = std::make_pair(px, py);
+              auto it = values_mode.find(key);
+              if(it == values_mode.end())
+              {
+                  values_mode.emplace(key, value);
+              }
+              else if(std::abs(it->second - value) > 1e-5f)
+              {
+                  ok = false;
+                  fail_msg = std::format(
+                    "discontinuity at pixel ({}, {}) in block ({}, {}), mode={}, previous={}, current={}",
+                    px, py,
+                    block_x, block_y,
+                    (mode == rast::tile_info::rasterization_mode::block ? "block" : "checked"),
+                    it->second, value);
+              }
+
+              auto all_it = values_all.find(key);
+              if(all_it == values_all.end())
+              {
+                  values_all.emplace(key, value);
+              }
+              else if(std::abs(all_it->second - value) > 1e-5f)
+              {
+                  ok = false;
+                  fail_msg = std::format(
+                    "cross-mode discontinuity at pixel ({}, {}), previous={}, current={}",
+                    px, py,
+                    all_it->second, value);
+              }
+          };
+
+          if(mode == rast::tile_info::rasterization_mode::block)
+          {
+              auto block_attributes = attributes;
+              block_attributes.setup_block_processing();
+              rast::for_each_quad_in_triangle_block(
+                block_x,
+                block_y,
+                block_attributes,
+                [&](int x, int y, const rast::triangle_interpolator& attrs)
+                {
+                    std::array<
+                      boost::container::static_vector<
+                        swr::varying,
+                        swr::limits::max::varyings>,
+                      4>
+                      temp_varyings;
+                    ml::vec4 depth;
+                    ml::vec4 one_over_z;
+                    attrs.get_data_block(temp_varyings, depth, one_over_z);
+
+                    emit_px(x + 0, y + 0, temp_varyings[0][0].value.x);
+                    emit_px(x + 1, y + 0, temp_varyings[1][0].value.x);
+                    emit_px(x + 0, y + 1, temp_varyings[2][0].value.x);
+                    emit_px(x + 1, y + 1, temp_varyings[3][0].value.x);
+                });
+          }
+          else
+          {
+              auto block_attributes = attributes;
+              block_attributes.setup_block_processing();
+              rast::for_each_covered_quad_in_checked_triangle_block(
+                block_x,
+                block_y,
+                lambdas_box,
+                block_attributes,
+                [&](int x, int y, int mask, const rast::triangle_interpolator& attrs)
+                {
+                    std::array<
+                      boost::container::static_vector<
+                        swr::varying,
+                        swr::limits::max::varyings>,
+                      4>
+                      temp_varyings;
+                    ml::vec4 depth;
+                    ml::vec4 one_over_z;
+                    attrs.get_data_block(temp_varyings, depth, one_over_z);
+
+                    if(mask & 0x8)
+                    {
+                        emit_px(x + 0, y + 0, temp_varyings[0][0].value.x);
+                    }
+                    if(mask & 0x4)
+                    {
+                        emit_px(x + 1, y + 0, temp_varyings[1][0].value.x);
+                    }
+                    if(mask & 0x2)
+                    {
+                        emit_px(x + 0, y + 1, temp_varyings[2][0].value.x);
+                    }
+                    if(mask & 0x1)
+                    {
+                        emit_px(x + 1, y + 1, temp_varyings[3][0].value.x);
+                    }
+                });
+          }
+      });
+
+    BOOST_CHECK(!values_all.empty());
+    // Depending on rasterizer block size and triangle alignment, all touched tiles may route
+    // through checked-mode, so block-mode coverage is not guaranteed.
+    BOOST_CHECK(!values_checked.empty());
+
+    BOOST_CHECK_MESSAGE(ok, fail_msg);
 }
 
 BOOST_AUTO_TEST_SUITE_END();

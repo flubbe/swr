@@ -618,6 +618,12 @@ void CopyDefaultColorBuffer(context_handle context)
     assert(context);
 
     swr::impl::render_context* internal_context = static_cast<swr::impl::render_context*>(context);
+    if(internal_context->type != impl::context_type::sdl)
+    {
+        // Copying the default buffer is only valid for SDL-backed contexts.
+        internal_context->last_error = error::invalid_operation;
+        return;
+    }
 
     internal_context->unlock();
     internal_context->copy_default_color_buffer();

@@ -4,13 +4,12 @@
  * primitive assembly.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 /* user headers. */
 #include "swr_internal.h"
-#include "culling.h"
 
 namespace swr
 {
@@ -31,12 +30,15 @@ enum class polygon_orientation
  * Extract the polygon information out of a line loop, which in turn consists of vertices.
  * Some vertices have markers to indicate where a polygon ends (and thus, where the next starts).
  *
- * \param vb The vertex buffer holding the vertex list.
- * \param start_index The starting vertex of the polygon.
- * \param end_index If and ending marker is detected, this holds the index of the first vertex greater or equal to start_index having an ending marker.
- * \return If an end marker is found, the function returns true.
+ * @param vb The vertex buffer holding the vertex list.
+ * @param start_index The starting vertex of the polygon.
+ * @param end_index If and ending marker is detected, this holds the index of the first vertex greater or equal to start_index having an ending marker.
+ * @return If an end marker is found, the function returns true.
  */
-static bool next_polygon(const vertex_buffer& vb, std::size_t start_index, std::size_t& end_index)
+static bool next_polygon(
+  const vertex_buffer& vb,
+  std::size_t start_index,
+  std::size_t& end_index)
 {
     for(std::size_t i = start_index; i < vb.size(); ++i)
     {
@@ -53,7 +55,10 @@ static bool next_polygon(const vertex_buffer& vb, std::size_t start_index, std::
 }
 
 /** calculate the signed area of the triangle (v1,v2,v3). */
-static int triangle_area_sign(const ml::vec2 v1, const ml::vec2 v2, const ml::vec2 v3)
+static int triangle_area_sign(
+  const ml::vec2 v1,
+  const ml::vec2 v2,
+  const ml::vec2 v3)
 {
     // edge1 = v2-v1, edge2 = v3-v1.
     return (v2 - v1).area_sign(v3 - v1);
@@ -62,13 +67,16 @@ static int triangle_area_sign(const ml::vec2 v1, const ml::vec2 v2, const ml::ve
 /**
  * Calculate the orientation of a convex 2d polygon given by the raster coordinates of the vertices.
  *
- * \param vb The vertex buffer holding the vertex list.
- * \param start_vertex The index of the first vertex of the polygon
- * \param end_vertex The index of the last vertex of the polygon.
- * \return Returns if the polygon is oriented clockwise, counter-clockwise, or if it is degenerate.
+ * @param vb The vertex buffer holding the vertex list.
+ * @param start_vertex The index of the first vertex of the polygon
+ * @param end_vertex The index of the last vertex of the polygon.
+ * @return Returns if the polygon is oriented clockwise, counter-clockwise, or if it is degenerate.
  *         Additionally, if the function detects non-convexity, it returns polygon_orientation::not_convex.
  */
-static polygon_orientation get_polygon_orientation(const vertex_buffer& vb, const std::size_t start_vertex, const std::size_t end_vertex)
+static polygon_orientation get_polygon_orientation(
+  const vertex_buffer& vb,
+  const std::size_t start_vertex,
+  const std::size_t end_vertex)
 {
     assert(end_vertex < vb.size());
 
@@ -99,8 +107,14 @@ static polygon_orientation get_polygon_orientation(const vertex_buffer& vb, cons
     }
 
     // the above loop misses two corners, which we check here separately.
-    int sign1 = triangle_area_sign(v2, v3, vb[start_vertex].coords.xy());
-    int sign2 = triangle_area_sign(v3, vb[start_vertex].coords.xy(), vb[start_vertex + 1].coords.xy());
+    int sign1 = triangle_area_sign(
+      v2,
+      v3,
+      vb[start_vertex].coords.xy());
+    int sign2 = triangle_area_sign(
+      v3,
+      vb[start_vertex].coords.xy(),
+      vb[start_vertex + 1].coords.xy());
 
     positive_corners += (sign1 > 0) + (sign2 > 0);
     negative_corners += (sign1 < 0) + (sign2 < 0);
@@ -124,12 +138,15 @@ static polygon_orientation get_polygon_orientation(const vertex_buffer& vb, cons
 /**
  * Decide if we should face-cull a polygon with a known orientation.
  *
- * \param cull_mode current cull mode.
- * \param front_face  current front-face mode.
- * \param orientation the polygon's orientation inside the viewport.
- * \return returns true if the polygon should be culled based on the render states and the polygon's orientation.
+ * @param cull_mode current cull mode.
+ * @param front_face  current front-face mode.
+ * @param orientation the polygon's orientation inside the viewport.
+ * @return returns true if the polygon should be culled based on the render states and the polygon's orientation.
  */
-static bool face_cull_polygon(swr::cull_face_direction cull_mode, swr::front_face_orientation front_face, polygon_orientation orientation)
+static bool face_cull_polygon(
+  swr::cull_face_direction cull_mode,
+  swr::front_face_orientation front_face,
+  polygon_orientation orientation)
 {
     if(cull_mode == cull_face_direction::front_and_back)
     {
@@ -140,22 +157,138 @@ static bool face_cull_polygon(swr::cull_face_direction cull_mode, swr::front_fac
     if(cull_mode == cull_face_direction::front)
     {
         // reject front-facing polygons.
-        return (front_face == front_face_orientation::cw && orientation == polygon_orientation::cw)
-               || (front_face == front_face_orientation::ccw && orientation == polygon_orientation::ccw);
+        return (front_face == front_face_orientation::cw
+                && orientation == polygon_orientation::cw)
+               || (front_face == front_face_orientation::ccw
+                   && orientation == polygon_orientation::ccw);
     }
     else if(cull_mode == cull_face_direction::back)
     {
         // reject back-facing polygons.
-        return (front_face == front_face_orientation::cw && orientation == polygon_orientation::ccw)
-               || (front_face == front_face_orientation::ccw && orientation == polygon_orientation::cw);
+        return (front_face == front_face_orientation::cw
+                && orientation == polygon_orientation::ccw)
+               || (front_face == front_face_orientation::ccw
+                   && orientation == polygon_orientation::cw);
     }
 
     // accept.
     return false;
 }
 
-void render_context::assemble_primitives(const render_states* states, vertex_buffer_mode mode, vertex_buffer& vb)
+/** check if a given face orientation should be rejected based on the cull mode. */
+static bool cull_reject(
+  cull_face_direction mode,
+  cull_face_direction test_direction)
 {
+    return (mode == cull_face_direction::front_and_back)
+           || (mode == test_direction);
+}
+
+#ifdef SWR_ENABLE_MULTI_THREADING
+
+namespace
+{
+
+constexpr std::size_t min_parallel_assembly_triangles = 2048;
+
+struct assembled_triangle_ref
+{
+    std::size_t index{0};
+    bool is_front_facing{false};
+};
+
+struct assembled_triangle_chunk
+{
+    std::vector<assembled_triangle_ref> triangles;
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t tri_input_count{0};
+    std::uint64_t tri_cull_degenerate_count{0};
+    std::uint64_t tri_cull_face_count{0};
+    std::uint64_t tri_submit_count{0};
+#    endif
+};
+
+static void assemble_fill_triangles_chunk(
+  const render_states* states,
+  const vertex_buffer* vb,
+  std::size_t begin_triangle,
+  std::size_t end_triangle,
+  assembled_triangle_chunk* out)
+{
+    out->triangles.clear();
+    out->triangles.reserve(end_triangle - begin_triangle);
+
+    for(std::size_t tri = begin_triangle; tri < end_triangle; ++tri)
+    {
+        const std::size_t i = tri * 3;
+        auto& v1 = (*vb)[i];
+        auto& v2 = (*vb)[i + 1];
+        auto& v3 = (*vb)[i + 2];
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        ++out->tri_input_count;
+#    endif
+
+        const int area_sign = triangle_area_sign(
+          v1.coords.xy(),
+          v2.coords.xy(),
+          v3.coords.xy());
+
+        if(area_sign == 0)
+        {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            ++out->tri_cull_degenerate_count;
+#    endif
+
+            continue;
+        }
+
+        const bool is_front_facing =
+          (states->front_face == front_face_orientation::cw
+           && area_sign >= 0)
+          || (states->front_face == front_face_orientation::ccw
+              && area_sign <= 0);
+
+        const cull_face_direction orient =
+          is_front_facing
+            ? cull_face_direction::front
+            : cull_face_direction::back;
+
+        if(states->culling_enabled
+           && cull_reject(states->cull_mode, orient))
+        {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            ++out->tri_cull_face_count;
+#    endif
+
+            continue;
+        }
+
+        out->triangles.emplace_back(assembled_triangle_ref{i, is_front_facing});
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        ++out->tri_submit_count;
+#    endif
+    }
+}
+
+} /* namespace */
+
+#endif /* SWR_ENABLE_MULTI_THREADING */
+
+void render_context::assemble_primitives(
+  const render_states* states,
+  vertex_buffer_mode mode,
+  vertex_buffer& vb)
+{
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t tri_input_count = 0;
+    std::uint64_t tri_cull_degenerate_count = 0;
+    std::uint64_t tri_cull_face_count = 0;
+    std::uint64_t tri_submit_count = 0;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     // choose drawing mode.
     if(mode == vertex_buffer_mode::points
        || states->poly_mode == polygon_mode::point)
@@ -198,14 +331,21 @@ void render_context::assemble_primitives(const render_states* states, vertex_buf
                 // culling.
                 if(states->culling_enabled)
                 {
-                    auto orientation = get_polygon_orientation(vb, first_index, last_index);
-                    if(orientation == polygon_orientation::not_convex || orientation == polygon_orientation::degenerate)
+                    auto orientation = get_polygon_orientation(
+                      vb,
+                      first_index,
+                      last_index);
+                    if(orientation == polygon_orientation::not_convex
+                       || orientation == polygon_orientation::degenerate)
                     {
                         // do not consider degenerate polygons or non-convex ones.
                         continue;
                     }
 
-                    if(face_cull_polygon(states->cull_mode, states->front_face, orientation))
+                    if(face_cull_polygon(
+                         states->cull_mode,
+                         states->front_face,
+                         orientation))
                     {
                         // don't draw.
                         continue;
@@ -231,23 +371,102 @@ void render_context::assemble_primitives(const render_states* states, vertex_buf
         }
         else if(states->poly_mode == polygon_mode::fill)
         {
-            /* draw a list of triangles */
-            for(std::size_t i = 0; i < vb.size(); i += 3)
-            {
-                auto& v1 = vb[i];
-                auto& v2 = vb[i + 1];
-                auto& v3 = vb[i + 2];
+#ifdef SWR_ENABLE_MULTI_THREADING
+            const std::size_t triangle_count = vb.size() / 3;
+            const std::size_t thread_count = thread_pool.get_thread_count();
+            const bool do_parallel_assembly =
+              thread_count > 1
+              && triangle_count >= min_parallel_assembly_triangles;
 
-                // triangle culling.
-                cull_face_direction orient = get_face_orientation(states->front_face, v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
-                if(states->culling_enabled && cull_reject(states->cull_mode, orient))
+            if(do_parallel_assembly)
+            {
+                const std::size_t task_count = std::min(thread_count, triangle_count);
+                std::vector<assembled_triangle_chunk> chunks(task_count);
+
+                for(std::size_t t = 0; t < task_count; ++t)
                 {
-                    // reject
-                    continue;
+                    const std::size_t begin_triangle = (t * triangle_count) / task_count;
+                    const std::size_t end_triangle = ((t + 1) * triangle_count) / task_count;
+
+                    thread_pool.push_immediate_task(
+                      assemble_fill_triangles_chunk,
+                      states,
+                      &vb,
+                      begin_triangle,
+                      end_triangle,
+                      &chunks[t]);
                 }
 
-                rasterizer->add_triangle(states, orient == cull_face_direction::front, &v1, &v2, &v3);
+                thread_pool.run_tasks_and_wait();
+
+                for(const auto& chunk: chunks)
+                {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+                    tri_input_count += chunk.tri_input_count;
+                    tri_cull_degenerate_count += chunk.tri_cull_degenerate_count;
+                    tri_cull_face_count += chunk.tri_cull_face_count;
+                    tri_submit_count += chunk.tri_submit_count;
+#    endif
+
+                    for(const auto& tri: chunk.triangles)
+                    {
+                        auto& v1 = vb[tri.index];
+                        auto& v2 = vb[tri.index + 1];
+                        auto& v3 = vb[tri.index + 2];
+                        rasterizer->add_triangle(states, tri.is_front_facing, &v1, &v2, &v3);
+                    }
+                }
             }
+            else
+            {
+#endif /* SWR_ENABLE_MULTI_THREADING */
+                /* draw a list of triangles */
+                for(std::size_t i = 0; i < vb.size(); i += 3)
+                {
+                    auto& v1 = vb[i];
+                    auto& v2 = vb[i + 1];
+                    auto& v3 = vb[i + 2];
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                    ++tri_input_count;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+                    const int area_sign = triangle_area_sign(v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
+                    if(area_sign == 0)
+                    {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                        ++tri_cull_degenerate_count;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+                        continue;
+                    }
+
+                    const bool is_front_facing =
+                      (states->front_face == front_face_orientation::cw && area_sign >= 0)
+                      || (states->front_face == front_face_orientation::ccw && area_sign <= 0);
+
+                    const cull_face_direction orient =
+                      is_front_facing
+                        ? cull_face_direction::front
+                        : cull_face_direction::back;
+
+                    if(states->culling_enabled
+                       && cull_reject(states->cull_mode, orient))
+                    {
+                        // reject
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                        ++tri_cull_face_count;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+                        continue;
+                    }
+
+                    rasterizer->add_triangle(states, is_front_facing, &v1, &v2, &v3);
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                    ++tri_submit_count;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+                }
+#ifdef SWR_ENABLE_MULTI_THREADING
+            }
+#endif /* SWR_ENABLE_MULTI_THREADING */
         }
         else
         {
@@ -255,6 +474,17 @@ void render_context::assemble_primitives(const render_states* states, vertex_buf
             assert(states->poly_mode == polygon_mode::line || states->poly_mode == polygon_mode::fill);
         }
     }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    if(mode == vertex_buffer_mode::triangles
+       && states->poly_mode == polygon_mode::fill)
+    {
+        profile_triangles_input.fetch_add(tri_input_count, std::memory_order_relaxed);
+        profile_triangles_culled_degenerate.fetch_add(tri_cull_degenerate_count, std::memory_order_relaxed);
+        profile_triangles_culled_face.fetch_add(tri_cull_face_count, std::memory_order_relaxed);
+        profile_triangles_submitted.fetch_add(tri_submit_count, std::memory_order_relaxed);
+    }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
 } /* namespace impl */

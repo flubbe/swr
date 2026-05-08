@@ -131,7 +131,7 @@ error texture_2d::set_data(
     }
 
     // if no data was supplied, we act as just allocate was called.
-    if(in_data.size() == 0)
+    if(in_data.empty())
     {
         return error::none;
     }
@@ -180,7 +180,7 @@ error texture_2d::set_sub_data(
     ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(std::uint32_t);
 
-    if(in_width == 0 || in_height == 0 || in_data.size() == 0)
+    if(in_width == 0 || in_height == 0 || in_data.empty())
     {
         return error::invalid_value;
     }
@@ -339,7 +339,7 @@ void create_default_texture(render_context* context)
     assert(context);
 
     // the default texture is stored in slot 0. check if it is already taken.
-    if(context->texture_2d_storage.size() != 0)
+    if(!context->texture_2d_storage.empty())
     {
         context->last_error = error::invalid_operation;
         return;

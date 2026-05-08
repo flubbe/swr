@@ -10,22 +10,10 @@
 
 #pragma once
 
+#include <atomic>
 #include <type_traits>
 
 #include <boost/container/static_vector.hpp>
-
-/*
- * configurable options.
- */
-
-/* use SIMD code by default. */
-// #define SWR_USE_SIMD
-
-/* use multiple threads by default. */
-#define SWR_ENABLE_MULTI_THREADING
-
-/* enable the use of morton codes (for texture access) by default. */
-#define SWR_USE_MORTON_CODES
 
 /*
  * headers.
@@ -49,18 +37,23 @@
 #include "renderobject.h"
 #include "context.h"
 
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+#    include "profiling.h"
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
 /*
  * rasterizer configuration.
  */
 
-namespace swr
-{
-
-namespace impl
+namespace swr::impl
 {
 
 /** block size for triangle rasterization. */
-constexpr std::uint32_t rasterizer_block_shift{5};
+#ifndef SWR_RASTERIZER_BLOCK_SHIFT
+constexpr std::uint32_t rasterizer_block_shift{4};
+#else
+constexpr std::uint32_t rasterizer_block_shift{SWR_RASTERIZER_BLOCK_SHIFT};
+#endif
 
 /** Block size for triangle rasterization. The context buffer sizes have to be aligned on this value. */
 constexpr std::uint32_t rasterizer_block_size{1 << rasterizer_block_shift};
@@ -82,6 +75,4 @@ inline T upper_align_on_block_size(const T& v)
     return (v + (rasterizer_block_size - 1)) & ~(rasterizer_block_size - 1);
 }
 
-} /* namespace impl */
-
-} /* namespace swr */
+} /* namespace swr::impl */

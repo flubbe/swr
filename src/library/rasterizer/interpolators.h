@@ -130,69 +130,57 @@ struct basic_interpolation_data
          * depth.
          */
 
-        auto depth = depth_value;
-        depth.setup_block_processing();
+        const auto d00 = depth_value.value;
+        const auto d10 = d00 + depth_value.step.x;
+        const auto d01 = d00 + depth_value.step.y;
+        const auto d11 = d10 + depth_value.step.y;
 
-        // store value at (x,y)
-        out_depth[0] = depth.value;
-
-        // store value at (x+1,y)
-        depth.advance_x();
-        out_depth[1] = depth.value;
-
-        // store value at (x,y+1)
-        depth.advance_y();
-        out_depth[2] = depth.value;
-
-        // store value at (x+1,y+1)
-        depth.advance_x();
-        out_depth[3] = depth.value;
+        out_depth[0] = d00;
+        out_depth[1] = d10;
+        out_depth[2] = d01;
+        out_depth[3] = d11;
 
         /*
          * viewport z.
          */
 
-        auto one_over_z = one_over_viewport_z;
-        one_over_z.setup_block_processing();
+        const auto z00 = one_over_viewport_z.value;
+        const auto z10 = z00 + one_over_viewport_z.step.x;
+        const auto z01 = z00 + one_over_viewport_z.step.y;
+        const auto z11 = z10 + one_over_viewport_z.step.y;
 
-        // store value at (x,y)
-        out_one_over_viewport_z[0] = one_over_z.value;
-
-        // store value at (x+1,y)
-        one_over_z.advance_x();
-        out_one_over_viewport_z[1] = one_over_z.value;
-
-        // store value at (x,y+1)
-        one_over_z.advance_y();
-        out_one_over_viewport_z[2] = one_over_z.value;
-
-        // store value at (x+1,y+1)
-        one_over_z.advance_x();
-        out_one_over_viewport_z[3] = one_over_z.value;
+        out_one_over_viewport_z[0] = z00;
+        out_one_over_viewport_z[1] = z10;
+        out_one_over_viewport_z[2] = z01;
+        out_one_over_viewport_z[3] = z11;
 
         /*
          * varyings.
          */
 
-        for(auto it: varyings)
+        const std::size_t varying_count = varyings.size();
+        out_varyings[0].resize(varying_count);
+        out_varyings[1].resize(varying_count);
+        out_varyings[2].resize(varying_count);
+        out_varyings[3].resize(varying_count);
+
+        for(std::size_t i = 0; i < varying_count; ++i)
         {
-            it.setup_block_processing();
+            const varying_interpolator& src = varyings[i];
+            const ml::vec4 v00 = src.value;
+            const ml::vec4 v10 = v00 + src.step.x;
+            const ml::vec4 v01 = v00 + src.step.y;
+            const ml::vec4 v11 = v01 + src.step.x;
 
-            // store value at (x,y)
-            out_varyings[0].emplace_back(it);
-
-            // store value at (x+1,y)
-            it.advance_x();
-            out_varyings[1].emplace_back(it);
-
-            // store value at (x,y+1)
-            it.advance_y();
-            out_varyings[2].emplace_back(it);
-
-            // store value at (x+1,y+1)
-            it.advance_x();
-            out_varyings[3].emplace_back(it);
+            out_varyings[0][i] = {v00, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[1][i] = {v10, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[2][i] = {v01, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[3][i] = {v11, ml::vec4::zero(), ml::vec4::zero()};
         }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_interp_varying_copies.fetch_add(varying_count * 4, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 };
 
@@ -381,7 +369,6 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
 
         assert(iqs.size() == v0_varyings.size());
         std::size_t varying_count = iqs.size();
-
         varyings.reserve(varying_count);
         for(std::size_t i = 0; i < varying_count; ++i)
         {

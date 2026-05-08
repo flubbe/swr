@@ -672,7 +672,7 @@ public:
     /** check completeness. */
     bool is_complete() const
     {
-        if(color_attachments.size() == 0)
+        if(color_attachments.empty())
         {
             return false;
         }

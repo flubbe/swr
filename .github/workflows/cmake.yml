@@ -46,10 +46,30 @@ jobs:
           g++ --version
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DSWR_BUILD_BENCHMARKS=ON
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: Build benchmark targets
+        run: |
+          cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target obj_perf clip_bench
+          if cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target bench_memset; then
+            echo "bench_memset built"
+          else
+            echo "bench_memset target not available; continuing"
+          fi
+
+      - name: Profiling-flag compile check
+        run: |
+          cmake -B ${{github.workspace}}/build-profile \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DSWR_ENABLE_PIPELINE_PROFILING=ON \
+            -DSWR_BUILD_DEMOS=OFF \
+            -DSWR_BUILD_APP=OFF \
+            -DSWR_BUILD_BENCHMARKS=OFF \
+            -DSWR_BUILD_TESTS=OFF
+          cmake --build ${{github.workspace}}/build-profile --config ${{env.BUILD_TYPE}} --target swrast
 
       - name: Run tests
         run: |

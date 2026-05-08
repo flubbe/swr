@@ -113,37 +113,137 @@ class sweep_rasterizer : public rasterizer
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_scan = 0;
+        std::uint64_t stage_process = 0;
+        std::uint64_t stage_clear = 0;
+        std::uint64_t nonempty_tiles = 0;
+        std::uint64_t primitive_count = 0;
+        std::uint64_t max_tile_prims = 0;
+        std::uint64_t near_full_tiles = 0;
+        const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
+        utils::clock(stage_scan);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         // for each non-empty tile, add a job to the thread pool.
-        for(auto& entry: tiles.entries)
+        for(const auto tile_index: tiles.active_tile_indices)
         {
-            if(entry.primitives.size())
+            auto& entry = tiles.entries[tile_index];
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            ++nonempty_tiles;
+            const std::uint64_t prims = entry.primitives.size();
+            primitive_count += prims;
+            max_tile_prims = std::max(max_tile_prims, prims);
+            if(prims + 16 >= entry.primitives.max_size())
             {
-                thread_pool->push_task(
-                  process_tile_static,
-                  this,
-                  &entry);
+                ++near_full_tiles;
             }
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+            thread_pool->push_task(
+              process_tile_static,
+              this,
+              &entry);
         }
 
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_scan);
+        utils::clock(stage_process);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         thread_pool->run_tasks_and_wait();
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_process);
+        utils::clock(stage_clear);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         tiles.clear_tiles();
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_clear);
+        swr::impl::profile_raster_flush_scan_cycles.fetch_add(stage_scan, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_process_cycles.fetch_add(stage_process, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_clear_cycles.fetch_add(stage_clear, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_nonempty_tiles.fetch_add(nonempty_tiles, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_max_tile_prims.fetch_add(max_tile_prims, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_near_full_tiles.fetch_add(near_full_tiles, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
-#else  /* SWR_ENABLE_MULTI_THREADING */
+#else /* SWR_ENABLE_MULTI_THREADING */
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_scan = 0;
+        std::uint64_t stage_process = 0;
+        std::uint64_t stage_clear = 0;
+        std::uint64_t nonempty_tiles = 0;
+        std::uint64_t primitive_count = 0;
+        std::uint64_t max_tile_prims = 0;
+        std::uint64_t near_full_tiles = 0;
+        const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
+        bool process_started = false;
+        utils::clock(stage_scan);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         // for each non-empty tile, add a job to the thread pool.
-        for(auto& entry: tiles.entries)
+        for(const auto tile_index: tiles.active_tile_indices)
         {
-            if(entry.primitives.size())
+            auto& entry = tiles.entries[tile_index];
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            ++nonempty_tiles;
+            const std::uint64_t prims = entry.primitives.size();
+            primitive_count += prims;
+            max_tile_prims = std::max(max_tile_prims, prims);
+            if(prims + 16 >= entry.primitives.max_size())
             {
-                process_tile(entry);
+                ++near_full_tiles;
             }
+            if(!process_started)
+            {
+                utils::unclock(stage_scan);
+                process_started = true;
+            }
+            utils::clock(stage_process);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+            process_tile(entry);
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            utils::unclock(stage_process);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
 
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        if(!process_started)
+        {
+            utils::unclock(stage_scan);
+        }
+        utils::clock(stage_clear);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         tiles.clear_tiles();
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_clear);
+        swr::impl::profile_raster_flush_scan_cycles.fetch_add(stage_scan, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_process_cycles.fetch_add(stage_process, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_clear_cycles.fetch_add(stage_clear, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_nonempty_tiles.fetch_add(nonempty_tiles, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_count.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_max_tile_prims.fetch_add(max_tile_prims, std::memory_order_relaxed);
+        swr::impl::profile_raster_flush_near_full_tiles.fetch_add(near_full_tiles, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
-#endif /* SWR_ENABLE_MULTI_THREADING */
+#endif     /* SWR_ENABLE_MULTI_THREADING */
 
     /*
      * fragment processing.
@@ -169,17 +269,6 @@ class sweep_rasterizer : public rasterizer
       std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
-    /**
-     * generate color values along with depth- and stencil masks for a 2x2 block of fragments. writes to the depth buffer.
-     *
-     * @param x x-coordinate of the top-left corner of the block.
-     * @param y y-coordinate of the top-left corner of the block.
-     * @param mask block mask `tl|tr|bl|br`, i.e., `tl` corresponds to mask `0x8`, `tr` to `0x4`, `bl` to `0x2`, `br` to `0x1`.
-     * @param states active render states.
-     * @param one_over_viewport_z `1/z` for viewport `z` for each fragment (order `tl`, `tr`, `bl`, `br`).
-     * @param info fragment infos (order `tl`, `tr`, `bl`, `br`).
-     * @param out output fragment block.
-     */
     void process_fragment_block(
       int x,
       int y,
