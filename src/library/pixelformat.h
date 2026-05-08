@@ -169,10 +169,30 @@ struct pixel_format_converter
     std::uint32_t to_pixel(ml::vec4 color) const
     {
         const ml::vec4 scaled_color{color * max_per_channel};
-        std::uint8_t r{static_cast<std::uint8_t>(scaled_color.r)};
-        std::uint8_t g{static_cast<std::uint8_t>(scaled_color.g)};
-        std::uint8_t b{static_cast<std::uint8_t>(scaled_color.b)};
-        std::uint8_t a{static_cast<std::uint8_t>(scaled_color.a)};
+
+        const std::uint8_t r{static_cast<std::uint8_t>(scaled_color.r)};
+        const std::uint8_t g{static_cast<std::uint8_t>(scaled_color.g)};
+        const std::uint8_t b{static_cast<std::uint8_t>(scaled_color.b)};
+        const std::uint8_t a{static_cast<std::uint8_t>(scaled_color.a)};
+
+        if(name == pixel_format::argb8888
+           || name == pixel_format::bgra8888
+           || name == pixel_format::rgba8888)
+        {
+            if(name == pixel_format::argb8888)
+            {
+                return (a << 24) | (r << 16) | (g << 8) | b;
+            }
+            else if(name == pixel_format::bgra8888)
+            {
+                return (b << 24) | (g << 16) | (r << 8) | a;
+            }
+            else
+            {
+                return (r << 24) | (g << 16) | (b << 8) | a;
+            }
+        }
+
         return (static_cast<std::uint32_t>(r) << pf.red_shift)
                | (static_cast<std::uint32_t>(g) << pf.green_shift)
                | (static_cast<std::uint32_t>(b) << pf.blue_shift)

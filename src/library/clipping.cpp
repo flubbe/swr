@@ -13,6 +13,7 @@
 
 #include <span>
 #include <vector>
+#include <algorithm>
 
 /* user headers. */
 #include "swr_internal.h"
@@ -252,23 +253,24 @@ static geom::vertex load_vertex(
   const render_object& obj,
   const std::uint32_t index)
 {
+    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     constexpr std::uint64_t coord_bytes = sizeof(ml::vec4);
     constexpr std::uint64_t flag_bytes = sizeof(std::uint32_t);
-    const std::uint64_t varying_count = static_cast<std::uint64_t>(obj.states.shader_info->varying_count);
-    const std::uint64_t varying_bytes = varying_count * sizeof(ml::vec4);
+    const std::uint64_t varying_bytes = static_cast<std::uint64_t>(varying_count) * sizeof(ml::vec4);
     swr::impl::profile_clip_vertex_read_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
     swr::impl::profile_clip_vertex_write_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     geom::vertex v;
     v.coords = obj.coords[index];
-    v.varyings.reserve(obj.states.shader_info->varying_count);
-
-    for(std::uint32_t j = 0; j < obj.states.shader_info->varying_count; ++j)
-    {
-        v.varyings.emplace_back(obj.varyings[index * obj.states.shader_info->varying_count + j]);
-    }
+    v.varyings.resize(varying_count);
+    const std::size_t varying_offset = static_cast<std::size_t>(index) * varying_count;
+    std::copy_n(
+      obj.varyings + varying_offset,
+      varying_count,
+      v.varyings.begin());
 
     v.flags = obj.vertex_flags[index];
     return v;
