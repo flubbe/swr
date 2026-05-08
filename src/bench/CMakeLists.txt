@@ -16,7 +16,7 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     endif()
 endif()
 
-# end-to-end offscreen OBJ benchmark (manual timing, no Google Benchmark dependency)
+# end-to-end offscreen OBJ benchmark
 add_executable(obj_perf
     obj/main.cpp
 )
@@ -32,15 +32,39 @@ target_link_libraries(obj_perf
     swr_project_warnings
 )
 
+# dedicated clipping-heavy offscreen OBJ benchmark
+add_executable(clip_bench
+    clip/main.cpp
+)
+target_include_directories(clip_bench
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(clip_bench
+    PRIVATE
+    tinyobjloader
+    swrast
+    swr_project_options
+    swr_project_warnings
+)
+
 if(SWR_ENABLE_DEV_BENCH_TESTS)
     add_test(
         NAME obj_perf
         COMMAND $<TARGET_FILE:obj_perf>
-            --model=${SWR_SOURCE_DIR}/src/demos/cars/assets/cars/cop/Cop_Body.obj
-            --frames=60
-            --width=400
-            --height=400
-            --threads=0
+        --model=${SWR_SOURCE_DIR}/src/demos/cars/assets/cars/cop/Cop_Body.obj
+        --frames=60
+        --width=400
+        --height=400
+        --threads=0
+    )
+    add_test(
+        NAME clip_bench
+        COMMAND $<TARGET_FILE:clip_bench>
+        --model=${SWR_SOURCE_DIR}/src/demos/cars/assets/cars/cop/Cop_Body.obj
+        --frames=60
+        --width=400
+        --height=400
+        --threads=0
     )
 endif()
-

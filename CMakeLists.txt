@@ -2,7 +2,6 @@
 # authors: Felix Lubbe
 #
 
-cmake_policy(VERSION 3.22.0)
 cmake_minimum_required(VERSION 3.22.0)
 
 project(swr LANGUAGES CXX)
@@ -12,8 +11,11 @@ option(SWR_BUILD_DEMOS "Build swr demos" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_APP "Build swr app" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_TESTS "Build swr tests" ${PROJECT_IS_TOP_LEVEL})
+option(SWR_ENABLE_X86_SIMD_FLAGS "Enable x86 SSE compiler flags." ON)
 option(SWR_ENABLE_PIPELINE_PROFILING "Enable rdtsc-based pipeline profiling counters in swrast (DO_BENCHMARKING)" OFF)
 option(SWR_ENABLE_DEV_BENCH_TESTS "Enable development performance benchmark tests in CTest." OFF)
+option(SWR_ENABLE_MULTI_THREADING "Enable multi-threaded processing in rasterizer." ON)
+option(SWR_USE_MORTON_CODES "Use Morton codes for texture access." ON)
 set(SWR_TILE_CACHE_PRIMITIVE_CAPACITY "1024" CACHE STRING "Max primitive entries per rasterizer tile cache bucket")
 set(SWR_RASTERIZER_BLOCK_SHIFT "5" CACHE STRING "Rasterizer tile block shift (4=16px, 5=32px, 6=64px)")
 
@@ -24,6 +26,37 @@ endif()
 if(NOT SWR_RASTERIZER_BLOCK_SHIFT MATCHES "^[0-9]+$")
     message(FATAL_ERROR "SWR_RASTERIZER_BLOCK_SHIFT must be a non-negative integer, got '${SWR_RASTERIZER_BLOCK_SHIFT}'.")
 endif()
+
+#
+# Log configurable options.
+#
+
+function(print_option name)
+    string(LENGTH "${name}" len)
+    math(EXPR pad "35 - ${len}")
+    string(REPEAT " " ${pad} spaces)
+    message(STATUS "${name}${spaces}= ${${name}}")
+endfunction()
+
+message(STATUS "==== SWR Configuration ====")
+
+print_option(SWR_BUILD_DEMOS)
+print_option(SWR_BUILD_APP)
+print_option(SWR_BUILD_BENCHMARKS)
+print_option(SWR_BUILD_TESTS)
+print_option(SWR_ENABLE_X86_SIMD_FLAGS)
+print_option(SWR_ENABLE_PIPELINE_PROFILING)
+print_option(SWR_ENABLE_DEV_BENCH_TESTS)
+print_option(SWR_ENABLE_MULTI_THREADING)
+print_option(SWR_USE_MORTON_CODES)
+print_option(SWR_TILE_CACHE_PRIMITIVE_CAPACITY)
+print_option(SWR_RASTERIZER_BLOCK_SHIFT)
+
+message(STATUS "============================")
+
+#
+# Set up testing.
+#
 
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SWR_SOURCE_DIR}/bin")
@@ -172,7 +205,6 @@ function(swr_provide_sdl3)
     endif()
 endfunction()
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 swr_provide_sdl3()
 
 #
@@ -184,10 +216,16 @@ add_library(swr_project_warnings INTERFACE)
 
 target_compile_features(swr_project_options INTERFACE cxx_std_23)
 
-# Position independent code for swr targets only.
-set_property(TARGET swr_project_options PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET swr_project_options PROPERTY
+    INTERFACE_POSITION_INDEPENDENT_CODE ON
+)
+
+#
+# Warnings.
+#
 
 target_compile_options(swr_project_warnings INTERFACE
+    $<$<CXX_COMPILER_ID:GNU,Clang>:
     -Wall
     -Wextra
     -Wdouble-promotion
@@ -195,51 +233,52 @@ target_compile_options(swr_project_warnings INTERFACE
     -Wnull-dereference
     -Wmisleading-indentation
     -Wuninitialized
+    >
 )
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(swr_project_options INTERFACE
-            -stdlib=libc++
-        )
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(swr_project_options INTERFACE
-            -Og
-        )
-    endif()
-else()
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(swr_project_options INTERFACE
-            -O3
-            -stdlib=libc++
-        )
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(swr_project_options INTERFACE
-            -O3
-            -fno-omit-frame-pointer
-        )
-    else()
-        target_compile_options(swr_project_options INTERFACE
-            -O3
-        )
-    endif()
-endif()
+#
+# Optimization / debug flags.
+#
 
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    message(STATUS "Detected ARM64 architecture")
-elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
-    message(STATUS "Detected x86_64 architecture")
-    target_compile_options(swr_project_options INTERFACE
-        -msse
-        -msse2
-        -msse3
-        -msse4
-        -msse4.1
-        -msse4.2
-        -mfpmath=sse
-    )
-else()
-    message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+target_compile_options(swr_project_options INTERFACE
+    # GNU Debug
+    $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:GNU>>:
+    -Og
+    >
+
+    # GNU non-Debug
+    $<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU>>:
+    -O3
+    -fno-omit-frame-pointer
+    >
+
+    # Clang non-Debug
+    $<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Clang>>:
+    -O3
+    >
+
+    # Other compilers, non-Debug
+    $<$<AND:$<NOT:$<CONFIG:Debug>>,$<NOT:$<CXX_COMPILER_ID:GNU,Clang>>>:
+    -O3
+    >
+)
+
+if(SWR_ENABLE_X86_SIMD_FLAGS)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+        target_compile_options(swr_project_options INTERFACE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:
+            -msse
+            -msse2
+            -msse3
+            -msse4.1
+            -msse4.2
+            >
+
+            $<$<CXX_COMPILER_ID:GNU>:
+            -mfpmath=sse
+            >
+        )
+    endif()
 endif()
 
 #
