@@ -3,7 +3,8 @@
  *
  * the graphics pipeline.
  *
- * most of the actual work (e.g. clipping, primitive assembly and rasterization) is delegated to subroutines implemented elsewhere.
+ * most of the actual work (e.g. clipping, primitive assembly and rasterization)
+ * is delegated to subroutines implemented elsewhere.
  *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2021-Present.
@@ -158,31 +159,39 @@ inline void log_pipeline_profile_if_needed()
     const auto f = static_cast<double>(profile_log_interval_frames);
     const double triangles_submitted = static_cast<double>(g_pipeline_cycles.triangles_submitted);
     const double triangle_tile_refs = static_cast<double>(g_pipeline_cycles.triangle_tile_refs);
-    const double tiles_per_tri = triangles_submitted > 0.0
-                                   ? triangle_tile_refs / triangles_submitted
-                                   : 0.0;
-    const double block_tile_ref_ratio = triangle_tile_refs > 0.0
-                                          ? static_cast<double>(g_pipeline_cycles.triangle_block_tile_refs) / triangle_tile_refs
-                                          : 0.0;
-    const double checked_tile_ref_ratio = triangle_tile_refs > 0.0
-                                            ? static_cast<double>(g_pipeline_cycles.triangle_checked_tile_refs) / triangle_tile_refs
-                                            : 0.0;
+    const double tiles_per_tri =
+      triangles_submitted > 0.0
+        ? triangle_tile_refs / triangles_submitted
+        : 0.0;
+    const double block_tile_ref_ratio =
+      triangle_tile_refs > 0.0
+        ? static_cast<double>(g_pipeline_cycles.triangle_block_tile_refs) / triangle_tile_refs
+        : 0.0;
+    const double checked_tile_ref_ratio =
+      triangle_tile_refs > 0.0
+        ? static_cast<double>(g_pipeline_cycles.triangle_checked_tile_refs) / triangle_tile_refs
+        : 0.0;
     const double flush_count = static_cast<double>(g_pipeline_cycles.raster_flush_count);
-    const double scanned_tiles_per_flush = flush_count > 0.0
-                                             ? static_cast<double>(g_pipeline_cycles.raster_flush_scanned_tiles) / flush_count
-                                             : 0.0;
-    const double max_tile_prims_per_flush = flush_count > 0.0
-                                              ? static_cast<double>(g_pipeline_cycles.raster_flush_max_tile_prims) / flush_count
-                                              : 0.0;
-    const double near_full_tiles_per_flush = flush_count > 0.0
-                                               ? static_cast<double>(g_pipeline_cycles.raster_flush_near_full_tiles) / flush_count
-                                               : 0.0;
-    const double shader_instance_probe_per_tile_ref = triangle_tile_refs > 0.0
-                                                        ? static_cast<double>(g_pipeline_cycles.tile_shader_instance_probe_steps) / triangle_tile_refs
-                                                        : 0.0;
-    const double direct_block_ratio = triangle_tile_refs > 0.0
-                                        ? static_cast<double>(g_pipeline_cycles.raster_direct_blocks) / triangle_tile_refs
-                                        : 0.0;
+    const double scanned_tiles_per_flush =
+      flush_count > 0.0
+        ? static_cast<double>(g_pipeline_cycles.raster_flush_scanned_tiles) / flush_count
+        : 0.0;
+    const double max_tile_prims_per_flush =
+      flush_count > 0.0
+        ? static_cast<double>(g_pipeline_cycles.raster_flush_max_tile_prims) / flush_count
+        : 0.0;
+    const double near_full_tiles_per_flush =
+      flush_count > 0.0
+        ? static_cast<double>(g_pipeline_cycles.raster_flush_near_full_tiles) / flush_count
+        : 0.0;
+    const double shader_instance_probe_per_tile_ref =
+      triangle_tile_refs > 0.0
+        ? static_cast<double>(g_pipeline_cycles.tile_shader_instance_probe_steps) / triangle_tile_refs
+        : 0.0;
+    const double direct_block_ratio =
+      triangle_tile_refs > 0.0
+        ? static_cast<double>(g_pipeline_cycles.raster_direct_blocks) / triangle_tile_refs
+        : 0.0;
     const double clip_read_mib = static_cast<double>(g_pipeline_cycles.clip_vertex_read_bytes) / (1024.0 * 1024.0);
     const double clip_write_mib = static_cast<double>(g_pipeline_cycles.clip_vertex_write_bytes) / (1024.0 * 1024.0);
     const double tile_payload_write_mib = static_cast<double>(g_pipeline_cycles.raster_tile_payload_write_bytes) / (1024.0 * 1024.0);
@@ -523,10 +532,155 @@ static void process_vertices(swr::impl::render_object& obj)
 /*
  * multi-threaded vertex processing functions
  */
+
 namespace mt
 {
 
 constexpr std::size_t min_tasks_per_thread = 4;
+constexpr std::size_t min_clip_primitives_per_task = 256;
+constexpr std::size_t min_parallel_clip_primitives = 2048;
+constexpr float min_parallel_clip_discard_ratio = 0.02f;
+
+static void clip_lines_chunk_task(
+  const swr::impl::render_object* obj,
+  std::size_t index_begin,
+  std::size_t index_end,
+  impl::vertex_buffer* out_vertices)
+{
+    clip_line_buffer_range(
+      *obj,
+      impl::line_list,
+      index_begin,
+      index_end,
+      *out_vertices);
+}
+
+static void clip_triangles_chunk_task(
+  const swr::impl::render_object* obj,
+  impl::clip_output output_type,
+  std::size_t index_begin,
+  std::size_t index_end,
+  impl::vertex_buffer* out_vertices)
+{
+    clip_triangle_buffer_range(
+      *obj,
+      output_type,
+      index_begin,
+      index_end,
+      *out_vertices);
+}
+
+static void clip_indexed_primitives_parallel(
+  impl::sdl_render_context::thread_pool_type& thread_pool,
+  swr::impl::render_object* obj,
+  std::size_t indices_per_primitive,
+  impl::clip_output output_type)
+{
+    const std::size_t primitive_count = obj->indices.size() / indices_per_primitive;
+    const std::size_t thread_count = thread_pool.get_thread_count();
+    const std::size_t max_task_count =
+      std::max<std::size_t>(
+        1,
+        (primitive_count + min_clip_primitives_per_task - 1) / min_clip_primitives_per_task);
+    const std::size_t task_count = std::min(thread_count, max_task_count);
+
+    if(task_count <= 1 || primitive_count == 0)
+    {
+        if(indices_per_primitive == 2)
+        {
+            clip_line_buffer(*obj, output_type);
+        }
+        else
+        {
+            clip_triangle_buffer(*obj, output_type);
+        }
+        return;
+    }
+
+    std::vector<impl::vertex_buffer> chunk_outputs(task_count);
+
+    for(std::size_t task_index = 0; task_index < task_count; ++task_index)
+    {
+        const std::size_t primitive_begin = (task_index * primitive_count) / task_count;
+        const std::size_t primitive_end = ((task_index + 1) * primitive_count) / task_count;
+        const std::size_t index_begin = primitive_begin * indices_per_primitive;
+        const std::size_t index_end = primitive_end * indices_per_primitive;
+
+        if(indices_per_primitive == 2)
+        {
+            thread_pool.push_immediate_task(
+              clip_lines_chunk_task,
+              obj,
+              index_begin,
+              index_end,
+              &chunk_outputs[task_index]);
+        }
+        else
+        {
+            thread_pool.push_immediate_task(
+              clip_triangles_chunk_task,
+              obj,
+              output_type,
+              index_begin,
+              index_end,
+              &chunk_outputs[task_index]);
+        }
+    }
+
+    thread_pool.run_tasks_and_wait();
+
+    obj->clipped_vertices.clear();
+    std::size_t output_size = 0;
+    for(const auto& chunk: chunk_outputs)
+    {
+        output_size += chunk.size();
+    }
+    obj->clipped_vertices.reserve(output_size);
+
+    for(auto& chunk: chunk_outputs)
+    {
+        obj->clipped_vertices.insert(
+          std::end(obj->clipped_vertices),
+          std::make_move_iterator(std::begin(chunk)),
+          std::make_move_iterator(std::end(chunk)));
+    }
+}
+
+static bool should_parallelize_clipping(
+  impl::sdl_render_context::thread_pool_type& thread_pool,
+  const swr::impl::render_object* obj,
+  std::size_t indices_per_primitive)
+{
+    if(thread_pool.get_thread_count() <= 1)
+    {
+        return false;
+    }
+
+    const std::size_t primitive_count = obj->indices.size() / indices_per_primitive;
+    if(primitive_count < min_parallel_clip_primitives)
+    {
+        return false;
+    }
+
+    std::size_t discarded_index_count = 0;
+    for(const std::uint32_t i: obj->indices)
+    {
+        if(obj->vertex_flags[i] & geom::vf_clip_discard)
+        {
+            ++discarded_index_count;
+        }
+    }
+
+    if(discarded_index_count == 0)
+    {
+        return false;
+    }
+
+    const float discard_ratio =
+      static_cast<float>(discarded_index_count)
+      / static_cast<float>(obj->indices.size());
+    return discard_ratio >= min_parallel_clip_discard_ratio;
+}
 
 static void vertex_shader_task(
   impl::render_object* obj,
@@ -644,7 +798,15 @@ static void transform_to_viewport_coords_task(
     }
 }
 
-static void transform_to_viewport_coords(swr::impl::sdl_render_context::thread_pool_type& thread_pool, impl::vertex_buffer& vb, float x, float y, float width, float height, float z_near, float z_far)
+static void transform_to_viewport_coords(
+  swr::impl::sdl_render_context::thread_pool_type& thread_pool,
+  impl::vertex_buffer& vb,
+  float x,
+  float y,
+  float width,
+  float height,
+  float z_near,
+  float z_far)
 {
     auto thread_count = thread_pool.get_thread_count();
     std::size_t thread_vertex_count = std::max(min_tasks_per_thread, vb.size() / thread_count);
@@ -652,23 +814,49 @@ static void transform_to_viewport_coords(swr::impl::sdl_render_context::thread_p
     std::size_t offset = 0;
     for(; offset + thread_vertex_count < vb.size(); offset += thread_vertex_count)
     {
-        thread_pool.push_immediate_task(transform_to_viewport_coords_task, &vb, offset, offset + thread_vertex_count, x, y, width, height, z_near, z_far);
+        thread_pool.push_immediate_task(
+          transform_to_viewport_coords_task,
+          &vb,
+          offset,
+          offset + thread_vertex_count,
+          x,
+          y,
+          width,
+          height,
+          z_near,
+          z_far);
     }
 
     // push remaining vertices.
     if(offset < vb.size())
     {
-        thread_pool.push_immediate_task(transform_to_viewport_coords_task, &vb, offset, vb.size(), x, y, width, height, z_near, z_far);
+        thread_pool.push_immediate_task(
+          transform_to_viewport_coords_task,
+          &vb,
+          offset,
+          vb.size(),
+          x,
+          y,
+          width,
+          height,
+          z_near,
+          z_far);
     }
 }
 
-static void clip_vertex_buffer(swr::impl::render_object* obj)
+static void clip_vertex_buffer(
+  impl::sdl_render_context::thread_pool_type& thread_pool,
+  swr::impl::render_object* obj)
 {
     obj->clipped_vertices.clear();
 
     // check we have valid drawing and polygon modes.
-    assert(obj->mode == vertex_buffer_mode::points || obj->mode == vertex_buffer_mode::lines || obj->mode == vertex_buffer_mode::triangles);
-    assert(obj->states.poly_mode == polygon_mode::point || obj->states.poly_mode == polygon_mode::line || obj->states.poly_mode == polygon_mode::fill);
+    assert(obj->mode == vertex_buffer_mode::points
+           || obj->mode == vertex_buffer_mode::lines
+           || obj->mode == vertex_buffer_mode::triangles);
+    assert(obj->states.poly_mode == polygon_mode::point
+           || obj->states.poly_mode == polygon_mode::line
+           || obj->states.poly_mode == polygon_mode::fill);
 
     /*
      * clip the vertex buffer.
@@ -678,7 +866,8 @@ static void clip_vertex_buffer(swr::impl::render_object* obj)
      *
      * Clipping pre-assembles the primitives, i.e. it creates triangles.
      */
-    if(obj->mode == vertex_buffer_mode::points || obj->states.poly_mode == polygon_mode::point)
+    if(obj->mode == vertex_buffer_mode::points
+       || obj->states.poly_mode == polygon_mode::point)
     {
         const auto varying_count = obj->states.shader_info->varying_count;
         obj->clipped_vertices.reserve(obj->indices.size());
@@ -704,30 +893,86 @@ static void clip_vertex_buffer(swr::impl::render_object* obj)
     }
     else if(obj->mode == vertex_buffer_mode::lines)
     {
-        clip_line_buffer(*obj, impl::line_list);
+        if(should_parallelize_clipping(
+             thread_pool,
+             obj,
+             2))
+        {
+            clip_indexed_primitives_parallel(
+              thread_pool,
+              obj,
+              2,
+              impl::line_list);
+        }
+        else
+        {
+            clip_line_buffer(*obj, impl::line_list);
+        }
     }
-    else if(obj->mode == vertex_buffer_mode::triangles && obj->states.poly_mode == polygon_mode::line)
+    else if(obj->mode == vertex_buffer_mode::triangles
+            && obj->states.poly_mode == polygon_mode::line)
     {
-        clip_triangle_buffer(*obj, impl::line_list);
+        if(should_parallelize_clipping(
+             thread_pool,
+             obj,
+             3))
+        {
+            clip_indexed_primitives_parallel(
+              thread_pool,
+              obj,
+              3,
+              impl::line_list);
+        }
+        else
+        {
+            clip_triangle_buffer(
+              *obj,
+              impl::line_list);
+        }
     }
     else if(obj->states.poly_mode == polygon_mode::fill)
     {
         /* here we necessarily have list_it.Mode == triangles */
-        clip_triangle_buffer(*obj, impl::triangle_list);
+        if(should_parallelize_clipping(
+             thread_pool,
+             obj,
+             3))
+        {
+            clip_indexed_primitives_parallel(
+              thread_pool,
+              obj,
+              3,
+              impl::triangle_list);
+        }
+        else
+        {
+            clip_triangle_buffer(
+              *obj,
+              impl::triangle_list);
+        }
     }
 }
 
-static void process_vertices(impl::render_context* context)
+static void process_vertices(
+  impl::render_context* context)
 {
-    // create shaders.
+    /*
+     * create shaders.
+     */
+
     std::size_t total_shader_size = 0;
     for(const auto& obj: context->render_object_list)
     {
         total_shader_size += obj.states.shader_info->shader->size();
-        total_shader_size = utils::align(utils::alignment::sse, total_shader_size);
+        total_shader_size = utils::align(
+          utils::alignment::sse,
+          total_shader_size);
     }
 
-    std::byte* storage = utils::align_vector(utils::alignment::sse, total_shader_size, context->program_storage);
+    std::byte* storage = utils::align_vector(
+      utils::alignment::sse,
+      total_shader_size,
+      context->program_storage);
     context->program_instances.reserve(context->render_object_list.size());
 
     for(auto& obj: context->render_object_list)
@@ -735,17 +980,24 @@ static void process_vertices(impl::render_context* context)
         context->program_instances.emplace_back(
           std::make_pair(
             &obj,
-            impl::vertex_shader_instance_container{storage, obj.states.shader_info, obj.states.uniforms}));
+            impl::vertex_shader_instance_container{
+              storage,
+              obj.states.shader_info,
+              obj.states.uniforms}));
 
         storage += obj.states.shader_info->shader->size();
         storage = utils::align(utils::alignment::sse, storage);
     }
 
-    // invoke vertex shaders.
+    /*
+     * invoke vertex shaders.
+     */
+
 #    ifdef DO_BENCHMARKING
     std::uint64_t stage_vertex = 0;
     utils::clock(stage_vertex);
 #    endif
+
     for(auto& [obj, shader]: context->program_instances)
     {
         if(obj->attrib_count != 0
@@ -758,27 +1010,38 @@ static void process_vertices(impl::render_context* context)
         }
     }
     context->thread_pool.run_tasks_and_wait();
+
 #    ifdef DO_BENCHMARKING
     utils::unclock(stage_vertex);
     g_pipeline_cycles.vertex += stage_vertex;
 #    endif
 
-    // clipping.
+    /*
+     * clipping.
+     */
+
 #    ifdef DO_BENCHMARKING
     std::uint64_t stage_clipping = 0;
     utils::clock(stage_clipping);
 #    endif
+
+    // vertex buffers are split up into chunks which might be
+    // processed in parallel internally, so we don't need to
+    // wait/sync here.
     for(auto& [obj, shader]: context->program_instances)
     {
-        context->thread_pool.push_task(clip_vertex_buffer, obj);
+        clip_vertex_buffer(context->thread_pool, obj);
     }
-    context->thread_pool.run_tasks_and_wait();
+
 #    ifdef DO_BENCHMARKING
     utils::unclock(stage_clipping);
     g_pipeline_cycles.clipping += stage_clipping;
 #    endif
 
-    // viewport transform.
+    /*
+     * viewport transform.
+     */
+
 #    ifdef DO_BENCHMARKING
     std::uint64_t stage_viewport = 0;
     utils::clock(stage_viewport);
@@ -798,6 +1061,7 @@ static void process_vertices(impl::render_context* context)
         }
     }
     context->thread_pool.run_tasks_and_wait();
+
 #    ifdef DO_BENCHMARKING
     utils::unclock(stage_viewport);
     g_pipeline_cycles.viewport += stage_viewport;
