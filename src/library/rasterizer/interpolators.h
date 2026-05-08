@@ -177,9 +177,10 @@ struct basic_interpolation_data
             out_varyings[2][i] = {v01, ml::vec4::zero(), ml::vec4::zero()};
             out_varyings[3][i] = {v11, ml::vec4::zero(), ml::vec4::zero()};
         }
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         swr::impl::profile_interp_varying_copies.fetch_add(varying_count * 4, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 };
 

@@ -59,13 +59,13 @@ inline void load_vertex_from_render_object(
   std::uint32_t varying_count,
   geom::vertex& out_vertex)
 {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     constexpr std::uint64_t coord_bytes = sizeof(ml::vec4);
     constexpr std::uint64_t flag_bytes = sizeof(std::uint32_t);
     const std::uint64_t varying_bytes = static_cast<std::uint64_t>(varying_count) * sizeof(ml::vec4);
     swr::impl::profile_clip_vertex_read_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
     swr::impl::profile_clip_vertex_write_bytes.fetch_add(coord_bytes + flag_bytes + varying_bytes, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     out_vertex.coords = obj.coords[vertex_index];
     out_vertex.flags = obj.vertex_flags[vertex_index];

@@ -321,7 +321,7 @@ struct slot_map
 namespace utils
 {
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
 
 /** read the time stamp counter */
 inline std::uint64_t get_tsc()
@@ -352,7 +352,7 @@ inline void unclock(std::uint64_t& counter)
     counter += get_tsc();
 }
 
-#else
+#else /* !SWR_ENABLE_PIPELINE_PROFILING */
 
 inline std::uint64_t get_tsc()
 {
@@ -365,7 +365,7 @@ inline void unclock(std::uint64_t&)
 {
 }
 
-#endif /* DO_BENCHMARKING */
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 /*
  * rectangle.

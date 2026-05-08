@@ -11,9 +11,9 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
 #    include <print>
-#endif /* DO_BENCHMARKING */
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 /* user headers. */
 #include "swr_internal.h"
@@ -26,62 +26,7 @@ namespace swr
  * rendering pipeline.
  */
 
-#ifdef DO_BENCHMARKING
-namespace impl
-{
-std::atomic<std::uint64_t> profile_fragment_shader_cycles{0};
-std::atomic<std::uint64_t> profile_depth_cycles{0};
-std::atomic<std::uint64_t> profile_merge_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_cycles{0};
-std::atomic<std::uint64_t> profile_interp_cycles{0};
-std::atomic<std::uint64_t> profile_raster_add_triangle_cycles{0};
-std::atomic<std::uint64_t> profile_raster_flush_cycles{0};
-std::atomic<std::uint64_t> profile_raster_flush_scan_cycles{0};
-std::atomic<std::uint64_t> profile_raster_flush_process_cycles{0};
-std::atomic<std::uint64_t> profile_raster_flush_clear_cycles{0};
-std::atomic<std::uint64_t> profile_raster_flush_nonempty_tiles{0};
-std::atomic<std::uint64_t> profile_raster_flush_primitives{0};
-std::atomic<std::uint64_t> profile_raster_flush_count{0};
-std::atomic<std::uint64_t> profile_raster_flush_scanned_tiles{0};
-std::atomic<std::uint64_t> profile_raster_block_total_cycles{0};
-std::atomic<std::uint64_t> profile_raster_block_fragment_cycles{0};
-std::atomic<std::uint64_t> profile_raster_block_merge_cycles{0};
-std::atomic<std::uint64_t> profile_triangles_input{0};
-std::atomic<std::uint64_t> profile_triangles_culled_degenerate{0};
-std::atomic<std::uint64_t> profile_triangles_culled_face{0};
-std::atomic<std::uint64_t> profile_triangles_submitted{0};
-std::atomic<std::uint64_t> profile_triangle_tile_refs{0};
-std::atomic<std::uint64_t> profile_triangle_block_tile_refs{0};
-std::atomic<std::uint64_t> profile_triangle_checked_tile_refs{0};
-std::atomic<std::uint64_t> profile_raster_direct_blocks{0};
-std::atomic<std::uint64_t> profile_interp_varying_copies{0};
-std::atomic<std::uint64_t> profile_fragment_shader_invocations{0};
-std::atomic<std::uint64_t> profile_tile_shader_instance_probe_steps{0};
-std::atomic<std::uint64_t> profile_clip_vertex_read_bytes{0};
-std::atomic<std::uint64_t> profile_clip_vertex_write_bytes{0};
-std::atomic<std::uint64_t> profile_raster_tile_payload_write_bytes{0};
-std::atomic<std::uint64_t> profile_raster_tile_payload_checked_write_bytes{0};
-std::atomic<std::uint64_t> profile_raster_tile_payload_block_write_bytes{0};
-std::atomic<std::uint64_t> profile_raster_tile_info_write_bytes{0};
-std::atomic<std::uint64_t> profile_raster_interp_write_bytes{0};
-std::atomic<std::uint64_t> profile_raster_checked_lambda_write_bytes{0};
-std::atomic<std::uint64_t> profile_raster_setup_triangle_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_bounds_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_iterate_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_direct_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_enqueue_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_iter_row_setup_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_iter_callback_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_cb_enqueue_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_cb_flush_inline_cycles{0};
-std::atomic<std::uint64_t> profile_raster_setup_cb_direct_cycles{0};
-std::atomic<std::uint64_t> profile_raster_flush_max_tile_prims{0};
-std::atomic<std::uint64_t> profile_raster_flush_near_full_tiles{0};
-std::atomic<std::uint64_t> profile_raster_flush_trigger_overflow_count{0};
-} /* namespace impl */
-#endif
-
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
 namespace
 {
 
@@ -343,8 +288,73 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.raster_setup_enqueue = 0;
 }
 
+inline std::uint64_t exchange_profile_counter(std::atomic<std::uint64_t>& counter)
+{
+    return counter.exchange(0, std::memory_order_relaxed);
+}
+
+inline void collect_pipeline_profile_frame()
+{
+    g_pipeline_cycles.fragment_shader += exchange_profile_counter(impl::profile_fragment_shader_cycles);
+    g_pipeline_cycles.depth += exchange_profile_counter(impl::profile_depth_cycles);
+    g_pipeline_cycles.merge += exchange_profile_counter(impl::profile_merge_cycles);
+    g_pipeline_cycles.raster_setup += exchange_profile_counter(impl::profile_raster_setup_cycles);
+    g_pipeline_cycles.interp += exchange_profile_counter(impl::profile_interp_cycles);
+    g_pipeline_cycles.raster_add_triangle += exchange_profile_counter(impl::profile_raster_add_triangle_cycles);
+    g_pipeline_cycles.raster_flush += exchange_profile_counter(impl::profile_raster_flush_cycles);
+    g_pipeline_cycles.raster_flush_scan += exchange_profile_counter(impl::profile_raster_flush_scan_cycles);
+    g_pipeline_cycles.raster_flush_process += exchange_profile_counter(impl::profile_raster_flush_process_cycles);
+    g_pipeline_cycles.raster_flush_clear += exchange_profile_counter(impl::profile_raster_flush_clear_cycles);
+    g_pipeline_cycles.raster_flush_nonempty_tiles += exchange_profile_counter(impl::profile_raster_flush_nonempty_tiles);
+    g_pipeline_cycles.raster_flush_primitives += exchange_profile_counter(impl::profile_raster_flush_primitives);
+    g_pipeline_cycles.raster_flush_count += exchange_profile_counter(impl::profile_raster_flush_count);
+    g_pipeline_cycles.raster_flush_scanned_tiles += exchange_profile_counter(impl::profile_raster_flush_scanned_tiles);
+    g_pipeline_cycles.raster_block_total += exchange_profile_counter(impl::profile_raster_block_total_cycles);
+    g_pipeline_cycles.raster_block_fragment += exchange_profile_counter(impl::profile_raster_block_fragment_cycles);
+    g_pipeline_cycles.raster_block_merge += exchange_profile_counter(impl::profile_raster_block_merge_cycles);
+    g_pipeline_cycles.triangles_input += exchange_profile_counter(impl::profile_triangles_input);
+    g_pipeline_cycles.triangles_culled_degenerate += exchange_profile_counter(impl::profile_triangles_culled_degenerate);
+    g_pipeline_cycles.triangles_culled_face += exchange_profile_counter(impl::profile_triangles_culled_face);
+    g_pipeline_cycles.triangles_submitted += exchange_profile_counter(impl::profile_triangles_submitted);
+    g_pipeline_cycles.triangle_tile_refs += exchange_profile_counter(impl::profile_triangle_tile_refs);
+    g_pipeline_cycles.triangle_block_tile_refs += exchange_profile_counter(impl::profile_triangle_block_tile_refs);
+    g_pipeline_cycles.triangle_checked_tile_refs += exchange_profile_counter(impl::profile_triangle_checked_tile_refs);
+    g_pipeline_cycles.raster_direct_blocks += exchange_profile_counter(impl::profile_raster_direct_blocks);
+    g_pipeline_cycles.interp_varying_copies += exchange_profile_counter(impl::profile_interp_varying_copies);
+    g_pipeline_cycles.fragment_shader_invocations += exchange_profile_counter(impl::profile_fragment_shader_invocations);
+    g_pipeline_cycles.tile_shader_instance_probe_steps += exchange_profile_counter(impl::profile_tile_shader_instance_probe_steps);
+    g_pipeline_cycles.clip_vertex_read_bytes += exchange_profile_counter(impl::profile_clip_vertex_read_bytes);
+    g_pipeline_cycles.clip_vertex_write_bytes += exchange_profile_counter(impl::profile_clip_vertex_write_bytes);
+    g_pipeline_cycles.raster_tile_payload_write_bytes += exchange_profile_counter(impl::profile_raster_tile_payload_write_bytes);
+    g_pipeline_cycles.raster_tile_payload_checked_write_bytes += exchange_profile_counter(impl::profile_raster_tile_payload_checked_write_bytes);
+    g_pipeline_cycles.raster_tile_payload_block_write_bytes += exchange_profile_counter(impl::profile_raster_tile_payload_block_write_bytes);
+    g_pipeline_cycles.raster_tile_info_write_bytes += exchange_profile_counter(impl::profile_raster_tile_info_write_bytes);
+    g_pipeline_cycles.raster_interp_write_bytes += exchange_profile_counter(impl::profile_raster_interp_write_bytes);
+    g_pipeline_cycles.raster_checked_lambda_write_bytes += exchange_profile_counter(impl::profile_raster_checked_lambda_write_bytes);
+    g_pipeline_cycles.raster_setup_triangle += exchange_profile_counter(impl::profile_raster_setup_triangle_cycles);
+    g_pipeline_cycles.raster_setup_bounds += exchange_profile_counter(impl::profile_raster_setup_bounds_cycles);
+    g_pipeline_cycles.raster_setup_iterate += exchange_profile_counter(impl::profile_raster_setup_iterate_cycles);
+    g_pipeline_cycles.raster_setup_iter_row_setup += exchange_profile_counter(impl::profile_raster_setup_iter_row_setup_cycles);
+    g_pipeline_cycles.raster_setup_iter_callback += exchange_profile_counter(impl::profile_raster_setup_iter_callback_cycles);
+    g_pipeline_cycles.raster_setup_cb_enqueue += exchange_profile_counter(impl::profile_raster_setup_cb_enqueue_cycles);
+    g_pipeline_cycles.raster_setup_cb_flush_inline += exchange_profile_counter(impl::profile_raster_setup_cb_flush_inline_cycles);
+    g_pipeline_cycles.raster_setup_cb_direct += exchange_profile_counter(impl::profile_raster_setup_cb_direct_cycles);
+    g_pipeline_cycles.raster_flush_max_tile_prims += exchange_profile_counter(impl::profile_raster_flush_max_tile_prims);
+    g_pipeline_cycles.raster_flush_near_full_tiles += exchange_profile_counter(impl::profile_raster_flush_near_full_tiles);
+    g_pipeline_cycles.raster_flush_trigger_overflow_count += exchange_profile_counter(impl::profile_raster_flush_trigger_overflow_count);
+    g_pipeline_cycles.raster_setup_direct += exchange_profile_counter(impl::profile_raster_setup_direct_cycles);
+    g_pipeline_cycles.raster_setup_enqueue += exchange_profile_counter(impl::profile_raster_setup_enqueue_cycles);
+}
+
+inline void finalize_pipeline_profile_frame(std::uint64_t stage_present_total)
+{
+    g_pipeline_cycles.present_total += stage_present_total;
+    ++g_pipeline_cycles.frame_count;
+    log_pipeline_profile_if_needed();
+}
+
 } /* anonymous namespace */
-#endif /* DO_BENCHMARKING */
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 #ifndef SWR_ENABLE_MULTI_THREADING
 
@@ -1105,7 +1115,7 @@ static void process_vertices(
      * invoke vertex shaders.
      */
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_vertex = 0;
     utils::clock(stage_vertex);
 #    endif
@@ -1123,7 +1133,7 @@ static void process_vertices(
     }
     context->thread_pool.run_tasks_and_wait();
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_vertex);
     g_pipeline_cycles.vertex += stage_vertex;
 #    endif
@@ -1132,7 +1142,7 @@ static void process_vertices(
      * clipping.
      */
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_clipping = 0;
     utils::clock(stage_clipping);
 #    endif
@@ -1166,7 +1176,7 @@ static void process_vertices(
         }
     }
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_clipping);
     g_pipeline_cycles.clipping += stage_clipping;
 #    endif
@@ -1175,7 +1185,7 @@ static void process_vertices(
      * viewport transform.
      */
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_viewport = 0;
     utils::clock(stage_viewport);
 #    endif
@@ -1195,7 +1205,7 @@ static void process_vertices(
     }
     context->thread_pool.run_tasks_and_wait();
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_viewport);
     g_pipeline_cycles.viewport += stage_viewport;
 #    endif
@@ -1232,16 +1242,16 @@ void Present()
         return;
     }
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_present_total = 0;
     utils::clock(stage_present_total);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     mt::process_vertices(context);
 
     // primitive assembly.
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_assembly = 0;
     utils::clock(stage_assembly);
 #    endif
@@ -1258,13 +1268,13 @@ void Present()
           it.mode,
           it.clipped_vertices);
     }
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_assembly);
     g_pipeline_cycles.assembly += stage_assembly;
 #    endif
 #else
     // process render commands.
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_assembly = 0;
     std::uint64_t stage_vertex = 0;
     std::uint64_t stage_clipping = 0;
@@ -1272,11 +1282,11 @@ void Present()
 #    endif
     for(auto& it: context->render_object_list)
     {
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::clock(stage_vertex);
 #    endif
         st::process_vertices(it);
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_vertex);
         g_pipeline_cycles.vertex += stage_vertex;
         stage_vertex = 0;
@@ -1284,7 +1294,7 @@ void Present()
 
         if(!it.clipped_vertices.empty())
         {
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::clock(stage_assembly);
 #    endif
             // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
@@ -1292,7 +1302,7 @@ void Present()
               &it.states,
               it.mode,
               it.clipped_vertices);
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::unclock(stage_assembly);
             g_pipeline_cycles.assembly += stage_assembly;
             stage_assembly = 0;
@@ -1302,74 +1312,24 @@ void Present()
 #endif
 
     // invoke triangle rasterizer.
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_rasterizer = 0;
     utils::clock(stage_rasterizer);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     context->rasterizer->draw_primitives();
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_rasterizer);
     g_pipeline_cycles.rasterizer += stage_rasterizer;
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     // flush all lists.
     context->render_object_list.clear();
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_present_total);
-    g_pipeline_cycles.present_total += stage_present_total;
-    g_pipeline_cycles.fragment_shader += impl::profile_fragment_shader_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.depth += impl::profile_depth_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.merge += impl::profile_merge_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup += impl::profile_raster_setup_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.interp += impl::profile_interp_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_add_triangle += impl::profile_raster_add_triangle_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush += impl::profile_raster_flush_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_scan += impl::profile_raster_flush_scan_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_process += impl::profile_raster_flush_process_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_clear += impl::profile_raster_flush_clear_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_nonempty_tiles += impl::profile_raster_flush_nonempty_tiles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_primitives += impl::profile_raster_flush_primitives.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_count += impl::profile_raster_flush_count.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_scanned_tiles += impl::profile_raster_flush_scanned_tiles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_block_total += impl::profile_raster_block_total_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_block_fragment += impl::profile_raster_block_fragment_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_block_merge += impl::profile_raster_block_merge_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.triangles_input += impl::profile_triangles_input.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.triangles_culled_degenerate += impl::profile_triangles_culled_degenerate.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.triangles_culled_face += impl::profile_triangles_culled_face.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.triangles_submitted += impl::profile_triangles_submitted.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.triangle_tile_refs += impl::profile_triangle_tile_refs.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.triangle_block_tile_refs += impl::profile_triangle_block_tile_refs.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.triangle_checked_tile_refs += impl::profile_triangle_checked_tile_refs.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_direct_blocks += impl::profile_raster_direct_blocks.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.interp_varying_copies += impl::profile_interp_varying_copies.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.fragment_shader_invocations += impl::profile_fragment_shader_invocations.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.tile_shader_instance_probe_steps += impl::profile_tile_shader_instance_probe_steps.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.clip_vertex_read_bytes += impl::profile_clip_vertex_read_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.clip_vertex_write_bytes += impl::profile_clip_vertex_write_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_tile_payload_write_bytes += impl::profile_raster_tile_payload_write_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_tile_payload_checked_write_bytes += impl::profile_raster_tile_payload_checked_write_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_tile_payload_block_write_bytes += impl::profile_raster_tile_payload_block_write_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_tile_info_write_bytes += impl::profile_raster_tile_info_write_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_interp_write_bytes += impl::profile_raster_interp_write_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_checked_lambda_write_bytes += impl::profile_raster_checked_lambda_write_bytes.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_triangle += impl::profile_raster_setup_triangle_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_bounds += impl::profile_raster_setup_bounds_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_iterate += impl::profile_raster_setup_iterate_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_iter_row_setup += impl::profile_raster_setup_iter_row_setup_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_iter_callback += impl::profile_raster_setup_iter_callback_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_cb_enqueue += impl::profile_raster_setup_cb_enqueue_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_cb_flush_inline += impl::profile_raster_setup_cb_flush_inline_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_cb_direct += impl::profile_raster_setup_cb_direct_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_max_tile_prims += impl::profile_raster_flush_max_tile_prims.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_near_full_tiles += impl::profile_raster_flush_near_full_tiles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_flush_trigger_overflow_count += impl::profile_raster_flush_trigger_overflow_count.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_direct += impl::profile_raster_setup_direct_cycles.exchange(0, std::memory_order_relaxed);
-    g_pipeline_cycles.raster_setup_enqueue += impl::profile_raster_setup_enqueue_cycles.exchange(0, std::memory_order_relaxed);
-    ++g_pipeline_cycles.frame_count;
-    log_pipeline_profile_if_needed();
-#endif
+    collect_pipeline_profile_frame();
+    finalize_pipeline_profile_frame(stage_present_total);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
 /*

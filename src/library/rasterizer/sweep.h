@@ -113,7 +113,7 @@ class sweep_rasterizer : public rasterizer
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_scan = 0;
         std::uint64_t stage_process = 0;
         std::uint64_t stage_clear = 0;
@@ -123,12 +123,14 @@ class sweep_rasterizer : public rasterizer
         std::uint64_t near_full_tiles = 0;
         const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
         utils::clock(stage_scan);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         // for each non-empty tile, add a job to the thread pool.
         for(const auto tile_index: tiles.active_tile_indices)
         {
             auto& entry = tiles.entries[tile_index];
-#    ifdef DO_BENCHMARKING
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
             ++nonempty_tiles;
             const std::uint64_t prims = entry.primitives.size();
             primitive_count += prims;
@@ -137,24 +139,29 @@ class sweep_rasterizer : public rasterizer
             {
                 ++near_full_tiles;
             }
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             thread_pool->push_task(
               process_tile_static,
               this,
               &entry);
         }
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_scan);
         utils::clock(stage_process);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         thread_pool->run_tasks_and_wait();
-#    ifdef DO_BENCHMARKING
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_process);
         utils::clock(stage_clear);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         tiles.clear_tiles();
-#    ifdef DO_BENCHMARKING
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_clear);
         swr::impl::profile_raster_flush_scan_cycles.fetch_add(stage_scan, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_process_cycles.fetch_add(stage_process, std::memory_order_relaxed);
@@ -165,13 +172,13 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_max_tile_prims.fetch_add(max_tile_prims, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_near_full_tiles.fetch_add(near_full_tiles, std::memory_order_relaxed);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 #else /* SWR_ENABLE_MULTI_THREADING */
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_scan = 0;
         std::uint64_t stage_process = 0;
         std::uint64_t stage_clear = 0;
@@ -182,12 +189,14 @@ class sweep_rasterizer : public rasterizer
         const std::uint64_t scanned_tiles = tiles.active_tile_indices.size();
         bool process_started = false;
         utils::clock(stage_scan);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         // for each non-empty tile, add a job to the thread pool.
         for(const auto tile_index: tiles.active_tile_indices)
         {
             auto& entry = tiles.entries[tile_index];
-#    ifdef DO_BENCHMARKING
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
             ++nonempty_tiles;
             const std::uint64_t prims = entry.primitives.size();
             primitive_count += prims;
@@ -202,22 +211,26 @@ class sweep_rasterizer : public rasterizer
                 process_started = true;
             }
             utils::clock(stage_process);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             process_tile(entry);
-#    ifdef DO_BENCHMARKING
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::unclock(stage_process);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         if(!process_started)
         {
             utils::unclock(stage_scan);
         }
         utils::clock(stage_clear);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         tiles.clear_tiles();
-#    ifdef DO_BENCHMARKING
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_clear);
         swr::impl::profile_raster_flush_scan_cycles.fetch_add(stage_scan, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_process_cycles.fetch_add(stage_process, std::memory_order_relaxed);
@@ -228,10 +241,9 @@ class sweep_rasterizer : public rasterizer
         swr::impl::profile_raster_flush_scanned_tiles.fetch_add(scanned_tiles, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_max_tile_prims.fetch_add(max_tile_prims, std::memory_order_relaxed);
         swr::impl::profile_raster_flush_near_full_tiles.fetch_add(near_full_tiles, std::memory_order_relaxed);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
-#endif /* SWR_ENABLE_MULTI_THREADING */
-
+#endif     /* SWR_ENABLE_MULTI_THREADING */
 
     /*
      * fragment processing.
@@ -296,7 +308,6 @@ class sweep_rasterizer : public rasterizer
     static void process_tile_static(
       sweep_rasterizer* rasterizer,
       tile* in_tile);
-
 #endif
 
     /*

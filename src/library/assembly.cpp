@@ -201,7 +201,7 @@ struct assembled_triangle_chunk
 {
     std::vector<assembled_triangle_ref> triangles;
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t tri_input_count{0};
     std::uint64_t tri_cull_degenerate_count{0};
     std::uint64_t tri_cull_face_count{0};
@@ -226,7 +226,7 @@ static void assemble_fill_triangles_chunk(
         auto& v2 = (*vb)[i + 1];
         auto& v3 = (*vb)[i + 2];
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         ++out->tri_input_count;
 #    endif
 
@@ -237,7 +237,7 @@ static void assemble_fill_triangles_chunk(
 
         if(area_sign == 0)
         {
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
             ++out->tri_cull_degenerate_count;
 #    endif
 
@@ -258,7 +258,7 @@ static void assemble_fill_triangles_chunk(
         if(states->culling_enabled
            && cull_reject(states->cull_mode, orient))
         {
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
             ++out->tri_cull_face_count;
 #    endif
 
@@ -267,7 +267,7 @@ static void assemble_fill_triangles_chunk(
 
         out->triangles.emplace_back(assembled_triangle_ref{i, is_front_facing});
 
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
         ++out->tri_submit_count;
 #    endif
     }
@@ -282,12 +282,12 @@ void render_context::assemble_primitives(
   vertex_buffer_mode mode,
   vertex_buffer& vb)
 {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t tri_input_count = 0;
     std::uint64_t tri_cull_degenerate_count = 0;
     std::uint64_t tri_cull_face_count = 0;
     std::uint64_t tri_submit_count = 0;
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     // choose drawing mode.
     if(mode == vertex_buffer_mode::points
@@ -401,7 +401,7 @@ void render_context::assemble_primitives(
 
                 for(const auto& chunk: chunks)
                 {
-#    ifdef DO_BENCHMARKING
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
                     tri_input_count += chunk.tri_input_count;
                     tri_cull_degenerate_count += chunk.tri_cull_degenerate_count;
                     tri_cull_face_count += chunk.tri_cull_face_count;
@@ -427,16 +427,16 @@ void render_context::assemble_primitives(
                     auto& v2 = vb[i + 1];
                     auto& v3 = vb[i + 2];
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
                     ++tri_input_count;
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
                     const int area_sign = triangle_area_sign(v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
                     if(area_sign == 0)
                     {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
                         ++tri_cull_degenerate_count;
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
                         continue;
                     }
 
@@ -453,16 +453,16 @@ void render_context::assemble_primitives(
                        && cull_reject(states->cull_mode, orient))
                     {
                         // reject
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
                         ++tri_cull_face_count;
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
                         continue;
                     }
 
                     rasterizer->add_triangle(states, is_front_facing, &v1, &v2, &v3);
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
                     ++tri_submit_count;
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
                 }
 #ifdef SWR_ENABLE_MULTI_THREADING
             }
@@ -475,7 +475,7 @@ void render_context::assemble_primitives(
         }
     }
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     if(mode == vertex_buffer_mode::triangles
        && states->poly_mode == polygon_mode::fill)
     {
@@ -484,7 +484,7 @@ void render_context::assemble_primitives(
         profile_triangles_culled_face.fetch_add(tri_cull_face_count, std::memory_order_relaxed);
         profile_triangles_submitted.fetch_add(tri_submit_count, std::memory_order_relaxed);
     }
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
 } /* namespace impl */

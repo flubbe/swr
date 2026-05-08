@@ -172,17 +172,19 @@ struct tile
            && last_shader_index < shader_instances.size()
            && shader_instances[last_shader_index].states == in_states)
         {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_tile_shader_instance_probe_steps.fetch_add(1, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             return last_shader_index;
         }
 
         for(std::size_t i = 0; i < shader_instances.size(); ++i)
         {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_tile_shader_instance_probe_steps.fetch_add(1, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             if(shader_instances[i].states == in_states)
             {
                 last_shader_state = in_states;
@@ -300,7 +302,8 @@ struct tile_cache
           &attributes_ref,
           in_front_facing,
           tile_info::rasterization_mode::checked);
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
         constexpr std::uint64_t interp_bytes = sizeof(triangle_interpolator);
         constexpr std::uint64_t checked_lambda_bytes = sizeof(geom::barycentric_coordinate_block);
@@ -315,7 +318,7 @@ struct tile_cache
         swr::impl::profile_raster_tile_info_write_bytes.fetch_add(tile_info_bytes, std::memory_order_relaxed);
         swr::impl::profile_raster_interp_write_bytes.fetch_add(interp_bytes, std::memory_order_relaxed);
         swr::impl::profile_raster_checked_lambda_write_bytes.fetch_add(checked_lambda_bytes, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         return tile.primitives.size() == tile.primitives.max_size();
     }
@@ -368,7 +371,8 @@ struct tile_cache
           &attributes_ref,
           in_front_facing,
           in_mode);
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
         constexpr std::uint64_t interp_bytes = sizeof(triangle_interpolator);
         const std::uint64_t block_payload_bytes =
@@ -381,7 +385,7 @@ struct tile_cache
           std::memory_order_relaxed);
         swr::impl::profile_raster_tile_info_write_bytes.fetch_add(tile_info_bytes, std::memory_order_relaxed);
         swr::impl::profile_raster_interp_write_bytes.fetch_add(interp_bytes, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         return tile.primitives.size() == tile.primitives.max_size();
     }

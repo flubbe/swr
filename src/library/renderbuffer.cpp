@@ -241,16 +241,16 @@ void default_framebuffer::merge_color_block(
   blend_func blend_src,
   blend_func blend_dst)
 {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_merge = 0;
     utils::clock(stage_merge);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     if(attachment != 0)
     {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_merge);
         swr::impl::profile_merge_cycles.fetch_add(stage_merge, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
         return;
     }
 
@@ -308,10 +308,10 @@ void default_framebuffer::merge_color_block(
         *(color_buffer_ptr[2]) = (color_buffer_values[2] & ~color_write_mask[2]) | (write_color[2] & color_write_mask[2]);
         *(color_buffer_ptr[3]) = (color_buffer_values[3] & ~color_write_mask[3]) | (write_color[3] & color_write_mask[3]);
     }
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_merge);
     swr::impl::profile_merge_cycles.fetch_add(stage_merge, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
 void default_framebuffer::depth_compare_write(
@@ -619,16 +619,16 @@ void framebuffer_object::merge_color(std::uint32_t attachment, int x, int y, con
 
 void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
 {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_merge = 0;
     utils::clock(stage_merge);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     if(attachment > color_attachments.size() || !color_attachments[attachment])
     {
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_merge);
         swr::impl::profile_merge_cycles.fetch_add(stage_merge, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
         return;
     }
 
@@ -696,10 +696,10 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
 
 #undef CONDITIONAL_WRITE
     }
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_merge);
     swr::impl::profile_merge_cycles.fetch_add(stage_merge, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write.

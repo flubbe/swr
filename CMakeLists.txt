@@ -12,7 +12,7 @@ option(SWR_BUILD_APP "Build swr app" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_BENCHMARKS "Build swr benchmarks" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_BUILD_TESTS "Build swr tests" ${PROJECT_IS_TOP_LEVEL})
 option(SWR_ENABLE_X86_SIMD_FLAGS "Enable x86 SSE compiler flags." ON)
-option(SWR_ENABLE_PIPELINE_PROFILING "Enable rdtsc-based pipeline profiling counters in swrast (DO_BENCHMARKING)" OFF)
+option(SWR_ENABLE_PIPELINE_PROFILING "Enable rdtsc-based pipeline profiling counters in swrast (SWR_ENABLE_PIPELINE_PROFILING)" OFF)
 option(SWR_ENABLE_DEV_BENCH_TESTS "Enable development performance benchmark tests in CTest." OFF)
 option(SWR_ENABLE_MULTI_THREADING "Enable multi-threaded processing in rasterizer." ON)
 option(SWR_USE_MORTON_CODES "Use Morton codes for texture access." ON)
@@ -78,6 +78,8 @@ if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYP
 endif()
 
 include(FetchContent)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 #
 # Dependencies.

@@ -137,16 +137,25 @@ void sweep_rasterizer::process_fragment(
           z};
     }
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_fragment_shader = 0;
     utils::clock(stage_fragment_shader);
-#endif
-    auto accept_fragment = in_shader->fragment_shader(frag_coord, frag_info.front_facing, {0, 0}, frag_info.varyings, depth_value, color);
-#ifdef DO_BENCHMARKING
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    auto accept_fragment = in_shader->fragment_shader(
+      frag_coord,
+      frag_info.front_facing,
+      {0, 0},
+      frag_info.varyings,
+      depth_value,
+      color);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     swr::impl::profile_fragment_shader_invocations.fetch_add(1, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     if(accept_fragment == swr::discard)
     {
         out.write_flags = 0;
@@ -160,15 +169,24 @@ void sweep_rasterizer::process_fragment(
     if(states.depth_test_enabled)
     {
         depth_value = std::clamp(depth_value, 0.f, 1.f);
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_depth = 0;
         utils::clock(stage_depth);
-#endif
-        states.draw_target->depth_compare_write(x, y, depth_value, states.depth_func, states.write_depth, depth_write_mask);
-#ifdef DO_BENCHMARKING
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        states.draw_target->depth_compare_write(
+          x,
+          y,
+          depth_value,
+          states.depth_func,
+          states.write_depth,
+          depth_write_mask);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_depth);
         swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 
     auto to_mask = [](bool b) -> std::uint32_t
@@ -334,19 +352,22 @@ void sweep_rasterizer::process_fragment_block(
     }
 
     std::uint8_t accept_mask = 0;
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_fragment_shader = 0;
     utils::clock(stage_fragment_shader);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     accept_mask |= in_shader->fragment_shader(frag_coord[0], frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
     accept_mask |= in_shader->fragment_shader(frag_coord[1], frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
     accept_mask |= in_shader->fragment_shader(frag_coord[2], frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
     accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     swr::impl::profile_fragment_shader_invocations.fetch_add(4, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     if(accept_mask == 0)
     {
@@ -374,20 +395,21 @@ void sweep_rasterizer::process_fragment_block(
         depth_value[3] = std::clamp(depth_value[3], 0.f, 1.f);
 #endif /* SWR_USE_SIMD */
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_depth = 0;
         utils::clock(stage_depth);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         states.draw_target->depth_compare_write_block(
           x, y,
           depth_value,
           states.depth_func,
           states.write_depth,
           depth_mask);
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_depth);
         swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 
     write_color &= depth_mask;
@@ -551,10 +573,11 @@ void sweep_rasterizer::process_fragment_block(
     const float fy0 = static_cast<float>(y0) - pixel_center.y;
     const float fy1 = static_cast<float>(y1) - pixel_center.y;
     std::uint8_t accept_mask = 0;
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_fragment_shader = 0;
     utils::clock(stage_fragment_shader);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     auto make_frag_coord = [&](int lane) -> ml::vec4
     {
@@ -562,20 +585,20 @@ void sweep_rasterizer::process_fragment_block(
         float fy = fy0;
         switch(lane)
         {
-            case 1:
-                fx = fx1;
-                fy = fy0;
-                break;
-            case 2:
-                fx = fx0;
-                fy = fy1;
-                break;
-            case 3:
-                fx = fx1;
-                fy = fy1;
-                break;
-            default:
-                break;
+        case 1:
+            fx = fx1;
+            fy = fy0;
+            break;
+        case 2:
+            fx = fx0;
+            fy = fy1;
+            break;
+        case 3:
+            fx = fx1;
+            fy = fy1;
+            break;
+        default:
+            break;
         }
 
         if(is_default_framebuffer)
@@ -621,7 +644,7 @@ void sweep_rasterizer::process_fragment_block(
             accept_mask |= in_shader->fragment_shader(frag_coord3, frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
         }
     }
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     const std::uint64_t fragment_invocations =
       ((active_mask & 8) ? 1u : 0u)
       + ((active_mask & 4) ? 1u : 0u)
@@ -630,7 +653,7 @@ void sweep_rasterizer::process_fragment_block(
     swr::impl::profile_fragment_shader_invocations.fetch_add(fragment_invocations, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     if(accept_mask == 0)
     {
@@ -658,15 +681,17 @@ void sweep_rasterizer::process_fragment_block(
         depth_value[3] = std::clamp(depth_value[3], 0.f, 1.f);
 #endif /* SWR_USE_SIMD */
 
-#ifdef DO_BENCHMARKING
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_depth = 0;
         utils::clock(stage_depth);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
-#ifdef DO_BENCHMARKING
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_depth);
         swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
-#endif
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 
     write_color &= depth_mask;

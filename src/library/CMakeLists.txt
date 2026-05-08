@@ -14,6 +14,7 @@ set(SOURCES
     misc.cpp
     output_merger.cpp
     pipeline.cpp
+    profiling.cpp
     renderbuffer.cpp
     renderobject.cpp
     shaders.cpp
@@ -52,7 +53,7 @@ target_compile_definitions(swrast
 if(SWR_ENABLE_PIPELINE_PROFILING)
     target_compile_definitions(swrast
         PRIVATE
-        DO_BENCHMARKING)
+        SWR_ENABLE_PIPELINE_PROFILING)
 endif()
 
 if(SWR_ENABLE_MULTI_THREADING)
