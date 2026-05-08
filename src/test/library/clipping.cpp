@@ -69,6 +69,21 @@ auto get_bits = [](float f) -> std::uint32_t
     return temp;
 };
 
+static void check_vertex_buffers_equal_bitwise(
+  const swr::impl::vertex_buffer& a,
+  const swr::impl::vertex_buffer& b)
+{
+    BOOST_REQUIRE_EQUAL(a.size(), b.size());
+    for(std::size_t i = 0; i < a.size(); ++i)
+    {
+        BOOST_CHECK_EQUAL(get_bits(a[i].coords.x), get_bits(b[i].coords.x));
+        BOOST_CHECK_EQUAL(get_bits(a[i].coords.y), get_bits(b[i].coords.y));
+        BOOST_CHECK_EQUAL(get_bits(a[i].coords.z), get_bits(b[i].coords.z));
+        BOOST_CHECK_EQUAL(get_bits(a[i].coords.w), get_bits(b[i].coords.w));
+        BOOST_CHECK_EQUAL(a[i].flags, b[i].flags);
+    }
+}
+
 BOOST_AUTO_TEST_CASE(line_clip_preserve)
 {
     /*
@@ -319,6 +334,125 @@ BOOST_AUTO_TEST_CASE(line_clip)
     }
 
     BOOST_TEST_MESSAGE(std::format("{} lines in frustum, {} clipped", lines_in_frustum, total_lines - lines_in_frustum));
+}
+
+BOOST_AUTO_TEST_CASE(line_clip_range_parity)
+{
+    swr::impl::render_object obj;
+    swr::impl::program_info info;
+    obj.states.shader_info = &info;
+
+    constexpr std::size_t line_count = 512;
+    constexpr std::size_t vertex_count = line_count * 2;
+    obj.allocate_coords(vertex_count);
+    obj.vertex_flags.assign(vertex_count, 0);
+    obj.indices.resize(vertex_count);
+
+    std::mt19937 rng{1337u};
+    std::uniform_real_distribution<float> coord_dist(-2.0f, 2.0f);
+    std::bernoulli_distribution discard_dist(0.25);
+
+    for(std::size_t i = 0; i < vertex_count; ++i)
+    {
+        obj.indices[i] = static_cast<std::uint32_t>(i);
+        obj.coords[i] = {coord_dist(rng), coord_dist(rng), coord_dist(rng), coord_dist(rng)};
+        if(discard_dist(rng))
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_discard;
+        }
+    }
+
+    swr::impl::vertex_buffer full;
+    swr::impl::clip_line_buffer_range(
+      obj,
+      swr::impl::clip_output::line_list,
+      0,
+      obj.indices.size(),
+      full);
+
+    // Split into deterministic chunks and stitch output in chunk order.
+    swr::impl::vertex_buffer stitched;
+    constexpr std::size_t chunk_count = 7;
+    for(std::size_t c = 0; c < chunk_count; ++c)
+    {
+        const std::size_t begin_line = (c * line_count) / chunk_count;
+        const std::size_t end_line = ((c + 1) * line_count) / chunk_count;
+        const std::size_t begin_index = begin_line * 2;
+        const std::size_t end_index = end_line * 2;
+
+        swr::impl::vertex_buffer chunk;
+        swr::impl::clip_line_buffer_range(
+          obj,
+          swr::impl::clip_output::line_list,
+          begin_index,
+          end_index,
+          chunk);
+        stitched.insert(
+          std::end(stitched),
+          std::begin(chunk),
+          std::end(chunk));
+    }
+
+    check_vertex_buffers_equal_bitwise(full, stitched);
+}
+
+BOOST_AUTO_TEST_CASE(triangle_clip_range_parity)
+{
+    swr::impl::render_object obj;
+    swr::impl::program_info info;
+    obj.states.shader_info = &info;
+
+    constexpr std::size_t triangle_count = 384;
+    constexpr std::size_t vertex_count = triangle_count * 3;
+    obj.allocate_coords(vertex_count);
+    obj.vertex_flags.assign(vertex_count, 0);
+    obj.indices.resize(vertex_count);
+
+    std::mt19937 rng{4242u};
+    std::uniform_real_distribution<float> coord_dist(-2.0f, 2.0f);
+    std::bernoulli_distribution discard_dist(0.3);
+
+    for(std::size_t i = 0; i < vertex_count; ++i)
+    {
+        obj.indices[i] = static_cast<std::uint32_t>(i);
+        obj.coords[i] = {coord_dist(rng), coord_dist(rng), coord_dist(rng), coord_dist(rng)};
+        if(discard_dist(rng))
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_discard;
+        }
+    }
+
+    swr::impl::vertex_buffer full;
+    swr::impl::clip_triangle_buffer_range(
+      obj,
+      swr::impl::clip_output::triangle_list,
+      0,
+      obj.indices.size(),
+      full);
+
+    swr::impl::vertex_buffer stitched;
+    constexpr std::size_t chunk_count = 9;
+    for(std::size_t c = 0; c < chunk_count; ++c)
+    {
+        const std::size_t begin_tri = (c * triangle_count) / chunk_count;
+        const std::size_t end_tri = ((c + 1) * triangle_count) / chunk_count;
+        const std::size_t begin_index = begin_tri * 3;
+        const std::size_t end_index = end_tri * 3;
+
+        swr::impl::vertex_buffer chunk;
+        swr::impl::clip_triangle_buffer_range(
+          obj,
+          swr::impl::clip_output::triangle_list,
+          begin_index,
+          end_index,
+          chunk);
+        stitched.insert(
+          std::end(stitched),
+          std::begin(chunk),
+          std::end(chunk));
+    }
+
+    check_vertex_buffers_equal_bitwise(full, stitched);
 }
 
 BOOST_AUTO_TEST_SUITE_END();
