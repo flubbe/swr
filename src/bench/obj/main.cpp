@@ -4,7 +4,7 @@
  * offscreen obj benchmark (no SDL window/framework).
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -23,7 +23,7 @@
 #include "swr/swr.h"
 #include "swr/shaders.h"
 
-#include "../../demos/obj_viewer/shader.h"
+#include "shader.h"
 
 #if defined(__clang__) || defined(__GNUC__)
 #    pragma GCC diagnostic push
@@ -370,7 +370,7 @@ int main(int argc, char** argv)
     const double fps = static_cast<double>(cfg.frames) / seconds;
     const double msec = 1000.0 / fps;
     std::println(
-      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} model: {} size: {}x{} threads: {}",
+      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} model: {} size: {}x{} threads: {} benchmark: bench_obj",
       cfg.frames,
       seconds,
       fps,

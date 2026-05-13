@@ -17,14 +17,14 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 endif()
 
 # end-to-end offscreen OBJ benchmark
-add_executable(obj_perf
+add_executable(bench_obj
     obj/main.cpp
 )
-target_include_directories(obj_perf
+target_include_directories(bench_obj
     PRIVATE
     ${SWR_SOURCE_DIR}/src
 )
-target_link_libraries(obj_perf
+target_link_libraries(bench_obj
     PRIVATE
     tinyobjloader
     swrast
@@ -33,14 +33,14 @@ target_link_libraries(obj_perf
 )
 
 # dedicated clipping-heavy offscreen OBJ benchmark
-add_executable(clip_bench
+add_executable(bench_clip
     clip/main.cpp
 )
-target_include_directories(clip_bench
+target_include_directories(bench_clip
     PRIVATE
     ${SWR_SOURCE_DIR}/src
 )
-target_link_libraries(clip_bench
+target_link_libraries(bench_clip
     PRIVATE
     tinyobjloader
     swrast
@@ -48,10 +48,25 @@ target_link_libraries(clip_bench
     swr_project_warnings
 )
 
+# dedicated clipping-heavy offscreen gears benchmark
+add_executable(bench_gears_clip
+    gears_clip/main.cpp
+)
+target_include_directories(bench_gears_clip
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(bench_gears_clip
+    PRIVATE
+    swrast
+    swr_project_options
+    swr_project_warnings
+)
+
 if(SWR_ENABLE_DEV_BENCH_TESTS)
     add_test(
-        NAME obj_perf
-        COMMAND $<TARGET_FILE:obj_perf>
+        NAME bench_obj
+        COMMAND $<TARGET_FILE:bench_obj>
         --model=${SWR_SOURCE_DIR}/src/demos/cars/assets/cars/cop/Cop_Body.obj
         --frames=60
         --width=400
@@ -59,12 +74,21 @@ if(SWR_ENABLE_DEV_BENCH_TESTS)
         --threads=0
     )
     add_test(
-        NAME clip_bench
-        COMMAND $<TARGET_FILE:clip_bench>
+        NAME bench_clip
+        COMMAND $<TARGET_FILE:bench_clip>
         --model=${SWR_SOURCE_DIR}/src/demos/cars/assets/cars/cop/Cop_Body.obj
         --frames=60
         --width=400
         --height=400
         --threads=0
+    )
+    add_test(
+        NAME bench_gears_clip
+        COMMAND $<TARGET_FILE:bench_gears_clip>
+        --frames=60
+        --width=640
+        --height=480
+        --threads=0
+        --clip_orbit_amplitude=6.0
     )
 endif()
