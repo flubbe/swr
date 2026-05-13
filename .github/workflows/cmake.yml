@@ -53,7 +53,7 @@ jobs:
 
       - name: Build benchmark targets
         run: |
-          cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target obj_perf clip_bench
+          cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target bench_obj bench_clip bench_gears_clip
           if cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target bench_memset; then
             echo "bench_memset built"
           else
