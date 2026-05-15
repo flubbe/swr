@@ -221,7 +221,7 @@ struct render_context
      */
 
     /** last detected error. */
-    error last_error;
+    error last_error{error::none};
 
     /*
      * buffers and lists.
