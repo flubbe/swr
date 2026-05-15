@@ -39,7 +39,7 @@ void copy_attributes(
     }
 
     obj.allocate_attribs(attrib_stride);
-    ml::vec4* attribs = obj.attribs;
+    ml::vec4* attribs = obj.attribs.data();
 
     for(std::size_t i = 0; i < obj.coord_count; ++i)
     {

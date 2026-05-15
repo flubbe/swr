@@ -359,14 +359,6 @@ void ActiveTexture(std::uint32_t unit);
 void BindTexture(texture_target target, std::uint32_t id);
 
 /**
- * Allocate texture storage.
- * @param texture_id id of the texture
- * @param width the width of base level of the texture
- * @param height the height of base level of the texture
- */
-void AllocateImage(std::uint32_t texture_id, std::size_t width, std::size_t height);
-
-/**
  * Allocate texture storage and, if data is non-empty, set the image data of a texture.
  * @param texture_id id of the texture
  * @param level the mipmap level of data

@@ -23,6 +23,18 @@ namespace impl
 constexpr int default_shader_index = 0;
 static_assert(default_shader_index == 0, "The default shader must be at index 0.");
 
+static bool has_flat_varyings(
+  const boost::container::static_vector<
+    swr::interpolation_qualifier,
+    swr::limits::max::varyings>& iqs)
+{
+    return std::find(
+             std::begin(iqs),
+             std::end(iqs),
+             swr::interpolation_qualifier::flat)
+           != std::end(iqs);
+}
+
 /** Default (empty) program. */
 class default_program : public program<default_program>
 {
@@ -78,6 +90,10 @@ void create_default_shader(render_context* context)
     // pre-link the shader and initialize varying count.
     default_shader->pre_link(pi.iqs);
     pi.varying_count = pi.iqs.size();
+    if(has_flat_varyings(pi.iqs))
+    {
+        pi.flags |= swr::impl::program_flags::has_flat_varyings;
+    }
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // the default shader needs to be at position 0.
@@ -120,6 +136,10 @@ std::uint32_t RegisterShader(const program_base* in_shader)
     // pi.is_prelinked().
     in_shader->pre_link(pi.iqs);
     pi.varying_count = pi.iqs.size();
+    if(impl::has_flat_varyings(pi.iqs))
+    {
+        pi.flags |= swr::impl::program_flags::has_flat_varyings;
+    }
 
     pi.flags |= swr::impl::program_flags::prelinked;
 

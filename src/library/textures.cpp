@@ -4,7 +4,7 @@
  * texture management.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -18,25 +18,24 @@ namespace impl
 {
 
 /** convenience macro to record failing function calls. */
-#define CHECK_AND_SET_LAST_ERROR(expr) \
-    {                                  \
-        auto ret = expr;               \
-        if(ret != error::none)         \
-        {                              \
-            context->last_error = ret; \
-        }                              \
+#define CHECK_AND_SET_LAST_ERROR(expr)      \
+    if(auto ret = expr; ret != error::none) \
+    {                                       \
+        context->last_error = ret;          \
     }
 
 /*
  * texture objects.
  */
 
-void texture_2d::set_filter_mag(texture_filter filter_mag)
+void texture_2d::set_filter_mag(
+  texture_filter filter_mag)
 {
     sampler->set_filter_mag(filter_mag);
 }
 
-void texture_2d::set_filter_min(texture_filter filter_min)
+void texture_2d::set_filter_min(
+  texture_filter filter_min)
 {
     sampler->set_filter_min(filter_min);
 }
@@ -49,9 +48,12 @@ void texture_2d::initialize_sampler()
     }
 }
 
-error texture_2d::set_wrap_s(wrap_mode s)
+error texture_2d::set_wrap_s(
+  wrap_mode s)
 {
-    if(s != wrap_mode::repeat && s != wrap_mode::mirrored_repeat && s != wrap_mode::clamp_to_edge)
+    if(s != wrap_mode::repeat
+       && s != wrap_mode::mirrored_repeat
+       && s != wrap_mode::clamp_to_edge)
     {
         /* invalid warp mode. */
         return error::invalid_value;
@@ -61,9 +63,12 @@ error texture_2d::set_wrap_s(wrap_mode s)
     return error::none;
 }
 
-error texture_2d::set_wrap_t(wrap_mode t)
+error texture_2d::set_wrap_t(
+  wrap_mode t)
 {
-    if(t != wrap_mode::repeat && t != wrap_mode::mirrored_repeat && t != wrap_mode::clamp_to_edge)
+    if(t != wrap_mode::repeat
+       && t != wrap_mode::mirrored_repeat
+       && t != wrap_mode::clamp_to_edge)
     {
         /* invalid warp mode. */
         return error::invalid_value;
@@ -73,9 +78,13 @@ error texture_2d::set_wrap_t(wrap_mode t)
     return error::none;
 }
 
-error texture_2d::allocate(std::uint32_t in_level, std::uint32_t in_width, std::uint32_t in_height)
+error texture_2d::allocate(
+  std::uint32_t in_level,
+  std::uint32_t in_width,
+  std::uint32_t in_height)
 {
-    if(in_width == 0 || in_height == 0)
+    if(in_width == 0
+       || in_height == 0)
     {
         // this texture has no size, but we set width and height anyway.
         width = in_width;
@@ -85,7 +94,8 @@ error texture_2d::allocate(std::uint32_t in_level, std::uint32_t in_width, std::
         return error::none;
     }
 
-    if(!utils::is_power_of_two(in_width) || !utils::is_power_of_two(height))
+    if(!utils::is_power_of_two(in_width)
+       || !utils::is_power_of_two(in_height))
     {
         return error::invalid_value;
     }
@@ -93,7 +103,8 @@ error texture_2d::allocate(std::uint32_t in_level, std::uint32_t in_width, std::
     auto uLevel = static_cast<std::size_t>(in_level);
     if(uLevel == 0)
     {
-        if(width != in_width || height != in_height)
+        if(width != in_width
+           || height != in_height)
         {
             data.allocate(in_width, in_height);
 
@@ -124,10 +135,18 @@ error texture_2d::set_data(
     constexpr auto component_size = sizeof(std::uint32_t);
 
     // allocate the texture. this verifies that level is non-negative, and also sets width and height.
-    auto ret = allocate(level, width, height);
+    auto ret = allocate(
+      level,
+      width,
+      height);
     if(ret != error::none)
     {
         return ret;
+    }
+
+    if(width == 0 || height == 0)
+    {
+        return error::none;
     }
 
     // if no data was supplied, we act as just allocate was called.
@@ -150,13 +169,18 @@ error texture_2d::set_data(
     auto pitch = width + (width >> 1);
 #endif
 
-    pixel_format_converter pfc{pixel_format_descriptor::named_format(format)};
+    pixel_format_converter pfc{
+      pixel_format_descriptor::named_format(format)};
     for(std::uint32_t y = 0; y < height; ++y)
     {
         for(std::uint32_t x = 0; x < width; ++x)
         {
             const std::uint8_t* buf_ptr = &in_data[(y * width + x) * component_size];
-            std::uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
+            std::uint32_t color =
+              (*buf_ptr) << 24
+              | (*(buf_ptr + 1)) << 16
+              | (*(buf_ptr + 2)) << 8
+              | (*(buf_ptr + 3));
 #ifdef SWR_USE_MORTON_CODES
             data_ptr[libmorton::morton2D_32_encode(x, y)] = pfc.to_color(color);
 #else
@@ -180,7 +204,12 @@ error texture_2d::set_sub_data(
     ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(std::uint32_t);
 
-    if(in_width == 0 || in_height == 0 || in_data.empty())
+    if(in_width == 0 || in_height == 0)
+    {
+        return error::none;
+    }
+
+    if(in_data.empty())
     {
         return error::invalid_value;
     }
@@ -192,7 +221,8 @@ error texture_2d::set_sub_data(
     }
 
     // ensure the dimensions are set up correctly.
-    if(in_x >= width || in_y >= height)
+    if(in_x >= width
+       || in_y >= height)
     {
         return error::invalid_value;
     }
@@ -219,13 +249,18 @@ error texture_2d::set_sub_data(
         max_height = (end >= img_h ? img_h : end) - in_y;
     }
 
-    pixel_format_converter pfc(pixel_format_descriptor::named_format(format));
+    pixel_format_converter pfc{
+      pixel_format_descriptor::named_format(format)};
     for(std::size_t y = 0; y < max_height; ++y)
     {
         for(std::size_t x = 0; x < max_width; ++x)
         {
             const std::uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
-            std::uint32_t color = (*buf_ptr) << 24 | (*(buf_ptr + 1)) << 16 | (*(buf_ptr + 2)) << 8 | (*(buf_ptr + 3));
+            std::uint32_t color =
+              (*buf_ptr) << 24
+              | (*(buf_ptr + 1)) << 16
+              | (*(buf_ptr + 2)) << 8
+              | (*(buf_ptr + 3));
 #ifdef SWR_USE_MORTON_CODES
             data_ptr[libmorton::morton2D_32_encode(in_x + x, in_y + y)] = pfc.to_color(color);
 #else
@@ -250,14 +285,17 @@ void texture_2d::clear()
  */
 
 /**
- * bind a 2d texture to the context's texture pointer. sets global_context->last_error to error::invalid_operation
+ * bind a 2d texture to a context's texture target pointer. sets global_context->last_error to error::invalid_operation
  * if binding to the defaul texture failed. sets global_context->last_error to error::invalid_value, if
  * the supplied id is invalid.
  *
- * \param id the id of the texture to be bound to the 2d texture pointer
- * \return true if the bind was successful and false otherwise. In the latter case, global_context->last_error is set.
+ * @param target texture target
+ * @param id the id of the texture to be bound to the 2d texture pointer
+ * @return true if the bind was successful and false otherwise. In the latter case, global_context->last_error is set.
  */
-bool bind_texture_pointer(texture_target target, std::uint32_t id)
+bool bind_texture_pointer(
+  texture_target target,
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
@@ -307,7 +345,8 @@ bool bind_texture_pointer(texture_target target, std::uint32_t id)
         return true;
     }
 
-    if(*texture_2d == nullptr || (*texture_2d)->id != id)
+    if(*texture_2d == nullptr
+       || (*texture_2d)->id != id)
     {
         if(id < global_context->texture_2d_storage.size())
         {
@@ -319,7 +358,8 @@ bool bind_texture_pointer(texture_target target, std::uint32_t id)
             return false;
         }
 
-        if(!(*texture_2d) || (*texture_2d)->id != id)
+        if(!(*texture_2d)
+           || (*texture_2d)->id != id)
         {
             // this can only happen if the context was in an invalid state in the first place.
             global_context->last_error = error::invalid_operation;
@@ -334,7 +374,8 @@ bool bind_texture_pointer(texture_target target, std::uint32_t id)
     return true;
 }
 
-void create_default_texture(render_context* context)
+void create_default_texture(
+  render_context* context)
 {
     assert(context);
 
@@ -384,7 +425,8 @@ std::uint32_t CreateTexture()
     impl::render_context* context = impl::global_context;
 
     // set up a new texture.
-    auto slot = context->texture_2d_storage.push(std::make_unique<impl::texture_2d>());
+    auto slot = context->texture_2d_storage.push(
+      std::make_unique<impl::texture_2d>());
 
     impl::texture_2d* new_texture = context->texture_2d_storage[slot].get();
     new_texture->id = slot;
@@ -409,7 +451,8 @@ std::uint32_t CreateTexture()
     return slot;
 }
 
-void ReleaseTexture(std::uint32_t id)
+void ReleaseTexture(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -420,7 +463,8 @@ void ReleaseTexture(std::uint32_t id)
         auto sampler_2d = &context->states.texture_2d_samplers[context->states.texture_2d_active_unit];
 
         // see if this was the last texture used.
-        if((*texture_2d) && (*texture_2d)->id == context->texture_2d_storage[id]->id)
+        if((*texture_2d)
+           && (*texture_2d)->id == context->texture_2d_storage[id]->id)
         {
             // reset to the default texture.
             *texture_2d = context->default_texture_2d;
@@ -436,7 +480,8 @@ void ReleaseTexture(std::uint32_t id)
     }
 }
 
-void ActiveTexture(std::uint32_t unit)
+void ActiveTexture(
+  std::uint32_t unit)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -460,7 +505,9 @@ void ActiveTexture(std::uint32_t unit)
     context->states.texture_2d_active_unit = unit;
 }
 
-void BindTexture(texture_target target, std::uint32_t id)
+void BindTexture(
+  texture_target target,
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -472,27 +519,6 @@ void BindTexture(texture_target target, std::uint32_t id)
     }
 
     impl::bind_texture_pointer(target, id);
-}
-
-void AllocateImage(std::uint32_t texture_id, std::size_t width, std::size_t height)
-{
-    ASSERT_INTERNAL_CONTEXT;
-    impl::render_context* context = impl::global_context;
-
-    if(texture_id == impl::default_tex_id)
-    {
-        context->last_error = error::invalid_value;
-        return;
-    }
-
-    if(texture_id >= context->texture_2d_storage.size())
-    {
-        context->last_error = error::invalid_value;
-        return;
-    }
-
-    impl::texture_2d* texture_2d = context->texture_2d_storage[texture_id].get();
-    CHECK_AND_SET_LAST_ERROR(texture_2d->allocate(0, width, height));
 }
 
 void SetImage(
@@ -519,10 +545,24 @@ void SetImage(
     }
 
     impl::texture_2d* texture_2d = context->texture_2d_storage[texture_id].get();
-    CHECK_AND_SET_LAST_ERROR(texture_2d->set_data(level, width, height, format, data));
+    CHECK_AND_SET_LAST_ERROR(
+      texture_2d->set_data(
+        level,
+        width,
+        height,
+        format,
+        data));
 }
 
-void SetSubImage(std::uint32_t texture_id, std::uint32_t level, std::size_t offset_x, std::size_t offset_y, std::size_t width, std::size_t height, pixel_format format, const std::vector<std::uint8_t>& data)
+void SetSubImage(
+  std::uint32_t texture_id,
+  std::uint32_t level,
+  std::size_t offset_x,
+  std::size_t offset_y,
+  std::size_t width,
+  std::size_t height,
+  pixel_format format,
+  const std::vector<std::uint8_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -540,37 +580,57 @@ void SetSubImage(std::uint32_t texture_id, std::uint32_t level, std::size_t offs
     }
 
     impl::texture_2d* texture_2d = context->texture_2d_storage[texture_id].get();
-    CHECK_AND_SET_LAST_ERROR(texture_2d->set_sub_data(level, offset_x, offset_y, width, height, format, data));
+    CHECK_AND_SET_LAST_ERROR(
+      texture_2d->set_sub_data(
+        level,
+        offset_x,
+        offset_y,
+        width,
+        height,
+        format,
+        data));
 }
 
-void SetTextureWrapMode(std::uint32_t id, wrap_mode s, wrap_mode t)
+void SetTextureWrapMode(
+  std::uint32_t id,
+  wrap_mode s,
+  wrap_mode t)
 {
     if(impl::bind_texture_pointer(texture_target::texture_2d, id))
     {
         ASSERT_INTERNAL_CONTEXT;
         impl::render_context* context = impl::global_context;
 
-        if((s != wrap_mode::repeat && s != wrap_mode::mirrored_repeat && s != wrap_mode::clamp_to_edge)
-           || (t != wrap_mode::repeat && t != wrap_mode::mirrored_repeat && t != wrap_mode::clamp_to_edge))
+        if((s != wrap_mode::repeat
+            && s != wrap_mode::mirrored_repeat
+            && s != wrap_mode::clamp_to_edge)
+           || (t != wrap_mode::repeat
+               && t != wrap_mode::mirrored_repeat
+               && t != wrap_mode::clamp_to_edge))
         {
             context->last_error = error::invalid_value;
             return;
         }
 
-        auto sampler = static_cast<impl::sampler_2d_impl*>(context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
+        auto sampler = static_cast<impl::sampler_2d_impl*>(
+          context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
         sampler->set_wrap_s(s);
         sampler->set_wrap_t(t);
     }
 }
 
-void GetTextureWrapMode(std::uint32_t id, wrap_mode* s, wrap_mode* t)
+void GetTextureWrapMode(
+  std::uint32_t id,
+  wrap_mode* s,
+  wrap_mode* t)
 {
     if(impl::bind_texture_pointer(texture_target::texture_2d, id))
     {
         ASSERT_INTERNAL_CONTEXT;
         impl::render_context* context = impl::global_context;
 
-        auto sampler = static_cast<impl::sampler_2d_impl*>(context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
+        auto sampler = static_cast<impl::sampler_2d_impl*>(
+          context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
         if(s)
         {
             *s = sampler->get_wrap_s();
@@ -582,7 +642,8 @@ void GetTextureWrapMode(std::uint32_t id, wrap_mode* s, wrap_mode* t)
     }
 }
 
-void SetTextureMinificationFilter(texture_filter filter)
+void SetTextureMinificationFilter(
+  texture_filter filter)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -598,7 +659,8 @@ void SetTextureMinificationFilter(texture_filter filter)
     }
 }
 
-void SetTextureMagnificationFilter(texture_filter filter)
+void SetTextureMagnificationFilter(
+  texture_filter filter)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -618,7 +680,8 @@ texture_filter GetTextureMinificationFilter()
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
-    auto sampler = static_cast<impl::sampler_2d_impl*>(context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
+    auto sampler = static_cast<impl::sampler_2d_impl*>(
+      context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
 
     if(sampler)
     {
@@ -635,7 +698,8 @@ texture_filter GetTextureMagnificationFilter()
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
-    auto sampler = static_cast<impl::sampler_2d_impl*>(context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
+    auto sampler = static_cast<impl::sampler_2d_impl*>(
+      context->states.texture_2d_samplers[context->states.texture_2d_active_unit]);
 
     if(sampler)
     {

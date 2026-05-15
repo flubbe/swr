@@ -23,15 +23,37 @@ namespace impl
  */
 
 /** program flags. */
-namespace program_flags
-{
-enum
+enum class program_flags : std::uint32_t
 {
     none = 0,
-    prelinked = 1,
-    linked = 2
+    prelinked = 1 << 0,
+    linked = 1 << 1,
+    has_flat_varyings = 1 << 2
 };
-} /* namespace program_flags */
+
+constexpr program_flags operator&(
+  program_flags a,
+  program_flags b)
+{
+    return static_cast<program_flags>(
+      static_cast<std::uint32_t>(a) & static_cast<std::uint32_t>(b));
+}
+
+constexpr program_flags operator|(
+  program_flags a,
+  program_flags b)
+{
+    return static_cast<program_flags>(
+      static_cast<std::uint32_t>(a) | static_cast<std::uint32_t>(b));
+}
+
+constexpr program_flags& operator|=(
+  program_flags& a,
+  program_flags b)
+{
+    a = a | b;
+    return a;
+}
 
 /** invalid vertex attribute index. */
 enum class vertex_attribute_index
@@ -52,7 +74,7 @@ struct program_info
       iqs;
 
     /** flags. */
-    std::uint32_t flags{program_flags::none};
+    program_flags flags{program_flags::none};
 
     /** (pointer to) the graphics program/shader. */
     const program_base* shader{nullptr};
@@ -90,12 +112,17 @@ struct program_info
 
     bool is_prelinked() const
     {
-        return (flags & program_flags::prelinked) != 0;
+        return (flags & program_flags::prelinked) != program_flags::none;
     }
 
     bool is_linked() const
     {
-        return (flags & program_flags::linked) != 0;
+        return (flags & program_flags::linked) != program_flags::none;
+    }
+
+    bool uses_flat_varyings() const
+    {
+        return (flags & program_flags::has_flat_varyings) != program_flags::none;
     }
 };
 

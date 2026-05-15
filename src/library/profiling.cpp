@@ -44,6 +44,16 @@ std::atomic<std::uint64_t> profile_fragment_shader_invocations{0};
 std::atomic<std::uint64_t> profile_tile_shader_instance_probe_steps{0};
 std::atomic<std::uint64_t> profile_clip_vertex_read_bytes{0};
 std::atomic<std::uint64_t> profile_clip_vertex_write_bytes{0};
+std::atomic<std::uint64_t> profile_clip_parallel_across_objects_frames{0};
+std::atomic<std::uint64_t> profile_clip_parallel_internal_object_frames{0};
+std::atomic<std::uint64_t> profile_clip_serial_frames{0};
+std::atomic<std::uint64_t> profile_clip_parallel_internal_object_tasks{0};
+std::atomic<std::uint64_t> profile_clip_parallel_internal_object_primitives{0};
+std::atomic<std::uint64_t> profile_clip_parallel_reject_small_primitive_count{0};
+std::atomic<std::uint64_t> profile_clip_parallel_reject_no_discard{0};
+std::atomic<std::uint64_t> profile_clip_parallel_reject_low_discard_ratio{0};
+std::atomic<std::uint64_t> profile_clip_input_triangles{0};
+std::atomic<std::uint64_t> profile_clip_output_triangles{0};
 std::atomic<std::uint64_t> profile_raster_tile_payload_write_bytes{0};
 std::atomic<std::uint64_t> profile_raster_tile_payload_checked_write_bytes{0};
 std::atomic<std::uint64_t> profile_raster_tile_payload_block_write_bytes{0};
@@ -63,6 +73,17 @@ std::atomic<std::uint64_t> profile_raster_setup_cb_direct_cycles{0};
 std::atomic<std::uint64_t> profile_raster_flush_max_tile_prims{0};
 std::atomic<std::uint64_t> profile_raster_flush_near_full_tiles{0};
 std::atomic<std::uint64_t> profile_raster_flush_trigger_overflow_count{0};
+std::atomic<std::uint64_t> profile_raster_processed_block_primitives{0};
+std::atomic<std::uint64_t> profile_raster_processed_checked_primitives{0};
+std::atomic<std::uint64_t> profile_checked_full_mask_quads{0};
+std::atomic<std::uint64_t> profile_checked_partial_mask_quads{0};
+std::atomic<std::uint64_t> profile_checked_quad_tests{0};
+std::atomic<std::uint64_t> profile_checked_empty_quads{0};
+std::atomic<std::uint64_t> profile_checked_partial_pop1_quads{0};
+std::atomic<std::uint64_t> profile_checked_partial_pop2_quads{0};
+std::atomic<std::uint64_t> profile_checked_partial_pop3_quads{0};
+std::atomic<std::uint64_t> profile_checked_sparse_thin_x_primitives{0};
+std::atomic<std::uint64_t> profile_checked_sparse_thin_y_primitives{0};
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 } /* namespace swr::impl */

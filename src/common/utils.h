@@ -15,11 +15,15 @@
 #include <cassert>   /* assert */
 #include <chrono>
 #include <cstring> /* std::memcpy */
+#include <concepts>
 #include <list>
 #include <limits> /* std::numeric_limits<std::size_t>::max() */
 #include <memory> /* std::align, std::allocator_traits */
 #include <new>    /* operator new[], operator delete[] */
 #include <ranges>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 /* intrinsics. */
 #if defined(__x86_64__) || defined(_M_X64)
@@ -157,9 +161,106 @@ bool operator!=(
 template<typename T>
 using allocator = default_init_allocator<T>;
 
+/** Allocator that returns storage aligned to a fixed boundary. */
+template<
+  typename T,
+  std::size_t Alignment>
+class aligned_allocator
+{
+    static_assert(std::has_single_bit(Alignment), "Alignment must be a power of two.");
+    static_assert(Alignment >= alignof(T), "Alignment must satisfy T's alignment requirement.");
+
+public:
+    using value_type = T;
+
+    aligned_allocator() noexcept = default;
+
+    template<typename U>
+    aligned_allocator(const aligned_allocator<U, Alignment>&) noexcept
+    {
+    }
+
+    [[nodiscard]]
+    T* allocate(std::size_t count)
+    {
+        if(count == 0)
+        {
+            return nullptr;
+        }
+
+        if(count > std::numeric_limits<std::size_t>::max() / sizeof(T))
+        {
+            throw std::bad_array_new_length{};
+        }
+
+        return static_cast<T*>(
+          ::operator new(
+            count * sizeof(T),
+            std::align_val_t{Alignment}));
+    }
+
+    void deallocate(T* ptr, [[maybe_unused]] std::size_t count) noexcept
+    {
+        ::operator delete(
+          ptr,
+          std::align_val_t{Alignment});
+    }
+
+    template<typename U>
+    struct rebind
+    {
+        using other = aligned_allocator<U, Alignment>;
+    };
+};
+
+template<typename T, typename U, std::size_t Alignment>
+bool operator==(
+  [[maybe_unused]] const aligned_allocator<T, Alignment>& lhs,
+  [[maybe_unused]] const aligned_allocator<U, Alignment>& rhs) noexcept
+{
+    return true;
+}
+
+template<typename T, typename U, std::size_t Alignment>
+bool operator!=(
+  [[maybe_unused]] const aligned_allocator<T, Alignment>& lhs,
+  [[maybe_unused]] const aligned_allocator<U, Alignment>& rhs) noexcept
+{
+    return false;
+}
+
+template<typename T, std::size_t Alignment>
+using aligned_default_init_allocator = default_init_allocator<
+  T,
+  aligned_allocator<T, Alignment>>;
+
 /*
  * simple slot map.
  */
+
+/** Container supported by the slot map. */
+template<class C, class T>
+concept slot_map_container =
+  requires(C c, const C cc, std::size_t i, const T& value, T&& rvalue) {
+      typename C::value_type;
+
+      requires std::same_as<typename C::value_type, T>;
+
+      { cc.size() } -> std::convertible_to<std::size_t>;
+      { c.clear() } -> std::same_as<void>;
+
+      { c[i] } -> std::same_as<T&>;
+      { cc[i] } -> std::same_as<const T&>;
+
+      c.emplace_back(value);
+      c.emplace_back(std::move(rvalue));
+  };
+
+template<class C>
+concept shrinkable_container =
+  requires(C c) {
+      { c.shrink_to_fit() } -> std::same_as<void>;
+  };
 
 /**
  * A container of objects that keeps track of empty slots. The free slot re-usage pattern is LIFO.
@@ -171,11 +272,11 @@ using allocator = default_init_allocator<T>;
  */
 template<
   typename T,
-  typename container = std::vector<T>>
+  slot_map_container<T> Container = std::vector<T>>
 struct slot_map
 {
     /** data. */
-    container data;
+    Container data;
 
     /** list of free object slots. */
     std::list<std::size_t> free_slots;
@@ -183,8 +284,7 @@ struct slot_map
     /** insert a new item. */
     std::size_t push(const T& item)
     {
-        // first fill empty slots.
-        if(free_slots.size())
+        if(!free_slots.empty())
         {
             auto i = free_slots.back();
             free_slots.pop_back();
@@ -197,11 +297,10 @@ struct slot_map
         return data.size() - 1;
     }
 
-    /** insert a new item.. */
+    /** insert a new item. */
     std::size_t push(T&& item)
     {
-        // first fill empty slots.
-        if(free_slots.size())
+        if(!free_slots.empty())
         {
             auto i = free_slots.back();
             free_slots.pop_back();
@@ -222,12 +321,9 @@ struct slot_map
     }
 
     /** check if an index is in the list of free slots. */
-    bool is_free(std::size_t i)
+    bool is_free(std::size_t i) const
     {
-        return std::ranges::find(
-                 free_slots,
-                 i)
-               != free_slots.end();
+        return std::ranges::find(free_slots, i) != free_slots.end();
     }
 
     /** clear data and list of free slots. */
@@ -237,16 +333,19 @@ struct slot_map
         free_slots.clear();
     }
 
-    /** shrink to fit elements. */
+    /** shrink to fit elements, if supported by the container. */
     void shrink_to_fit()
     {
-        data.shrink_to_fit();
+        if constexpr(shrinkable_container<Container>)
+        {
+            data.shrink_to_fit();
+        }
     }
 
     /** query size. */
     std::size_t size() const
     {
-        assert(data.size() - free_slots.size() >= 0);
+        assert(data.size() >= free_slots.size());
         return data.size() - free_slots.size();
     }
 
@@ -404,7 +503,7 @@ template<typename T>
     requires(std::is_integral_v<T> && std::is_unsigned_v<T>)
 constexpr bool is_power_of_two(T c)
 {
-    return (c & (c - 1)) == 0;
+    return std::has_single_bit(c);
 }
 
 /**

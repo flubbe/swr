@@ -40,7 +40,19 @@ struct vertex
     ml::vec4 coords;
 
     /** varyings. these are the vertex shader outputs. */
-    boost::container::static_vector<ml::vec4, swr::limits::max::varyings> varyings;
+    boost::container::static_vector<
+      ml::vec4,
+      swr::limits::max::varyings>
+      varyings;
+
+    /**
+     * Optional reference to the original primitive's flat-shading source varyings.
+     *
+     * Clipping can re-triangulate a primitive with a different geometric first
+     * vertex. When set, this keeps flat-qualified varyings tied to the original
+     * provoking vertex. The referenced storage is owned by the render object.
+     */
+    const ml::vec4* flat_varying_ref{nullptr};
 
     /** vertex flags. */
     std::uint32_t flags{vf_none};
@@ -67,6 +79,9 @@ inline vertex lerp(
     vertex r{
       .coords = ml::lerp(t, v1.coords, v2.coords),
       .varyings = {},
+      .flat_varying_ref = v1.flat_varying_ref != nullptr
+                            ? v1.flat_varying_ref
+                            : v2.flat_varying_ref,
       .flags = vf_interpolated};
 
     // interpolate varyings

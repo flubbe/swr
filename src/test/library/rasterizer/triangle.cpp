@@ -456,6 +456,124 @@ BOOST_AUTO_TEST_CASE(checked_block_covered)
     BOOST_CHECK_EQUAL(blocks[0].mode, rast::tile_info::rasterization_mode::checked);
 }
 
+BOOST_AUTO_TEST_CASE(coarse_block_rejects_empty_edge_regions)
+{
+    const auto v0 = make_vertex(100, 100);
+    const auto v1 = make_vertex(200, 100);
+    const auto v2 = make_vertex(100, 200);
+
+    triangle_test_context ctx{256, 256};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto blocks = collect_covered_triangle_blocks(
+      ctx.states,
+      info,
+      v0.varyings);
+
+    const auto outside_it = std::find_if(
+      blocks.begin(),
+      blocks.end(),
+      [](const auto& b)
+      {
+          return b.x == 192
+                 && b.y == 192;
+      });
+    BOOST_CHECK(outside_it == blocks.end());
+}
+
+BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
+{
+    const auto v0 = make_vertex(17.25f, 2.25f);
+    const auto v1 = make_vertex(18.25f, 30.25f);
+    const auto v2 = make_vertex(17.25f, 30.25f);
+
+    triangle_test_context ctx{64, 64};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const rast::bounding_box bounds = rast::compute_triangle_bounds(
+      ctx.states,
+      info,
+      false);
+    const int block_x = bounds.start_x;
+    const int block_y = bounds.start_y;
+    const rast::quad_bounds quad_bounds = rast::compute_checked_quad_bounds(
+      bounds,
+      block_x,
+      block_y);
+
+    BOOST_CHECK_GE(quad_bounds.start_x, static_cast<unsigned int>(block_x));
+    BOOST_CHECK_GE(quad_bounds.start_y, static_cast<unsigned int>(block_y));
+    BOOST_CHECK_LE(quad_bounds.end_x, static_cast<unsigned int>(block_x + swr::impl::rasterizer_block_size));
+    BOOST_CHECK_LE(quad_bounds.end_y, static_cast<unsigned int>(block_y + swr::impl::rasterizer_block_size));
+    BOOST_CHECK_EQUAL(quad_bounds.start_x & 1u, 0u);
+    BOOST_CHECK_EQUAL(quad_bounds.start_y & 1u, 0u);
+    BOOST_CHECK_EQUAL(quad_bounds.end_x & 1u, 0u);
+    BOOST_CHECK_EQUAL(quad_bounds.end_y & 1u, 0u);
+    BOOST_CHECK_LT(quad_bounds.end_x - quad_bounds.start_x, swr::impl::rasterizer_block_size);
+
+    auto collect_checked_quads = [&](bool use_tight_bounds)
+    {
+        std::vector<std::tuple<int, int, int>> out;
+
+        rast::for_each_covered_triangle_block(
+          ctx.states,
+          info,
+          v0.varyings,
+          0.0f,
+          false,
+          [&](int block_x,
+              int block_y,
+              const geom::barycentric_coordinate_block& lambdas_box,
+              const rast::triangle_interpolator& attributes,
+              rast::tile_info::rasterization_mode mode)
+          {
+              if(mode != rast::tile_info::rasterization_mode::checked
+                 || block_x != bounds.start_x
+                 || block_y != bounds.start_y)
+              {
+                  return;
+              }
+
+              if(use_tight_bounds)
+              {
+                  rast::for_each_covered_quad_in_checked_triangle_block(
+                    block_x,
+                    block_y,
+                    quad_bounds,
+                    lambdas_box,
+                    attributes,
+                    [&](int x, int y, int mask, auto&)
+                    {
+                        out.emplace_back(x, y, mask);
+                    });
+              }
+              else
+              {
+                  rast::for_each_covered_quad_in_checked_triangle_block(
+                    block_x,
+                    block_y,
+                    lambdas_box,
+                    attributes,
+                    [&](int x, int y, int mask, auto&)
+                    {
+                        out.emplace_back(x, y, mask);
+                    });
+              }
+          });
+
+        return out;
+    };
+
+    const auto tight_quads = collect_checked_quads(true);
+    const auto full_quads = collect_checked_quads(false);
+    BOOST_REQUIRE_EQUAL(tight_quads.size(), full_quads.size());
+    BOOST_CHECK(tight_quads == full_quads);
+}
+
 BOOST_AUTO_TEST_CASE(full_block_covered)
 {
     constexpr float eps = ml::to_float(cnl::wrap<ml::fixed_28_4_t>(1));

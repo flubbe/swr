@@ -58,6 +58,24 @@ target_link_libraries(test_rasterizer_triangle
 )
 add_test(NAME rasterizer_triangle COMMAND test_rasterizer_triangle --color_output=no)
 
+add_executable(test_rasterizer_sparse_triangle library/rasterizer/sparse_triangle.cpp)
+target_include_directories(test_rasterizer_sparse_triangle
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_rasterizer_sparse_triangle PRIVATE BOOST_TEST_DYN_LINK)
+target_link_libraries(test_rasterizer_sparse_triangle
+    PRIVATE
+    swrast
+    Boost::unit_test_framework
+    libmorton
+    concurrency_utils
+    swr_project_options
+    swr_project_warnings
+)
+add_test(NAME rasterizer_sparse_triangle COMMAND test_rasterizer_sparse_triangle --color_output=no)
+
 add_executable(test_clipping library/clipping.cpp)
 target_include_directories(test_clipping
     PRIVATE
@@ -75,6 +93,25 @@ target_link_libraries(test_clipping
     swr_project_warnings
 )
 add_test(NAME clipping COMMAND test_clipping --color_output=no)
+
+add_executable(test_textures library/textures.cpp)
+target_include_directories(test_textures
+    PRIVATE
+    ${SWR_SOURCE_DIR}/include
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_textures PRIVATE BOOST_TEST_DYN_LINK)
+target_link_libraries(test_textures
+    PRIVATE
+    swrast
+    Boost::unit_test_framework
+    libmorton
+    concurrency_utils
+    swr_project_options
+    swr_project_warnings
+)
+add_test(NAME textures COMMAND test_textures --color_output=no)
 
 add_executable(test_coverage_mask library/coverage_mask.cpp)
 target_include_directories(test_coverage_mask

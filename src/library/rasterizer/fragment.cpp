@@ -4,7 +4,7 @@
  * fragment processing.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -645,11 +645,12 @@ void sweep_rasterizer::process_fragment_block(
         }
     }
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-    const std::uint64_t fragment_invocations =
+    const std::uint64_t active_lane_count =
       ((active_mask & 8) ? 1u : 0u)
       + ((active_mask & 4) ? 1u : 0u)
       + ((active_mask & 2) ? 1u : 0u)
       + ((active_mask & 1) ? 1u : 0u);
+    const std::uint64_t fragment_invocations = active_lane_count;
     swr::impl::profile_fragment_shader_invocations.fetch_add(fragment_invocations, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);

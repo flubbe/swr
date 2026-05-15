@@ -11,7 +11,7 @@
  * [4] Pineda, “A Parallel Algorithm for Polygon Rasterization”, https://people.csail.mit.edu/ericchan/bib/pdf/p17-pineda.pdf
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2026-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -187,7 +187,19 @@ struct bounding_box
 {
     int start_x, start_y;
     int end_x, end_y;
+    int tight_start_x, tight_start_y;
+    int tight_end_x, tight_end_y;
 };
+
+inline int lower_align_on_quad_size(int v)
+{
+    return v & ~1;
+}
+
+inline int upper_align_on_quad_size(int v)
+{
+    return (v + 1) & ~1;
+}
 
 /** compute block-aligned triangle bounds in viewport coordinates. */
 bounding_box compute_triangle_bounds(
@@ -224,11 +236,58 @@ bounding_box compute_triangle_bounds(
     auto v2x = ml::truncate_unchecked(info.v2_xy.x);
     auto v2y = ml::truncate_unchecked(info.v2_xy.y);
 
+    const int tight_start_x = std::max(std::min({v0x, v1x, v2x}), x_min);
+    const int tight_start_y = std::max(std::min({v0y, v1y, v2y}), y_min);
+    const int tight_end_x = std::min(std::max({v0x + 1, v1x + 1, v2x + 1}), x_max);
+    const int tight_end_y = std::min(std::max({v0y + 1, v1y + 1, v2y + 1}), y_max);
+
     return {
-      .start_x = swr::impl::lower_align_on_block_size(std::max(std::min({v0x, v1x, v2x}), x_min)),
-      .start_y = swr::impl::lower_align_on_block_size(std::max(std::min({v0y, v1y, v2y}), y_min)),
-      .end_x = swr::impl::upper_align_on_block_size(std::min(std::max({v0x + 1, v1x + 1, v2x + 1}), x_max)),
-      .end_y = swr::impl::upper_align_on_block_size(std::min(std::max({v0y + 1, v1y + 1, v2y + 1}), y_max))};
+      .start_x = swr::impl::lower_align_on_block_size(tight_start_x),
+      .start_y = swr::impl::lower_align_on_block_size(tight_start_y),
+      .end_x = swr::impl::upper_align_on_block_size(tight_end_x),
+      .end_y = swr::impl::upper_align_on_block_size(tight_end_y),
+      .tight_start_x = tight_start_x,
+      .tight_start_y = tight_start_y,
+      .tight_end_x = tight_end_x,
+      .tight_end_y = tight_end_y};
+}
+
+inline quad_bounds compute_checked_quad_bounds(
+  const bounding_box& bounds,
+  int block_x,
+  int block_y)
+{
+    const int block_end_x = block_x + static_cast<int>(swr::impl::rasterizer_block_size);
+    const int block_end_y = block_y + static_cast<int>(swr::impl::rasterizer_block_size);
+
+    const int start_x = std::max(
+      block_x,
+      lower_align_on_quad_size(bounds.tight_start_x));
+    const int start_y = std::max(
+      block_y,
+      lower_align_on_quad_size(bounds.tight_start_y));
+    const int end_x = std::min(
+      block_end_x,
+      upper_align_on_quad_size(bounds.tight_end_x));
+    const int end_y = std::min(
+      block_end_y,
+      upper_align_on_quad_size(bounds.tight_end_y));
+
+    if(start_x >= end_x
+       || start_y >= end_y)
+    {
+        return {
+          static_cast<unsigned int>(block_x),
+          static_cast<unsigned int>(block_y),
+          static_cast<unsigned int>(block_x),
+          static_cast<unsigned int>(block_y)};
+    }
+
+    return {
+      static_cast<unsigned int>(start_x),
+      static_cast<unsigned int>(start_y),
+      static_cast<unsigned int>(end_x),
+      static_cast<unsigned int>(end_y)};
 }
 
 template<typename F>
@@ -291,16 +350,20 @@ inline void for_each_covered_triangle_block_with_bounds(
 
         for(auto x = bounds.start_x; x < bounds.end_x; x += swr::impl::rasterizer_block_size)
         {
-            int mask = lambdas_box.get_coverage_mask();
-            if(mask)
+            const int mask = lambdas_box.get_coverage_mask();
+            const int edge_mask0 = mask & 0xf;
+            const int edge_mask1 = (mask >> 4) & 0xf;
+            const int edge_mask2 = (mask >> 8) & 0xf;
+
+            if(edge_mask0 && edge_mask1 && edge_mask2)
             {
-                mask = geom::reduce_coverage_mask(mask);
+                const int covered_corner_mask = edge_mask0 & edge_mask1 & edge_mask2;
 
                 static_assert(static_cast<int>(tile_info::rasterization_mode::block) == 0);
                 static_assert(static_cast<int>(tile_info::rasterization_mode::checked) == 1);
 
                 const auto mode =
-                  static_cast<tile_info::rasterization_mode>(static_cast<int>(mask != 0xf));
+                  static_cast<tile_info::rasterization_mode>(static_cast<int>(covered_corner_mask != 0xf));
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
                 std::uint64_t callback_cycles = 0;

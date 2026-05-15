@@ -4,7 +4,7 @@
  * rasterizer tile cache.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -14,6 +14,33 @@ namespace rast
 #ifndef SWR_TILE_CACHE_PRIMITIVE_CAPACITY
 #    define SWR_TILE_CACHE_PRIMITIVE_CAPACITY 1024
 #endif
+
+/** Bounds for 2x2 quad iteration within one rasterizer block. */
+struct quad_bounds
+{
+    unsigned int start_x{0};
+    unsigned int start_y{0};
+    unsigned int end_x{0};
+    unsigned int end_y{0};
+
+    [[nodiscard]]
+    bool empty() const
+    {
+        return start_x >= end_x
+               || start_y >= end_y;
+    }
+};
+
+inline quad_bounds full_block_quad_bounds(
+  unsigned int block_x,
+  unsigned int block_y)
+{
+    return {
+      block_x,
+      block_y,
+      block_x + swr::impl::rasterizer_block_size,
+      block_y + swr::impl::rasterizer_block_size};
+}
 
 /** primitive data associated to a tile. currently only implemented for triangles. */
 class tile_info
@@ -35,6 +62,9 @@ public:
     /** barycentric coordinates for checked mode; nullptr for full block mode. */
     const geom::barycentric_coordinate_block* checked_lambdas{nullptr};
 
+    /** quad iteration bounds for checked mode. */
+    quad_bounds checked_quad_bounds{};
+
     /** index into tile::shader_instances. */
     std::size_t shader_index{0};
 
@@ -46,27 +76,27 @@ public:
 
     /** constructors. */
     tile_info() = default;
+    tile_info(const tile_info&) = default;
     tile_info(tile_info&&) = default;
 
-    tile_info(const tile_info&) = default;
     tile_info& operator=(const tile_info&) = default;
     tile_info& operator=(tile_info&&) = default;
 
     /**
      * initializing constructor.
-     *
-     * NOTE This instantiates the shader.
      */
     tile_info(
       const swr::impl::render_states* in_states,
       std::size_t in_shader_index,
       const geom::barycentric_coordinate_block* in_checked_lambdas,
+      quad_bounds in_checked_quad_bounds,
       triangle_interpolator* in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
     : states{in_states}
     , attributes{in_attributes}
     , checked_lambdas{in_checked_lambdas}
+    , checked_quad_bounds{in_checked_quad_bounds}
     , shader_index{in_shader_index}
     , mode{in_mode}
     , front_facing{in_front_facing}
@@ -271,6 +301,7 @@ struct tile_cache
       unsigned int in_y,
       const swr::impl::render_states* in_states,
       const geom::barycentric_coordinate_block& in_lambdas,
+      quad_bounds in_quad_bounds,
       const triangle_interpolator& in_attributes,
       bool in_front_facing)
     {
@@ -299,6 +330,7 @@ struct tile_cache
           in_states,
           shader_index,
           &checked_lambdas_ref,
+          in_quad_bounds,
           &attributes_ref,
           in_front_facing,
           tile_info::rasterization_mode::checked);
@@ -340,6 +372,7 @@ struct tile_cache
               in_y,
               in_states,
               in_lambdas,
+              full_block_quad_bounds(in_x, in_y),
               in_attributes,
               in_front_facing);
         }
@@ -368,6 +401,7 @@ struct tile_cache
           in_states,
           shader_index,
           nullptr,
+          full_block_quad_bounds(in_x, in_y),
           &attributes_ref,
           in_front_facing,
           in_mode);

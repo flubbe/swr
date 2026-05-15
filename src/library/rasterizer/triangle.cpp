@@ -4,7 +4,7 @@
  * triangle rasterization.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -170,80 +170,118 @@ void sweep_rasterizer::process_block_checked(
                                         .shader_instances[in_data.shader_index]
                                         .shader;
     assert(in_data.checked_lambdas);
+    auto process_checked_quad = [&](int x,
+                                    int y,
+                                    int mask,
+                                    rast::triangle_interpolator& attributes_quad)
+    {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_interp = 0;
+        utils::clock(stage_interp);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
+        attributes_quad.get_data_block(
+          temp_varyings,
+          frag_depth,
+          one_over_viewport_z);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_interp);
+        swr::impl::profile_interp_cycles.fetch_add(stage_interp, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        std::array<rast::fragment_info, 4> frag_info =
+          {{{frag_depth[0], front_facing, temp_varyings[0]},
+            {frag_depth[1], front_facing, temp_varyings[1]},
+            {frag_depth[2], front_facing, temp_varyings[2]},
+            {frag_depth[3], front_facing, temp_varyings[3]}}};
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_fragment_block = 0;
+        utils::clock(stage_fragment_block);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        if(mask == 0xF)
+        {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_checked_full_mask_quads.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            process_fragment_block(
+              x,
+              y,
+              *in_data.states,
+              shader,
+              one_over_viewport_z,
+              frag_info,
+              out);
+        }
+        else
+        {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_checked_partial_mask_quads.fetch_add(1, std::memory_order_relaxed);
+            const unsigned int bit_count =
+              ((mask & 8) ? 1u : 0u)
+              + ((mask & 4) ? 1u : 0u)
+              + ((mask & 2) ? 1u : 0u)
+              + ((mask & 1) ? 1u : 0u);
+            if(bit_count == 1u)
+            {
+                swr::impl::profile_checked_partial_pop1_quads.fetch_add(1, std::memory_order_relaxed);
+            }
+            else if(bit_count == 2u)
+            {
+                swr::impl::profile_checked_partial_pop2_quads.fetch_add(1, std::memory_order_relaxed);
+            }
+            else if(bit_count == 3u)
+            {
+                swr::impl::profile_checked_partial_pop3_quads.fetch_add(1, std::memory_order_relaxed);
+            }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            process_fragment_block(
+              x,
+              y,
+              mask,
+              *in_data.states,
+              shader,
+              one_over_viewport_z,
+              frag_info,
+              out);
+        }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_fragment_block);
+        stage_block_fragment += stage_fragment_block;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_merge_block = 0;
+        utils::clock(stage_merge_block);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        if(out.write_color)
+        {
+            in_data.states->draw_target->merge_color_block(
+              0,
+              x,
+              y,
+              out,
+              in_data.states->blending_enabled,
+              in_data.states->blend_src,
+              in_data.states->blend_dst);
+        }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_merge_block);
+        stage_block_merge += stage_merge_block;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+    };
     for_each_covered_quad_in_checked_triangle_block(
       block_x,
       block_y,
+      in_data.checked_quad_bounds,
       *in_data.checked_lambdas,
       attributes,
-      [&](int x,
-          int y,
-          int mask,
-          rast::triangle_interpolator& attributes_quad)
-      {
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          std::uint64_t stage_interp = 0;
-          utils::clock(stage_interp);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-          attributes_quad.get_data_block(
-            temp_varyings,
-            frag_depth,
-            one_over_viewport_z);
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          utils::unclock(stage_interp);
-          swr::impl::profile_interp_cycles.fetch_add(stage_interp, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-          std::array<rast::fragment_info, 4> frag_info =
-            {{{frag_depth[0], front_facing, temp_varyings[0]},
-              {frag_depth[1], front_facing, temp_varyings[1]},
-              {frag_depth[2], front_facing, temp_varyings[2]},
-              {frag_depth[3], front_facing, temp_varyings[3]}}};
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          std::uint64_t stage_fragment_block = 0;
-          utils::clock(stage_fragment_block);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-          process_fragment_block(
-            x,
-            y,
-            mask,
-            *in_data.states,
-            shader,
-            one_over_viewport_z,
-            frag_info,
-            out);
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          utils::unclock(stage_fragment_block);
-          stage_block_fragment += stage_fragment_block;
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          std::uint64_t stage_merge_block = 0;
-          utils::clock(stage_merge_block);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-          if(out.write_color)
-          {
-              in_data.states->draw_target->merge_color_block(
-                0,
-                x,
-                y,
-                out,
-                in_data.states->blending_enabled,
-                in_data.states->blend_src,
-                in_data.states->blend_dst);
-          }
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          utils::unclock(stage_merge_block);
-          stage_block_merge += stage_merge_block;
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-      });
+      process_checked_quad);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_block_total);
@@ -397,6 +435,22 @@ void sweep_rasterizer::draw_filled_triangle(
       && (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
       && (bounds.end_y - bounds.start_y) == static_cast<int>(swr::impl::rasterizer_block_size);
 
+    boost::container::static_vector<
+      ml::vec4,
+      swr::limits::max::varyings>
+      flat_reference_varyings;
+    const auto* base_varyings = &v0.varyings;
+    if(states.shader_info->uses_flat_varyings()
+       && v0.flat_varying_ref != nullptr)
+    {
+        flat_reference_varyings.reserve(states.shader_info->varying_count);
+        for(std::uint32_t i = 0; i < states.shader_info->varying_count; ++i)
+        {
+            flat_reference_varyings.emplace_back(v0.flat_varying_ref[i]);
+        }
+        base_varyings = &flat_reference_varyings;
+    }
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t triangle_tile_ref_count = 0;
     std::uint64_t triangle_block_tile_ref_count = 0;
@@ -407,7 +461,7 @@ void sweep_rasterizer::draw_filled_triangle(
       states,
       bounds,
       info,
-      v0.varyings,
+      *base_varyings,
       polygon_offset,
       [&](int x,
           int y,
@@ -421,8 +475,32 @@ void sweep_rasterizer::draw_filled_triangle(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
           bool needs_flush = false;
-          if(is_single_block_triangle
-             && allow_direct_block_path)
+          const quad_bounds checked_quad_bounds =
+            (mode == tile_info::rasterization_mode::checked)
+              ? compute_checked_quad_bounds(bounds, x, y)
+              : full_block_quad_bounds(
+                  static_cast<unsigned int>(x),
+                  static_cast<unsigned int>(y));
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+          if(mode == tile_info::rasterization_mode::checked)
+          {
+              const unsigned int checked_width = checked_quad_bounds.end_x - checked_quad_bounds.start_x;
+              const unsigned int checked_height = checked_quad_bounds.end_y - checked_quad_bounds.start_y;
+              if(checked_width <= 2 && checked_height > 2)
+              {
+                  swr::impl::profile_checked_sparse_thin_x_primitives.fetch_add(1, std::memory_order_relaxed);
+              }
+              else if(checked_height <= 2 && checked_width > 2)
+              {
+                  swr::impl::profile_checked_sparse_thin_y_primitives.fetch_add(1, std::memory_order_relaxed);
+              }
+          }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+          const bool use_direct_path_for_block =
+            (is_single_block_triangle && allow_direct_block_path);
+          if(use_direct_path_for_block)
           {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
               std::uint64_t stage_direct = 0;
@@ -444,6 +522,7 @@ void sweep_rasterizer::draw_filled_triangle(
                 &states,
                 shader_index,
                 direct_checked_lambdas,
+                checked_quad_bounds,
                 &direct_attributes,
                 is_front_facing,
                 mode};
@@ -483,6 +562,7 @@ void sweep_rasterizer::draw_filled_triangle(
                     y,
                     &states,
                     lambdas_box,
+                    checked_quad_bounds,
                     attributes_row,
                     is_front_facing);
               }
