@@ -4,7 +4,7 @@
  * vertex shader and fragment shader support.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -28,11 +28,9 @@ static bool has_flat_varyings(
     swr::interpolation_qualifier,
     swr::limits::max::varyings>& iqs)
 {
-    return std::find(
-             std::begin(iqs),
-             std::end(iqs),
-             swr::interpolation_qualifier::flat)
-           != std::end(iqs);
+    return std::ranges::contains(
+      iqs,
+      swr::interpolation_qualifier::flat);
 }
 
 /** Default (empty) program. */
