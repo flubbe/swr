@@ -34,7 +34,7 @@ class render_object
         utils::alignment::sse>>;
 
     static void assert_sse_aligned(
-      const storage_type& buffer)
+      [[maybe_unused]] const storage_type& buffer)
     {
         assert(buffer.empty()
                || (reinterpret_cast<std::uintptr_t>(buffer.data()) % utils::alignment::sse) == 0);
