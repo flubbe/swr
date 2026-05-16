@@ -151,9 +151,10 @@ void sweep_rasterizer::process_fragment(
       color);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-    swr::impl::profile_fragment_shader_invocations.fetch_add(1, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
+
+    swr::impl::profile_fragment_shader_invocations.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     if(accept_fragment == swr::discard)
@@ -364,9 +365,10 @@ void sweep_rasterizer::process_fragment_block(
     accept_mask |= in_shader->fragment_shader(frag_coord[3], frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-    swr::impl::profile_fragment_shader_invocations.fetch_add(4, std::memory_order_relaxed);
     utils::unclock(stage_fragment_shader);
     swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
+
+    swr::impl::profile_fragment_shader_invocations.fetch_add(4, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     if(accept_mask == 0)
@@ -645,15 +647,15 @@ void sweep_rasterizer::process_fragment_block(
         }
     }
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-    const std::uint64_t active_lane_count =
+    utils::unclock(stage_fragment_shader);
+    swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
+
+    const std::uint64_t fragment_invocations =
       ((active_mask & 8) ? 1u : 0u)
       + ((active_mask & 4) ? 1u : 0u)
       + ((active_mask & 2) ? 1u : 0u)
       + ((active_mask & 1) ? 1u : 0u);
-    const std::uint64_t fragment_invocations = active_lane_count;
     swr::impl::profile_fragment_shader_invocations.fetch_add(fragment_invocations, std::memory_order_relaxed);
-    utils::unclock(stage_fragment_shader);
-    swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     if(accept_mask == 0)
@@ -674,7 +676,13 @@ void sweep_rasterizer::process_fragment_block(
     if(states.depth_test_enabled)
     {
 #ifdef SWR_USE_SIMD
-        _mm_store_ps(depth_value, _mm_min_ps(_mm_max_ps(_mm_load_ps(depth_value), _mm_set_ps1(0.0f)), _mm_set_ps1(1.0f)));
+        _mm_store_ps(
+          depth_value,
+          _mm_min_ps(
+            _mm_max_ps(
+              _mm_load_ps(depth_value),
+              _mm_set_ps1(0.0f)),
+            _mm_set_ps1(1.0f)));
 #else  /* SWR_USE_SIMD */
         depth_value[0] = std::clamp(depth_value[0], 0.f, 1.f);
         depth_value[1] = std::clamp(depth_value[1], 0.f, 1.f);
