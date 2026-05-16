@@ -121,11 +121,11 @@ public:
     void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
-      [[maybe_unused]] const ml::vec4* attribs,
+      [[maybe_unused]] std::span<const ml::vec4> attribs,
       [[maybe_unused]] ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
-      [[maybe_unused]] float* gl_ClipDistance,
-      [[maybe_unused]] ml::vec4* varyings) const override
+      [[maybe_unused]] std::span<float> gl_ClipDistance,
+      [[maybe_unused]] std::span<ml::vec4> varyings) const override
     {
     }
 
@@ -133,10 +133,43 @@ public:
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      [[maybe_unused]] const boost::container::static_vector<
-        swr::varying,
+      [[maybe_unused]] std::span<const swr::varying> varyings,
+      [[maybe_unused]] float& gl_FragDepth,
+      [[maybe_unused]] ml::vec4& gl_FragColor) const override
+    {
+        gl_FragColor = {1.f, 1.f, 1.f, 1.f};
+        return swr::fragment_shader_result::accept;
+    }
+};
+
+class alignas(64) over_aligned_program : public swr::program<over_aligned_program>
+{
+public:
+    void pre_link(
+      boost::container::static_vector<
+        swr::interpolation_qualifier,
         swr::limits::max::varyings>&
-        varyings,
+        iqs) const override
+    {
+        iqs.clear();
+    }
+
+    void vertex_shader(
+      [[maybe_unused]] int gl_VertexID,
+      [[maybe_unused]] int gl_InstanceID,
+      [[maybe_unused]] std::span<const ml::vec4> attribs,
+      [[maybe_unused]] ml::vec4& gl_Position,
+      [[maybe_unused]] float& gl_PointSize,
+      [[maybe_unused]] std::span<float> gl_ClipDistance,
+      [[maybe_unused]] std::span<ml::vec4> varyings) const override
+    {
+    }
+
+    swr::fragment_shader_result fragment_shader(
+      [[maybe_unused]] const ml::vec4& gl_FragCoord,
+      [[maybe_unused]] bool gl_FrontFacing,
+      [[maybe_unused]] const ml::vec2& gl_PointCoord,
+      [[maybe_unused]] std::span<const swr::varying> varyings,
       [[maybe_unused]] float& gl_FragDepth,
       [[maybe_unused]] ml::vec4& gl_FragColor) const override
     {
@@ -415,6 +448,45 @@ std::ostream& operator<<(std::ostream& os, const ml::tvec2<int>& v)
  */
 
 BOOST_AUTO_TEST_SUITE(triangle_coverage)
+
+BOOST_AUTO_TEST_CASE(over_aligned_shader_storage)
+{
+    over_aligned_program shader;
+    swr::impl::program_info program_info{&shader};
+
+    BOOST_TEST(program_info.program_size == sizeof(over_aligned_program));
+    BOOST_TEST(program_info.program_alignment == alignof(over_aligned_program));
+
+    boost::container::static_vector<
+      swr::uniform,
+      swr::limits::max::uniform_locations>
+      uniforms;
+
+    swr::impl::shader_storage_buffer vertex_storage{
+      program_info.program_size,
+      program_info.program_alignment};
+    swr::impl::vertex_shader_instance_container vertex_instance{
+      vertex_storage.data(),
+      &program_info,
+      uniforms};
+    BOOST_TEST(
+      reinterpret_cast<std::uintptr_t>(vertex_instance.get())
+        % alignof(over_aligned_program)
+      == 0);
+
+    boost::container::static_vector<
+      swr::sampler_2d*,
+      swr::limits::max::texture_units>
+      samplers_2d;
+    swr::impl::fragment_shader_instance_container fragment_instance{
+      &program_info,
+      uniforms,
+      samplers_2d};
+    BOOST_TEST(
+      reinterpret_cast<std::uintptr_t>(fragment_instance.get())
+        % alignof(over_aligned_program)
+      == 0);
+}
 
 BOOST_AUTO_TEST_CASE(setup_degenerate_triangle)
 {
@@ -1049,6 +1121,129 @@ BOOST_AUTO_TEST_CASE(varying_block_iteration_preserves_row_state)
         const float expected = 10.0f + static_cast<float>(x) + static_cast<float>(10 * y);
         BOOST_CHECK_SMALL(value - expected, 1e-5f);
     }
+}
+
+BOOST_AUTO_TEST_CASE(mixed_flat_and_smooth_varyings_use_per_varying_qualifiers)
+{
+    triangle_test_context ctx{16, 16};
+
+    ctx.program_info.varying_count = 2;
+    ctx.program_info.iqs.clear();
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::smooth);
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::flat);
+    ctx.program_info.flags |= swr::impl::program_flags::has_flat_varyings;
+
+    auto make_v = [](float x, float y, float flat_value) -> geom::vertex
+    {
+        geom::vertex v{};
+        v.coords = {x, y, 0.0f, 1.0f};
+        v.varyings.emplace_back(ml::vec4{x + 10.0f * y, 0.0f, 0.0f, 0.0f});
+        v.varyings.emplace_back(ml::vec4{flat_value, 0.0f, 0.0f, 0.0f});
+        return v;
+    };
+
+    const auto v0 = make_v(0.5f, 0.5f, 100.0f);
+    const auto v1 = make_v(0.5f, 8.5f, 200.0f);
+    const auto v2 = make_v(8.5f, 0.5f, 300.0f);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+    BOOST_REQUIRE(info.v0 == &v1);
+
+    std::size_t sample_count = 0;
+    bool saw_smooth_value_from_non_provoking_vertex = false;
+
+    auto check_sample = [&](int px,
+                            int py,
+                            const swr::varying& smooth_varying,
+                            const swr::varying& flat_varying)
+    {
+        const float expected_smooth =
+          static_cast<float>(px) + 0.5f
+          + 10.0f * (static_cast<float>(py) + 0.5f);
+
+        BOOST_CHECK_SMALL(smooth_varying.value.x - expected_smooth, 1e-4f);
+        BOOST_CHECK_SMALL(flat_varying.value.x - v0.varyings[1].x, 1e-5f);
+
+        if(std::abs(smooth_varying.value.x - v0.varyings[0].x) > 1e-4f)
+        {
+            saw_smooth_value_from_non_provoking_vertex = true;
+        }
+        ++sample_count;
+    };
+
+    auto check_quad = [&](int x,
+                          int y,
+                          int mask,
+                          const rast::triangle_interpolator& attrs)
+    {
+        std::array<
+          boost::container::static_vector<
+            swr::varying,
+            swr::limits::max::varyings>,
+          4>
+          temp_varyings;
+        ml::vec4 depth;
+        ml::vec4 one_over_z;
+        attrs.get_data_block(temp_varyings, depth, one_over_z);
+
+        if(mask & 0x8)
+        {
+            check_sample(x + 0, y + 0, temp_varyings[0][0], temp_varyings[0][1]);
+        }
+        if(mask & 0x4)
+        {
+            check_sample(x + 1, y + 0, temp_varyings[1][0], temp_varyings[1][1]);
+        }
+        if(mask & 0x2)
+        {
+            check_sample(x + 0, y + 1, temp_varyings[2][0], temp_varyings[2][1]);
+        }
+        if(mask & 0x1)
+        {
+            check_sample(x + 1, y + 1, temp_varyings[3][0], temp_varyings[3][1]);
+        }
+    };
+
+    rast::for_each_covered_triangle_block(
+      ctx.states,
+      info,
+      v0.varyings,
+      0.0f,
+      false,
+      [&](int block_x,
+          int block_y,
+          const geom::barycentric_coordinate_block& lambdas_box,
+          const rast::triangle_interpolator& attributes,
+          rast::tile_info::rasterization_mode mode)
+      {
+          auto block_attributes = attributes;
+          block_attributes.setup_block_processing();
+
+          if(mode == rast::tile_info::rasterization_mode::block)
+          {
+              rast::for_each_quad_in_triangle_block(
+                block_x,
+                block_y,
+                block_attributes,
+                [&](int x, int y, const rast::triangle_interpolator& attrs)
+                {
+                    check_quad(x, y, 0xf, attrs);
+                });
+          }
+          else
+          {
+              rast::for_each_covered_quad_in_checked_triangle_block(
+                block_x,
+                block_y,
+                lambdas_box,
+                block_attributes,
+                check_quad);
+          }
+      });
+
+    BOOST_CHECK_GT(sample_count, 0u);
+    BOOST_CHECK(saw_smooth_value_from_non_provoking_vertex);
 }
 
 BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)

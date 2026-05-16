@@ -22,6 +22,8 @@ namespace impl
  * shader support.
  */
 
+using shader_storage_buffer = utils::aligned_byte_storage;
+
 /** program flags. */
 enum class program_flags : std::uint32_t
 {
@@ -80,11 +82,14 @@ struct program_info
     const program_base* shader{nullptr};
 
     /** shader size. */
-    std::size_t program_size;
+    std::size_t program_size{0};
+
+    /** shader alignment. */
+    std::size_t program_alignment{utils::alignment::sse};
 
 #ifndef SWR_ENABLE_MULTI_THREADING
     /** shader instance. */
-    std::vector<std::byte> storage;
+    shader_storage_buffer storage;
 #endif
 
     /** default constructor. */
@@ -94,8 +99,9 @@ struct program_info
     program_info(const program_base* in_shader)
     : shader{in_shader}
     , program_size{in_shader->size()}
+    , program_alignment{in_shader->alignment()}
 #ifndef SWR_ENABLE_MULTI_THREADING
-    , storage{program_size}
+    , storage{program_size, program_alignment}
 #endif
     {
     }
@@ -103,7 +109,9 @@ struct program_info
     /** shader validation. */
     bool validate() const
     {
-        return shader && (varying_count == iqs.size());
+        return shader
+               && std::has_single_bit(program_alignment)
+               && (varying_count == iqs.size());
     }
 
     /*
@@ -133,23 +141,26 @@ struct program_info
 /** convenience vertex shader instance container. */
 class vertex_shader_instance_container
 {
-    const swr::program_base* shader;
-    const std::size_t varying_count;
+    const swr::program_base* shader{nullptr};
+    std::size_t varying_count{0};
 
 public:
     vertex_shader_instance_container(
       std::byte* storage,
       impl::program_info* shader_info,
-      const boost::container::static_vector<
-        swr::uniform,
-        swr::limits::max::uniform_locations>&
-        uniforms)
-    : shader{
-        shader_info->shader->create_vertex_shader_instance(
-          storage,
-          uniforms)}
-    , varying_count{shader_info->varying_count}
+      const swr::uniform_block& uniforms)
     {
+        assert(shader_info);
+        assert(shader_info->shader);
+        assert(std::has_single_bit(shader_info->program_alignment));
+        assert(
+          reinterpret_cast<std::uintptr_t>(storage)
+            % shader_info->program_alignment
+          == 0);
+        varying_count = shader_info->varying_count;
+        shader = shader_info->shader->create_instance(
+          storage,
+          swr::program_instance_bindings{uniforms});
     }
 
     vertex_shader_instance_container(const vertex_shader_instance_container&) = delete;
@@ -179,6 +190,58 @@ public:
     std::size_t get_varying_count() const
     {
         return varying_count;
+    }
+};
+
+/** convenience fragment shader instance container. */
+class fragment_shader_instance_container
+{
+    shader_storage_buffer storage;
+    const swr::program_base* shader{nullptr};
+
+public:
+    fragment_shader_instance_container(
+      const impl::program_info* shader_info,
+      const swr::uniform_block& uniforms,
+      const swr::sampler_2d_block& samplers_2d)
+    {
+        assert(shader_info);
+        assert(shader_info->shader);
+        assert(std::has_single_bit(shader_info->program_alignment));
+        storage.allocate(
+          shader_info->program_size,
+          shader_info->program_alignment);
+        assert(
+          reinterpret_cast<std::uintptr_t>(storage.data())
+            % shader_info->program_alignment
+          == 0);
+        shader = shader_info->shader->create_instance(
+          storage.data(),
+          swr::program_instance_bindings{uniforms, samplers_2d});
+    }
+
+    fragment_shader_instance_container(const fragment_shader_instance_container&) = delete;
+    fragment_shader_instance_container(fragment_shader_instance_container&& other) noexcept
+    : storage{std::move(other.storage)}
+    , shader{other.shader}
+    {
+        other.shader = nullptr;
+    }
+
+    ~fragment_shader_instance_container()
+    {
+        if(shader != nullptr)
+        {
+            shader->~program_base();
+        }
+    }
+
+    fragment_shader_instance_container& operator=(const fragment_shader_instance_container&) = delete;
+    fragment_shader_instance_container& operator=(fragment_shader_instance_container&& other) = delete;
+
+    const swr::program_base* get() const
+    {
+        return shader;
     }
 };
 
@@ -254,10 +317,7 @@ struct render_context
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** storage for the shader instances. */
-    std::vector<
-      std::byte,
-      utils::allocator<std::byte>>
-      program_storage;
+    shader_storage_buffer program_storage;
 
     /** render object with their associated program instances, to avoid reallocations. */
     std::vector<

@@ -14,11 +14,13 @@
 #include <bit>       /* std::bit_ceil */
 #include <cassert>   /* assert */
 #include <chrono>
+#include <cstddef> /* std::byte */
+#include <cstdint> /* std::uintptr_t */
 #include <cstring> /* std::memcpy */
 #include <concepts>
 #include <list>
 #include <limits> /* std::numeric_limits<std::size_t>::max() */
-#include <memory> /* std::align, std::allocator_traits */
+#include <memory> /* std::allocator_traits */
 #include <new>    /* operator new[], operator delete[] */
 #include <ranges>
 #include <type_traits>
@@ -53,31 +55,6 @@ namespace alignment
 const int sse = 16;
 
 } /* namespace alignment */
-
-/**
- * Create aligned memory by resizing a std::vector.
- *
- * @param alignment The alignment to use.
- * @param count The count of T's to align the memory for (i.e., count*sizeof(T) is the byte size of the requested buffer).
- * @param v The vector that will hold the buffer.
- * @returns Aligned memory for holding 'count' elements of type T.
- */
-template<typename T, typename Allocator>
-inline T* align_vector(
-  std::size_t alignment,
-  std::size_t count,
-  std::vector<T, Allocator>& v)
-{
-    v.resize(count + alignment - 1);
-    auto buffer_ptr = v.data();
-    std::size_t buffer_size = v.size() * sizeof(T);
-    return reinterpret_cast<T*>(
-      std::align(
-        alignment,
-        count * sizeof(T),
-        reinterpret_cast<void*&>(buffer_ptr),
-        buffer_size));
-}
 
 /**
  * Align a parameter according to the specified alignment.
@@ -233,6 +210,211 @@ template<typename T, std::size_t Alignment>
 using aligned_default_init_allocator = default_init_allocator<
   T,
   aligned_allocator<T, Alignment>>;
+
+template<
+  typename T,
+  std::size_t Alignment>
+using aligned_vector = std::vector<
+  T,
+  aligned_allocator<T, Alignment>>;
+
+template<typename T>
+using sse_aligned_vector = aligned_vector<T, alignment::sse>;
+
+template<
+  typename T,
+  std::size_t Alignment>
+using aligned_default_init_vector = std::vector<
+  T,
+  aligned_default_init_allocator<T, Alignment>>;
+
+template<typename T>
+using sse_aligned_default_init_vector = aligned_default_init_vector<T, alignment::sse>;
+
+/** Owning byte storage with dynamic alignment. */
+class aligned_byte_storage
+{
+    static constexpr std::size_t default_alignment =
+      __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+
+    std::byte* storage{nullptr};
+    std::size_t storage_size{0};
+    std::size_t storage_capacity{0};
+    std::size_t storage_alignment{default_alignment};
+
+    static std::size_t normalize_alignment(
+      std::size_t alignment)
+    {
+        alignment = std::max<std::size_t>(
+          alignment,
+          default_alignment);
+
+        if(!std::has_single_bit(alignment))
+        {
+            throw std::invalid_argument{
+              "alignment must be a power of two"};
+        }
+
+        return alignment;
+    }
+
+    void release() noexcept
+    {
+        if(storage != nullptr)
+        {
+            ::operator delete(
+              storage,
+              std::align_val_t{storage_alignment});
+        }
+        storage = nullptr;
+        storage_size = 0;
+        storage_capacity = 0;
+        storage_alignment = default_alignment;
+    }
+
+public:
+    aligned_byte_storage() = default;
+
+    aligned_byte_storage(
+      std::size_t size,
+      std::size_t alignment)
+    {
+        allocate(size, alignment);
+    }
+
+    aligned_byte_storage(
+      const aligned_byte_storage&) = delete;
+
+    aligned_byte_storage(
+      aligned_byte_storage&& other) noexcept
+    : storage{other.storage}
+    , storage_size{other.storage_size}
+    , storage_capacity{other.storage_capacity}
+    , storage_alignment{other.storage_alignment}
+    {
+        other.storage = nullptr;
+        other.storage_size = 0;
+        other.storage_capacity = 0;
+        other.storage_alignment = default_alignment;
+    }
+
+    ~aligned_byte_storage()
+    {
+        release();
+    }
+
+    aligned_byte_storage& operator=(
+      const aligned_byte_storage&) = delete;
+
+    aligned_byte_storage& operator=(
+      aligned_byte_storage&& other) noexcept
+    {
+        if(this != &other)
+        {
+            release();
+            storage = other.storage;
+            storage_size = other.storage_size;
+            storage_capacity = other.storage_capacity;
+            storage_alignment = other.storage_alignment;
+
+            other.storage = nullptr;
+            other.storage_size = 0;
+            other.storage_capacity = 0;
+            other.storage_alignment = default_alignment;
+        }
+        return *this;
+    }
+
+    void allocate(
+      std::size_t size,
+      std::size_t alignment)
+    {
+        alignment = normalize_alignment(alignment);
+        if(size <= storage_capacity
+           && storage_alignment % alignment == 0)
+        {
+            storage_size = size;
+            return;
+        }
+
+        std::byte* new_storage = nullptr;
+        if(size != 0)
+        {
+            new_storage = static_cast<std::byte*>(
+              ::operator new(
+                size,
+                std::align_val_t{alignment}));
+        }
+
+        release();
+        storage = new_storage;
+        storage_size = size;
+        storage_capacity = size;
+        storage_alignment = alignment;
+    }
+
+    void clear() noexcept
+    {
+        storage_size = 0;
+    }
+
+    /**
+     * Release the underlying storage if marked empty.
+     * Returns `true` if storage was released, and `false` otherwise.
+     */
+    bool release_if_empty() noexcept
+    {
+        if(storage_size == 0)
+        {
+            release();
+            return true;
+        }
+
+        return false;
+    }
+
+    [[nodiscard]]
+    std::byte* data() noexcept
+    {
+        return storage;
+    }
+
+    [[nodiscard]]
+    const std::byte* data() const noexcept
+    {
+        return storage;
+    }
+
+    [[nodiscard]]
+    std::span<std::byte> bytes() noexcept
+    {
+        return {storage, storage_size};
+    }
+
+    [[nodiscard]]
+    std::span<const std::byte> bytes() const noexcept
+    {
+        return {storage, storage_size};
+    }
+
+    [[nodiscard]]
+    std::size_t size() const noexcept
+    {
+        return storage_size;
+    }
+
+    [[nodiscard]]
+    std::size_t capacity() const noexcept
+    {
+        return storage_capacity;
+    }
+
+    [[nodiscard]]
+    std::size_t alignment() const noexcept
+    {
+        return storage_alignment;
+    }
+};
 
 /*
  * simple slot map.

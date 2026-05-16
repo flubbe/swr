@@ -18,6 +18,7 @@
 #include "../swr_internal.h"
 
 #include <array>
+#include <span>
 
 namespace rast
 {
@@ -295,7 +296,7 @@ inline void for_each_covered_triangle_block_with_bounds(
   const swr::impl::render_states& states,
   const bounding_box& bounds,
   const triangle_info& info,
-  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  std::span<const ml::vec4> base_varyings,
   float polygon_offset,
   F&& f)
 {
@@ -325,7 +326,10 @@ inline void for_each_covered_triangle_block_with_bounds(
     rast::triangle_interpolator attributes{
       screen_coords,
       info.v0->coords, info.v1->coords, info.v2->coords,
-      info.v0->varyings, info.v1->varyings, info.v2->varyings, base_varyings,
+      std::span<const ml::vec4>{info.v0->varyings.data(), info.v0->varyings.size()},
+      std::span<const ml::vec4>{info.v1->varyings.data(), info.v1->varyings.size()},
+      std::span<const ml::vec4>{info.v2->varyings.data(), info.v2->varyings.size()},
+      base_varyings,
       states.shader_info->iqs, info.inv_area, polygon_offset};
 
     for(auto y = bounds.start_y; y < bounds.end_y; y += swr::impl::rasterizer_block_size)
@@ -396,7 +400,7 @@ template<typename F>
 inline void for_each_covered_triangle_block(
   const swr::impl::render_states& states,
   const triangle_info& info,
-  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  std::span<const ml::vec4> base_varyings,
   float polygon_offset,
   bool y_needs_flip,
   F&& f)

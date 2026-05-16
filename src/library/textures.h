@@ -43,7 +43,7 @@ struct texture_storage
     using value_type = T;
 
     /** buffer holding the base texture and all mipmap levels. */
-    std::vector<T> buffer;
+    utils::sse_aligned_vector<T> buffer;
 
     /** mipmap buffer entries. */
     std::vector<T*> data_ptrs;
@@ -69,11 +69,13 @@ void texture_storage<T>::allocate(std::size_t width, std::size_t height, bool mi
 #ifdef SWR_USE_MORTON_CODES
     assert(width == height);
 #endif
+    data_ptrs.clear();
 
     if(!mipmapping)
     {
         // just allocate the base texture. in this case, data_ptrs only holds a single element.
-        data_ptrs.emplace_back(utils::align_vector(utils::alignment::sse, width * height, buffer));
+        buffer.resize(width * height);
+        data_ptrs.emplace_back(buffer.data());
 
         return;
     }
@@ -89,7 +91,8 @@ void texture_storage<T>::allocate(std::size_t width, std::size_t height, bool mi
      */
 
     // base image.
-    data_ptrs.emplace_back(utils::align_vector(utils::alignment::sse, width * height + ((width * height) >> 1), buffer));
+    buffer.resize(width * height + ((width * height) >> 1));
+    data_ptrs.emplace_back(buffer.data());
     auto base_ptr = data_ptrs[0];
 
     // mipmaps.

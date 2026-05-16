@@ -111,7 +111,7 @@ struct tile
     struct tile_fragment_shader_instance
     {
         const swr::impl::render_states* states{nullptr};
-        std::vector<std::byte> shader_storage;
+        swr::impl::shader_storage_buffer shader_storage;
         const swr::program_base* shader{nullptr};
 
         tile_fragment_shader_instance() = default;
@@ -146,12 +146,20 @@ struct tile
 
         explicit tile_fragment_shader_instance(const swr::impl::render_states* in_states)
         : states{in_states}
-        , shader_storage{in_states->shader_info->shader->size()}
-        , shader{in_states->shader_info->shader->create_fragment_shader_instance(
-            shader_storage.data(),
-            in_states->uniforms,
-            in_states->texture_2d_samplers)}
+        , shader_storage{
+            in_states->shader_info->program_size,
+            in_states->shader_info->program_alignment}
         {
+            assert(std::has_single_bit(in_states->shader_info->program_alignment));
+            assert(
+              reinterpret_cast<std::uintptr_t>(shader_storage.data())
+                % in_states->shader_info->program_alignment
+              == 0);
+            shader = in_states->shader_info->shader->create_instance(
+              shader_storage.data(),
+              swr::program_instance_bindings{
+                in_states->uniforms,
+                in_states->texture_2d_samplers});
         }
 
         ~tile_fragment_shader_instance()

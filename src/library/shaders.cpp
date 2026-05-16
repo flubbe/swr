@@ -51,11 +51,11 @@ public:
     void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
-      [[maybe_unused]] const ml::vec4* attribs,
+      [[maybe_unused]] std::span<const ml::vec4> attribs,
       [[maybe_unused]] ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
-      [[maybe_unused]] float* gl_ClipDistance,
-      [[maybe_unused]] ml::vec4* varyings) const override
+      [[maybe_unused]] std::span<float> gl_ClipDistance,
+      [[maybe_unused]] std::span<ml::vec4> varyings) const override
     {
     }
 
@@ -63,10 +63,7 @@ public:
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      [[maybe_unused]] const boost::container::static_vector<
-        swr::varying,
-        swr::limits::max::varyings>&
-        varyings,
+      [[maybe_unused]] std::span<const swr::varying> varyings,
       [[maybe_unused]] float& gl_FragDepth,
       [[maybe_unused]] ml::vec4& gl_FragColor) const override
     {
@@ -123,7 +120,9 @@ std::uint32_t RegisterShader(const program_base* in_shader)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(!in_shader || in_shader->size() < sizeof(program_base))
+    if(!in_shader
+       || in_shader->size() < sizeof(program_base)
+       || !std::has_single_bit(in_shader->alignment()))
     {
         return 0;
     }

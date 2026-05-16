@@ -111,7 +111,7 @@ struct attachment_depth
     attachment_info<ml::fixed_32_t> info;
 
     /** The depth buffer data. */
-    std::vector<ml::fixed_32_t> data;
+    utils::sse_aligned_vector<ml::fixed_32_t> data;
 
     /** free resources. */
     void reset()
@@ -126,7 +126,8 @@ struct attachment_depth
     void allocate(int in_width, int in_height)
     {
         assert(in_width > 0 && in_height > 0);
-        info.setup(in_width, in_height, in_width * sizeof(ml::fixed_32_t), utils::align_vector(utils::alignment::sse, in_width * in_height, data));
+        data.resize(in_width * in_height);
+        info.setup(in_width, in_height, in_width * sizeof(ml::fixed_32_t), data.data());
     }
 };
 

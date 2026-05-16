@@ -544,10 +544,13 @@ static bool invoke_vertex_shader_and_clip_preprocess(
         float gl_PointSize{0}; /* currently unused */
         const auto vertex_attribs = obj.attribs_for_vertex(i);
         shader_instance.get()->vertex_shader(
-          0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          vertex_attribs.data(), obj.coords[i],
-          gl_PointSize, nullptr /* gl_ClipDistance */,
-          obj.varyings_for_vertex(i).data());
+          0 /* gl_VertexID */,
+          0 /* gl_InstanceID */,
+          vertex_attribs,
+          obj.coords[i],
+          gl_PointSize,
+          {} /* gl_ClipDistance */,
+          obj.varyings_for_vertex(i));
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
@@ -665,10 +668,9 @@ static void process_vertices(swr::impl::render_object& obj)
                 v.coords = obj.coords[i];
                 v.flags = obj.vertex_flags[i];
                 const auto vertex_varyings = obj.varyings_for_vertex(i);
-                std::copy(
+                v.varyings.assign(
                   std::begin(vertex_varyings),
-                  std::end(vertex_varyings),
-                  v.varyings.begin());
+                  std::end(vertex_varyings));
 
                 obj.clipped_vertices.emplace_back(v);
             }
@@ -993,10 +995,9 @@ static void clip_vertex_buffer_serial(
                 v.coords = obj->coords[i];
                 v.flags = obj->vertex_flags[i];
                 const auto vertex_varyings = obj->varyings_for_vertex(i);
-                std::copy(
+                v.varyings.assign(
                   std::begin(vertex_varyings),
-                  std::end(vertex_varyings),
-                  v.varyings.begin());
+                  std::end(vertex_varyings));
 
                 obj->clipped_vertices.emplace_back(v);
             }
@@ -1039,10 +1040,13 @@ static void vertex_shader_task(
         float gl_PointSize{0}; /* currently unused */
         const auto vertex_attribs = obj->attribs_for_vertex(i);
         shader_instance->get()->vertex_shader(
-          0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          vertex_attribs.data(), obj->coords[i],
-          gl_PointSize, nullptr /* gl_ClipDistance */,
-          obj->varyings_for_vertex(i).data());
+          0 /* gl_VertexID */,
+          0 /* gl_InstanceID */,
+          vertex_attribs,
+          obj->coords[i],
+          gl_PointSize,
+          {} /* gl_ClipDistance */,
+          obj->varyings_for_vertex(i));
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
@@ -1280,33 +1284,59 @@ static void process_vertices(
      * create shaders.
      */
 
+    context->program_instances.clear();
+
     std::size_t total_shader_size = 0;
+    std::size_t shader_storage_alignment = utils::alignment::sse;
     for(const auto& obj: context->render_object_list)
     {
-        total_shader_size += obj.states.shader_info->shader->size();
+        if(obj.coord_count == 0 || obj.indices.empty())
+        {
+            continue;
+        }
+
+        const auto* shader_info = obj.states.shader_info;
+        shader_storage_alignment = std::max(
+          shader_storage_alignment,
+          shader_info->program_alignment);
         total_shader_size = utils::align(
-          utils::alignment::sse,
+          shader_info->program_alignment,
+          total_shader_size);
+        total_shader_size += shader_info->program_size;
+        total_shader_size = utils::align(
+          shader_info->program_alignment,
           total_shader_size);
     }
 
-    std::byte* storage = utils::align_vector(
-      utils::alignment::sse,
+    context->program_storage.allocate(
       total_shader_size,
-      context->program_storage);
+      shader_storage_alignment);
+    std::byte* storage = context->program_storage.data();
+    assert(
+      total_shader_size == 0
+      || reinterpret_cast<std::uintptr_t>(storage) % shader_storage_alignment == 0);
     context->program_instances.reserve(context->render_object_list.size());
 
     for(auto& obj: context->render_object_list)
     {
+        if(obj.coord_count == 0 || obj.indices.empty())
+        {
+            continue;
+        }
+
+        auto* shader_info = obj.states.shader_info;
+        storage = utils::align(
+          shader_info->program_alignment,
+          storage);
         context->program_instances.emplace_back(
           std::make_pair(
             &obj,
             impl::vertex_shader_instance_container{
               storage,
-              obj.states.shader_info,
+              shader_info,
               obj.states.uniforms}));
 
-        storage += obj.states.shader_info->shader->size();
-        storage = utils::align(utils::alignment::sse, storage);
+        storage += shader_info->program_size;
     }
 
     /*
@@ -1320,14 +1350,10 @@ static void process_vertices(
 
     for(auto& [obj, shader]: context->program_instances)
     {
-        if(obj->attrib_count != 0
-           && !obj->indices.empty())
-        {
-            invoke_vertex_shader_and_clip_preprocess(
-              context->thread_pool,
-              shader,
-              *obj);
-        }
+        invoke_vertex_shader_and_clip_preprocess(
+          context->thread_pool,
+          shader,
+          *obj);
     }
     context->thread_pool.run_tasks_and_wait();
 

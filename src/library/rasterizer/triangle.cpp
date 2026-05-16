@@ -435,20 +435,15 @@ void sweep_rasterizer::draw_filled_triangle(
       && (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
       && (bounds.end_y - bounds.start_y) == static_cast<int>(swr::impl::rasterizer_block_size);
 
-    boost::container::static_vector<
-      ml::vec4,
-      swr::limits::max::varyings>
-      flat_reference_varyings;
-    const auto* base_varyings = &v0.varyings;
+    std::span<const ml::vec4> base_varyings{
+      v0.varyings.data(),
+      v0.varyings.size()};
     if(states.shader_info->uses_flat_varyings()
        && v0.flat_varying_ref != nullptr)
     {
-        flat_reference_varyings.reserve(states.shader_info->varying_count);
-        for(std::uint32_t i = 0; i < states.shader_info->varying_count; ++i)
-        {
-            flat_reference_varyings.emplace_back(v0.flat_varying_ref[i]);
-        }
-        base_varyings = &flat_reference_varyings;
+        base_varyings = {
+          v0.flat_varying_ref,
+          states.shader_info->varying_count};
     }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -461,7 +456,7 @@ void sweep_rasterizer::draw_filled_triangle(
       states,
       bounds,
       info,
-      *base_varyings,
+      base_varyings,
       polygon_offset,
       [&](int x,
           int y,
