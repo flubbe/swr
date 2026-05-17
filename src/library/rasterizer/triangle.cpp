@@ -170,10 +170,12 @@ void sweep_rasterizer::process_block_checked(
                                         .shader_instances[in_data.shader_index]
                                         .shader;
     assert(in_data.checked_lambdas);
-    auto process_checked_quad = [&](int x,
-                                    int y,
-                                    int mask,
-                                    rast::triangle_interpolator& attributes_quad)
+
+    auto process_checked_quad =
+      [&](int x,
+          int y,
+          int mask,
+          rast::triangle_interpolator& attributes_quad)
     {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_interp = 0;
@@ -206,6 +208,7 @@ void sweep_rasterizer::process_block_checked(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_checked_full_mask_quads.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             process_fragment_block(
               x,
               y,
@@ -237,6 +240,7 @@ void sweep_rasterizer::process_block_checked(
                 swr::impl::profile_checked_partial_pop3_quads.fetch_add(1, std::memory_order_relaxed);
             }
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             process_fragment_block(
               x,
               y,
@@ -251,9 +255,7 @@ void sweep_rasterizer::process_block_checked(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_fragment_block);
         stage_block_fragment += stage_fragment_block;
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_merge_block = 0;
         utils::clock(stage_merge_block);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
@@ -274,7 +276,8 @@ void sweep_rasterizer::process_block_checked(
         utils::unclock(stage_merge_block);
         stage_block_merge += stage_merge_block;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-    };
+    }; /* process_checked_quad */
+
     for_each_covered_quad_in_checked_triangle_block(
       block_x,
       block_y,
