@@ -221,16 +221,6 @@ using aligned_vector = std::vector<
 template<typename T>
 using sse_aligned_vector = aligned_vector<T, alignment::sse>;
 
-template<
-  typename T,
-  std::size_t Alignment>
-using aligned_default_init_vector = std::vector<
-  T,
-  aligned_default_init_allocator<T, Alignment>>;
-
-template<typename T>
-using sse_aligned_default_init_vector = aligned_default_init_vector<T, alignment::sse>;
-
 /** Owning byte storage with dynamic alignment. */
 class aligned_byte_storage
 {
