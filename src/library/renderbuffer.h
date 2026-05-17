@@ -431,10 +431,6 @@ struct default_framebuffer : public framebuffer_draw_target
     }
 };
 
-/** maximum number of color attachments. FIXME this should probably be put somewhere else? */
-// this must be compatible with the values in framebuffer_attachment.
-constexpr int max_color_attachments = 8;
-
 /** framebuffer objects. */
 class framebuffer_object : public framebuffer_draw_target
 {
@@ -442,7 +438,7 @@ class framebuffer_object : public framebuffer_draw_target
     std::uint32_t id{0};
 
     /** color attachments. */
-    std::array<std::unique_ptr<attachment_texture>, max_color_attachments> color_attachments;
+    std::array<std::unique_ptr<attachment_texture>, swr::limits::max::color_attachments> color_attachments;
 
     /** current color attachment count. */
     std::uint32_t color_attachment_count{0};
@@ -573,7 +569,7 @@ public:
       texture_2d* tex, int level)
     {
         auto index = static_cast<int>(attachment);
-        if(index >= 0 && index < max_color_attachments)
+        if(index >= 0 && index < swr::limits::max::color_attachments)
         {
             if(!color_attachments[index])
             {
@@ -623,7 +619,7 @@ public:
     void detach_texture(framebuffer_attachment attachment)
     {
         auto index = static_cast<std::size_t>(attachment);
-        if(index < max_color_attachments
+        if(index < swr::limits::max::color_attachments
            && color_attachments[index])
         {
             color_attachments[index]->detach();

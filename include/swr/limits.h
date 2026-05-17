@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  *
- * limits for vertex attributes, varyings and uniforms.
+ * renderer limits.
  *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2026
@@ -46,6 +46,13 @@ constexpr int uniform_locations = 1024;
  * See GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS here: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGet.xhtml
  */
 constexpr int texture_units = 16;
+
+/**
+ * Maximal count of framebuffer color attachments.
+ *
+ * See https://wikis.khronos.org/opengl/Framebuffer_Object.
+ */
+constexpr int color_attachments = 8;
 
 } /* namespace max */
 

@@ -83,33 +83,52 @@ union uniform
     }
 };
 
-struct sampler_2d;
-
-using uniform_block = boost::container::static_vector<
+/** Uniform bindings type. */
+using uniform_bindings = boost::container::static_vector<
   swr::uniform,
   swr::limits::max::uniform_locations>;
 
-using sampler_2d_block = boost::container::static_vector<
+/* sampler_2d is already defined by the assumed inclusion of swr.h */
+
+/** 2D sampler bindings type. */
+using sampler_2d_bindings = boost::container::static_vector<
   swr::sampler_2d*,
   swr::limits::max::texture_units>;
 
+/** Bindings for a program. */
 struct program_instance_bindings
 {
-    const uniform_block* uniforms{nullptr};
+    /** Uniforms. */
+    std::span<const uniform> uniforms{};
+
+    /** 2D samplers. */
     std::span<sampler_2d* const> samplers_2d{};
 
+    /** Default constructor. */
     program_instance_bindings() = default;
 
-    explicit program_instance_bindings(const uniform_block& in_uniforms)
-    : uniforms{&in_uniforms}
+    /**
+     * Set up bindings with uniforms only.
+     *
+     * @param uniforms The uniforms to use.
+     */
+    explicit program_instance_bindings(
+      const uniform_bindings& uniforms)
+    : uniforms{uniforms.data(), uniforms.size()}
     {
     }
 
+    /**
+     * Set up bindings with uniforms and texture samplers.
+     *
+     * @param uniforms The uniforms to use.
+     * @param samplers_2d The samplers to use.
+     */
     program_instance_bindings(
-      const uniform_block& in_uniforms,
-      const sampler_2d_block& in_samplers_2d)
-    : uniforms{&in_uniforms}
-    , samplers_2d{in_samplers_2d.data(), in_samplers_2d.size()}
+      const uniform_bindings& uniforms,
+      const sampler_2d_bindings& samplers_2d)
+    : uniforms{uniforms.data(), uniforms.size()}
+    , samplers_2d{samplers_2d.data(), samplers_2d.size()}
     {
     }
 };
@@ -189,10 +208,6 @@ inline float fwidth(const varying& v)
     return v.dFdx.length() + v.dFdy.length();
 }
 
-/** maximum number of color attachments. */
-// FIXME this is related more to the framebuffer, which is not implemented.
-constexpr int max_color_attachments = 8;
-
 /** fragment shader results */
 enum fragment_shader_result
 {
@@ -207,7 +222,7 @@ class program_base
     friend class program;
 
 protected:
-    const uniform_block* uniforms{nullptr};
+    std::span<const uniform> uniforms{};
     std::span<sampler_2d* const> samplers{};
 
 public:
@@ -330,7 +345,6 @@ program_base* program<T>::create_instance(
   const program_instance_bindings& bindings) const
 {
     assert(reinterpret_cast<std::uintptr_t>(mem) % alignof(T) == 0);
-    assert(bindings.uniforms != nullptr);
     auto* new_program = new(mem) T{static_cast<const T&>(*this)};
     new_program->uniforms = bindings.uniforms;
     new_program->samplers = bindings.samplers_2d;

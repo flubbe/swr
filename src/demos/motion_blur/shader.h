@@ -71,10 +71,10 @@ public:
       [[maybe_unused]] std::span<float> gl_ClipDistance,
       std::span<ml::vec4> varyings) const override
     {
-        const ml::mat4x4 proj = (*uniforms)[0].m4;
-        const ml::mat4x4 view = (*uniforms)[1].m4;
+        const ml::mat4x4 proj = uniforms[0].m4;
+        const ml::mat4x4 view = uniforms[1].m4;
 
-        const ml::vec3 light_position_cameraspace = (*uniforms)[2].v4.xyz();
+        const ml::vec3 light_position_cameraspace = uniforms[2].v4.xyz();
 
         // Position of the vertex, in camera space.
         const ml::vec3 position_cameraspace = (view * attribs[0]).xyz();
@@ -120,7 +120,7 @@ public:
         const ml::vec4 eye_direction = varyings[5];
         const ml::vec4 light_direction = varyings[6];
 
-        const ml::vec4 light_position = (*uniforms)[2].v4;
+        const ml::vec4 light_position = uniforms[2].v4;
 
         // distance to light.
         float distance_squared = (light_position - position).xyz().length_squared();
@@ -198,8 +198,8 @@ public:
       [[maybe_unused]] std::span<float> gl_ClipDistance,
       std::span<ml::vec4> varyings) const override
     {
-        ml::mat4x4 proj = (*uniforms)[0].m4;
-        ml::mat4x4 view = (*uniforms)[1].m4;
+        ml::mat4x4 proj = uniforms[0].m4;
+        ml::mat4x4 view = uniforms[1].m4;
 
         // transform vertex.
         gl_Position = proj * (view * attribs[0]);

@@ -56,9 +56,9 @@ public:
       [[maybe_unused]] std::span<float> gl_ClipDistance,
       std::span<ml::vec4> varyings) const override
     {
-        ml::mat4x4 proj = (*uniforms)[0].m4;
-        ml::mat4x4 view = (*uniforms)[1].m4;
-        ml::vec4 light_dir = (*uniforms)[2].v4;
+        ml::mat4x4 proj = uniforms[0].m4;
+        ml::mat4x4 view = uniforms[1].m4;
+        ml::vec4 light_dir = uniforms[2].v4;
 
         // transform vertex.
         gl_Position = proj * view * attribs[0];
@@ -117,9 +117,9 @@ public:
       [[maybe_unused]] std::span<float> gl_ClipDistance,
       std::span<ml::vec4> varyings) const override
     {
-        ml::mat4x4 proj = (*uniforms)[0].m4;
-        ml::mat4x4 view = (*uniforms)[1].m4;
-        ml::vec4 light_dir = (*uniforms)[2].v4;
+        ml::mat4x4 proj = uniforms[0].m4;
+        ml::mat4x4 view = uniforms[1].m4;
+        ml::vec4 light_dir = uniforms[2].v4;
 
         // transform vertex.
         gl_Position = proj * view * attribs[0];

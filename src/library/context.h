@@ -148,7 +148,7 @@ public:
     vertex_shader_instance_container(
       std::byte* storage,
       impl::program_info* shader_info,
-      const swr::uniform_block& uniforms)
+      const swr::uniform_bindings& uniforms)
     {
         assert(shader_info);
         assert(shader_info->shader);
@@ -202,19 +202,22 @@ class fragment_shader_instance_container
 public:
     fragment_shader_instance_container(
       const impl::program_info* shader_info,
-      const swr::uniform_block& uniforms,
-      const swr::sampler_2d_block& samplers_2d)
+      const swr::uniform_bindings& uniforms,
+      const swr::sampler_2d_bindings& samplers_2d)
     {
         assert(shader_info);
         assert(shader_info->shader);
         assert(std::has_single_bit(shader_info->program_alignment));
+
         storage.allocate(
           shader_info->program_size,
           shader_info->program_alignment);
+
         assert(
           reinterpret_cast<std::uintptr_t>(storage.data())
             % shader_info->program_alignment
           == 0);
+
         shader = shader_info->shader->create_instance(
           storage.data(),
           swr::program_instance_bindings{uniforms, samplers_2d});
