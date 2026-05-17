@@ -11,6 +11,7 @@
 #pragma once
 
 #include "block.h"
+#include "interpolators.h"
 
 namespace rast
 {
@@ -18,6 +19,25 @@ namespace rast
 #ifndef SWR_TILE_CACHE_PRIMITIVE_CAPACITY
 #    define SWR_TILE_CACHE_PRIMITIVE_CAPACITY 1024
 #endif
+
+inline constexpr std::size_t max_small_triangle_quad_payloads = 4;
+
+struct small_triangle_quad_payload
+{
+    unsigned int x{0};
+    unsigned int y{0};
+    std::uint8_t mask{0};
+};
+
+struct small_triangle_payload
+{
+    small_triangle_interpolator attributes;
+    std::array<
+      small_triangle_quad_payload,
+      max_small_triangle_quad_payloads>
+      quads{};
+    std::uint8_t quad_count{0};
+};
 
 /** primitive data associated to a tile. currently only implemented for triangles. */
 struct tile_info
@@ -28,14 +48,21 @@ struct tile_info
         block = 0,        /** we unconditionally rasterize the whole block. */
         checked = 1,      /** we need to check each pixel if it belongs to the primitive. */
         thin_x_major = 2, /** a thin primitive traced primarily along the x-axis. */
-        thin_y_major = 3  /** a thin primitive traced primarily along the y-axis. */
+        thin_y_major = 3, /** a thin primitive traced primarily along the y-axis. */
+        small_checked = 4 /** a checked primitive with precomputed covered quad masks. */
     };
 
     /** render states. points to an entry in the context's draw list. */
     const swr::impl::render_states* states{nullptr};
 
-    /** attribute interpolators for this block. */
-    triangle_interpolator* attributes{nullptr};
+    union
+    {
+        /** attribute interpolators for this block. */
+        triangle_interpolator* attributes{nullptr};
+
+        /** index into tile::primitive_small_payloads for small checked mode. */
+        std::size_t small_payload_index;
+    };
 
     /** barycentric coordinates for checked mode; nullptr for full block mode. */
     const geom::barycentric_coordinate_block* checked_lambdas{nullptr};
@@ -79,19 +106,27 @@ struct tile_info
     , mode{in_mode}
     , front_facing{in_front_facing}
     {
-        assert(mode == rasterization_mode::block || checked_lambdas);
+        assert(mode == rasterization_mode::block
+               || mode == rasterization_mode::small_checked
+               || checked_lambdas);
     }
 };
 
 inline bool uses_checked_lambdas(tile_info::rasterization_mode mode)
 {
-    return mode != tile_info::rasterization_mode::block;
+    return mode != tile_info::rasterization_mode::block
+           && mode != tile_info::rasterization_mode::small_checked;
 }
 
 inline bool is_thin_rasterization_mode(tile_info::rasterization_mode mode)
 {
     return mode == tile_info::rasterization_mode::thin_x_major
            || mode == tile_info::rasterization_mode::thin_y_major;
+}
+
+inline bool is_small_checked_rasterization_mode(tile_info::rasterization_mode mode)
+{
+    return mode == tile_info::rasterization_mode::small_checked;
 }
 
 /** a tile waiting to be processed. currently only used for triangles. */
@@ -190,6 +225,10 @@ struct tile
       geom::barycentric_coordinate_block,
       max_primitive_count>
       primitive_checked_lambdas;
+    std::vector<
+      small_triangle_payload,
+      utils::allocator<small_triangle_payload>>
+      primitive_small_payloads;
     std::vector<
       tile_fragment_shader_instance,
       utils::allocator<tile_fragment_shader_instance>>
@@ -306,6 +345,7 @@ struct tile_cache
             it.primitives.clear();
             it.primitive_attributes.clear();
             it.primitive_checked_lambdas.clear();
+            it.primitive_small_payloads.clear();
         }
         active_tile_indices.clear();
     }
@@ -380,6 +420,162 @@ struct tile_cache
         swr::impl::profile_raster_tile_info_write_bytes.fetch_add(tile_info_bytes, std::memory_order_relaxed);
         swr::impl::profile_raster_interp_write_bytes.fetch_add(interp_bytes, std::memory_order_relaxed);
         swr::impl::profile_raster_checked_lambda_write_bytes.fetch_add(checked_lambda_bytes, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        return tile.primitives.size() == tile.primitives.max_size();
+    }
+
+    bool add_small_triangle_checked(
+      unsigned int in_x,
+      unsigned int in_y,
+      const swr::impl::render_states* in_states,
+      const geom::barycentric_coordinate_block& in_lambdas,
+      quad_bounds in_quad_bounds,
+      const triangle_interpolator& in_attributes,
+      bool in_front_facing,
+      bool& out_emitted)
+    {
+        out_emitted = false;
+
+        if(!small_triangle_interpolator::can_store_without_allocation(in_attributes))
+        {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_small_quad_fallback_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+            out_emitted = true;
+            return add_triangle_checked(
+              in_x,
+              in_y,
+              in_states,
+              in_lambdas,
+              in_quad_bounds,
+              in_attributes,
+              in_front_facing);
+        }
+
+        const unsigned int block_end_x = in_x + swr::impl::rasterizer_block_size;
+        const unsigned int block_end_y = in_y + swr::impl::rasterizer_block_size;
+
+        in_quad_bounds.start_x = std::max(in_quad_bounds.start_x, in_x);
+        in_quad_bounds.start_y = std::max(in_quad_bounds.start_y, in_y);
+        in_quad_bounds.end_x = std::min(in_quad_bounds.end_x, block_end_x);
+        in_quad_bounds.end_y = std::min(in_quad_bounds.end_y, block_end_y);
+
+        if(in_quad_bounds.empty())
+        {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_small_quad_empty_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+            return false;
+        }
+
+        geom::barycentric_coordinate_block lambdas = in_lambdas;
+        lambdas.setup(1, 1);
+        lambdas.step_y(static_cast<int>(in_quad_bounds.start_y - in_y));
+        lambdas.step_x(static_cast<int>(in_quad_bounds.start_x - in_x));
+
+        small_triangle_payload payload{
+          .attributes = small_triangle_interpolator{in_attributes}};
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t quad_tests = 0;
+        std::uint64_t empty_quads = 0;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        for(unsigned int y = in_quad_bounds.start_y; y < in_quad_bounds.end_y; y += 2)
+        {
+            geom::barycentric_coordinate_block::fixed_24_8_array_4 row_start[3];
+            lambdas.store_position(row_start[0], row_start[1], row_start[2]);
+
+            for(unsigned int x = in_quad_bounds.start_x; x < in_quad_bounds.end_x; x += 2)
+            {
+                const int mask = geom::reduce_coverage_mask(lambdas.get_coverage_mask());
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                ++quad_tests;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+                if(mask)
+                {
+                    assert(payload.quad_count < payload.quads.size());
+                    payload.quads[payload.quad_count++] = {
+                      x,
+                      y,
+                      static_cast<std::uint8_t>(mask)};
+                }
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                else
+                {
+                    ++empty_quads;
+                }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+                lambdas.step_x(2);
+            }
+
+            lambdas.load_position(row_start[0], row_start[1], row_start[2]);
+            lambdas.step_y(2);
+        }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_checked_quad_tests.fetch_add(quad_tests, std::memory_order_relaxed);
+        swr::impl::profile_checked_empty_quads.fetch_add(empty_quads, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        if(payload.quad_count == 0)
+        {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_small_quad_empty_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+            return false;
+        }
+
+        unsigned int tile_index =
+          (in_y >> swr::impl::rasterizer_block_shift) * pitch
+          + (in_x >> swr::impl::rasterizer_block_shift);
+        assert(tile_index < entries.size());
+
+        auto& tile = entries[tile_index];
+        if(tile.primitives.size() == tile.primitives.max_size())
+        {
+            return true;
+        }
+        if(tile.primitives.empty())
+        {
+            active_tile_indices.push_back(tile_index);
+        }
+
+        const std::size_t shader_index = tile.get_fragment_shader_index(in_states);
+        const std::size_t small_payload_index = tile.primitive_small_payloads.size();
+        tile.primitive_small_payloads.emplace_back(std::move(payload));
+
+        auto& primitive = tile.primitives.emplace_back();
+        primitive.states = in_states;
+        primitive.shader_index = shader_index;
+        primitive.checked_lambdas = nullptr;
+        primitive.checked_quad_bounds = in_quad_bounds;
+        primitive.small_payload_index = small_payload_index;
+        primitive.front_facing = in_front_facing;
+        primitive.mode = tile_info::rasterization_mode::small_checked;
+
+        out_emitted = true;
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
+        constexpr std::uint64_t small_payload_bytes = sizeof(small_triangle_payload);
+        const std::uint64_t checked_payload_bytes =
+          static_cast<std::uint64_t>(tile_info_bytes + small_payload_bytes);
+        swr::impl::profile_raster_small_quad_queued_primitives.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_raster_tile_payload_write_bytes.fetch_add(
+          checked_payload_bytes,
+          std::memory_order_relaxed);
+        swr::impl::profile_raster_tile_payload_checked_write_bytes.fetch_add(
+          checked_payload_bytes,
+          std::memory_order_relaxed);
+        swr::impl::profile_raster_tile_info_write_bytes.fetch_add(tile_info_bytes, std::memory_order_relaxed);
+        swr::impl::profile_raster_interp_write_bytes.fetch_add(small_payload_bytes, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         return tile.primitives.size() == tile.primitives.max_size();

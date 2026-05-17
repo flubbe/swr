@@ -8,7 +8,11 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
 #include <span>
+
+#include <boost/container/small_vector.hpp>
 
 namespace rast
 {
@@ -467,6 +471,119 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
         {
             it.setup_block_processing();
         }
+    }
+};
+
+struct small_varying_interpolator
+{
+    ml::vec4 value;
+    ml::tvec2<ml::vec4> step;
+};
+
+struct small_triangle_interpolator
+{
+    static constexpr std::size_t inline_varying_capacity = 4;
+
+    geom::linear_interpolator_2d<float> depth_value;
+    geom::linear_interpolator_2d<float> one_over_viewport_z;
+    boost::container::small_vector<
+      small_varying_interpolator,
+      inline_varying_capacity>
+      varyings;
+
+    small_triangle_interpolator() = default;
+    small_triangle_interpolator(const small_triangle_interpolator&) = default;
+    small_triangle_interpolator(small_triangle_interpolator&&) = default;
+
+    small_triangle_interpolator& operator=(const small_triangle_interpolator&) = default;
+    small_triangle_interpolator& operator=(small_triangle_interpolator&&) = default;
+
+    explicit small_triangle_interpolator(const triangle_interpolator& source)
+    : depth_value{source.depth_value}
+    , one_over_viewport_z{source.one_over_viewport_z}
+    {
+        assert(source.varyings.size() <= inline_varying_capacity);
+
+        varyings.reserve(source.varyings.size());
+        for(const auto& source_varying: source.varyings)
+        {
+            varyings.push_back({
+              source_varying.value,
+              source_varying.step});
+        }
+    }
+
+    static bool can_store_without_allocation(const triangle_interpolator& source)
+    {
+        return source.varyings.size() <= inline_varying_capacity;
+    }
+
+    void get_data_block_at(
+      unsigned int offset_x,
+      unsigned int offset_y,
+      std::array<
+        boost::container::static_vector<
+          swr::varying,
+          swr::limits::max::varyings>,
+        4>& out_varyings,
+      ml::vec4& out_depth,
+      ml::vec4& out_one_over_viewport_z) const
+    {
+        const float dx = static_cast<float>(offset_x);
+        const float dy = static_cast<float>(offset_y);
+
+        const auto d00 =
+          depth_value.value
+          + depth_value.step.x * dx
+          + depth_value.step.y * dy;
+        const auto d10 = d00 + depth_value.step.x;
+        const auto d01 = d00 + depth_value.step.y;
+        const auto d11 = d10 + depth_value.step.y;
+
+        out_depth[0] = d00;
+        out_depth[1] = d10;
+        out_depth[2] = d01;
+        out_depth[3] = d11;
+
+        const auto z00 =
+          one_over_viewport_z.value
+          + one_over_viewport_z.step.x * dx
+          + one_over_viewport_z.step.y * dy;
+        const auto z10 = z00 + one_over_viewport_z.step.x;
+        const auto z01 = z00 + one_over_viewport_z.step.y;
+        const auto z11 = z10 + one_over_viewport_z.step.y;
+
+        out_one_over_viewport_z[0] = z00;
+        out_one_over_viewport_z[1] = z10;
+        out_one_over_viewport_z[2] = z01;
+        out_one_over_viewport_z[3] = z11;
+
+        const std::size_t varying_count = varyings.size();
+        out_varyings[0].resize(varying_count);
+        out_varyings[1].resize(varying_count);
+        out_varyings[2].resize(varying_count);
+        out_varyings[3].resize(varying_count);
+
+        for(std::size_t i = 0; i < varying_count; ++i)
+        {
+            const small_varying_interpolator& src = varyings[i];
+            const ml::vec4 v00 =
+              src.value
+              + src.step.x * dx
+              + src.step.y * dy;
+            const ml::vec4 v10 = v00 + src.step.x;
+            const ml::vec4 v01 = v00 + src.step.y;
+            const ml::vec4 v11 = v01 + src.step.x;
+
+            out_varyings[0][i] = {v00, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[1][i] = {v10, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[2][i] = {v01, ml::vec4::zero(), ml::vec4::zero()};
+            out_varyings[3][i] = {v11, ml::vec4::zero(), ml::vec4::zero()};
+        }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_interp_varying_copies.fetch_add(varying_count * 4, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 };
 

@@ -300,6 +300,12 @@ class sweep_rasterizer : public rasterizer
       unsigned int in_y,
       tile_info& in_data);
 
+    void process_block_small_checked(
+      unsigned int in_x,
+      unsigned int in_y,
+      tile_info& in_data,
+      const small_triangle_payload& payload);
+
     /** process a tile. */
     void process_tile(tile& in_tile);
 

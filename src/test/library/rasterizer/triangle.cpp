@@ -428,6 +428,8 @@ std::ostream& operator<<(
         return os << "thin_x_major";
     case tile_info::rasterization_mode::thin_y_major:
         return os << "thin_y_major";
+    case tile_info::rasterization_mode::small_checked:
+        return os << "small_checked";
     }
 
     return os << "unknown";
@@ -1441,6 +1443,171 @@ BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
     BOOST_CHECK(!values_checked.empty());
 
     BOOST_CHECK_MESSAGE(ok, fail_msg);
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_preserves_exact_coverage_inside_block)
+{
+    const auto v0 = make_vertex(8.5f, 8.5f);
+    const auto v1 = make_vertex(11.5f, 8.5f);
+    const auto v2 = make_vertex(8.5f, 11.5f);
+    const auto expected = make_expected({{8, 8}, {8, 9}, {8, 10}, {9, 8}, {9, 9}, {10, 8}});
+
+    triangle_test_context ctx{16, 16};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+    BOOST_CHECK_EQUAL(bounds.end_x - bounds.start_x, static_cast<int>(swr::impl::rasterizer_block_size));
+    BOOST_CHECK_EQUAL(bounds.end_y - bounds.start_y, static_cast<int>(swr::impl::rasterizer_block_size));
+
+    const auto pixels = collect_covered_triangle_pixels(
+      ctx.states,
+      info,
+      v0.varyings);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      pixels.begin(), pixels.end(),
+      expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
+{
+    fake_draw_target draw_target{16, 16};
+    fake_program shader;
+    swr::impl::program_info program_info{&shader};
+    swr::impl::render_states states;
+    states.x = 0;
+    states.y = 0;
+    states.width = 16;
+    states.height = 16;
+    states.shader_info = &program_info;
+    states.draw_target = &draw_target;
+
+    const auto v0 = make_vertex(8.5f, 8.5f);
+    const auto v1 = make_vertex(11.5f, 8.5f);
+    const auto v2 = make_vertex(8.5f, 11.5f);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+
+    const int block_x = swr::impl::lower_align_on_block_size(bounds.tight_start_x);
+    const int block_y = swr::impl::lower_align_on_block_size(bounds.tight_start_y);
+    const auto lambdas = rast::compute_triangle_lambdas_at_block(info, block_x, block_y);
+    const auto quad_bounds = rast::compute_checked_quad_bounds(bounds, block_x, block_y);
+    const auto attributes = rast::compute_triangle_attributes_at_block(
+      states,
+      info,
+      v0.varyings,
+      0.0f,
+      block_x,
+      block_y);
+
+    rast::tile_cache cache;
+    cache.reset(1, 1);
+
+    bool emitted = false;
+    const bool needs_flush = cache.add_small_triangle_checked(
+      block_x,
+      block_y,
+      &states,
+      lambdas,
+      quad_bounds,
+      attributes,
+      true,
+      emitted);
+
+    BOOST_CHECK(!needs_flush);
+    BOOST_REQUIRE(emitted);
+    BOOST_REQUIRE_EQUAL(cache.active_tile_indices.size(), 1u);
+
+    auto& tile = cache.entries[cache.active_tile_indices[0]];
+    BOOST_REQUIRE_EQUAL(tile.primitives.size(), 1u);
+    BOOST_REQUIRE_EQUAL(tile.primitive_small_payloads.size(), 1u);
+    BOOST_CHECK_EQUAL(tile.primitives[0].mode, rast::tile_info::rasterization_mode::small_checked);
+
+    const auto& payload = tile.primitive_small_payloads[tile.primitives[0].small_payload_index];
+    BOOST_REQUIRE_EQUAL(payload.quad_count, 3u);
+
+    BOOST_CHECK_EQUAL(payload.quads[0].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].mask, 0xfu);
+
+    BOOST_CHECK_EQUAL(payload.quads[1].x, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[1].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[1].mask, 0x8u);
+
+    BOOST_CHECK_EQUAL(payload.quads[2].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[2].y, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[2].mask, 0x8u);
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
+{
+    static_assert(rast::rasterizer_quad_size == 2);
+    static_assert(rast::small_triangle_quad_span == 2);
+    static_assert(rast::small_triangle_footprint_size == 4);
+
+    const auto v0 = make_vertex(2.5f, 0.5f);
+    const auto v1 = make_vertex(4.5f, 0.5f);
+    const auto v2 = make_vertex(2.5f, 2.5f);
+    const auto expected = make_expected({{2, 0}, {2, 1}, {3, 0}});
+
+    triangle_test_context ctx{10, 10};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const int quad_start_x = rast::lower_align_on_quad_size(bounds.tight_start_x);
+    const int quad_start_y = rast::lower_align_on_quad_size(bounds.tight_start_y);
+    const int quad_end_x = rast::upper_align_on_quad_size(bounds.tight_end_x);
+    const int quad_end_y = rast::upper_align_on_quad_size(bounds.tight_end_y);
+
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+    BOOST_CHECK_EQUAL(quad_end_x - quad_start_x, rast::small_triangle_footprint_size);
+    BOOST_CHECK_EQUAL(quad_end_y - quad_start_y, rast::small_triangle_footprint_size);
+
+    const auto pixels = collect_covered_triangle_pixels(
+      ctx.states,
+      info,
+      v0.varyings);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      pixels.begin(), pixels.end(),
+      expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_crossing_block_boundary_uses_general_path)
+{
+    constexpr int block_size = static_cast<int>(swr::impl::rasterizer_block_size);
+    const auto v0 = make_vertex(block_size - 2.5f, 1.5f);
+    const auto v1 = make_vertex(block_size + 1.5f, 1.5f);
+    const auto v2 = make_vertex(block_size - 2.5f, 3.5f);
+
+    triangle_test_context ctx{block_size * 2, block_size};
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+
+    BOOST_CHECK(!rast::is_small_quad_triangle(bounds));
+
+    const auto pixels = collect_covered_triangle_pixels(ctx.states, info, v0.varyings);
+    BOOST_REQUIRE(!pixels.empty());
+
+    bool has_left = false, has_right = false;
+    for(const auto& px: pixels)
+    {
+        if(px.x < block_size)
+            has_left = true;
+        if(px.x >= block_size)
+            has_right = true;
+    }
+    BOOST_CHECK_MESSAGE(has_left && has_right, "Triangle covers both sides of the block boundary");
 }
 
 BOOST_AUTO_TEST_SUITE_END();

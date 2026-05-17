@@ -194,6 +194,18 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               in_tile.y,
               it);
         }
+        else if(is_small_checked_rasterization_mode(it.mode))
+        {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            assert(it.small_payload_index < in_tile.primitive_small_payloads.size());
+            process_block_small_checked(
+              in_tile.x,
+              in_tile.y,
+              it,
+              in_tile.primitive_small_payloads[it.small_payload_index]);
+        }
     }
 }
 
