@@ -4,10 +4,11 @@
  * software renderer demonstration (simple particle system).
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <chrono>
 #include <print>
 
 /* software rasterizer headers. */
@@ -29,6 +30,21 @@ const auto demo_title = "Particle Emitter";
 
 /** maximum number of particles. */
 constexpr int max_particles = 256;
+
+using timing_clock = std::chrono::steady_clock;
+
+static float elapsed_ms(
+  const timing_clock::time_point start,
+  const timing_clock::time_point end)
+{
+    return std::chrono::duration<float, std::milli>(end - start).count();
+}
+
+struct render_timing
+{
+    float swr_ms{0.0f};
+    float display_copy_ms{0.0f};
+};
 
 /** demo window. */
 class demo_emitter : public swr_app::renderwindow
@@ -251,6 +267,8 @@ public:
 
     void update(float delta_time)
     {
+        const auto update_start = timing_clock::now();
+
         // gracefully exit when asked.
         SDL_Event e;
         if(SDL_PollEvent(&e))
@@ -278,20 +296,20 @@ public:
             particle_system.update(delta_time);
         }
 
-        /*
-         * every second, print some statistics.
-         */
         static float print_active_particle_time = 0;
         print_active_particle_time += delta_time;
-        if(print_active_particle_time > 1.f)
+        const bool should_print_stats = print_active_particle_time > 1.f;
+        if(should_print_stats)
         {
-            platform::logf("{} particles active, {} total particles (frame time: {:.2f} ms)", particle_system.get_active_particle_count(), particle_system.get_particle_count(), delta_time * 1000.f);
             print_active_particle_time = 0;
         }
+
+        const auto update_end = timing_clock::now();
 
         /*
          * render particles.
          */
+        const auto render_start = timing_clock::now();
         begin_render();
         for(auto it: particle_system.get_particles())
         {
@@ -300,7 +318,25 @@ public:
                 draw_cube(it.position.xyz(), it.rotation_axis.xyz(), it.rotation_offset, it.scale);
             }
         }
-        end_render();
+        const render_timing timing = end_render(render_start);
+
+        /*
+         * every second, print some statistics.
+         */
+        if(should_print_stats)
+        {
+            const float update_ms = elapsed_ms(update_start, update_end);
+            const float measured_ms = update_ms + timing.swr_ms + timing.display_copy_ms;
+            platform::logf(
+              "{} particles active, {} total particles (delta: {:.2f} ms, update: {:.2f} ms, swr: {:.2f} ms, display/copy: {:.2f} ms, measured: {:.2f} ms)",
+              particle_system.get_active_particle_count(),
+              particle_system.get_particle_count(),
+              delta_time * 1000.f,
+              update_ms,
+              timing.swr_ms,
+              timing.display_copy_ms,
+              measured_ms);
+        }
 
         ++frame_count;
     }
@@ -311,10 +347,17 @@ public:
         swr::ClearDepthBuffer();
     }
 
-    void end_render()
+    render_timing end_render(const timing_clock::time_point render_start)
     {
         swr::Present();
+        const auto swr_end = timing_clock::now();
+
         swr::CopyDefaultColorBuffer(context);
+        const auto display_copy_end = timing_clock::now();
+
+        return {
+          .swr_ms = elapsed_ms(render_start, swr_end),
+          .display_copy_ms = elapsed_ms(swr_end, display_copy_end)};
     }
 
     void draw_cube(ml::vec3 pos, ml::vec3 axis, float angle, float scale)

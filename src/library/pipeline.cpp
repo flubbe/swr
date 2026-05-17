@@ -7,7 +7,7 @@
  * is delegated to subroutines implemented elsewhere.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -68,6 +68,16 @@ struct pipeline_cycle_profile
     std::uint64_t tile_shader_instance_probe_steps{0};
     std::uint64_t clip_vertex_read_bytes{0};
     std::uint64_t clip_vertex_write_bytes{0};
+    std::uint64_t clip_parallel_across_objects_frames{0};
+    std::uint64_t clip_parallel_internal_object_frames{0};
+    std::uint64_t clip_serial_frames{0};
+    std::uint64_t clip_parallel_internal_object_tasks{0};
+    std::uint64_t clip_parallel_internal_object_primitives{0};
+    std::uint64_t clip_parallel_reject_small_primitive_count{0};
+    std::uint64_t clip_parallel_reject_no_discard{0};
+    std::uint64_t clip_parallel_reject_low_discard_ratio{0};
+    std::uint64_t clip_input_triangles{0};
+    std::uint64_t clip_output_triangles{0};
     std::uint64_t raster_tile_payload_write_bytes{0};
     std::uint64_t raster_tile_payload_checked_write_bytes{0};
     std::uint64_t raster_tile_payload_block_write_bytes{0};
@@ -87,6 +97,17 @@ struct pipeline_cycle_profile
     std::uint64_t raster_flush_max_tile_prims{0};
     std::uint64_t raster_flush_near_full_tiles{0};
     std::uint64_t raster_flush_trigger_overflow_count{0};
+    std::uint64_t raster_processed_block_primitives{0};
+    std::uint64_t raster_processed_checked_primitives{0};
+    std::uint64_t checked_full_mask_quads{0};
+    std::uint64_t checked_partial_mask_quads{0};
+    std::uint64_t checked_quad_tests{0};
+    std::uint64_t checked_empty_quads{0};
+    std::uint64_t checked_partial_pop1_quads{0};
+    std::uint64_t checked_partial_pop2_quads{0};
+    std::uint64_t checked_partial_pop3_quads{0};
+    std::uint64_t checked_sparse_thin_x_primitives{0};
+    std::uint64_t checked_sparse_thin_y_primitives{0};
     std::uint64_t frame_count{0};
 };
 
@@ -145,6 +166,46 @@ inline void log_pipeline_profile_if_needed()
     const double tile_info_write_mib = static_cast<double>(g_pipeline_cycles.raster_tile_info_write_bytes) / (1024.0 * 1024.0);
     const double interp_write_mib = static_cast<double>(g_pipeline_cycles.raster_interp_write_bytes) / (1024.0 * 1024.0);
     const double checked_lambda_write_mib = static_cast<double>(g_pipeline_cycles.raster_checked_lambda_write_bytes) / (1024.0 * 1024.0);
+    const double processed_primitives_total =
+      static_cast<double>(g_pipeline_cycles.raster_processed_block_primitives + g_pipeline_cycles.raster_processed_checked_primitives);
+    const double processed_checked_ratio =
+      processed_primitives_total > 0.0
+        ? static_cast<double>(g_pipeline_cycles.raster_processed_checked_primitives) / processed_primitives_total
+        : 0.0;
+    const double checked_quad_total =
+      static_cast<double>(g_pipeline_cycles.checked_full_mask_quads + g_pipeline_cycles.checked_partial_mask_quads);
+    const double checked_full_mask_ratio =
+      checked_quad_total > 0.0
+        ? static_cast<double>(g_pipeline_cycles.checked_full_mask_quads) / checked_quad_total
+        : 0.0;
+    const double checked_empty_quad_ratio =
+      g_pipeline_cycles.checked_quad_tests > 0
+        ? static_cast<double>(g_pipeline_cycles.checked_empty_quads) / static_cast<double>(g_pipeline_cycles.checked_quad_tests)
+        : 0.0;
+    const double checked_partial_quad_total =
+      static_cast<double>(g_pipeline_cycles.checked_partial_mask_quads);
+    const double checked_partial_pop1_ratio =
+      checked_partial_quad_total > 0.0
+        ? static_cast<double>(g_pipeline_cycles.checked_partial_pop1_quads) / checked_partial_quad_total
+        : 0.0;
+    const double checked_partial_pop2_ratio =
+      checked_partial_quad_total > 0.0
+        ? static_cast<double>(g_pipeline_cycles.checked_partial_pop2_quads) / checked_partial_quad_total
+        : 0.0;
+    const double checked_partial_pop3_ratio =
+      checked_partial_quad_total > 0.0
+        ? static_cast<double>(g_pipeline_cycles.checked_partial_pop3_quads) / checked_partial_quad_total
+        : 0.0;
+    const double checked_sparse_total =
+      static_cast<double>(g_pipeline_cycles.checked_sparse_thin_x_primitives + g_pipeline_cycles.checked_sparse_thin_y_primitives);
+    const double checked_sparse_thin_x_ratio =
+      checked_sparse_total > 0.0
+        ? static_cast<double>(g_pipeline_cycles.checked_sparse_thin_x_primitives) / checked_sparse_total
+        : 0.0;
+    const double clip_triangle_expand_ratio =
+      g_pipeline_cycles.clip_input_triangles > 0
+        ? static_cast<double>(g_pipeline_cycles.clip_output_triangles) / static_cast<double>(g_pipeline_cycles.clip_input_triangles)
+        : 0.0;
     const double setup_iter_other =
       static_cast<double>(g_pipeline_cycles.raster_setup_iterate)
       - static_cast<double>(g_pipeline_cycles.raster_setup_iter_row_setup)
@@ -156,7 +217,39 @@ inline void log_pipeline_profile_if_needed()
       - static_cast<double>(g_pipeline_cycles.raster_setup_cb_direct);
 
     std::println(
-      "[swr][rdtsc] avg cycles/frame over {} frames: present={:.0f} vertex={:.0f} clip={:.0f} viewport={:.0f} assembly={:.0f} raster={:.0f} frag_shader={:.0f} depth={:.0f} merge={:.0f} raster_setup={:.0f} interp={:.0f} add_tri={:.0f} flush={:.0f} flush_scan={:.0f} flush_process={:.0f} flush_clear={:.0f} flush_count={:.1f} flush_tiles={:.1f} flush_prims={:.1f} scan_tiles={:.1f} scan_tiles_per_flush={:.1f} flush_max_tile_prims={:.1f} flush_near_full_tiles={:.1f} flush_overflow_triggers={:.1f} block_total={:.0f} block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} block_tile_refs={:.1f} checked_tile_refs={:.1f} block_tile_ref_ratio={:.2f} checked_tile_ref_ratio={:.2f} direct_blocks={:.1f} direct_block_ratio={:.2f} interp_var_copies={:.1f} frag_invocations={:.1f} shader_probe_steps={:.1f} probe_steps_per_tile_ref={:.2f} clip_read_bytes={:.1f} clip_write_bytes={:.1f} tile_payload_write_bytes={:.1f} tile_payload_checked_bytes={:.1f} tile_payload_block_bytes={:.1f} tile_info_bytes={:.1f} interp_bytes={:.1f} checked_lambda_bytes={:.1f} setup_tri={:.0f} setup_bounds={:.0f} setup_iter={:.0f} setup_iter_row={:.0f} setup_iter_cb={:.0f} setup_iter_other={:.0f} setup_cb_enqueue={:.0f} setup_cb_flush={:.0f} setup_cb_direct={:.0f} setup_cb_other={:.0f} setup_direct={:.0f} setup_enqueue={:.0f} clip_read_mib={:.2f} clip_write_mib={:.2f} tile_payload_write_mib={:.2f} tile_payload_checked_mib={:.2f} tile_payload_block_mib={:.2f} tile_info_mib={:.2f} interp_mib={:.2f} checked_lambda_mib={:.2f} tile_size={}",
+      "[swr][rdtsc] avg cycles/frame over {} frames: present={:.0f} "
+      "vertex={:.0f} clip={:.0f} viewport={:.0f} assembly={:.0f} raster={:.0f} "
+      "frag_shader={:.0f} depth={:.0f} merge={:.0f} raster_setup={:.0f} "
+      "interp={:.0f} add_tri={:.0f} flush={:.0f} flush_scan={:.0f} flush_process={:.0f} "
+      "flush_clear={:.0f} flush_count={:.1f} flush_tiles={:.1f} flush_prims={:.1f} "
+      "scan_tiles={:.1f} scan_tiles_per_flush={:.1f} flush_max_tile_prims={:.1f} "
+      "flush_near_full_tiles={:.1f} flush_overflow_triggers={:.1f} block_total={:.0f} "
+      "block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} "
+      "tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} "
+      "block_tile_refs={:.1f} checked_tile_refs={:.1f} block_tile_ref_ratio={:.2f} "
+      "checked_tile_ref_ratio={:.2f} direct_blocks={:.1f} direct_block_ratio={:.2f} "
+      "interp_var_copies={:.1f} frag_invocations={:.1f} shader_probe_steps={:.1f} "
+      "probe_steps_per_tile_ref={:.2f} clip_read_bytes={:.1f} clip_write_bytes={:.1f} "
+      "tile_payload_write_bytes={:.1f} tile_payload_checked_bytes={:.1f} "
+      "tile_payload_block_bytes={:.1f} tile_info_bytes={:.1f} interp_bytes={:.1f} "
+      "checked_lambda_bytes={:.1f} setup_tri={:.0f} setup_bounds={:.0f} setup_iter={:.0f} "
+      "setup_iter_row={:.0f} setup_iter_cb={:.0f} setup_iter_other={:.0f} setup_cb_enqueue={:.0f} "
+      "setup_cb_flush={:.0f} setup_cb_direct={:.0f} setup_cb_other={:.0f} setup_direct={:.0f} "
+      "setup_enqueue={:.0f} clip_read_mib={:.2f} clip_write_mib={:.2f} "
+      "tile_payload_write_mib={:.2f} tile_payload_checked_mib={:.2f} "
+      "tile_payload_block_mib={:.2f} tile_info_mib={:.2f} interp_mib={:.2f} "
+      "checked_lambda_mib={:.2f} clip_mt_across_obj={:.1f} clip_mt_internal={:.1f}"
+      "clip_serial={:.1f} clip_mt_tasks={:.1f} clip_mt_prims={:.1f} "
+      "clip_reject_small={:.1f} clip_reject_no_discard={:.1f} "
+      "clip_reject_low_discard={:.1f} clip_tri_in={:.1f} clip_tri_out={:.1f} "
+      "clip_tri_expand={:.2f} proc_block_prims={:.1f} proc_checked_prims={:.1f} "
+      "proc_checked_ratio={:.2f} checked_full_quads={:.1f} checked_partial_quads={:.1f} "
+      "checked_full_ratio={:.2f} checked_quad_tests={:.1f} checked_empty_quads={:.1f} "
+      "checked_empty_ratio={:.2f} checked_partial_pop1_quads={:.1f} "
+      "checked_partial_pop2_quads={:.1f} checked_partial_pop3_quads={:.1f} "
+      "checked_partial_pop1_ratio={:.2f} checked_partial_pop2_ratio={:.2f} "
+      "checked_partial_pop3_ratio={:.2f} checked_sparse_thin_x_prims={:.1f} "
+      "checked_sparse_thin_y_prims={:.1f} checked_sparse_thin_x_ratio={:.2f} tile_size={}",
       profile_log_interval_frames,
       static_cast<double>(g_pipeline_cycles.present_total) / f,
       static_cast<double>(g_pipeline_cycles.vertex) / f,
@@ -229,6 +322,35 @@ inline void log_pipeline_profile_if_needed()
       tile_info_write_mib / f,
       interp_write_mib / f,
       checked_lambda_write_mib / f,
+      static_cast<double>(g_pipeline_cycles.clip_parallel_across_objects_frames) / f,
+      static_cast<double>(g_pipeline_cycles.clip_parallel_internal_object_frames) / f,
+      static_cast<double>(g_pipeline_cycles.clip_serial_frames) / f,
+      static_cast<double>(g_pipeline_cycles.clip_parallel_internal_object_tasks) / f,
+      static_cast<double>(g_pipeline_cycles.clip_parallel_internal_object_primitives) / f,
+      static_cast<double>(g_pipeline_cycles.clip_parallel_reject_small_primitive_count) / f,
+      static_cast<double>(g_pipeline_cycles.clip_parallel_reject_no_discard) / f,
+      static_cast<double>(g_pipeline_cycles.clip_parallel_reject_low_discard_ratio) / f,
+      static_cast<double>(g_pipeline_cycles.clip_input_triangles) / f,
+      static_cast<double>(g_pipeline_cycles.clip_output_triangles) / f,
+      clip_triangle_expand_ratio,
+      static_cast<double>(g_pipeline_cycles.raster_processed_block_primitives) / f,
+      static_cast<double>(g_pipeline_cycles.raster_processed_checked_primitives) / f,
+      processed_checked_ratio,
+      static_cast<double>(g_pipeline_cycles.checked_full_mask_quads) / f,
+      static_cast<double>(g_pipeline_cycles.checked_partial_mask_quads) / f,
+      checked_full_mask_ratio,
+      static_cast<double>(g_pipeline_cycles.checked_quad_tests) / f,
+      static_cast<double>(g_pipeline_cycles.checked_empty_quads) / f,
+      checked_empty_quad_ratio,
+      static_cast<double>(g_pipeline_cycles.checked_partial_pop1_quads) / f,
+      static_cast<double>(g_pipeline_cycles.checked_partial_pop2_quads) / f,
+      static_cast<double>(g_pipeline_cycles.checked_partial_pop3_quads) / f,
+      checked_partial_pop1_ratio,
+      checked_partial_pop2_ratio,
+      checked_partial_pop3_ratio,
+      static_cast<double>(g_pipeline_cycles.checked_sparse_thin_x_primitives) / f,
+      static_cast<double>(g_pipeline_cycles.checked_sparse_thin_y_primitives) / f,
+      checked_sparse_thin_x_ratio,
       impl::rasterizer_block_size);
 
     g_pipeline_cycles.vertex = 0;
@@ -267,6 +389,16 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.tile_shader_instance_probe_steps = 0;
     g_pipeline_cycles.clip_vertex_read_bytes = 0;
     g_pipeline_cycles.clip_vertex_write_bytes = 0;
+    g_pipeline_cycles.clip_parallel_across_objects_frames = 0;
+    g_pipeline_cycles.clip_parallel_internal_object_frames = 0;
+    g_pipeline_cycles.clip_serial_frames = 0;
+    g_pipeline_cycles.clip_parallel_internal_object_tasks = 0;
+    g_pipeline_cycles.clip_parallel_internal_object_primitives = 0;
+    g_pipeline_cycles.clip_parallel_reject_small_primitive_count = 0;
+    g_pipeline_cycles.clip_parallel_reject_no_discard = 0;
+    g_pipeline_cycles.clip_parallel_reject_low_discard_ratio = 0;
+    g_pipeline_cycles.clip_input_triangles = 0;
+    g_pipeline_cycles.clip_output_triangles = 0;
     g_pipeline_cycles.raster_tile_payload_write_bytes = 0;
     g_pipeline_cycles.raster_tile_payload_checked_write_bytes = 0;
     g_pipeline_cycles.raster_tile_payload_block_write_bytes = 0;
@@ -284,6 +416,17 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.raster_flush_max_tile_prims = 0;
     g_pipeline_cycles.raster_flush_near_full_tiles = 0;
     g_pipeline_cycles.raster_flush_trigger_overflow_count = 0;
+    g_pipeline_cycles.raster_processed_block_primitives = 0;
+    g_pipeline_cycles.raster_processed_checked_primitives = 0;
+    g_pipeline_cycles.checked_full_mask_quads = 0;
+    g_pipeline_cycles.checked_partial_mask_quads = 0;
+    g_pipeline_cycles.checked_quad_tests = 0;
+    g_pipeline_cycles.checked_empty_quads = 0;
+    g_pipeline_cycles.checked_partial_pop1_quads = 0;
+    g_pipeline_cycles.checked_partial_pop2_quads = 0;
+    g_pipeline_cycles.checked_partial_pop3_quads = 0;
+    g_pipeline_cycles.checked_sparse_thin_x_primitives = 0;
+    g_pipeline_cycles.checked_sparse_thin_y_primitives = 0;
     g_pipeline_cycles.raster_setup_direct = 0;
     g_pipeline_cycles.raster_setup_enqueue = 0;
 }
@@ -325,6 +468,16 @@ inline void collect_pipeline_profile_frame()
     g_pipeline_cycles.tile_shader_instance_probe_steps += exchange_profile_counter(impl::profile_tile_shader_instance_probe_steps);
     g_pipeline_cycles.clip_vertex_read_bytes += exchange_profile_counter(impl::profile_clip_vertex_read_bytes);
     g_pipeline_cycles.clip_vertex_write_bytes += exchange_profile_counter(impl::profile_clip_vertex_write_bytes);
+    g_pipeline_cycles.clip_parallel_across_objects_frames += exchange_profile_counter(impl::profile_clip_parallel_across_objects_frames);
+    g_pipeline_cycles.clip_parallel_internal_object_frames += exchange_profile_counter(impl::profile_clip_parallel_internal_object_frames);
+    g_pipeline_cycles.clip_serial_frames += exchange_profile_counter(impl::profile_clip_serial_frames);
+    g_pipeline_cycles.clip_parallel_internal_object_tasks += exchange_profile_counter(impl::profile_clip_parallel_internal_object_tasks);
+    g_pipeline_cycles.clip_parallel_internal_object_primitives += exchange_profile_counter(impl::profile_clip_parallel_internal_object_primitives);
+    g_pipeline_cycles.clip_parallel_reject_small_primitive_count += exchange_profile_counter(impl::profile_clip_parallel_reject_small_primitive_count);
+    g_pipeline_cycles.clip_parallel_reject_no_discard += exchange_profile_counter(impl::profile_clip_parallel_reject_no_discard);
+    g_pipeline_cycles.clip_parallel_reject_low_discard_ratio += exchange_profile_counter(impl::profile_clip_parallel_reject_low_discard_ratio);
+    g_pipeline_cycles.clip_input_triangles += exchange_profile_counter(impl::profile_clip_input_triangles);
+    g_pipeline_cycles.clip_output_triangles += exchange_profile_counter(impl::profile_clip_output_triangles);
     g_pipeline_cycles.raster_tile_payload_write_bytes += exchange_profile_counter(impl::profile_raster_tile_payload_write_bytes);
     g_pipeline_cycles.raster_tile_payload_checked_write_bytes += exchange_profile_counter(impl::profile_raster_tile_payload_checked_write_bytes);
     g_pipeline_cycles.raster_tile_payload_block_write_bytes += exchange_profile_counter(impl::profile_raster_tile_payload_block_write_bytes);
@@ -342,6 +495,17 @@ inline void collect_pipeline_profile_frame()
     g_pipeline_cycles.raster_flush_max_tile_prims += exchange_profile_counter(impl::profile_raster_flush_max_tile_prims);
     g_pipeline_cycles.raster_flush_near_full_tiles += exchange_profile_counter(impl::profile_raster_flush_near_full_tiles);
     g_pipeline_cycles.raster_flush_trigger_overflow_count += exchange_profile_counter(impl::profile_raster_flush_trigger_overflow_count);
+    g_pipeline_cycles.raster_processed_block_primitives += exchange_profile_counter(impl::profile_raster_processed_block_primitives);
+    g_pipeline_cycles.raster_processed_checked_primitives += exchange_profile_counter(impl::profile_raster_processed_checked_primitives);
+    g_pipeline_cycles.checked_full_mask_quads += exchange_profile_counter(impl::profile_checked_full_mask_quads);
+    g_pipeline_cycles.checked_partial_mask_quads += exchange_profile_counter(impl::profile_checked_partial_mask_quads);
+    g_pipeline_cycles.checked_quad_tests += exchange_profile_counter(impl::profile_checked_quad_tests);
+    g_pipeline_cycles.checked_empty_quads += exchange_profile_counter(impl::profile_checked_empty_quads);
+    g_pipeline_cycles.checked_partial_pop1_quads += exchange_profile_counter(impl::profile_checked_partial_pop1_quads);
+    g_pipeline_cycles.checked_partial_pop2_quads += exchange_profile_counter(impl::profile_checked_partial_pop2_quads);
+    g_pipeline_cycles.checked_partial_pop3_quads += exchange_profile_counter(impl::profile_checked_partial_pop3_quads);
+    g_pipeline_cycles.checked_sparse_thin_x_primitives += exchange_profile_counter(impl::profile_checked_sparse_thin_x_primitives);
+    g_pipeline_cycles.checked_sparse_thin_y_primitives += exchange_profile_counter(impl::profile_checked_sparse_thin_y_primitives);
     g_pipeline_cycles.raster_setup_direct += exchange_profile_counter(impl::profile_raster_setup_direct_cycles);
     g_pipeline_cycles.raster_setup_enqueue += exchange_profile_counter(impl::profile_raster_setup_enqueue_cycles);
 }
@@ -378,11 +542,15 @@ static bool invoke_vertex_shader_and_clip_preprocess(
     for(std::size_t i = 0; i < obj.coord_count; ++i)
     {
         float gl_PointSize{0}; /* currently unused */
+        const auto vertex_attribs = obj.attribs_for_vertex(i);
         shader_instance.get()->vertex_shader(
-          0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          &obj.attribs[i * obj.attrib_count], obj.coords[i],
-          gl_PointSize, nullptr /* gl_ClipDistance */,
-          &obj.varyings[i * shader_instance.get_varying_count()]);
+          0 /* gl_VertexID */,
+          0 /* gl_InstanceID */,
+          vertex_attribs,
+          obj.coords[i],
+          gl_PointSize,
+          {} /* gl_ClipDistance */,
+          obj.varyings_for_vertex(i));
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
@@ -499,10 +667,10 @@ static void process_vertices(swr::impl::render_object& obj)
             {
                 v.coords = obj.coords[i];
                 v.flags = obj.vertex_flags[i];
-                for(std::size_t j = 0; j < varying_count; ++j)
-                {
-                    v.varyings[j] = obj.varyings[i * varying_count + j];
-                }
+                const auto vertex_varyings = obj.varyings_for_vertex(i);
+                v.varyings.assign(
+                  std::begin(vertex_varyings),
+                  std::end(vertex_varyings));
 
                 obj.clipped_vertices.emplace_back(v);
             }
@@ -673,6 +841,11 @@ static void clip_indexed_primitives_parallel(
         (primitive_count + min_clip_primitives_per_task - 1) / min_clip_primitives_per_task);
     const std::size_t task_count = std::min(thread_count, max_task_count);
 
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+    impl::profile_clip_parallel_internal_object_tasks.fetch_add(task_count, std::memory_order_relaxed);
+    impl::profile_clip_parallel_internal_object_primitives.fetch_add(primitive_count, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     if(task_count <= 1 || primitive_count == 0)
     {
         if(indices_per_primitive == 2)
@@ -748,6 +921,10 @@ static bool should_parallelize_clipping(
     const std::size_t primitive_count = obj->indices.size() / indices_per_primitive;
     if(primitive_count < min_parallel_clip_primitives)
     {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        impl::profile_clip_parallel_reject_small_primitive_count.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         return false;
     }
 
@@ -762,13 +939,25 @@ static bool should_parallelize_clipping(
 
     if(discarded_index_count == 0)
     {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        impl::profile_clip_parallel_reject_no_discard.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         return false;
     }
 
     const float discard_ratio =
       static_cast<float>(discarded_index_count)
       / static_cast<float>(obj->indices.size());
-    return discard_ratio >= min_parallel_clip_discard_ratio;
+    if(discard_ratio < min_parallel_clip_discard_ratio)
+    {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        impl::profile_clip_parallel_reject_low_discard_ratio.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        return false;
+    }
+    return true;
 }
 
 static void clip_vertex_buffer_serial(
@@ -808,10 +997,10 @@ static void clip_vertex_buffer_serial(
             {
                 v.coords = obj->coords[i];
                 v.flags = obj->vertex_flags[i];
-                for(std::size_t j = 0; j < varying_count; ++j)
-                {
-                    v.varyings[j] = obj->varyings[i * varying_count + j];
-                }
+                const auto vertex_varyings = obj->varyings_for_vertex(i);
+                v.varyings.assign(
+                  std::begin(vertex_varyings),
+                  std::end(vertex_varyings));
 
                 obj->clipped_vertices.emplace_back(v);
             }
@@ -852,11 +1041,15 @@ static void vertex_shader_task(
     for(std::size_t i = offset; i < end; ++i)
     {
         float gl_PointSize{0}; /* currently unused */
+        const auto vertex_attribs = obj->attribs_for_vertex(i);
         shader_instance->get()->vertex_shader(
-          0 /* gl_VertexID */, 0 /* gl_InstanceID */,
-          &obj->attribs[i * obj->attrib_count], obj->coords[i],
-          gl_PointSize, nullptr /* gl_ClipDistance */,
-          &obj->varyings[i * shader_instance->get_varying_count()]);
+          0 /* gl_VertexID */,
+          0 /* gl_InstanceID */,
+          vertex_attribs,
+          obj->coords[i],
+          gl_PointSize,
+          {} /* gl_ClipDistance */,
+          obj->varyings_for_vertex(i));
 
         /*
          * Set clipping markers for this vertex. A visible vertex has to satisfy the relations
@@ -1024,6 +1217,10 @@ static void clip_vertex_buffer(
         }
         else
         {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             clip_line_buffer(*obj, impl::line_list);
         }
     }
@@ -1043,6 +1240,10 @@ static void clip_vertex_buffer(
         }
         else
         {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             clip_triangle_buffer(
               *obj,
               impl::line_list);
@@ -1064,6 +1265,10 @@ static void clip_vertex_buffer(
         }
         else
         {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             clip_triangle_buffer(
               *obj,
               impl::triangle_list);
@@ -1071,6 +1276,10 @@ static void clip_vertex_buffer(
     }
     else
     {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         clip_vertex_buffer_serial(obj);
     }
 }
@@ -1082,33 +1291,59 @@ static void process_vertices(
      * create shaders.
      */
 
+    context->program_instances.clear();
+
     std::size_t total_shader_size = 0;
+    std::size_t shader_storage_alignment = utils::alignment::sse;
     for(const auto& obj: context->render_object_list)
     {
-        total_shader_size += obj.states.shader_info->shader->size();
+        if(obj.coord_count == 0 || obj.indices.empty())
+        {
+            continue;
+        }
+
+        const auto* shader_info = obj.states.shader_info;
+        shader_storage_alignment = std::max(
+          shader_storage_alignment,
+          shader_info->program_alignment);
         total_shader_size = utils::align(
-          utils::alignment::sse,
+          shader_info->program_alignment,
+          total_shader_size);
+        total_shader_size += shader_info->program_size;
+        total_shader_size = utils::align(
+          shader_info->program_alignment,
           total_shader_size);
     }
 
-    std::byte* storage = utils::align_vector(
-      utils::alignment::sse,
+    context->program_storage.allocate(
       total_shader_size,
-      context->program_storage);
+      shader_storage_alignment);
+    std::byte* storage = context->program_storage.data();
+    assert(
+      total_shader_size == 0
+      || reinterpret_cast<std::uintptr_t>(storage) % shader_storage_alignment == 0);
     context->program_instances.reserve(context->render_object_list.size());
 
     for(auto& obj: context->render_object_list)
     {
+        if(obj.coord_count == 0 || obj.indices.empty())
+        {
+            continue;
+        }
+
+        auto* shader_info = obj.states.shader_info;
+        storage = utils::align(
+          shader_info->program_alignment,
+          storage);
         context->program_instances.emplace_back(
           std::make_pair(
             &obj,
             impl::vertex_shader_instance_container{
               storage,
-              obj.states.shader_info,
+              shader_info,
               obj.states.uniforms}));
 
-        storage += obj.states.shader_info->shader->size();
-        storage = utils::align(utils::alignment::sse, storage);
+        storage += shader_info->program_size;
     }
 
     /*
@@ -1118,25 +1353,21 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_vertex = 0;
     utils::clock(stage_vertex);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     for(auto& [obj, shader]: context->program_instances)
     {
-        if(obj->attrib_count != 0
-           && !obj->indices.empty())
-        {
-            invoke_vertex_shader_and_clip_preprocess(
-              context->thread_pool,
-              shader,
-              *obj);
-        }
+        invoke_vertex_shader_and_clip_preprocess(
+          context->thread_pool,
+          shader,
+          *obj);
     }
     context->thread_pool.run_tasks_and_wait();
 
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_vertex);
     g_pipeline_cycles.vertex += stage_vertex;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     /*
      * clipping.
@@ -1145,7 +1376,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_clipping = 0;
     utils::clock(stage_clipping);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     /*
      * Avoid nested thread-pool waits in worker tasks: object-level parallel
@@ -1159,6 +1390,10 @@ static void process_vertices(
 
     if(parallelize_across_objects)
     {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        impl::profile_clip_parallel_across_objects_frames.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         for(auto& [obj, shader]: context->program_instances)
         {
             context->thread_pool.push_immediate_task(
@@ -1169,6 +1404,10 @@ static void process_vertices(
     }
     else
     {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        impl::profile_clip_parallel_internal_object_frames.fetch_add(1, std::memory_order_relaxed);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         // Single/few-object path can parallelize internally by primitive chunk.
         for(auto& [obj, shader]: context->program_instances)
         {
@@ -1179,7 +1418,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_clipping);
     g_pipeline_cycles.clipping += stage_clipping;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     /*
      * viewport transform.
@@ -1188,7 +1427,8 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_viewport = 0;
     utils::clock(stage_viewport);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     for(auto& [obj, shader]: context->program_instances)
     {
         // skip the rest of the pipeline if no clipped vertices were produced.
@@ -1208,7 +1448,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_viewport);
     g_pipeline_cycles.viewport += stage_viewport;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     // clear shaders to force destructors being called, so that we do not have to care about the storage anymore.
     context->program_instances.clear();
@@ -1254,7 +1494,8 @@ void Present()
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_assembly = 0;
     utils::clock(stage_assembly);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     for(auto& it: context->render_object_list)
     {
         if(it.clipped_vertices.empty())
@@ -1271,52 +1512,61 @@ void Present()
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_assembly);
     g_pipeline_cycles.assembly += stage_assembly;
-#    endif
-#else
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+#else /* SWR_ENABLE_MULTI_THREADING */
+
     // process render commands.
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_assembly = 0;
     std::uint64_t stage_vertex = 0;
     std::uint64_t stage_clipping = 0;
     std::uint64_t stage_viewport = 0;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     for(auto& it: context->render_object_list)
     {
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::clock(stage_vertex);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         st::process_vertices(it);
+
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_vertex);
         g_pipeline_cycles.vertex += stage_vertex;
         stage_vertex = 0;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         if(!it.clipped_vertices.empty())
         {
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::clock(stage_assembly);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
             context->assemble_primitives(
               &it.states,
               it.mode,
               it.clipped_vertices);
+
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::unclock(stage_assembly);
             g_pipeline_cycles.assembly += stage_assembly;
             stage_assembly = 0;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
     }
-#endif
+#endif     /* SWR_ENABLE_MULTI_THREADING */
 
     // invoke triangle rasterizer.
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_rasterizer = 0;
     utils::clock(stage_rasterizer);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     context->rasterizer->draw_primitives();
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_rasterizer);
     g_pipeline_cycles.rasterizer += stage_rasterizer;

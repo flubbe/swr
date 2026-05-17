@@ -91,7 +91,7 @@ void render_context::shutdown()
     program_instances.shrink_to_fit();
 
     program_storage.clear();
-    program_storage.shrink_to_fit();
+    program_storage.release_if_empty();
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
     programs.clear();

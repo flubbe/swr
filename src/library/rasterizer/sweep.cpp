@@ -4,7 +4,7 @@
  * software rasterizer interface implementation.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -176,6 +176,9 @@ void sweep_rasterizer::process_tile(tile& in_tile)
     {
         if(it.mode == tile_info::rasterization_mode::block)
         {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_processed_block_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
             process_block(
               in_tile.x,
               in_tile.y,
@@ -183,6 +186,9 @@ void sweep_rasterizer::process_tile(tile& in_tile)
         }
         else if(it.mode == tile_info::rasterization_mode::checked)
         {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
             process_block_checked(
               in_tile.x,
               in_tile.y,
@@ -190,7 +196,6 @@ void sweep_rasterizer::process_tile(tile& in_tile)
         }
     }
 }
-
 
 #ifdef SWR_ENABLE_MULTI_THREADING
 

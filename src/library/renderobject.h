@@ -10,7 +10,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <ranges>
+#include <span>
+#include <vector>
 
 namespace swr
 {
@@ -24,33 +27,28 @@ namespace impl
  */
 class render_object
 {
-    using storage_type = std::vector<std::byte, utils::allocator<std::byte>>;
+    using storage_type = std::vector<
+      ml::vec4,
+      utils::aligned_default_init_allocator<
+        ml::vec4,
+        utils::alignment::sse>>;
 
-    /** Storage for the object's vertex attributes. */
-    storage_type attrib_storage;
-
-    /** Storage for the vertex coordinates. */
-    storage_type coord_storage;
-
-    /** Storage for the varyings. */
-    storage_type varying_storage;
-
-    /** Allocate a buffer. */
-    void allocate_buffer(std::size_t count, storage_type& storage, ml::vec4** buffer)
+    static void assert_sse_aligned(
+      [[maybe_unused]] const storage_type& buffer)
     {
-        *buffer = reinterpret_cast<ml::vec4*>(utils::align_vector(utils::alignment::sse, count * sizeof(ml::vec4), storage));
-        assert(*buffer != nullptr);
+        assert(buffer.empty()
+               || (reinterpret_cast<std::uintptr_t>(buffer.data()) % utils::alignment::sse) == 0);
     }
 
 public:
-    /** Aligned pointer into the attribute storage. */
-    ml::vec4* attribs{nullptr};
+    /** Aligned vertex attribute storage. */
+    storage_type attribs;
 
     /** Attribute count (per vertex). */
     std::size_t attrib_count{0};
 
-    /** Aligned pointer into the attribute storage. */
-    ml::vec4* coords{nullptr};
+    /** Aligned vertex coordinate storage. */
+    storage_type coords;
 
     /** Coordinate count. */
     std::size_t coord_count{0};
@@ -58,8 +56,11 @@ public:
     /** Buffer holding all vertex flags. */
     std::vector<std::uint32_t> vertex_flags;
 
-    /** Aligned pointer into the varying storage. */
-    ml::vec4* varyings{nullptr};
+    /** Aligned varying storage. */
+    storage_type varyings;
+
+    /** Varying count per vertex. */
+    std::size_t varying_count{0};
 
     /** Indices into the vertex buffer. */
     std::vector<std::uint32_t> indices;
@@ -74,12 +75,13 @@ public:
     vertex_buffer clipped_vertices;
 
     /** Constructors */
-    render_object()
-    {
-    }
+    render_object() = default;
 
     /** Initialize the object with vertices in sequential order. */
-    render_object(std::size_t count, vertex_buffer_mode in_mode, const render_states& in_states)
+    render_object(
+      std::size_t count,
+      vertex_buffer_mode in_mode,
+      const render_states& in_states)
     : indices{std::views::iota(std::size_t{0}, count)
               | std::ranges::to<std::vector<std::uint32_t>>()}
     , mode{in_mode}
@@ -90,7 +92,10 @@ public:
     }
 
     /** Initialize the object with vertices and indices. */
-    render_object(const std::vector<std::uint32_t>& in_indices, vertex_buffer_mode in_mode, const render_states& in_states)
+    render_object(
+      const std::vector<std::uint32_t>& in_indices,
+      vertex_buffer_mode in_mode,
+      const render_states& in_states)
     : indices{in_indices}
     , mode{in_mode}
     , states{in_states}
@@ -104,10 +109,12 @@ public:
      *
      * @param count Attribute count per vertex.
      */
-    void allocate_attribs(std::size_t count)
+    void allocate_attribs(
+      std::size_t count)
     {
-        allocate_buffer(coord_count * count, attrib_storage, &attribs);
         attrib_count = count;
+        attribs.resize(coord_count * attrib_count);
+        assert_sse_aligned(attribs);
     }
 
     /**
@@ -115,10 +122,12 @@ public:
      *
      * @param count Vertex count.
      */
-    void allocate_coords(std::size_t count)
+    void allocate_coords(
+      std::size_t count)
     {
-        allocate_buffer(count, coord_storage, &coords);
         coord_count = count;
+        coords.resize(coord_count);
+        assert_sse_aligned(coords);
     }
 
     /**
@@ -126,9 +135,121 @@ public:
      *
      * @param count Varying count per vertex.
      */
-    void allocate_varyings(std::size_t count)
+    void allocate_varyings(
+      std::size_t count)
     {
-        allocate_buffer(coord_count * count, varying_storage, &varyings);
+        varying_count = count;
+        varyings.resize(coord_count * varying_count);
+        assert_sse_aligned(varyings);
+    }
+
+    /** Access all attribute storage. */
+    [[nodiscard]]
+    std::span<ml::vec4> attrib_span()
+    {
+        return {attribs.data(), attribs.size()};
+    }
+
+    /** Access all attribute storage. */
+    [[nodiscard]]
+    std::span<const ml::vec4> attrib_span() const
+    {
+        return {attribs.data(), attribs.size()};
+    }
+
+    /** Access the attributes belonging to a single vertex. */
+    [[nodiscard]]
+    std::span<ml::vec4> attribs_for_vertex(
+      std::size_t vertex)
+    {
+        assert(vertex < coord_count);
+
+        if(attrib_count == 0)
+        {
+            return {};
+        }
+
+        const std::size_t offset = vertex * attrib_count;
+        assert(offset + attrib_count <= attribs.size());
+        return {attribs.data() + offset, attrib_count};
+    }
+
+    /** Access the attributes belonging to a single vertex. */
+    [[nodiscard]]
+    std::span<const ml::vec4> attribs_for_vertex(
+      std::size_t vertex) const
+    {
+        assert(vertex < coord_count);
+
+        if(attrib_count == 0)
+        {
+            return {};
+        }
+
+        const std::size_t offset = vertex * attrib_count;
+        assert(offset + attrib_count <= attribs.size());
+        return {attribs.data() + offset, attrib_count};
+    }
+
+    /** Access all coordinate storage. */
+    [[nodiscard]]
+    std::span<ml::vec4> coord_span()
+    {
+        return {coords.data(), coords.size()};
+    }
+
+    /** Access all coordinate storage. */
+    [[nodiscard]]
+    std::span<const ml::vec4> coord_span() const
+    {
+        return {coords.data(), coords.size()};
+    }
+
+    /** Access all varying storage. */
+    [[nodiscard]]
+    std::span<ml::vec4> varying_span()
+    {
+        return {varyings.data(), varyings.size()};
+    }
+
+    /** Access all varying storage. */
+    [[nodiscard]]
+    std::span<const ml::vec4> varying_span() const
+    {
+        return {varyings.data(), varyings.size()};
+    }
+
+    /** Access the varyings belonging to a single vertex. */
+    [[nodiscard]]
+    std::span<ml::vec4> varyings_for_vertex(std::size_t vertex)
+    {
+        assert(vertex < coord_count);
+
+        if(varying_count == 0)
+        {
+            return {};
+        }
+
+        const std::size_t offset = vertex * varying_count;
+        assert(offset + varying_count <= varyings.size());
+        return {varyings.data() + offset, varying_count};
+    }
+
+    /** Access the varyings belonging to a single vertex. */
+    [[nodiscard]]
+    std::span<const ml::vec4> varyings_for_vertex(
+      std::size_t vertex) const
+    {
+        assert(vertex < coord_count);
+
+        if(varying_count == 0)
+        {
+            return {};
+        }
+
+        const std::size_t offset = vertex * varying_count;
+        assert(offset + varying_count <= varyings.size());
+        return {varyings.data() + offset, varying_count};
     }
 };
 

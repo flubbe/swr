@@ -11,6 +11,9 @@
 #pragma once
 
 /* C++ headers. */
+#include <cassert>
+#include <cstdint>
+#include <span>
 #include <type_traits>
 
 /* boost headers. */
@@ -76,6 +79,56 @@ union uniform
     /** matrix constructor. */
     uniform(const ml::mat4x4& in_m4)
     : m4{in_m4}
+    {
+    }
+};
+
+/** Uniform bindings type. */
+using uniform_bindings = boost::container::static_vector<
+  swr::uniform,
+  swr::limits::max::uniform_locations>;
+
+/* sampler_2d is already defined by the assumed inclusion of swr.h */
+
+/** 2D sampler bindings type. */
+using sampler_2d_bindings = boost::container::static_vector<
+  swr::sampler_2d*,
+  swr::limits::max::texture_units>;
+
+/** Bindings for a program. */
+struct program_instance_bindings
+{
+    /** Uniforms. */
+    std::span<const uniform> uniforms{};
+
+    /** 2D samplers. */
+    std::span<sampler_2d* const> samplers_2d{};
+
+    /** Default constructor. */
+    program_instance_bindings() = default;
+
+    /**
+     * Set up bindings with uniforms only.
+     *
+     * @param uniforms The uniforms to use.
+     */
+    explicit program_instance_bindings(
+      const uniform_bindings& uniforms)
+    : uniforms{uniforms.data(), uniforms.size()}
+    {
+    }
+
+    /**
+     * Set up bindings with uniforms and texture samplers.
+     *
+     * @param uniforms The uniforms to use.
+     * @param samplers_2d The samplers to use.
+     */
+    program_instance_bindings(
+      const uniform_bindings& uniforms,
+      const sampler_2d_bindings& samplers_2d)
+    : uniforms{uniforms.data(), uniforms.size()}
+    , samplers_2d{samplers_2d.data(), samplers_2d.size()}
     {
     }
 };
@@ -155,10 +208,6 @@ inline float fwidth(const varying& v)
     return v.dFdx.length() + v.dFdy.length();
 }
 
-/** maximum number of color attachments. */
-// FIXME this is related more to the framebuffer, which is not implemented.
-constexpr int max_color_attachments = 8;
-
 /** fragment shader results */
 enum fragment_shader_result
 {
@@ -173,14 +222,8 @@ class program_base
     friend class program;
 
 protected:
-    const boost::container::static_vector<
-      swr::uniform,
-      swr::limits::max::uniform_locations>*
-      uniforms{nullptr};
-    boost::container::static_vector<
-      struct sampler_2d*,
-      swr::limits::max::texture_units>
-      samplers;
+    std::span<const uniform> uniforms{};
+    std::span<sampler_2d* const> samplers{};
 
 public:
     program_base() = default;
@@ -195,38 +238,19 @@ public:
     /** return the size (in bytes) of the program. */
     virtual std::size_t size() const = 0;
 
-    /**
-     * create a new vertex shader instance from this program.
-     *
-     * @param mem The memory to store the program object in.
-     * @param uniforms The uniforms for this program instance.
-     * @returns A program instance for execution as a vertex shader.
-     */
-    virtual program_base* create_vertex_shader_instance(
-      void* mem,
-      const boost::container::static_vector<
-        swr::uniform,
-        swr::limits::max::uniform_locations>&
-        uniforms) const = 0;
+    /** return the alignment required for the program. */
+    virtual std::size_t alignment() const = 0;
 
     /**
-     * create a new fragment shader instance from this program.
+     * create a new shader instance from this program.
      *
      * @param mem The memory to store the program object in.
-     * @param uniforms The uniforms for this program instance.
-     * @param samplers_2d The 2d texture samplers for this program instance.
-     * @returns A program instance for execution as a fragment shader.
+     * @param bindings The render state bindings for this program instance.
+     * @returns A program instance for execution.
      */
-    virtual program_base* create_fragment_shader_instance(
+    virtual program_base* create_instance(
       void* mem,
-      const boost::container::static_vector<
-        swr::uniform,
-        swr::limits::max::uniform_locations>&
-        uniforms,
-      const boost::container::static_vector<
-        struct sampler_2d*,
-        swr::limits::max::texture_units>&
-        samplers_2d) const = 0;
+      const program_instance_bindings& bindings) const = 0;
 
     /**
      * pre-link the program.
@@ -254,11 +278,11 @@ public:
     virtual void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
-      [[maybe_unused]] const ml::vec4* attribs,
+      [[maybe_unused]] std::span<const ml::vec4> attribs,
       [[maybe_unused]] ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
-      [[maybe_unused]] float* gl_ClipDistance,
-      [[maybe_unused]] ml::vec4* varyings) const = 0;
+      [[maybe_unused]] std::span<float> gl_ClipDistance,
+      [[maybe_unused]] std::span<ml::vec4> varyings) const = 0;
 
     /**
      * Fragment shader entry point.
@@ -267,10 +291,7 @@ public:
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      [[maybe_unused]] const boost::container::static_vector<
-        swr::varying,
-        swr::limits::max::varyings>&
-        varyings,
+      [[maybe_unused]] std::span<const swr::varying> varyings,
       [[maybe_unused]] float& gl_FragDepth,
       [[maybe_unused]] ml::vec4& gl_FragColor) const = 0;
 };
@@ -297,25 +318,13 @@ public:
     program& operator=(const program&) = default;
     program& operator=(program&&) = default;
 
-    ~program() = default;
+    ~program() override = default;
 
     std::size_t size() const override;
-    program_base* create_vertex_shader_instance(
+    std::size_t alignment() const override;
+    program_base* create_instance(
       void* mem,
-      const boost::container::static_vector<
-        swr::uniform,
-        swr::limits::max::uniform_locations>&
-        uniforms) const override;
-    program_base* create_fragment_shader_instance(
-      void* mem,
-      const boost::container::static_vector<
-        swr::uniform,
-        swr::limits::max::uniform_locations>&
-        uniforms,
-      const boost::container::static_vector<
-        struct sampler_2d*,
-        swr::limits::max::texture_units>&
-        samplers_2d) const override;
+      const program_instance_bindings& bindings) const override;
 };
 
 template<typename T>
@@ -325,32 +334,20 @@ std::size_t program<T>::size() const
 }
 
 template<typename T>
-program_base* program<T>::create_vertex_shader_instance(
-  void* mem,
-  const boost::container::static_vector<
-    swr::uniform,
-    swr::limits::max::uniform_locations>&
-    uniforms) const
+std::size_t program<T>::alignment() const
 {
-    auto* new_program = new(mem) T{static_cast<const T&>(*this)};
-    new_program->uniforms = &uniforms;
-    return static_cast<program_base*>(new_program);
+    return alignof(T);
 }
 
 template<typename T>
-program_base* program<T>::create_fragment_shader_instance(
+program_base* program<T>::create_instance(
   void* mem,
-  const boost::container::static_vector<
-    swr::uniform, swr::limits::max::uniform_locations>&
-    uniforms,
-  const boost::container::static_vector<
-    struct sampler_2d*,
-    swr::limits::max::texture_units>&
-    samplers_2d) const
+  const program_instance_bindings& bindings) const
 {
+    assert(reinterpret_cast<std::uintptr_t>(mem) % alignof(T) == 0);
     auto* new_program = new(mem) T{static_cast<const T&>(*this)};
-    new_program->uniforms = &uniforms;
-    new_program->samplers = samplers_2d;
+    new_program->uniforms = bindings.uniforms;
+    new_program->samplers = bindings.samplers_2d;
     return static_cast<program_base*>(new_program);
 }
 

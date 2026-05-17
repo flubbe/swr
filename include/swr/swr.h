@@ -21,6 +21,7 @@
 #include <SDL3/SDL.h>
 
 /* user headers. */
+#include "limits.h"
 #include "ml/all.h"
 
 /*
@@ -359,14 +360,6 @@ void ActiveTexture(std::uint32_t unit);
 void BindTexture(texture_target target, std::uint32_t id);
 
 /**
- * Allocate texture storage.
- * @param texture_id id of the texture
- * @param width the width of base level of the texture
- * @param height the height of base level of the texture
- */
-void AllocateImage(std::uint32_t texture_id, std::size_t width, std::size_t height);
-
-/**
  * Allocate texture storage and, if data is non-empty, set the image data of a texture.
  * @param texture_id id of the texture
  * @param level the mipmap level of data
@@ -573,7 +566,7 @@ enum class framebuffer_target
  */
 void BindFramebufferObject(framebuffer_target target, std::uint32_t id);
 
-/** fraembuffer attachment names. */
+/** framebuffer attachment names. */
 enum class framebuffer_attachment
 {
     color_attachment_0 = 0, /** color attachment 0 */
@@ -584,8 +577,13 @@ enum class framebuffer_attachment
     color_attachment_5 = 5, /** color attachment 5 */
     color_attachment_6 = 6, /** color attachment 6 */
     color_attachment_7 = 7, /** color attachment 7 */
-    depth_attachment = 8    /** depth attachment */
+    depth_attachment = limits::max::color_attachments /** depth attachment */
 };
+
+static_assert(
+  static_cast<int>(framebuffer_attachment::color_attachment_7) + 1
+    == limits::max::color_attachments,
+  "Framebuffer color attachment enum must match limits::max::color_attachments.");
 
 /**
  * Attach a texture or a depth buffer to a framebuffer object.

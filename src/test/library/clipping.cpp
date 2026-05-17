@@ -71,7 +71,8 @@ auto get_bits = [](float f) -> std::uint32_t
 
 static void check_vertex_buffers_equal_bitwise(
   const swr::impl::vertex_buffer& a,
-  const swr::impl::vertex_buffer& b)
+  const swr::impl::vertex_buffer& b,
+  std::uint32_t varying_count = 0)
 {
     BOOST_REQUIRE_EQUAL(a.size(), b.size());
     for(std::size_t i = 0; i < a.size(); ++i)
@@ -81,6 +82,18 @@ static void check_vertex_buffers_equal_bitwise(
         BOOST_CHECK_EQUAL(get_bits(a[i].coords.z), get_bits(b[i].coords.z));
         BOOST_CHECK_EQUAL(get_bits(a[i].coords.w), get_bits(b[i].coords.w));
         BOOST_CHECK_EQUAL(a[i].flags, b[i].flags);
+        BOOST_CHECK_EQUAL(a[i].flat_varying_ref == nullptr, b[i].flat_varying_ref == nullptr);
+        if(a[i].flat_varying_ref != nullptr
+           && b[i].flat_varying_ref != nullptr)
+        {
+            for(std::uint32_t j = 0; j < varying_count; ++j)
+            {
+                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].x), get_bits(b[i].flat_varying_ref[j].x));
+                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].y), get_bits(b[i].flat_varying_ref[j].y));
+                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].z), get_bits(b[i].flat_varying_ref[j].z));
+                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].w), get_bits(b[i].flat_varying_ref[j].w));
+            }
+        }
     }
 }
 
@@ -173,7 +186,7 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
 
         obj.allocate_coords(2);
 
-        if(obj.coords == nullptr)
+        if(obj.coords.empty())
         {
             BOOST_FAIL("Failed to allocate coords.");
         }
@@ -393,7 +406,7 @@ BOOST_AUTO_TEST_CASE(line_clip_range_parity)
           std::end(chunk));
     }
 
-    check_vertex_buffers_equal_bitwise(full, stitched);
+    check_vertex_buffers_equal_bitwise(full, stitched, info.varying_count);
 }
 
 BOOST_AUTO_TEST_CASE(triangle_clip_range_parity)
@@ -452,7 +465,102 @@ BOOST_AUTO_TEST_CASE(triangle_clip_range_parity)
           std::end(chunk));
     }
 
-    check_vertex_buffers_equal_bitwise(full, stitched);
+    check_vertex_buffers_equal_bitwise(full, stitched, info.varying_count);
+}
+
+BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference)
+{
+    swr::impl::render_object obj;
+    swr::impl::program_info info;
+    info.iqs.emplace_back(swr::interpolation_qualifier::flat);
+    info.varying_count = 1;
+    obj.states.shader_info = &info;
+
+    obj.allocate_coords(3);
+    obj.allocate_varyings(1);
+    obj.indices = {0, 1, 2};
+    obj.vertex_flags.assign(3, 0);
+
+    obj.coords[0] = {-2.0f, 0.0f, 0.0f, 1.0f};
+    obj.coords[1] = {0.0f, 0.8f, 0.0f, 1.0f};
+    obj.coords[2] = {0.0f, -0.8f, 0.0f, 1.0f};
+    obj.vertex_flags[0] |= geom::vf_clip_discard;
+
+    obj.varyings[0] = {11.0f, 1.0f, 2.0f, 3.0f};
+    obj.varyings[1] = {22.0f, 4.0f, 5.0f, 6.0f};
+    obj.varyings[2] = {33.0f, 7.0f, 8.0f, 9.0f};
+
+    swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::triangle_list);
+
+    BOOST_REQUIRE_GE(obj.clipped_vertices.size(), 3);
+    BOOST_REQUIRE_EQUAL(obj.clipped_vertices.size() % 3, 0);
+
+    for(std::size_t i = 0; i < obj.clipped_vertices.size(); i += 3)
+    {
+        const geom::vertex& emitted_first = obj.clipped_vertices[i];
+        BOOST_REQUIRE(emitted_first.flat_varying_ref != nullptr);
+
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].x), get_bits(obj.varyings[0].x));
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].y), get_bits(obj.varyings[0].y));
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].z), get_bits(obj.varyings[0].z));
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].w), get_bits(obj.varyings[0].w));
+    }
+}
+
+BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference_per_input_triangle)
+{
+    swr::impl::render_object obj;
+    swr::impl::program_info info;
+    info.iqs.emplace_back(swr::interpolation_qualifier::flat);
+    info.varying_count = 1;
+    obj.states.shader_info = &info;
+
+    obj.allocate_coords(6);
+    obj.allocate_varyings(1);
+    obj.indices = {0, 1, 2, 3, 4, 5};
+    obj.vertex_flags.assign(6, 0);
+
+    obj.coords[0] = {-2.0f, 0.0f, 0.0f, 1.0f};
+    obj.coords[1] = {0.0f, 0.8f, 0.0f, 1.0f};
+    obj.coords[2] = {0.0f, -0.8f, 0.0f, 1.0f};
+    obj.vertex_flags[0] |= geom::vf_clip_discard;
+
+    obj.coords[3] = {2.0f, 0.0f, 0.0f, 1.0f};
+    obj.coords[4] = {0.0f, -0.9f, 0.0f, 1.0f};
+    obj.coords[5] = {0.0f, 0.9f, 0.0f, 1.0f};
+    obj.vertex_flags[3] |= geom::vf_clip_discard;
+
+    obj.varyings[0] = {11.0f, 1.0f, 2.0f, 3.0f};
+    obj.varyings[1] = {12.0f, 1.0f, 2.0f, 3.0f};
+    obj.varyings[2] = {13.0f, 1.0f, 2.0f, 3.0f};
+    obj.varyings[3] = {44.0f, 4.0f, 5.0f, 6.0f};
+    obj.varyings[4] = {45.0f, 4.0f, 5.0f, 6.0f};
+    obj.varyings[5] = {46.0f, 4.0f, 5.0f, 6.0f};
+
+    swr::impl::clip_triangle_buffer(obj, swr::impl::clip_output::triangle_list);
+
+    BOOST_REQUIRE_EQUAL(obj.clipped_vertices.size(), 12);
+
+    auto check_flat_reference = [&](std::size_t emitted_vertex, std::size_t source_vertex)
+    {
+        const geom::vertex& emitted = obj.clipped_vertices[emitted_vertex];
+        BOOST_REQUIRE(emitted.flat_varying_ref != nullptr);
+
+        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].x), get_bits(obj.varyings[source_vertex].x));
+        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].y), get_bits(obj.varyings[source_vertex].y));
+        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].z), get_bits(obj.varyings[source_vertex].z));
+        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].w), get_bits(obj.varyings[source_vertex].w));
+    };
+
+    for(std::size_t i = 0; i < 6; i += 3)
+    {
+        check_flat_reference(i, 0);
+    }
+
+    for(std::size_t i = 6; i < obj.clipped_vertices.size(); i += 3)
+    {
+        check_flat_reference(i, 3);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END();

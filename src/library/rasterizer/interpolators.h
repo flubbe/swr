@@ -8,6 +8,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <span>
+
 namespace rast
 {
 
@@ -308,10 +310,10 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     triangle_interpolator(
       const ml::vec2 screen_coords,
       const ml::vec4& v0_coords, const ml::vec4& v1_coords, const ml::vec4& v2_coords,
-      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& v0_varyings,
-      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& v1_varyings,
-      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& v2_varyings,
-      const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& vref_varyings,
+      std::span<const ml::vec4> v0_varyings,
+      std::span<const ml::vec4> v1_varyings,
+      std::span<const ml::vec4> v2_varyings,
+      std::span<const ml::vec4> vref_varyings,
       const boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs,
       float one_over_area,
       float polygon_offset)

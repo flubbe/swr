@@ -4,7 +4,7 @@
  * vertex shader and fragment shader support.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -23,6 +23,16 @@ namespace impl
 constexpr int default_shader_index = 0;
 static_assert(default_shader_index == 0, "The default shader must be at index 0.");
 
+static bool has_flat_varyings(
+  const boost::container::static_vector<
+    swr::interpolation_qualifier,
+    swr::limits::max::varyings>& iqs)
+{
+    return std::ranges::contains(
+      iqs,
+      swr::interpolation_qualifier::flat);
+}
+
 /** Default (empty) program. */
 class default_program : public program<default_program>
 {
@@ -39,11 +49,11 @@ public:
     void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
-      [[maybe_unused]] const ml::vec4* attribs,
+      [[maybe_unused]] std::span<const ml::vec4> attribs,
       [[maybe_unused]] ml::vec4& gl_Position,
       [[maybe_unused]] float& gl_PointSize,
-      [[maybe_unused]] float* gl_ClipDistance,
-      [[maybe_unused]] ml::vec4* varyings) const override
+      [[maybe_unused]] std::span<float> gl_ClipDistance,
+      [[maybe_unused]] std::span<ml::vec4> varyings) const override
     {
     }
 
@@ -51,10 +61,7 @@ public:
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
       [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      [[maybe_unused]] const boost::container::static_vector<
-        swr::varying,
-        swr::limits::max::varyings>&
-        varyings,
+      [[maybe_unused]] std::span<const swr::varying> varyings,
       [[maybe_unused]] float& gl_FragDepth,
       [[maybe_unused]] ml::vec4& gl_FragColor) const override
     {
@@ -78,6 +85,10 @@ void create_default_shader(render_context* context)
     // pre-link the shader and initialize varying count.
     default_shader->pre_link(pi.iqs);
     pi.varying_count = pi.iqs.size();
+    if(has_flat_varyings(pi.iqs))
+    {
+        pi.flags |= swr::impl::program_flags::has_flat_varyings;
+    }
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // the default shader needs to be at position 0.
@@ -107,7 +118,9 @@ std::uint32_t RegisterShader(const program_base* in_shader)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(!in_shader || in_shader->size() < sizeof(program_base))
+    if(!in_shader
+       || in_shader->size() < sizeof(program_base)
+       || !std::has_single_bit(in_shader->alignment()))
     {
         return 0;
     }
@@ -120,6 +133,10 @@ std::uint32_t RegisterShader(const program_base* in_shader)
     // pi.is_prelinked().
     in_shader->pre_link(pi.iqs);
     pi.varying_count = pi.iqs.size();
+    if(impl::has_flat_varyings(pi.iqs))
+    {
+        pi.flags |= swr::impl::program_flags::has_flat_varyings;
+    }
 
     pi.flags |= swr::impl::program_flags::prelinked;
 

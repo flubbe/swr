@@ -4,9 +4,13 @@
  * rasterizer tile cache.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
+
+#pragma once
+
+#include "block.h"
 
 namespace rast
 {
@@ -16,11 +20,10 @@ namespace rast
 #endif
 
 /** primitive data associated to a tile. currently only implemented for triangles. */
-class tile_info
+struct tile_info
 {
-public:
     /** rasterization modes for this block. */
-    enum class rasterization_mode : unsigned char
+    enum class rasterization_mode : std::uint8_t
     {
         block = 0,  /** we unconditionally rasterize the whole block. */
         checked = 1 /** we need to check each pixel if it belongs to the primitive. */
@@ -35,6 +38,9 @@ public:
     /** barycentric coordinates for checked mode; nullptr for full block mode. */
     const geom::barycentric_coordinate_block* checked_lambdas{nullptr};
 
+    /** quad iteration bounds for checked mode. */
+    quad_bounds checked_quad_bounds{};
+
     /** index into tile::shader_instances. */
     std::size_t shader_index{0};
 
@@ -46,27 +52,27 @@ public:
 
     /** constructors. */
     tile_info() = default;
+    tile_info(const tile_info&) = default;
     tile_info(tile_info&&) = default;
 
-    tile_info(const tile_info&) = default;
     tile_info& operator=(const tile_info&) = default;
     tile_info& operator=(tile_info&&) = default;
 
     /**
      * initializing constructor.
-     *
-     * NOTE This instantiates the shader.
      */
     tile_info(
       const swr::impl::render_states* in_states,
       std::size_t in_shader_index,
       const geom::barycentric_coordinate_block* in_checked_lambdas,
+      quad_bounds in_checked_quad_bounds,
       triangle_interpolator* in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
     : states{in_states}
     , attributes{in_attributes}
     , checked_lambdas{in_checked_lambdas}
+    , checked_quad_bounds{in_checked_quad_bounds}
     , shader_index{in_shader_index}
     , mode{in_mode}
     , front_facing{in_front_facing}
@@ -81,14 +87,17 @@ struct tile
     struct tile_fragment_shader_instance
     {
         const swr::impl::render_states* states{nullptr};
-        std::vector<std::byte> shader_storage;
+        swr::impl::shader_storage_buffer shader_storage;
         const swr::program_base* shader{nullptr};
 
         tile_fragment_shader_instance() = default;
-        tile_fragment_shader_instance(const tile_fragment_shader_instance&) = delete;
-        tile_fragment_shader_instance& operator=(const tile_fragment_shader_instance&) = delete;
+        tile_fragment_shader_instance(
+          const tile_fragment_shader_instance&) = delete;
+        tile_fragment_shader_instance& operator=(
+          const tile_fragment_shader_instance&) = delete;
 
-        tile_fragment_shader_instance(tile_fragment_shader_instance&& other) noexcept
+        tile_fragment_shader_instance(
+          tile_fragment_shader_instance&& other) noexcept
         : states{other.states}
         , shader_storage{std::move(other.shader_storage)}
         , shader{other.shader}
@@ -97,7 +106,8 @@ struct tile
             other.states = nullptr;
         }
 
-        tile_fragment_shader_instance& operator=(tile_fragment_shader_instance&& other) noexcept
+        tile_fragment_shader_instance& operator=(
+          tile_fragment_shader_instance&& other) noexcept
         {
             if(this != &other)
             {
@@ -114,14 +124,23 @@ struct tile
             return *this;
         }
 
-        explicit tile_fragment_shader_instance(const swr::impl::render_states* in_states)
+        explicit tile_fragment_shader_instance(
+          const swr::impl::render_states* in_states)
         : states{in_states}
-        , shader_storage{in_states->shader_info->shader->size()}
-        , shader{in_states->shader_info->shader->create_fragment_shader_instance(
-            shader_storage.data(),
-            in_states->uniforms,
-            in_states->texture_2d_samplers)}
+        , shader_storage{
+            in_states->shader_info->program_size,
+            in_states->shader_info->program_alignment}
         {
+            assert(std::has_single_bit(in_states->shader_info->program_alignment));
+            assert(
+              reinterpret_cast<std::uintptr_t>(shader_storage.data())
+                % in_states->shader_info->program_alignment
+              == 0);
+            shader = in_states->shader_info->shader->create_instance(
+              shader_storage.data(),
+              swr::program_instance_bindings{
+                in_states->uniforms,
+                in_states->texture_2d_samplers});
         }
 
         ~tile_fragment_shader_instance()
@@ -135,7 +154,9 @@ struct tile
 
     /** maximum number of primitives for a tile. */
     constexpr static int max_primitive_count = SWR_TILE_CACHE_PRIMITIVE_CAPACITY;
-    static_assert(max_primitive_count > 0, "SWR_TILE_CACHE_PRIMITIVE_CAPACITY must be > 0");
+    static_assert(
+      max_primitive_count > 0,
+      "SWR_TILE_CACHE_PRIMITIVE_CAPACITY must be > 0");
 
     /** viewport x coordinate of the upper-left corner. */
     unsigned int x{0};
@@ -144,10 +165,22 @@ struct tile
     unsigned int y{0};
 
     /** primitives associated to this tile. */
-    boost::container::static_vector<tile_info, max_primitive_count> primitives;
-    boost::container::static_vector<triangle_interpolator, max_primitive_count> primitive_attributes;
-    boost::container::static_vector<geom::barycentric_coordinate_block, max_primitive_count> primitive_checked_lambdas;
-    std::vector<tile_fragment_shader_instance, utils::allocator<tile_fragment_shader_instance>> shader_instances;
+    boost::container::static_vector<
+      tile_info,
+      max_primitive_count>
+      primitives;
+    boost::container::static_vector<
+      triangle_interpolator,
+      max_primitive_count>
+      primitive_attributes;
+    boost::container::static_vector<
+      geom::barycentric_coordinate_block,
+      max_primitive_count>
+      primitive_checked_lambdas;
+    std::vector<
+      tile_fragment_shader_instance,
+      utils::allocator<tile_fragment_shader_instance>>
+      shader_instances;
     const swr::impl::render_states* last_shader_state{nullptr};
     std::size_t last_shader_index{0};
 
@@ -166,7 +199,8 @@ struct tile
     {
     }
 
-    std::size_t get_fragment_shader_index(const swr::impl::render_states* in_states)
+    std::size_t get_fragment_shader_index(
+      const swr::impl::render_states* in_states)
     {
         if(last_shader_state == in_states
            && last_shader_index < shader_instances.size()
@@ -207,7 +241,10 @@ struct tile_cache
     int pitch{0};
 
     /** tiles. */
-    std::vector<tile, utils::allocator<tile>> entries;
+    std::vector<
+      tile,
+      utils::allocator<tile>>
+      entries;
     std::vector<std::uint32_t> active_tile_indices;
 
     /** constructors. */
@@ -219,13 +256,16 @@ struct tile_cache
     tile_cache& operator=(tile_cache&&) = delete;
 
     /** reset tile cache. */
-    void reset(unsigned int in_tiles_x = 0, unsigned int in_tiles_y = 0)
+    void reset(
+      unsigned int in_tiles_x = 0,
+      unsigned int in_tiles_y = 0)
     {
         entries.clear();
         active_tile_indices.clear();
         pitch = 0;
 
-        if(in_tiles_x > 0 && in_tiles_y > 0)
+        if(in_tiles_x > 0
+           && in_tiles_y > 0)
         {
             // allocate tile cache.
             entries.resize(in_tiles_x * in_tiles_y);
@@ -236,7 +276,9 @@ struct tile_cache
             {
                 for(unsigned int x = 0; x < in_tiles_x; ++x)
                 {
-                    entries[y * pitch + x] = tile(x * swr::impl::rasterizer_block_size, y * swr::impl::rasterizer_block_size);
+                    entries[y * pitch + x] = {
+                      x * swr::impl::rasterizer_block_size,
+                      y * swr::impl::rasterizer_block_size};
                 }
             }
         }
@@ -271,11 +313,14 @@ struct tile_cache
       unsigned int in_y,
       const swr::impl::render_states* in_states,
       const geom::barycentric_coordinate_block& in_lambdas,
+      quad_bounds in_quad_bounds,
       const triangle_interpolator& in_attributes,
       bool in_front_facing)
     {
         // find the tile's coordinates.
-        unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
+        unsigned int tile_index =
+          (in_y >> swr::impl::rasterizer_block_shift) * pitch
+          + (in_x >> swr::impl::rasterizer_block_shift);
         assert(tile_index < entries.size());
 
         auto& tile = entries[tile_index];
@@ -299,6 +344,7 @@ struct tile_cache
           in_states,
           shader_index,
           &checked_lambdas_ref,
+          in_quad_bounds,
           &attributes_ref,
           in_front_facing,
           tile_info::rasterization_mode::checked);
@@ -340,12 +386,15 @@ struct tile_cache
               in_y,
               in_states,
               in_lambdas,
+              full_block_quad_bounds(in_x, in_y),
               in_attributes,
               in_front_facing);
         }
 
         // find the tile's coordinates.
-        unsigned int tile_index = (in_y >> swr::impl::rasterizer_block_shift) * pitch + (in_x >> swr::impl::rasterizer_block_shift);
+        unsigned int tile_index =
+          (in_y >> swr::impl::rasterizer_block_shift) * pitch
+          + (in_x >> swr::impl::rasterizer_block_shift);
         assert(tile_index < entries.size());
 
         auto& tile = entries[tile_index];
@@ -368,6 +417,7 @@ struct tile_cache
           in_states,
           shader_index,
           nullptr,
+          full_block_quad_bounds(in_x, in_y),
           &attributes_ref,
           in_front_facing,
           in_mode);

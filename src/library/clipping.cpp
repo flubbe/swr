@@ -7,13 +7,16 @@
  *  [1] http://fabiensanglard.net/polygon_codec/
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 #include <span>
 #include <vector>
 #include <algorithm>
+#include <limits>
+
+#include <boost/container/static_vector.hpp>
 
 /* user headers. */
 #include "swr_internal.h"
@@ -38,6 +41,13 @@ constexpr float W_CLIPPING_PLANE = 1e-5f;
  * The scaling is always towards the vertex outside the clipping region.
  */
 constexpr float SCALE_INTERSECTION_PARAMETER = 1.0001f;
+
+constexpr std::size_t MAX_CLIPPED_TRIANGLE_VERTICES = 16;
+
+using clipped_vertex_buffer =
+  boost::container::static_vector<
+    geom::vertex,
+    MAX_CLIPPED_TRIANGLE_VERTICES>;
 
 /**
  * clip with respect to these axes. more precisely, clip against the
@@ -136,11 +146,11 @@ static geom::vertex intersect(
  *
  * This is intentionally not treated as a closed polygon.
  */
-static std::vector<geom::vertex> clip_line_segment_against_plane(
+static clipped_vertex_buffer clip_line_segment_against_plane(
   std::span<const geom::vertex> in_line,
   const plane p)
 {
-    std::vector<geom::vertex> out;
+    clipped_vertex_buffer out;
 
     if(in_line.size() != 2)
     {
@@ -180,17 +190,18 @@ static std::vector<geom::vertex> clip_line_segment_against_plane(
  *
  * Handles triangles and general polygons.
  */
-static std::vector<geom::vertex> clip_closed_polygon_against_plane(
+static clipped_vertex_buffer clip_closed_polygon_against_plane(
   std::span<const geom::vertex> in_poly,
   const plane p)
 {
-    std::vector<geom::vertex> out;
+    clipped_vertex_buffer out;
 
     if(in_poly.empty())
     {
         return out;
     }
 
+    assert(in_poly.size() < out.max_size());
     out.reserve(in_poly.size() + 1);
 
     const geom::vertex* prev_vert = &in_poly.back();
@@ -221,30 +232,34 @@ static std::vector<geom::vertex> clip_closed_polygon_against_plane(
     return out;
 }
 
-static std::vector<geom::vertex> clip_polygon_against_enabled_frustum_planes(std::span<const geom::vertex> poly)
+static clipped_vertex_buffer clip_polygon_against_enabled_frustum_planes(const clipped_vertex_buffer& poly)
 {
-    std::vector<geom::vertex> result = clip_closed_polygon_against_plane(poly, plane{plane_kind::w_min, z_axis});
+    clipped_vertex_buffer result = clip_closed_polygon_against_plane(
+      {poly.data(), poly.size()},
+      plane{plane_kind::w_min, z_axis});
 
-    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_positive, x_axis});
-    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_negative, x_axis});
-    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_positive, y_axis});
-    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_negative, y_axis});
-    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_positive, z_axis});
-    result = clip_closed_polygon_against_plane(result, plane{plane_kind::axis_negative, z_axis});
+    result = clip_closed_polygon_against_plane({result.data(), result.size()}, plane{plane_kind::axis_positive, x_axis});
+    result = clip_closed_polygon_against_plane({result.data(), result.size()}, plane{plane_kind::axis_negative, x_axis});
+    result = clip_closed_polygon_against_plane({result.data(), result.size()}, plane{plane_kind::axis_positive, y_axis});
+    result = clip_closed_polygon_against_plane({result.data(), result.size()}, plane{plane_kind::axis_negative, y_axis});
+    result = clip_closed_polygon_against_plane({result.data(), result.size()}, plane{plane_kind::axis_positive, z_axis});
+    result = clip_closed_polygon_against_plane({result.data(), result.size()}, plane{plane_kind::axis_negative, z_axis});
 
     return result;
 }
 
-static std::vector<geom::vertex> clip_line_against_enabled_frustum_planes(std::span<const geom::vertex> line)
+static clipped_vertex_buffer clip_line_against_enabled_frustum_planes(const clipped_vertex_buffer& line)
 {
-    std::vector<geom::vertex> result = clip_line_segment_against_plane(line, plane{plane_kind::w_min, z_axis});
+    clipped_vertex_buffer result = clip_line_segment_against_plane(
+      {line.data(), line.size()},
+      plane{plane_kind::w_min, z_axis});
 
-    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_positive, x_axis});
-    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_negative, x_axis});
-    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_positive, y_axis});
-    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_negative, y_axis});
-    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_positive, z_axis});
-    result = clip_line_segment_against_plane(result, plane{plane_kind::axis_negative, z_axis});
+    result = clip_line_segment_against_plane({result.data(), result.size()}, plane{plane_kind::axis_positive, x_axis});
+    result = clip_line_segment_against_plane({result.data(), result.size()}, plane{plane_kind::axis_negative, x_axis});
+    result = clip_line_segment_against_plane({result.data(), result.size()}, plane{plane_kind::axis_positive, y_axis});
+    result = clip_line_segment_against_plane({result.data(), result.size()}, plane{plane_kind::axis_negative, y_axis});
+    result = clip_line_segment_against_plane({result.data(), result.size()}, plane{plane_kind::axis_positive, z_axis});
+    result = clip_line_segment_against_plane({result.data(), result.size()}, plane{plane_kind::axis_negative, z_axis});
 
     return result;
 }
@@ -265,45 +280,128 @@ static geom::vertex load_vertex(
 
     geom::vertex v;
     v.coords = obj.coords[index];
-    v.varyings.resize(varying_count);
-    const std::size_t varying_offset = static_cast<std::size_t>(index) * varying_count;
-    std::copy_n(
-      obj.varyings + varying_offset,
-      varying_count,
-      v.varyings.begin());
+    const auto vertex_varyings = obj.varyings_for_vertex(index);
+    v.varyings.assign(
+      std::begin(vertex_varyings),
+      std::end(vertex_varyings));
 
     v.flags = obj.vertex_flags[index];
     return v;
 }
 
-static std::vector<geom::vertex> load_line_vertices(
+static clipped_vertex_buffer load_line_vertices(
   const render_object& obj,
   const std::array<std::uint32_t, 2>& indices)
 {
-    std::vector<geom::vertex> line;
+    clipped_vertex_buffer line;
     line.reserve(2);
     line.emplace_back(load_vertex(obj, indices[0]));
     line.emplace_back(load_vertex(obj, indices[1]));
     return line;
 }
 
-static std::vector<geom::vertex> load_triangle_vertices(
+static clipped_vertex_buffer load_triangle_vertices(
   const render_object& obj,
   const std::array<std::uint32_t, 3> indices)
 {
-    std::vector<geom::vertex> tri;
+    clipped_vertex_buffer tri;
     tri.reserve(3);
-    tri.emplace_back(load_vertex(obj, indices[0]));
-    tri.emplace_back(load_vertex(obj, indices[1]));
-    tri.emplace_back(load_vertex(obj, indices[2]));
+
+    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
+    const ml::vec4* flat_varying_ref = nullptr;
+    if(varying_count > 0)
+    {
+        flat_varying_ref = obj.varyings_for_vertex(indices[0]).data();
+    }
+
+    auto append_vertex = [&](std::uint32_t index)
+    {
+        geom::vertex v = load_vertex(obj, index);
+        v.flat_varying_ref = flat_varying_ref;
+        tri.emplace_back(v);
+    };
+
+    append_vertex(indices[0]);
+    append_vertex(indices[1]);
+    append_vertex(indices[2]);
+
     return tri;
 }
 
 static void append_vertices(
   vertex_buffer& dst,
-  const std::vector<geom::vertex>& src)
+  const clipped_vertex_buffer& src)
 {
     dst.insert(std::end(dst), std::begin(src), std::end(src));
+}
+
+static float ndc_bbox_area(
+  const ml::vec2& a,
+  const ml::vec2& b,
+  const ml::vec2& c)
+{
+    const float x_min = std::min({a.x, b.x, c.x});
+    const float x_max = std::max({a.x, b.x, c.x});
+    const float y_min = std::min({a.y, b.y, c.y});
+    const float y_max = std::max({a.y, b.y, c.y});
+
+    return (x_max - x_min) * (y_max - y_min);
+}
+
+static void append_convex_polygon_as_fan_min_projected_bbox(
+  vertex_buffer& out_vertices,
+  const clipped_vertex_buffer& poly)
+{
+    const std::size_t n = poly.size();
+    assert(n >= 3);
+
+    if(n == 3)
+    {
+        append_vertices(out_vertices, poly);
+        return;
+    }
+
+    assert(n <= MAX_CLIPPED_TRIANGLE_VERTICES);
+    boost::container::static_vector<ml::vec2, MAX_CLIPPED_TRIANGLE_VERTICES> ndc_coords;
+
+    for(const geom::vertex& v: poly)
+    {
+        const float inv_w = 1.0f / v.coords.w;    // FIXME division
+        ndc_coords.emplace_back(ml::vec2{
+          v.coords.x * inv_w,
+          v.coords.y * inv_w});
+    }
+
+    std::size_t best_center = 0;
+    float best_cost = std::numeric_limits<float>::infinity();
+
+    for(std::size_t center = 0; center < n; ++center)
+    {
+        float cost = 0.0f;
+        for(std::size_t step = 1; step + 1 < n; ++step)
+        {
+            const ml::vec2& a = ndc_coords[center];
+            const ml::vec2& b = ndc_coords[(center + step) % n];
+            const ml::vec2& c = ndc_coords[(center + step + 1) % n];
+            cost += ndc_bbox_area(a, b, c);
+        }
+
+        if(cost < best_cost)
+        {
+            best_cost = cost;
+            best_center = center;
+        }
+    }
+
+    const geom::vertex& center = poly[best_center];
+    for(std::size_t step = 1; step + 1 < n; ++step)
+    {
+        const geom::vertex& b = poly[(best_center + step) % n];
+        const geom::vertex& c = poly[(best_center + step + 1) % n];
+        out_vertices.emplace_back(center);
+        out_vertices.emplace_back(b);
+        out_vertices.emplace_back(c);
+    }
 }
 
 }    // namespace clip_detail
@@ -360,7 +458,7 @@ void clip_line_buffer_range(
 
         if(needs_clipping)
         {
-            std::vector<geom::vertex> clipped_line =
+            clipped_vertex_buffer clipped_line =
               clip_detail::clip_line_against_enabled_frustum_planes(
                 clip_detail::load_line_vertices(obj, indices));
 
@@ -426,6 +524,10 @@ void clip_triangle_buffer_range(
     out_vertices.clear();
     out_vertices.reserve((index_end - index_begin) * 2);
 
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t emitted_triangles = 0;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     for(std::size_t index_it = index_begin; index_it < index_end; index_it += 3)
     {
         const std::array<std::uint32_t, 3> indices = {
@@ -440,7 +542,7 @@ void clip_triangle_buffer_range(
 
         if(needs_clipping)
         {
-            std::vector<geom::vertex> clipped_triangle =
+            clipped_vertex_buffer clipped_triangle =
               clip_detail::clip_polygon_against_enabled_frustum_planes(
                 clip_detail::load_triangle_vertices(obj, indices));
 
@@ -458,20 +560,15 @@ void clip_triangle_buffer_range(
                     && clipped_triangle.size() >= 3)
             {
                 // By construction a clipped triangle forms a convex polygon.
-                // Thus, we can construct it as a triangle fan by selecting an arbitrary vertex as its center.
-                const geom::vertex& center = clipped_triangle.front();
-                const geom::vertex* previous = &clipped_triangle[1];
+                // Choose the fan center that minimizes the sum of projected triangle
+                // bounding-box areas to reduce raster-side overdraw/work.
+                clip_detail::append_convex_polygon_as_fan_min_projected_bbox(
+                  out_vertices,
+                  clipped_triangle);
 
-                for(std::size_t i = 2; i < clipped_triangle.size(); ++i)
-                {
-                    const geom::vertex* current = &clipped_triangle[i];
-
-                    out_vertices.emplace_back(center);
-                    out_vertices.emplace_back(*previous);
-                    out_vertices.emplace_back(*current);
-
-                    previous = current;
-                }
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                emitted_triangles += (clipped_triangle.size() - 2);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
             }
         }
         else
@@ -503,9 +600,22 @@ void clip_triangle_buffer_range(
                   clip_detail::load_vertex(obj, indices[1]));
                 out_vertices.emplace_back(
                   clip_detail::load_vertex(obj, indices[2]));
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                emitted_triangles += 1;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
             }
         }
     }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    if(output_type == triangle_list)
+    {
+        const std::uint64_t input_triangles = static_cast<std::uint64_t>((index_end - index_begin) / 3);
+        swr::impl::profile_clip_input_triangles.fetch_add(input_triangles, std::memory_order_relaxed);
+        swr::impl::profile_clip_output_triangles.fetch_add(emitted_triangles, std::memory_order_relaxed);
+    }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
 } /* namespace impl */

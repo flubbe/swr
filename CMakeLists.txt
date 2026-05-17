@@ -1,5 +1,5 @@
 #
-# authors: Felix Lubbe
+# author: Felix Lubbe
 #
 
 cmake_minimum_required(VERSION 3.22.0)

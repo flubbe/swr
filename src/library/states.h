@@ -4,7 +4,7 @@
  * render pipeline state management.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -17,6 +17,11 @@ namespace swr
 
 namespace impl
 {
+
+/** 2D texture bindings type. */
+using texture_2d_bindings = boost::container::static_vector<
+  struct texture_2d*,
+  swr::limits::max::texture_units>;
 
 /** States that are set on a per-primitive basis. */
 struct render_states
@@ -56,28 +61,25 @@ struct render_states
     blend_func blend_dst{blend_func::zero};
 
     /* texture units. */
-    boost::container::static_vector<struct texture_2d*, swr::limits::max::texture_units> texture_2d_units; /* the context owns the textures. */
+    texture_2d_bindings texture_2d_units; /* the context owns the textures. */
     std::uint32_t texture_2d_active_unit{0};
-    boost::container::static_vector<struct sampler_2d*, swr::limits::max::texture_units> texture_2d_samplers; /* the textures own their samplers. */
+    sampler_2d_bindings texture_2d_samplers; /* the textures own their samplers. */
 
     /* shaders */
     struct program_info* shader_info{nullptr}; /* the context owns the shader info */
-    boost::container::static_vector<swr::uniform, swr::limits::max::uniform_locations> uniforms;
+    uniform_bindings uniforms;
 
     /* framebuffer. this needs to be always valid for the drawing functions. */
     struct framebuffer_draw_target* draw_target{nullptr};
 
-    /** default constructor. */
+    /** default constructors. */
     render_states() = default;
-
-    /** default copy constructor. */
     render_states(const render_states&) = default;
-
-    /** default move constructor. */
     render_states(render_states&&) = default;
 
-    /** default assignment operator. */
+    /** default assignment operators. */
     render_states& operator=(const render_states&) = default;
+    render_states& operator=(render_states&&) = default;
 
     /** reset the states. */
     void reset(struct framebuffer_draw_target* default_draw_target)

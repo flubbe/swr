@@ -50,12 +50,11 @@ void sweep_rasterizer::draw_line(
       states.shader_info->iqs,
       1.0f / info->max_absolute_delta);
 
-    std::vector<std::byte> shader_storage{states.shader_info->shader->size()};
-    swr::program_base* shader =
-      states.shader_info->shader->create_fragment_shader_instance(
-        shader_storage.data(),
-        states.uniforms,
-        states.texture_2d_samplers);
+    swr::impl::fragment_shader_instance_container shader_instance{
+      states.shader_info,
+      states.uniforms,
+      states.texture_2d_samplers};
+    const swr::program_base* shader = shader_instance.get();
 
     boost::container::static_vector<swr::varying, swr::limits::max::varyings>
       temp_varyings;
