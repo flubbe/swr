@@ -346,7 +346,6 @@ inline void for_each_covered_triangle_block_with_bounds(
           swr::impl::rasterizer_block_size,
           swr::impl::rasterizer_block_size);
 
-        rast::triangle_interpolator attributes_row = attributes;
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(row_setup_cycles);
         stage_row_setup += row_setup_cycles;
@@ -373,7 +372,9 @@ inline void for_each_covered_triangle_block_with_bounds(
                 std::uint64_t callback_cycles = 0;
                 utils::clock(callback_cycles);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-                f(x, y, lambdas_box, attributes_row, mode);
+
+                f(x, y, lambdas_box, attributes, mode);
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
                 utils::unclock(callback_cycles);
                 stage_callback += callback_cycles;
@@ -381,7 +382,7 @@ inline void for_each_covered_triangle_block_with_bounds(
             }
 
             lambdas_box.step_x(swr::impl::rasterizer_block_size);
-            attributes_row.advance_x(swr::impl::rasterizer_block_size);
+            attributes.advance_x(swr::impl::rasterizer_block_size);
         }
 
         lambda_row_top_left[0].step_y(swr::impl::rasterizer_block_size);

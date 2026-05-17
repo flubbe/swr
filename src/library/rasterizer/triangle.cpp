@@ -472,32 +472,43 @@ void sweep_rasterizer::draw_filled_triangle(
           utils::clock(stage_add_triangle);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-          bool needs_flush = false;
-          const quad_bounds checked_quad_bounds =
-            (mode == tile_info::rasterization_mode::checked)
-              ? compute_checked_quad_bounds(bounds, x, y)
-              : full_block_quad_bounds(
-                  static_cast<unsigned int>(x),
-                  static_cast<unsigned int>(y));
+          const quad_bounds checked_quad_bounds = [&]() -> quad_bounds
+          {
+              if(mode == tile_info::rasterization_mode::checked)
+              {
+                  auto computed_bounds = compute_checked_quad_bounds(
+                    bounds,
+                    x,
+                    y);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-          if(mode == tile_info::rasterization_mode::checked)
-          {
-              const unsigned int checked_width = checked_quad_bounds.end_x - checked_quad_bounds.start_x;
-              const unsigned int checked_height = checked_quad_bounds.end_y - checked_quad_bounds.start_y;
-              if(checked_width <= 2 && checked_height > 2)
-              {
-                  swr::impl::profile_checked_sparse_thin_x_primitives.fetch_add(1, std::memory_order_relaxed);
-              }
-              else if(checked_height <= 2 && checked_width > 2)
-              {
-                  swr::impl::profile_checked_sparse_thin_y_primitives.fetch_add(1, std::memory_order_relaxed);
-              }
-          }
+                  if(mode == tile_info::rasterization_mode::checked)
+                  {
+                      const unsigned int checked_width = computed_bounds.end_x - computed_bounds.start_x;
+                      const unsigned int checked_height = computed_bounds.end_y - computed_bounds.start_y;
+                      if(checked_width <= 2 && checked_height > 2)
+                      {
+                          swr::impl::profile_checked_sparse_thin_x_primitives.fetch_add(1, std::memory_order_relaxed);
+                      }
+                      else if(checked_height <= 2 && checked_width > 2)
+                      {
+                          swr::impl::profile_checked_sparse_thin_y_primitives.fetch_add(1, std::memory_order_relaxed);
+                      }
+                  }
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
+                  return computed_bounds;
+              }
+
+              return full_block_quad_bounds(
+                static_cast<unsigned int>(x),
+                static_cast<unsigned int>(y));
+          }();
+
+          bool needs_flush = false;
           const bool use_direct_path_for_block =
             (is_single_block_triangle && allow_direct_block_path);
+
           if(use_direct_path_for_block)
           {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -515,7 +526,9 @@ void sweep_rasterizer::draw_filled_triangle(
               const std::size_t shader_index = tile.get_fragment_shader_index(&states);
               auto direct_attributes = attributes_row;
               const geom::barycentric_coordinate_block* direct_checked_lambdas =
-                (mode == tile_info::rasterization_mode::checked) ? &lambdas_box : nullptr;
+                (mode == tile_info::rasterization_mode::checked)
+                  ? &lambdas_box
+                  : nullptr;
               tile_info direct_info{
                 &states,
                 shader_index,
