@@ -524,7 +524,7 @@ void sweep_rasterizer::draw_filled_triangle(
 
               auto& tile = tiles.entries[tile_index];
               const std::size_t shader_index = tile.get_fragment_shader_index(&states);
-              auto direct_attributes = attributes_row;
+              auto direct_attributes = attributes_row;    // attributes need to be mutable for tile_info.
               const geom::barycentric_coordinate_block* direct_checked_lambdas =
                 (mode == tile_info::rasterization_mode::checked)
                   ? &lambdas_box
