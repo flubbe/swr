@@ -227,6 +227,7 @@ std::vector<checked_quad_sample> collect_checked_quads(
               out.push_back({block_x, block_y, x, y, mask});
           };
 
+          auto block_attributes = attributes;
           if(use_sparse_bounds)
           {
               rast::for_each_covered_quad_in_checked_triangle_block(
@@ -234,7 +235,7 @@ std::vector<checked_quad_sample> collect_checked_quads(
                 block_y,
                 rast::compute_checked_quad_bounds(bounds, block_x, block_y),
                 lambdas_box,
-                attributes,
+                block_attributes,
                 emit_quad);
           }
           else
@@ -243,7 +244,7 @@ std::vector<checked_quad_sample> collect_checked_quads(
                 block_x,
                 block_y,
                 lambdas_box,
-                attributes,
+                block_attributes,
                 emit_quad);
           }
       });

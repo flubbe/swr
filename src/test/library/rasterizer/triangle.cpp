@@ -273,10 +273,11 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
       {
           if(mode == rast::tile_info::rasterization_mode::block)
           {
+              auto block_attributes = attributes;
               rast::for_each_quad_in_triangle_block(
                 block_x,
                 block_y,
-                attributes,
+                block_attributes,
                 [&](int x, int y, auto&)
                 {
                     if(x < states.x || y < states.y)
@@ -295,11 +296,12 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
           }
           else
           {
+              auto block_attributes = attributes;
               rast::for_each_covered_quad_in_checked_triangle_block(
                 block_x,
                 block_y,
                 lambdas_box,
-                attributes,
+                block_attributes,
                 [&](int x, int y, int mask, auto&)
                 {
                     if(x < states.x || y < states.y)
@@ -610,6 +612,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
                   return;
               }
 
+              auto block_attributes = attributes;
               if(use_tight_bounds)
               {
                   rast::for_each_covered_quad_in_checked_triangle_block(
@@ -617,7 +620,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
                     block_y,
                     quad_bounds,
                     lambdas_box,
-                    attributes,
+                    block_attributes,
                     [&](int x, int y, int mask, auto&)
                     {
                         out.emplace_back(x, y, mask);
@@ -629,7 +632,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
                     block_x,
                     block_y,
                     lambdas_box,
-                    attributes,
+                    block_attributes,
                     [&](int x, int y, int mask, auto&)
                     {
                         out.emplace_back(x, y, mask);

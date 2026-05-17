@@ -34,21 +34,6 @@ inline void for_each_quad_in_triangle_block(
     }
 }
 
-template<typename F>
-inline void for_each_quad_in_triangle_block(
-  unsigned int block_x,
-  unsigned int block_y,
-  const rast::triangle_interpolator& attributes,
-  F&& f)
-{
-    auto attributes_copy = attributes;
-    for_each_quad_in_triangle_block(
-      block_x,
-      block_y,
-      attributes_copy,
-      std::forward<F>(f));
-}
-
 /** Invoke a callable for each covered 2x2 quad inside a checked triangle block. */
 template<typename F>
 inline void for_each_covered_quad_in_checked_triangle_block(
@@ -138,43 +123,6 @@ inline void for_each_covered_quad_in_checked_triangle_block(
       full_block_quad_bounds(block_x, block_y),
       lambdas,
       attributes,
-      std::forward<F>(f));
-}
-
-template<typename F>
-inline void for_each_covered_quad_in_checked_triangle_block(
-  unsigned int block_x,
-  unsigned int block_y,
-  quad_bounds bounds,
-  geom::barycentric_coordinate_block lambdas,
-  const rast::triangle_interpolator& attributes,
-  F&& f)
-{
-    auto attributes_copy = attributes;
-    for_each_covered_quad_in_checked_triangle_block(
-      block_x,
-      block_y,
-      bounds,
-      lambdas,
-      attributes_copy,
-      std::forward<F>(f));
-}
-
-template<typename F>
-inline void for_each_covered_quad_in_checked_triangle_block(
-  unsigned int block_x,
-  unsigned int block_y,
-  geom::barycentric_coordinate_block lambdas,
-  const rast::triangle_interpolator& attributes,
-  F&& f)
-{
-    auto attributes_copy = attributes;
-    for_each_covered_quad_in_checked_triangle_block(
-      block_x,
-      block_y,
-      full_block_quad_bounds(block_x, block_y),
-      lambdas,
-      attributes_copy,
       std::forward<F>(f));
 }
 
