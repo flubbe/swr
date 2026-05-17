@@ -418,7 +418,19 @@ std::ostream& operator<<(
   std::ostream& os,
   const tile_info::rasterization_mode& mode)
 {
-    return os << (mode == tile_info::rasterization_mode::checked ? "checked" : "block");
+    switch(mode)
+    {
+    case tile_info::rasterization_mode::block:
+        return os << "block";
+    case tile_info::rasterization_mode::checked:
+        return os << "checked";
+    case tile_info::rasterization_mode::thin_x_major:
+        return os << "thin_x_major";
+    case tile_info::rasterization_mode::thin_y_major:
+        return os << "thin_y_major";
+    }
+
+    return os << "unknown";
 }
 
 }    // namespace rast

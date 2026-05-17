@@ -184,7 +184,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               in_tile.y,
               it);
         }
-        else if(it.mode == tile_info::rasterization_mode::checked)
+        else if(uses_checked_lambdas(it.mode))
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);

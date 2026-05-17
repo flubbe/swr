@@ -8,12 +8,15 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 /* boost test framework. */
@@ -252,6 +255,61 @@ std::vector<checked_quad_sample> collect_checked_quads(
     return out;
 }
 
+std::vector<checked_quad_sample> collect_thin_trace_quads(
+  const swr::impl::render_states& states,
+  const rast::triangle_info& info,
+  const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& base_varyings)
+{
+    std::vector<checked_quad_sample> out;
+
+    const rast::bounding_box bounds = rast::compute_triangle_bounds(
+      states,
+      info,
+      false);
+    const auto mode = rast::classify_thin_triangle(bounds, info);
+
+    rast::for_each_thin_triangle_block_with_bounds(
+      states,
+      bounds,
+      info,
+      base_varyings,
+      0.0f,
+      mode,
+      [&](int block_x,
+          int block_y,
+          const geom::barycentric_coordinate_block& lambdas_box,
+          const rast::triangle_interpolator& attributes,
+          rast::tile_info::rasterization_mode,
+          rast::quad_bounds thin_quad_bounds)
+      {
+          auto block_attributes = attributes;
+          rast::for_each_covered_quad_in_checked_triangle_block(
+            block_x,
+            block_y,
+            thin_quad_bounds,
+            lambdas_box,
+            block_attributes,
+            [&](int x, int y, int mask, const rast::triangle_interpolator&)
+            {
+                out.push_back({block_x, block_y, x, y, mask});
+            });
+      });
+
+    return out;
+}
+
+void sort_checked_quads(std::vector<checked_quad_sample>& quads)
+{
+    std::sort(
+      quads.begin(),
+      quads.end(),
+      [](const auto& lhs, const auto& rhs)
+      {
+          return std::tie(lhs.block_y, lhs.block_x, lhs.y, lhs.x, lhs.mask)
+                 < std::tie(rhs.block_y, rhs.block_x, rhs.y, rhs.x, rhs.mask);
+      });
+}
+
 void check_sparse_iteration_preserves_coverage(
   std::string_view name,
   unsigned int width,
@@ -283,6 +341,54 @@ void check_sparse_iteration_preserves_coverage(
         BOOST_CHECK_EQUAL_COLLECTIONS(
           sparse_quads.begin(), sparse_quads.end(),
           full_quads.begin(), full_quads.end());
+    }
+}
+
+void check_thin_trace_preserves_coverage(
+  std::string_view name,
+  std::optional<rast::tile_info::rasterization_mode> expected_mode,
+  unsigned int width,
+  unsigned int height,
+  const geom::vertex& v0,
+  const geom::vertex& v1,
+  const geom::vertex& v2)
+{
+    BOOST_TEST_CONTEXT(name)
+    {
+        triangle_test_context ctx{width, height};
+
+        const auto info = rast::setup_triangle(v0, v1, v2);
+        BOOST_REQUIRE(!info.is_degenerate);
+
+        const rast::bounding_box bounds = rast::compute_triangle_bounds(
+          ctx.states,
+          info,
+          false);
+        const auto mode = rast::classify_thin_triangle(bounds, info);
+        BOOST_REQUIRE(rast::is_thin_rasterization_mode(mode));
+        if(expected_mode)
+        {
+            BOOST_REQUIRE(mode == *expected_mode);
+        }
+
+        auto checked_quads = collect_checked_quads(
+          ctx.states,
+          info,
+          v0.varyings,
+          true);
+        auto thin_quads = collect_thin_trace_quads(
+          ctx.states,
+          info,
+          v0.varyings);
+
+        sort_checked_quads(checked_quads);
+        sort_checked_quads(thin_quads);
+
+        BOOST_REQUIRE(!checked_quads.empty());
+        BOOST_REQUIRE(!thin_quads.empty());
+        BOOST_CHECK_EQUAL_COLLECTIONS(
+          thin_quads.begin(), thin_quads.end(),
+          checked_quads.begin(), checked_quads.end());
     }
 }
 
@@ -414,6 +520,57 @@ BOOST_AUTO_TEST_CASE(bounded_checked_iteration_preserves_emitted_quads)
 
     check_sparse_iteration_preserves_coverage(
       "long diagonal sliver",
+      viewport_size,
+      viewport_size,
+      make_vertex(3.25f, 2.25f),
+      make_vertex(static_cast<float>(3 * bs) + 26.25f, static_cast<float>(3 * bs) + 28.25f),
+      make_vertex(static_cast<float>(3 * bs) + 27.25f, static_cast<float>(3 * bs) + 26.25f));
+}
+
+BOOST_AUTO_TEST_CASE(thin_trace_preserves_emitted_quads)
+{
+    constexpr int bs = static_cast<int>(swr::impl::rasterizer_block_size);
+    constexpr unsigned int viewport_size = 4 * bs;
+
+    check_thin_trace_preserves_coverage(
+      "vertical sliver",
+      rast::tile_info::rasterization_mode::thin_y_major,
+      viewport_size,
+      viewport_size,
+      make_vertex(17.25f, 2.25f),
+      make_vertex(18.25f, static_cast<float>(3 * bs) + 30.25f),
+      make_vertex(17.25f, static_cast<float>(3 * bs) + 30.25f));
+
+    check_thin_trace_preserves_coverage(
+      "single-block vertical sliver",
+      rast::tile_info::rasterization_mode::thin_y_major,
+      viewport_size,
+      viewport_size,
+      make_vertex(17.25f, 2.25f),
+      make_vertex(18.25f, 20.25f),
+      make_vertex(17.25f, 20.25f));
+
+    check_thin_trace_preserves_coverage(
+      "horizontal sliver",
+      rast::tile_info::rasterization_mode::thin_x_major,
+      viewport_size,
+      viewport_size,
+      make_vertex(2.25f, 17.25f),
+      make_vertex(static_cast<float>(3 * bs) + 30.25f, 18.25f),
+      make_vertex(static_cast<float>(3 * bs) + 30.25f, 17.25f));
+
+    check_thin_trace_preserves_coverage(
+      "single-block horizontal sliver",
+      rast::tile_info::rasterization_mode::thin_x_major,
+      viewport_size,
+      viewport_size,
+      make_vertex(2.25f, 17.25f),
+      make_vertex(20.25f, 18.25f),
+      make_vertex(20.25f, 17.25f));
+
+    check_thin_trace_preserves_coverage(
+      "long diagonal sliver",
+      std::nullopt,
       viewport_size,
       viewport_size,
       make_vertex(3.25f, 2.25f),

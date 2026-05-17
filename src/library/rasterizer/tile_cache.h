@@ -25,8 +25,10 @@ struct tile_info
     /** rasterization modes for this block. */
     enum class rasterization_mode : std::uint8_t
     {
-        block = 0,  /** we unconditionally rasterize the whole block. */
-        checked = 1 /** we need to check each pixel if it belongs to the primitive. */
+        block = 0,        /** we unconditionally rasterize the whole block. */
+        checked = 1,      /** we need to check each pixel if it belongs to the primitive. */
+        thin_x_major = 2, /** a thin primitive traced primarily along the x-axis. */
+        thin_y_major = 3  /** a thin primitive traced primarily along the y-axis. */
     };
 
     /** render states. points to an entry in the context's draw list. */
@@ -80,6 +82,17 @@ struct tile_info
         assert(mode == rasterization_mode::block || checked_lambdas);
     }
 };
+
+inline bool uses_checked_lambdas(tile_info::rasterization_mode mode)
+{
+    return mode != tile_info::rasterization_mode::block;
+}
+
+inline bool is_thin_rasterization_mode(tile_info::rasterization_mode mode)
+{
+    return mode == tile_info::rasterization_mode::thin_x_major
+           || mode == tile_info::rasterization_mode::thin_y_major;
+}
 
 /** a tile waiting to be processed. currently only used for triangles. */
 struct tile
@@ -315,8 +328,11 @@ struct tile_cache
       const geom::barycentric_coordinate_block& in_lambdas,
       quad_bounds in_quad_bounds,
       const triangle_interpolator& in_attributes,
-      bool in_front_facing)
+      bool in_front_facing,
+      tile_info::rasterization_mode in_mode = tile_info::rasterization_mode::checked)
     {
+        assert(uses_checked_lambdas(in_mode));
+
         // find the tile's coordinates.
         unsigned int tile_index =
           (in_y >> swr::impl::rasterizer_block_shift) * pitch
@@ -347,7 +363,7 @@ struct tile_cache
           in_quad_bounds,
           &attributes_ref,
           in_front_facing,
-          tile_info::rasterization_mode::checked);
+          in_mode);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
@@ -379,7 +395,7 @@ struct tile_cache
       bool in_front_facing,
       tile_info::rasterization_mode in_mode)
     {
-        if(in_mode == tile_info::rasterization_mode::checked)
+        if(uses_checked_lambdas(in_mode))
         {
             return add_triangle_checked(
               in_x,
@@ -388,7 +404,8 @@ struct tile_cache
               in_lambdas,
               full_block_quad_bounds(in_x, in_y),
               in_attributes,
-              in_front_facing);
+              in_front_facing,
+              in_mode);
         }
 
         // find the tile's coordinates.

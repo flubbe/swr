@@ -410,12 +410,15 @@ void sweep_rasterizer::draw_filled_triangle(
     const bool y_needs_flip = states.draw_target == framebuffer;
 
 #ifdef SWR_ENABLE_MULTI_THREADING
+    const bool parallel_tile_processing_enabled =
+      thread_pool
+      && thread_pool->get_thread_count() > 1;
     const bool has_pending_tile_work = !tiles.active_tile_indices.empty();
     const bool allow_direct_block_path =
-      !thread_pool
-      || thread_pool->get_thread_count() <= 1
+      !parallel_tile_processing_enabled
       || !has_pending_tile_work;
 #else
+    constexpr bool parallel_tile_processing_enabled = false;
     const bool allow_direct_block_path = true;
 #endif
 
@@ -427,6 +430,8 @@ void sweep_rasterizer::draw_filled_triangle(
       states,
       info,
       y_needs_flip);
+    const tile_info::rasterization_mode thin_mode =
+      classify_thin_triangle(bounds, info);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_setup_bounds);
@@ -434,8 +439,7 @@ void sweep_rasterizer::draw_filled_triangle(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     const bool is_single_block_triangle =
-      allow_direct_block_path
-      && (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
+      (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
       && (bounds.end_y - bounds.start_y) == static_cast<int>(swr::impl::rasterizer_block_size);
 
     std::span<const ml::vec4> base_varyings{
@@ -455,17 +459,13 @@ void sweep_rasterizer::draw_filled_triangle(
     std::uint64_t triangle_checked_tile_ref_count = 0;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    for_each_covered_triangle_block_with_bounds(
-      states,
-      bounds,
-      info,
-      base_varyings,
-      polygon_offset,
+    auto emit_triangle_block_impl =
       [&](int x,
           int y,
           const geom::barycentric_coordinate_block& lambdas_box,
           const rast::triangle_interpolator& attributes_row,
-          tile_info::rasterization_mode mode)
+          tile_info::rasterization_mode mode,
+          const quad_bounds* override_checked_quad_bounds)
       {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
           std::uint64_t stage_add_triangle = 0;
@@ -474,15 +474,26 @@ void sweep_rasterizer::draw_filled_triangle(
 
           const quad_bounds checked_quad_bounds = [&]() -> quad_bounds
           {
-              if(mode == tile_info::rasterization_mode::checked)
+              if(uses_checked_lambdas(mode))
               {
-                  auto computed_bounds = compute_checked_quad_bounds(
-                    bounds,
-                    x,
-                    y);
+                  const auto computed_bounds =
+                    override_checked_quad_bounds
+                      ? *override_checked_quad_bounds
+                      : compute_checked_quad_bounds(
+                          bounds,
+                          x,
+                          y);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-                  if(mode == tile_info::rasterization_mode::checked)
+                  if(mode == tile_info::rasterization_mode::thin_y_major)
+                  {
+                      swr::impl::profile_checked_sparse_thin_x_primitives.fetch_add(1, std::memory_order_relaxed);
+                  }
+                  else if(mode == tile_info::rasterization_mode::thin_x_major)
+                  {
+                      swr::impl::profile_checked_sparse_thin_y_primitives.fetch_add(1, std::memory_order_relaxed);
+                  }
+                  else if(mode == tile_info::rasterization_mode::checked)
                   {
                       const unsigned int checked_width = computed_bounds.end_x - computed_bounds.start_x;
                       const unsigned int checked_height = computed_bounds.end_y - computed_bounds.start_y;
@@ -507,7 +518,10 @@ void sweep_rasterizer::draw_filled_triangle(
 
           bool needs_flush = false;
           const bool use_direct_path_for_block =
-            (is_single_block_triangle && allow_direct_block_path);
+            is_single_block_triangle
+            && allow_direct_block_path
+            && (!is_thin_rasterization_mode(mode)
+                || !parallel_tile_processing_enabled);
 
           if(use_direct_path_for_block)
           {
@@ -526,7 +540,7 @@ void sweep_rasterizer::draw_filled_triangle(
               const std::size_t shader_index = tile.get_fragment_shader_index(&states);
               auto direct_attributes = attributes_row;    // attributes need to be mutable for tile_info.
               const geom::barycentric_coordinate_block* direct_checked_lambdas =
-                (mode == tile_info::rasterization_mode::checked)
+                uses_checked_lambdas(mode)
                   ? &lambdas_box
                   : nullptr;
               tile_info direct_info{
@@ -566,7 +580,7 @@ void sweep_rasterizer::draw_filled_triangle(
               utils::clock(stage_enqueue);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-              if(mode == tile_info::rasterization_mode::checked)
+              if(uses_checked_lambdas(mode))
               {
                   needs_flush = tiles.add_triangle_checked(
                     x,
@@ -575,7 +589,8 @@ void sweep_rasterizer::draw_filled_triangle(
                     lambdas_box,
                     checked_quad_bounds,
                     attributes_row,
-                    is_front_facing);
+                    is_front_facing,
+                    mode);
               }
               else
               {
@@ -627,7 +642,62 @@ void sweep_rasterizer::draw_filled_triangle(
               stage_cb_flush_inline += stage_flush;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
           }
-      });
+      };
+
+    auto emit_triangle_block =
+      [&](int x,
+          int y,
+          const geom::barycentric_coordinate_block& lambdas_box,
+          const rast::triangle_interpolator& attributes_row,
+          tile_info::rasterization_mode mode)
+      {
+          emit_triangle_block_impl(
+            x,
+            y,
+            lambdas_box,
+            attributes_row,
+            mode,
+            nullptr);
+      };
+
+    auto emit_thin_triangle_block =
+      [&](int x,
+          int y,
+          const geom::barycentric_coordinate_block& lambdas_box,
+          const rast::triangle_interpolator& attributes_row,
+          tile_info::rasterization_mode mode,
+          quad_bounds thin_quad_bounds)
+      {
+          emit_triangle_block_impl(
+            x,
+            y,
+            lambdas_box,
+            attributes_row,
+            mode,
+            &thin_quad_bounds);
+      };
+
+    if(is_thin_rasterization_mode(thin_mode))
+    {
+        for_each_thin_triangle_block_with_bounds(
+          states,
+          bounds,
+          info,
+          base_varyings,
+          polygon_offset,
+          thin_mode,
+          emit_thin_triangle_block);
+    }
+    else
+    {
+        for_each_covered_triangle_block_with_bounds(
+          states,
+          bounds,
+          info,
+          base_varyings,
+          polygon_offset,
+          emit_triangle_block);
+    }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_setup_iterate);

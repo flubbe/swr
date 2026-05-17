@@ -291,6 +291,226 @@ inline quad_bounds compute_checked_quad_bounds(
       static_cast<unsigned int>(end_y)};
 }
 
+inline geom::barycentric_coordinate_block compute_triangle_lambdas_at_block(
+  const triangle_info& info,
+  int block_x,
+  int block_y)
+{
+    const auto coord = ml::vec2_fixed<4>{
+      ml::fixed_28_4_t{block_x} + ml::fixed_28_4_t{0.5f},
+      ml::fixed_28_4_t{block_y} + ml::fixed_28_4_t{0.5f}};
+
+    geom::barycentric_coordinate_block lambdas{
+      -info.edges_fix[0].evaluate(coord),
+      {-info.edges_fix[0].get_change_x(), -info.edges_fix[0].get_change_y()},
+      -info.edges_fix[1].evaluate(coord),
+      {-info.edges_fix[1].get_change_x(), -info.edges_fix[1].get_change_y()},
+      -info.edges_fix[2].evaluate(coord),
+      {-info.edges_fix[2].get_change_x(), -info.edges_fix[2].get_change_y()}};
+
+    lambdas.setup(
+      swr::impl::rasterizer_block_size,
+      swr::impl::rasterizer_block_size);
+
+    return lambdas;
+}
+
+inline rast::triangle_interpolator compute_triangle_attributes_at_block(
+  const swr::impl::render_states& states,
+  const triangle_info& info,
+  std::span<const ml::vec4> base_varyings,
+  float polygon_offset,
+  int block_x,
+  int block_y)
+{
+    const ml::vec2 screen_coords{
+      static_cast<float>(block_x) + 0.5f,
+      static_cast<float>(block_y) + 0.5f};
+
+    return {
+      screen_coords,
+      info.v0->coords, info.v1->coords, info.v2->coords,
+      std::span<const ml::vec4>{info.v0->varyings.data(), info.v0->varyings.size()},
+      std::span<const ml::vec4>{info.v1->varyings.data(), info.v1->varyings.size()},
+      std::span<const ml::vec4>{info.v2->varyings.data(), info.v2->varyings.size()},
+      base_varyings,
+      states.shader_info->iqs, info.inv_area, polygon_offset};
+}
+
+struct thin_span
+{
+    int start{0};
+    int end{0};
+
+    [[nodiscard]]
+    bool empty() const
+    {
+        return start >= end;
+    }
+};
+
+inline void include_thin_span_value(
+  bool& has_value,
+  float& min_value,
+  float& max_value,
+  float value)
+{
+    if(!has_value)
+    {
+        min_value = value;
+        max_value = value;
+        has_value = true;
+        return;
+    }
+
+    min_value = std::min(min_value, value);
+    max_value = std::max(max_value, value);
+}
+
+inline void include_thin_span_edge_crossing(
+  bool& has_value,
+  float& min_value,
+  float& max_value,
+  const ml::vec2& p0,
+  const ml::vec2& p1,
+  float axis_value,
+  bool x_major)
+{
+    const float a0 = x_major ? p0.x : p0.y;
+    const float a1 = x_major ? p1.x : p1.y;
+    const float axis_min = std::min(a0, a1);
+    const float axis_max = std::max(a0, a1);
+
+    if(a0 == a1
+       || axis_value < axis_min
+       || axis_value > axis_max)
+    {
+        return;
+    }
+
+    const float t = (axis_value - a0) / (a1 - a0);
+    const float value =
+      x_major
+        ? p0.y + (p1.y - p0.y) * t
+        : p0.x + (p1.x - p0.x) * t;
+    include_thin_span_value(has_value, min_value, max_value, value);
+}
+
+inline thin_span compute_thin_triangle_minor_span_in_major_range(
+  const bounding_box& bounds,
+  const triangle_info& info,
+  int major_start,
+  int major_end,
+  bool x_major)
+{
+    const float clipped_major_start = static_cast<float>(
+      std::max(major_start, x_major ? bounds.tight_start_x : bounds.tight_start_y));
+    const float clipped_major_end = static_cast<float>(
+      std::min(major_end, x_major ? bounds.tight_end_x : bounds.tight_end_y));
+
+    if(clipped_major_start >= clipped_major_end)
+    {
+        return {};
+    }
+
+    const std::array<ml::vec2, 3> vertices{
+      info.v0_xy,
+      info.v1_xy,
+      info.v2_xy};
+
+    bool has_value = false;
+    float min_value = 0.0f;
+    float max_value = 0.0f;
+
+    for(const auto& vertex: vertices)
+    {
+        const float major = x_major ? vertex.x : vertex.y;
+        const float minor = x_major ? vertex.y : vertex.x;
+        if(major >= clipped_major_start
+           && major <= clipped_major_end)
+        {
+            include_thin_span_value(has_value, min_value, max_value, minor);
+        }
+    }
+
+    for(std::size_t i = 0; i < vertices.size(); ++i)
+    {
+        const auto& p0 = vertices[i];
+        const auto& p1 = vertices[(i + 1) % vertices.size()];
+        include_thin_span_edge_crossing(
+          has_value,
+          min_value,
+          max_value,
+          p0,
+          p1,
+          clipped_major_start,
+          x_major);
+        include_thin_span_edge_crossing(
+          has_value,
+          min_value,
+          max_value,
+          p0,
+          p1,
+          clipped_major_end,
+          x_major);
+    }
+
+    if(!has_value)
+    {
+        return {};
+    }
+
+    const int tight_min = x_major ? bounds.tight_start_y : bounds.tight_start_x;
+    const int tight_max = x_major ? bounds.tight_end_y : bounds.tight_end_x;
+    const int minor_start = std::max(ml::truncate_unchecked(min_value), tight_min);
+    const int minor_end = std::min(ml::truncate_unchecked(max_value) + 1, tight_max);
+
+    if(minor_start >= minor_end)
+    {
+        return {};
+    }
+
+    return {
+      lower_align_on_quad_size(minor_start),
+      upper_align_on_quad_size(minor_end)};
+}
+
+inline tile_info::rasterization_mode classify_thin_triangle(
+  const bounding_box& bounds,
+  const triangle_info& info)
+{
+    constexpr int thin_minor_axis_limit = 4;
+
+    const int quad_start_x = lower_align_on_quad_size(bounds.tight_start_x);
+    const int quad_start_y = lower_align_on_quad_size(bounds.tight_start_y);
+    const int quad_end_x = upper_align_on_quad_size(bounds.tight_end_x);
+    const int quad_end_y = upper_align_on_quad_size(bounds.tight_end_y);
+
+    const int quad_width = quad_end_x - quad_start_x;
+    const int quad_height = quad_end_y - quad_start_y;
+
+    const int major_span = std::max(quad_width, quad_height);
+    const int minor_span = std::min(quad_width, quad_height);
+
+    if(major_span <= thin_minor_axis_limit
+       || minor_span <= 0)
+    {
+        return tile_info::rasterization_mode::checked;
+    }
+
+    const float projected_minor_span =
+      info.area / static_cast<float>(major_span);
+    if(minor_span > thin_minor_axis_limit
+       && projected_minor_span > static_cast<float>(thin_minor_axis_limit))
+    {
+        return tile_info::rasterization_mode::checked;
+    }
+
+    return (quad_width >= quad_height)
+             ? tile_info::rasterization_mode::thin_x_major
+             : tile_info::rasterization_mode::thin_y_major;
+}
+
 template<typename F>
 inline void for_each_covered_triangle_block_with_bounds(
   const swr::impl::render_states& states,
@@ -319,18 +539,14 @@ inline void for_each_covered_triangle_block_with_bounds(
        {-info.edges_fix[2].get_change_x(),
         -info.edges_fix[2].get_change_y()}}};
 
-    const ml::vec2 screen_coords{
-      static_cast<float>(bounds.start_x) + 0.5f,
-      static_cast<float>(bounds.start_y) + 0.5f};
-
-    rast::triangle_interpolator attributes{
-      screen_coords,
-      info.v0->coords, info.v1->coords, info.v2->coords,
-      std::span<const ml::vec4>{info.v0->varyings.data(), info.v0->varyings.size()},
-      std::span<const ml::vec4>{info.v1->varyings.data(), info.v1->varyings.size()},
-      std::span<const ml::vec4>{info.v2->varyings.data(), info.v2->varyings.size()},
-      base_varyings,
-      states.shader_info->iqs, info.inv_area, polygon_offset};
+    rast::triangle_interpolator attributes =
+      compute_triangle_attributes_at_block(
+        states,
+        info,
+        base_varyings,
+        polygon_offset,
+        bounds.start_x,
+        bounds.start_y);
 
     for(auto y = bounds.start_y; y < bounds.end_y; y += swr::impl::rasterizer_block_size)
     {
@@ -393,6 +609,134 @@ inline void for_each_covered_triangle_block_with_bounds(
     }
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     swr::impl::profile_raster_setup_iter_row_setup_cycles.fetch_add(stage_row_setup, std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_iter_callback_cycles.fetch_add(stage_callback, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+}
+
+template<typename F>
+inline void for_each_thin_triangle_block_with_bounds(
+  const swr::impl::render_states& states,
+  const bounding_box& bounds,
+  const triangle_info& info,
+  std::span<const ml::vec4> base_varyings,
+  float polygon_offset,
+  tile_info::rasterization_mode mode,
+  F&& f)
+{
+    assert(is_thin_rasterization_mode(mode));
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_callback = 0;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    const int quad_start_x = lower_align_on_quad_size(bounds.tight_start_x);
+    const int quad_start_y = lower_align_on_quad_size(bounds.tight_start_y);
+    const int quad_end_x = upper_align_on_quad_size(bounds.tight_end_x);
+    const int quad_end_y = upper_align_on_quad_size(bounds.tight_end_y);
+
+    if(quad_start_x >= quad_end_x
+       || quad_start_y >= quad_end_y)
+    {
+        return;
+    }
+
+    const int start_x = swr::impl::lower_align_on_block_size(quad_start_x);
+    const int start_y = swr::impl::lower_align_on_block_size(quad_start_y);
+    const int end_x = swr::impl::upper_align_on_block_size(quad_end_x);
+    const int end_y = swr::impl::upper_align_on_block_size(quad_end_y);
+
+    const auto emit_block = [&](int x, int y, quad_bounds thin_quad_bounds)
+    {
+        geom::barycentric_coordinate_block lambdas_box =
+          compute_triangle_lambdas_at_block(info, x, y);
+        rast::triangle_interpolator attributes =
+          compute_triangle_attributes_at_block(
+            states,
+            info,
+            base_varyings,
+            polygon_offset,
+            x,
+            y);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t callback_cycles = 0;
+        utils::clock(callback_cycles);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        f(x, y, lambdas_box, attributes, mode, thin_quad_bounds);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(callback_cycles);
+        stage_callback += callback_cycles;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+    };
+
+    if(mode == tile_info::rasterization_mode::thin_x_major)
+    {
+        for(auto x = start_x; x < end_x; x += swr::impl::rasterizer_block_size)
+        {
+            const thin_span y_span =
+              compute_thin_triangle_minor_span_in_major_range(
+                bounds,
+                info,
+                x,
+                x + swr::impl::rasterizer_block_size,
+                true);
+            if(y_span.empty())
+            {
+                continue;
+            }
+
+            const int y_start = swr::impl::lower_align_on_block_size(y_span.start);
+            const int y_end = swr::impl::upper_align_on_block_size(y_span.end);
+            for(auto y = y_start; y < y_end; y += swr::impl::rasterizer_block_size)
+            {
+                quad_bounds thin_quad_bounds{
+                  static_cast<unsigned int>(std::max(x, quad_start_x)),
+                  static_cast<unsigned int>(std::max(y, y_span.start)),
+                  static_cast<unsigned int>(std::min(x + static_cast<int>(swr::impl::rasterizer_block_size), quad_end_x)),
+                  static_cast<unsigned int>(std::min(y + static_cast<int>(swr::impl::rasterizer_block_size), y_span.end))};
+                if(!thin_quad_bounds.empty())
+                {
+                    emit_block(x, y, thin_quad_bounds);
+                }
+            }
+        }
+    }
+    else
+    {
+        for(auto y = start_y; y < end_y; y += swr::impl::rasterizer_block_size)
+        {
+            const thin_span x_span =
+              compute_thin_triangle_minor_span_in_major_range(
+                bounds,
+                info,
+                y,
+                y + swr::impl::rasterizer_block_size,
+                false);
+            if(x_span.empty())
+            {
+                continue;
+            }
+
+            const int x_start = swr::impl::lower_align_on_block_size(x_span.start);
+            const int x_end = swr::impl::upper_align_on_block_size(x_span.end);
+            for(auto x = x_start; x < x_end; x += swr::impl::rasterizer_block_size)
+            {
+                quad_bounds thin_quad_bounds{
+                  static_cast<unsigned int>(std::max(x, x_span.start)),
+                  static_cast<unsigned int>(std::max(y, quad_start_y)),
+                  static_cast<unsigned int>(std::min(x + static_cast<int>(swr::impl::rasterizer_block_size), x_span.end)),
+                  static_cast<unsigned int>(std::min(y + static_cast<int>(swr::impl::rasterizer_block_size), quad_end_y))};
+                if(!thin_quad_bounds.empty())
+                {
+                    emit_block(x, y, thin_quad_bounds);
+                }
+            }
+        }
+    }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
     swr::impl::profile_raster_setup_iter_callback_cycles.fetch_add(stage_callback, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
