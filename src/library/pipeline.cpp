@@ -924,6 +924,7 @@ static bool should_parallelize_clipping(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         impl::profile_clip_parallel_reject_small_primitive_count.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         return false;
     }
 
@@ -941,6 +942,7 @@ static bool should_parallelize_clipping(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         impl::profile_clip_parallel_reject_no_discard.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         return false;
     }
 
@@ -952,6 +954,7 @@ static bool should_parallelize_clipping(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         impl::profile_clip_parallel_reject_low_discard_ratio.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         return false;
     }
     return true;
@@ -1217,6 +1220,7 @@ static void clip_vertex_buffer(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             clip_line_buffer(*obj, impl::line_list);
         }
     }
@@ -1239,6 +1243,7 @@ static void clip_vertex_buffer(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             clip_triangle_buffer(
               *obj,
               impl::line_list);
@@ -1263,6 +1268,7 @@ static void clip_vertex_buffer(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             clip_triangle_buffer(
               *obj,
               impl::triangle_list);
@@ -1273,6 +1279,7 @@ static void clip_vertex_buffer(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         impl::profile_clip_serial_frames.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         clip_vertex_buffer_serial(obj);
     }
 }
@@ -1346,7 +1353,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_vertex = 0;
     utils::clock(stage_vertex);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     for(auto& [obj, shader]: context->program_instances)
     {
@@ -1360,7 +1367,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_vertex);
     g_pipeline_cycles.vertex += stage_vertex;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     /*
      * clipping.
@@ -1369,7 +1376,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_clipping = 0;
     utils::clock(stage_clipping);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     /*
      * Avoid nested thread-pool waits in worker tasks: object-level parallel
@@ -1386,6 +1393,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         impl::profile_clip_parallel_across_objects_frames.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         for(auto& [obj, shader]: context->program_instances)
         {
             context->thread_pool.push_immediate_task(
@@ -1399,6 +1407,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         impl::profile_clip_parallel_internal_object_frames.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         // Single/few-object path can parallelize internally by primitive chunk.
         for(auto& [obj, shader]: context->program_instances)
         {
@@ -1409,7 +1418,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_clipping);
     g_pipeline_cycles.clipping += stage_clipping;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     /*
      * viewport transform.
@@ -1418,7 +1427,8 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_viewport = 0;
     utils::clock(stage_viewport);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     for(auto& [obj, shader]: context->program_instances)
     {
         // skip the rest of the pipeline if no clipped vertices were produced.
@@ -1438,7 +1448,7 @@ static void process_vertices(
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_viewport);
     g_pipeline_cycles.viewport += stage_viewport;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     // clear shaders to force destructors being called, so that we do not have to care about the storage anymore.
     context->program_instances.clear();
@@ -1484,7 +1494,8 @@ void Present()
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_assembly = 0;
     utils::clock(stage_assembly);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     for(auto& it: context->render_object_list)
     {
         if(it.clipped_vertices.empty())
@@ -1501,52 +1512,61 @@ void Present()
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_assembly);
     g_pipeline_cycles.assembly += stage_assembly;
-#    endif
-#else
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+#else /* SWR_ENABLE_MULTI_THREADING */
+
     // process render commands.
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_assembly = 0;
     std::uint64_t stage_vertex = 0;
     std::uint64_t stage_clipping = 0;
     std::uint64_t stage_viewport = 0;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     for(auto& it: context->render_object_list)
     {
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::clock(stage_vertex);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         st::process_vertices(it);
+
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_vertex);
         g_pipeline_cycles.vertex += stage_vertex;
         stage_vertex = 0;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         if(!it.clipped_vertices.empty())
         {
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::clock(stage_assembly);
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
             context->assemble_primitives(
               &it.states,
               it.mode,
               it.clipped_vertices);
+
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::unclock(stage_assembly);
             g_pipeline_cycles.assembly += stage_assembly;
             stage_assembly = 0;
-#    endif
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
     }
-#endif
+#endif     /* SWR_ENABLE_MULTI_THREADING */
 
     // invoke triangle rasterizer.
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_rasterizer = 0;
     utils::clock(stage_rasterizer);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     context->rasterizer->draw_primitives();
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_rasterizer);
     g_pipeline_cycles.rasterizer += stage_rasterizer;
