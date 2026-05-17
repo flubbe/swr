@@ -8,6 +8,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
 namespace rast
 {
 
@@ -32,6 +34,33 @@ inline void for_each_quad_in_triangle_block(
 
         attributes.advance_y(2);
     }
+}
+
+/** Bounds for 2x2 quad iteration within one rasterizer block. */
+struct quad_bounds
+{
+    unsigned int start_x{0};
+    unsigned int start_y{0};
+    unsigned int end_x{0};
+    unsigned int end_y{0};
+
+    [[nodiscard]]
+    bool empty() const
+    {
+        return start_x >= end_x
+               || start_y >= end_y;
+    }
+};
+
+inline quad_bounds full_block_quad_bounds(
+  unsigned int block_x,
+  unsigned int block_y)
+{
+    return {
+      block_x,
+      block_y,
+      block_x + swr::impl::rasterizer_block_size,
+      block_y + swr::impl::rasterizer_block_size};
 }
 
 /** Invoke a callable for each covered 2x2 quad inside a checked triangle block. */
