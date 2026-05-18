@@ -163,9 +163,8 @@ struct triangle_test_context
 
     triangle_test_context(unsigned int width, unsigned int height)
     : draw_target{width, height}
+    , program_info{&shader}
     {
-        program_info.shader = &shader;
-
         states.x = 0;
         states.y = 0;
         states.width = width;
@@ -576,6 +575,119 @@ BOOST_AUTO_TEST_CASE(thin_trace_preserves_emitted_quads)
       make_vertex(3.25f, 2.25f),
       make_vertex(static_cast<float>(3 * bs) + 26.25f, static_cast<float>(3 * bs) + 28.25f),
       make_vertex(static_cast<float>(3 * bs) + 27.25f, static_cast<float>(3 * bs) + 26.25f));
+}
+
+BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
+{
+    constexpr int bs = static_cast<int>(swr::impl::rasterizer_block_size);
+    constexpr unsigned int viewport_size = 4 * bs;
+
+    const auto v0 = make_vertex(17.25f, 2.25f);
+    const auto v1 = make_vertex(18.25f, 20.25f);
+    const auto v2 = make_vertex(17.25f, 20.25f);
+
+    triangle_test_context ctx{viewport_size, viewport_size};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const rast::bounding_box bounds = rast::compute_triangle_bounds(
+      ctx.states,
+      info,
+      false);
+    const auto mode = rast::classify_thin_triangle(bounds, info);
+    BOOST_REQUIRE(mode == rast::tile_info::rasterization_mode::thin_y_major);
+
+    std::vector<checked_quad_sample> payload_quads;
+    rast::tile_cache cache;
+    cache.reset(viewport_size / bs, viewport_size / bs);
+    bool saw_payload = false;
+    bool saw_fallback = false;
+
+    rast::for_each_thin_triangle_block_with_bounds(
+      ctx.states,
+      bounds,
+      info,
+      v0.varyings,
+      0.0f,
+      mode,
+      [&](int block_x,
+          int block_y,
+          const geom::barycentric_coordinate_block&,
+          const rast::triangle_interpolator&,
+          rast::tile_info::rasterization_mode,
+          rast::quad_bounds thin_quad_bounds,
+          const rast::sparse_triangle_payload* precomputed_payload)
+      {
+          if(!precomputed_payload)
+          {
+              saw_fallback = true;
+              return;
+          }
+
+          saw_payload = true;
+          for(const auto& quad: precomputed_payload->quads)
+          {
+              payload_quads.push_back({
+                block_x,
+                block_y,
+                static_cast<int>(quad.x),
+                static_cast<int>(quad.y),
+                quad.mask});
+          }
+
+          bool emitted = false;
+          const bool needs_flush = cache.add_sparse_triangle_checked_payload(
+            static_cast<unsigned int>(block_x),
+            static_cast<unsigned int>(block_y),
+            &ctx.states,
+            thin_quad_bounds,
+            *precomputed_payload,
+            true,
+            emitted);
+          BOOST_CHECK(!needs_flush);
+          BOOST_CHECK(emitted);
+      });
+
+    auto thin_quads = collect_thin_trace_quads(
+      ctx.states,
+      info,
+      v0.varyings);
+    std::vector<checked_quad_sample> cached_quads;
+    for(const auto tile_index: cache.active_tile_indices)
+    {
+        const auto& tile = cache.entries[tile_index];
+        for(const auto& primitive: tile.primitives)
+        {
+            BOOST_CHECK(primitive.mode == rast::tile_info::rasterization_mode::sparse_checked);
+            BOOST_REQUIRE(primitive.precomputed_payload_index < tile.primitive_sparse_payloads.size());
+            const auto& cached_payload = tile.primitive_sparse_payloads[primitive.precomputed_payload_index];
+            BOOST_REQUIRE(cached_payload.quad_offset + cached_payload.quad_count <= tile.primitive_sparse_quad_payloads.size());
+            for(std::uint16_t i = 0; i < cached_payload.quad_count; ++i)
+            {
+                const auto& quad = tile.primitive_sparse_quad_payloads[cached_payload.quad_offset + i];
+                cached_quads.push_back({
+                  static_cast<int>(tile.x),
+                  static_cast<int>(tile.y),
+                  static_cast<int>(quad.x),
+                  static_cast<int>(quad.y),
+                  quad.mask});
+            }
+        }
+    }
+
+    sort_checked_quads(payload_quads);
+    sort_checked_quads(cached_quads);
+    sort_checked_quads(thin_quads);
+
+    BOOST_REQUIRE(saw_payload);
+    BOOST_CHECK(!saw_fallback);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      payload_quads.begin(), payload_quads.end(),
+      thin_quads.begin(), thin_quads.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      cached_quads.begin(), cached_quads.end(),
+      thin_quads.begin(), thin_quads.end());
 }
 
 BOOST_AUTO_TEST_CASE(coarse_block_rejects_edge_empty_regions)

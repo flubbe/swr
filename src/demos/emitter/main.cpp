@@ -103,7 +103,7 @@ class demo_emitter : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_emitter()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     , particle_system{{0, -8, -5}, 30, 0.2, 9, 2}
     {
     }

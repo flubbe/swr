@@ -62,7 +62,7 @@ class demo_fill : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_fill()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

@@ -360,6 +360,8 @@ struct thin_span
 {
     int start{0};
     int end{0};
+    int tight_start{0};
+    int tight_end{0};
 
     [[nodiscard]]
     bool empty() const
@@ -491,7 +493,26 @@ inline thin_span compute_thin_triangle_minor_span_in_major_range(
 
     return {
       lower_align_on_quad_size(minor_start),
-      upper_align_on_quad_size(minor_end)};
+      upper_align_on_quad_size(minor_end),
+      minor_start,
+      minor_end};
+}
+
+inline bool should_build_sparse_triangle_payload(
+  const thin_span& minor_span,
+  quad_bounds bounds)
+{
+    constexpr int max_tight_minor_span = 2;
+    constexpr unsigned int min_candidate_quad_count = 4;
+
+    if(minor_span.tight_end - minor_span.tight_start > max_tight_minor_span)
+    {
+        return false;
+    }
+
+    const unsigned int quad_width = (bounds.end_x - bounds.start_x) / rasterizer_quad_size;
+    const unsigned int quad_height = (bounds.end_y - bounds.start_y) / rasterizer_quad_size;
+    return quad_width * quad_height >= min_candidate_quad_count;
 }
 
 struct triangle_rasterization_classification
@@ -580,6 +601,103 @@ inline bool is_small_quad_triangle(const bounding_box& bounds)
     return is_small_quad_triangle(bounds, quad_width, quad_height);
 }
 
+enum class precomputed_triangle_payload_status : std::uint8_t
+{
+    ready,
+    empty,
+    unsupported,
+    overflow
+};
+
+inline precomputed_triangle_payload_status build_precomputed_triangle_payload(
+  unsigned int block_x,
+  unsigned int block_y,
+  quad_bounds bounds,
+  geom::barycentric_coordinate_block lambdas,
+  const rast::triangle_interpolator& attributes,
+  sparse_triangle_payload& payload)
+{
+    payload = {};
+
+    if(!small_triangle_interpolator::can_store_without_allocation(attributes))
+    {
+        return precomputed_triangle_payload_status::unsupported;
+    }
+
+    const auto block_end_x = block_x + swr::impl::rasterizer_block_size;
+    const auto block_end_y = block_y + swr::impl::rasterizer_block_size;
+
+    bounds.start_x = std::max(bounds.start_x, block_x);
+    bounds.start_y = std::max(bounds.start_y, block_y);
+    bounds.end_x = std::min(bounds.end_x, block_end_x);
+    bounds.end_y = std::min(bounds.end_y, block_end_y);
+
+    if(bounds.empty())
+    {
+        return precomputed_triangle_payload_status::empty;
+    }
+
+    payload.attributes = small_triangle_interpolator{attributes};
+
+    lambdas.setup(1, 1);
+    lambdas.step_y(static_cast<int>(bounds.start_y - block_y));
+    lambdas.step_x(static_cast<int>(bounds.start_x - block_x));
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t quad_tests = 0;
+    std::uint64_t empty_quads = 0;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    for(unsigned int y = bounds.start_y; y < bounds.end_y; y += 2)
+    {
+        geom::barycentric_coordinate_block::fixed_24_8_array_4 row_start[3];
+        lambdas.store_position(row_start[0], row_start[1], row_start[2]);
+
+        for(unsigned int x = bounds.start_x; x < bounds.end_x; x += 2)
+        {
+            const int mask = geom::reduce_coverage_mask(lambdas.get_coverage_mask());
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            ++quad_tests;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            if(mask)
+            {
+                if(payload.quads.size() == payload.quads.max_size())
+                {
+                    return precomputed_triangle_payload_status::overflow;
+                }
+
+                payload.quads.push_back({
+                  x,
+                  y,
+                  static_cast<std::uint8_t>(mask)});
+            }
+            else
+            {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                ++empty_quads;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            }
+
+            lambdas.step_x(2);
+        }
+
+        lambdas.load_position(row_start[0], row_start[1], row_start[2]);
+        lambdas.step_y(2);
+    }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    swr::impl::profile_checked_quad_tests.fetch_add(quad_tests, std::memory_order_relaxed);
+    swr::impl::profile_checked_empty_quads.fetch_add(empty_quads, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    if(payload.quads.empty())
+    {
+        return precomputed_triangle_payload_status::empty;
+    }
+
+    return precomputed_triangle_payload_status::ready;
+}
+
 /**
  * Emit a checked rasterizer block for triangles contained within a 2x2-quad
  * footprint. Checked quad iteration then visits only the tight quad bounds.
@@ -633,12 +751,17 @@ inline void for_each_small_quad_triangle(
     coverage_lambdas.step_y(static_cast<int>(checked_quad_bounds.start_y - block_y));
     coverage_lambdas.step_x(static_cast<int>(checked_quad_bounds.start_x - block_x));
 
-    bool has_covered_quad = false;
+    std::array<
+      small_triangle_quad_payload,
+      max_small_triangle_quad_payloads>
+      covered_quads{};
+    std::uint8_t covered_quad_count = 0;
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-    std::uint64_t empty_quad_tests = 0;
+    std::uint64_t quad_tests = 0;
+    std::uint64_t empty_quads = 0;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    for(unsigned int y = checked_quad_bounds.start_y; y < checked_quad_bounds.end_y && !has_covered_quad; y += 2)
+    for(unsigned int y = checked_quad_bounds.start_y; y < checked_quad_bounds.end_y; y += 2)
     {
         geom::barycentric_coordinate_block::fixed_24_8_array_4 row_start[3];
         coverage_lambdas.store_position(row_start[0], row_start[1], row_start[2]);
@@ -646,15 +769,23 @@ inline void for_each_small_quad_triangle(
         for(unsigned int x = checked_quad_bounds.start_x; x < checked_quad_bounds.end_x; x += 2)
         {
             const int mask = geom::reduce_coverage_mask(coverage_lambdas.get_coverage_mask());
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            ++quad_tests;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
             if(mask)
             {
-                has_covered_quad = true;
-                break;
+                assert(covered_quad_count < covered_quads.size());
+                covered_quads[covered_quad_count++] = {
+                  x,
+                  y,
+                  static_cast<std::uint8_t>(mask)};
             }
-
+            else
+            {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-            ++empty_quad_tests;
+                ++empty_quads;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            }
 
             coverage_lambdas.step_x(2);
         }
@@ -663,11 +794,14 @@ inline void for_each_small_quad_triangle(
         coverage_lambdas.step_y(2);
     }
 
-    if(!has_covered_quad)
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    swr::impl::profile_checked_quad_tests.fetch_add(quad_tests, std::memory_order_relaxed);
+    swr::impl::profile_checked_empty_quads.fetch_add(empty_quads, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    if(covered_quad_count == 0)
     {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-        swr::impl::profile_checked_quad_tests.fetch_add(empty_quad_tests, std::memory_order_relaxed);
-        swr::impl::profile_checked_empty_quads.fetch_add(empty_quad_tests, std::memory_order_relaxed);
         swr::impl::profile_raster_small_quad_empty_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
@@ -683,6 +817,16 @@ inline void for_each_small_quad_triangle(
         block_x,
         block_y);
 
+    small_triangle_payload small_payload{};
+    const small_triangle_payload* small_payload_ptr = nullptr;
+    if(small_triangle_interpolator::can_store_without_allocation(attributes))
+    {
+        small_payload.attributes = small_triangle_interpolator{attributes};
+        small_payload.quads = covered_quads;
+        small_payload.quad_count = covered_quad_count;
+        small_payload_ptr = &small_payload;
+    }
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t callback_cycles = 0;
     utils::clock(callback_cycles);
@@ -695,7 +839,25 @@ inline void for_each_small_quad_triangle(
                    const geom::barycentric_coordinate_block&,
                    const rast::triangle_interpolator&,
                    tile_info::rasterization_mode,
-                   const quad_bounds*>)
+                   const quad_bounds*,
+                   const small_triangle_payload*>)
+    {
+        f(block_x,
+          block_y,
+          lambdas,
+          attributes,
+          tile_info::rasterization_mode::checked,
+          &checked_quad_bounds,
+          small_payload_ptr);
+    }
+    else if constexpr(std::is_invocable_v<
+                        F&,
+                        int,
+                        int,
+                        const geom::barycentric_coordinate_block&,
+                        const rast::triangle_interpolator&,
+                        tile_info::rasterization_mode,
+                        const quad_bounds*>)
     {
         f(block_x, block_y, lambdas, attributes, tile_info::rasterization_mode::checked, &checked_quad_bounds);
     }
@@ -879,7 +1041,7 @@ inline void for_each_thin_triangle_block_with_bounds(
     const int end_x = swr::impl::upper_align_on_block_size(quad_end_x);
     const int end_y = swr::impl::upper_align_on_block_size(quad_end_y);
 
-    const auto emit_block = [&](int x, int y, quad_bounds thin_quad_bounds)
+    const auto emit_block = [&](int x, int y, quad_bounds thin_quad_bounds, bool allow_sparse_payload)
     {
         geom::barycentric_coordinate_block lambdas_box =
           compute_triangle_lambdas_at_block(info, x, y);
@@ -892,12 +1054,55 @@ inline void for_each_thin_triangle_block_with_bounds(
             x,
             y);
 
+        sparse_triangle_payload sparse_payload{};
+        const sparse_triangle_payload* sparse_payload_ptr = nullptr;
+        if(allow_sparse_payload)
+        {
+            const precomputed_triangle_payload_status payload_status =
+              build_precomputed_triangle_payload(
+                static_cast<unsigned int>(x),
+                static_cast<unsigned int>(y),
+                thin_quad_bounds,
+                lambdas_box,
+                attributes,
+                sparse_payload);
+            if(payload_status == precomputed_triangle_payload_status::empty)
+            {
+                return;
+            }
+            if(payload_status == precomputed_triangle_payload_status::ready)
+            {
+                sparse_payload_ptr = &sparse_payload;
+            }
+        }
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t callback_cycles = 0;
         utils::clock(callback_cycles);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        f(x, y, lambdas_box, attributes, mode, thin_quad_bounds);
+        if constexpr(std::is_invocable_v<
+                       F&,
+                       int,
+                       int,
+                       const geom::barycentric_coordinate_block&,
+                       const rast::triangle_interpolator&,
+                       tile_info::rasterization_mode,
+                       quad_bounds,
+                       const sparse_triangle_payload*>)
+        {
+            f(x,
+              y,
+              lambdas_box,
+              attributes,
+              mode,
+              thin_quad_bounds,
+              sparse_payload_ptr);
+        }
+        else
+        {
+            f(x, y, lambdas_box, attributes, mode, thin_quad_bounds);
+        }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(callback_cycles);
@@ -932,7 +1137,11 @@ inline void for_each_thin_triangle_block_with_bounds(
                   static_cast<unsigned int>(std::min(y + static_cast<int>(swr::impl::rasterizer_block_size), y_span.end))};
                 if(!thin_quad_bounds.empty())
                 {
-                    emit_block(x, y, thin_quad_bounds);
+                    emit_block(
+                      x,
+                      y,
+                      thin_quad_bounds,
+                      should_build_sparse_triangle_payload(y_span, thin_quad_bounds));
                 }
             }
         }
@@ -964,7 +1173,11 @@ inline void for_each_thin_triangle_block_with_bounds(
                   static_cast<unsigned int>(std::min(y + static_cast<int>(swr::impl::rasterizer_block_size), quad_end_y))};
                 if(!thin_quad_bounds.empty())
                 {
-                    emit_block(x, y, thin_quad_bounds);
+                    emit_block(
+                      x,
+                      y,
+                      thin_quad_bounds,
+                      should_build_sparse_triangle_payload(x_span, thin_quad_bounds));
                 }
             }
         }

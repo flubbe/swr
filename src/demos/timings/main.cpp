@@ -89,7 +89,7 @@ class demo_timings : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_timings()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

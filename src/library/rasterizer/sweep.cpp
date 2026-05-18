@@ -68,14 +68,14 @@ void sweep_rasterizer::draw_primitives()
     }
     else
     {
-        draw_primitives_sequentially();
+        draw_primitives_sequential();
     }
 #else
-    draw_primitives_sequentially();
+    draw_primitives_sequential();
 #endif
 }
 
-void sweep_rasterizer::draw_primitives_sequentially()
+void sweep_rasterizer::draw_primitives_sequential()
 {
     for(auto& it: draw_list)
     {
@@ -194,17 +194,34 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               in_tile.y,
               it);
         }
-        else if(is_small_checked_rasterization_mode(it.mode))
+        else if(it.mode == tile_info::rasterization_mode::small_checked)
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-            assert(it.small_payload_index < in_tile.primitive_small_payloads.size());
+            assert(it.precomputed_payload_index < in_tile.primitive_small_payloads.size());
             process_block_small_checked(
               in_tile.x,
               in_tile.y,
               it,
-              in_tile.primitive_small_payloads[it.small_payload_index]);
+              in_tile.primitive_small_payloads[it.precomputed_payload_index]);
+        }
+        else if(it.mode == tile_info::rasterization_mode::sparse_checked)
+        {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            assert(it.precomputed_payload_index < in_tile.primitive_sparse_payloads.size());
+            const auto& payload = in_tile.primitive_sparse_payloads[it.precomputed_payload_index];
+            assert(payload.quad_offset + payload.quad_count <= in_tile.primitive_sparse_quad_payloads.size());
+            process_block_sparse_checked(
+              in_tile.x,
+              in_tile.y,
+              it,
+              payload,
+              std::span<const small_triangle_quad_payload>{
+                in_tile.primitive_sparse_quad_payloads.data() + payload.quad_offset,
+                payload.quad_count});
         }
     }
 }

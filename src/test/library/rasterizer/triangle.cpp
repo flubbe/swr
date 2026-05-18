@@ -430,6 +430,8 @@ std::ostream& operator<<(
         return os << "thin_y_major";
     case tile_info::rasterization_mode::small_checked:
         return os << "small_checked";
+    case tile_info::rasterization_mode::sparse_checked:
+        return os << "sparse_checked";
     }
 
     return os << "unknown";
@@ -1530,7 +1532,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     BOOST_REQUIRE_EQUAL(tile.primitive_small_payloads.size(), 1u);
     BOOST_CHECK_EQUAL(tile.primitives[0].mode, rast::tile_info::rasterization_mode::small_checked);
 
-    const auto& payload = tile.primitive_small_payloads[tile.primitives[0].small_payload_index];
+    const auto& payload = tile.primitive_small_payloads[tile.primitives[0].precomputed_payload_index];
     BOOST_REQUIRE_EQUAL(payload.quad_count, 3u);
 
     BOOST_CHECK_EQUAL(payload.quads[0].x, 8u);
@@ -1541,6 +1543,65 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     BOOST_CHECK_EQUAL(payload.quads[1].y, 8u);
     BOOST_CHECK_EQUAL(payload.quads[1].mask, 0x8u);
 
+    BOOST_CHECK_EQUAL(payload.quads[2].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[2].y, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[2].mask, 0x8u);
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_iterator_provides_precomputed_payload)
+{
+    triangle_test_context ctx{16, 16};
+
+    const auto v0 = make_vertex(8.5f, 8.5f);
+    const auto v1 = make_vertex(11.5f, 8.5f);
+    const auto v2 = make_vertex(8.5f, 11.5f);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+
+    bool saw_block = false;
+    rast::small_triangle_payload payload{};
+    rast::quad_bounds payload_bounds{};
+
+    rast::for_each_small_quad_triangle(
+      ctx.states,
+      bounds,
+      info,
+      v0.varyings,
+      0.0f,
+      [&](int,
+          int,
+          const geom::barycentric_coordinate_block&,
+          const rast::triangle_interpolator&,
+          rast::tile_info::rasterization_mode mode,
+          const rast::quad_bounds* quad_bounds,
+          const rast::small_triangle_payload* precomputed_payload)
+      {
+          saw_block = true;
+          BOOST_CHECK_EQUAL(mode, rast::tile_info::rasterization_mode::checked);
+          BOOST_REQUIRE(quad_bounds);
+          BOOST_REQUIRE(precomputed_payload);
+
+          payload_bounds = *quad_bounds;
+          payload = *precomputed_payload;
+      });
+
+    BOOST_REQUIRE(saw_block);
+    BOOST_CHECK_EQUAL(payload_bounds.start_x, 8u);
+    BOOST_CHECK_EQUAL(payload_bounds.start_y, 8u);
+    BOOST_CHECK_EQUAL(payload_bounds.end_x, 12u);
+    BOOST_CHECK_EQUAL(payload_bounds.end_y, 12u);
+
+    BOOST_REQUIRE_EQUAL(payload.quad_count, 3u);
+    BOOST_CHECK_EQUAL(payload.quads[0].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].mask, 0xfu);
+    BOOST_CHECK_EQUAL(payload.quads[1].x, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[1].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[1].mask, 0x8u);
     BOOST_CHECK_EQUAL(payload.quads[2].x, 8u);
     BOOST_CHECK_EQUAL(payload.quads[2].y, 10u);
     BOOST_CHECK_EQUAL(payload.quads[2].mask, 0x8u);

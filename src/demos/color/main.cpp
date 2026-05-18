@@ -62,7 +62,7 @@ class demo_cube : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_cube()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

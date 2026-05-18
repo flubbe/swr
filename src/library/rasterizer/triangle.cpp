@@ -50,7 +50,10 @@ inline void profile_checked_quad_mask(std::uint8_t mask)
 }
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y, tile_info& in_data)
+void sweep_rasterizer::process_block(
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -65,8 +68,8 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
         swr::limits::max::varyings>,
       4>
       temp_varyings;
-    assert(in_data.attributes);
-    auto& attributes = *in_data.attributes;
+    assert(data.attributes);
+    auto& attributes = *data.attributes;
     attributes.setup_block_processing();
     const std::size_t varying_count = attributes.varyings.size();
     temp_varyings[0].resize(varying_count);
@@ -74,14 +77,14 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
     temp_varyings[2].resize(varying_count);
     temp_varyings[3].resize(varying_count);
 
-    const bool front_facing = in_data.front_facing;
+    const bool front_facing = data.front_facing;
 
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
     const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
-                                        .shader_instances[in_data.shader_index]
+                                        .shader_instances[data.shader_index]
                                         .shader;
 
     for_each_quad_in_triangle_block(
@@ -120,7 +123,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
 
           process_fragment_block(
             x, y,
-            *in_data.states,
+            *data.states,
             shader,
             one_over_viewport_z,
             frag_info,
@@ -138,13 +141,13 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
 
           if(out.write_color)
           {
-              in_data.states->draw_target->merge_color_block(
+              data.states->draw_target->merge_color_block(
                 0,
                 x, y,
                 out,
-                in_data.states->blending_enabled,
-                in_data.states->blend_src,
-                in_data.states->blend_dst);
+                data.states->blending_enabled,
+                data.states->blend_src,
+                data.states->blend_dst);
           }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -164,7 +167,7 @@ void sweep_rasterizer::process_block(unsigned int block_x, unsigned int block_y,
 void sweep_rasterizer::process_block_checked(
   unsigned int block_x,
   unsigned int block_y,
-  tile_info& in_data)
+  tile_info& data)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -180,8 +183,8 @@ void sweep_rasterizer::process_block_checked(
       4>
       temp_varyings;
 
-    assert(in_data.attributes);
-    auto& attributes = *in_data.attributes;
+    assert(data.attributes);
+    auto& attributes = *data.attributes;
     attributes.setup_block_processing();
 
     const std::size_t varying_count = attributes.varyings.size();
@@ -190,16 +193,16 @@ void sweep_rasterizer::process_block_checked(
     temp_varyings[2].resize(varying_count);
     temp_varyings[3].resize(varying_count);
 
-    const bool front_facing = in_data.front_facing;
+    const bool front_facing = data.front_facing;
 
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
     const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
-                                        .shader_instances[in_data.shader_index]
+                                        .shader_instances[data.shader_index]
                                         .shader;
-    assert(in_data.checked_lambdas);
+    assert(data.checked_lambdas);
 
     auto process_checked_quad =
       [&](int x,
@@ -242,7 +245,7 @@ void sweep_rasterizer::process_block_checked(
             process_fragment_block(
               x,
               y,
-              *in_data.states,
+              *data.states,
               shader,
               one_over_viewport_z,
               frag_info,
@@ -258,7 +261,7 @@ void sweep_rasterizer::process_block_checked(
               x,
               y,
               mask,
-              *in_data.states,
+              *data.states,
               shader,
               one_over_viewport_z,
               frag_info,
@@ -275,14 +278,14 @@ void sweep_rasterizer::process_block_checked(
 
         if(out.write_color)
         {
-            in_data.states->draw_target->merge_color_block(
+            data.states->draw_target->merge_color_block(
               0,
               x,
               y,
               out,
-              in_data.states->blending_enabled,
-              in_data.states->blend_src,
-              in_data.states->blend_dst);
+              data.states->blending_enabled,
+              data.states->blend_src,
+              data.states->blend_dst);
         }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -294,8 +297,8 @@ void sweep_rasterizer::process_block_checked(
     for_each_covered_quad_in_checked_triangle_block(
       block_x,
       block_y,
-      in_data.checked_quad_bounds,
-      *in_data.checked_lambdas,
+      data.checked_quad_bounds,
+      *data.checked_lambdas,
       attributes,
       process_checked_quad);
 
@@ -307,11 +310,12 @@ void sweep_rasterizer::process_block_checked(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
-void sweep_rasterizer::process_block_small_checked(
+void sweep_rasterizer::process_block_precomputed_checked(
   unsigned int block_x,
   unsigned int block_y,
-  tile_info& in_data,
-  const small_triangle_payload& payload)
+  tile_info& data,
+  const small_triangle_interpolator& attributes,
+  std::span<const small_triangle_quad_payload> quads)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -327,26 +331,24 @@ void sweep_rasterizer::process_block_small_checked(
       4>
       temp_varyings;
 
-    const bool front_facing = in_data.front_facing;
+    const bool front_facing = data.front_facing;
 
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
     const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
-                                        .shader_instances[in_data.shader_index]
+                                        .shader_instances[data.shader_index]
                                         .shader;
 
-    for(std::uint8_t i = 0; i < payload.quad_count; ++i)
+    for(const auto& quad: quads)
     {
-        const auto& quad = payload.quads[i];
-
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_interp = 0;
         utils::clock(stage_interp);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        payload.attributes.get_data_block_at(
+        attributes.get_data_block_at(
           quad.x - block_x,
           quad.y - block_y,
           temp_varyings,
@@ -375,7 +377,7 @@ void sweep_rasterizer::process_block_small_checked(
             process_fragment_block(
               quad.x,
               quad.y,
-              *in_data.states,
+              *data.states,
               shader,
               one_over_viewport_z,
               frag_info,
@@ -387,7 +389,7 @@ void sweep_rasterizer::process_block_small_checked(
               quad.x,
               quad.y,
               quad.mask,
-              *in_data.states,
+              *data.states,
               shader,
               one_over_viewport_z,
               frag_info,
@@ -404,14 +406,14 @@ void sweep_rasterizer::process_block_small_checked(
 
         if(out.write_color)
         {
-            in_data.states->draw_target->merge_color_block(
+            data.states->draw_target->merge_color_block(
               0,
               quad.x,
               quad.y,
               out,
-              in_data.states->blending_enabled,
-              in_data.states->blend_src,
-              in_data.states->blend_dst);
+              data.states->blending_enabled,
+              data.states->blend_src,
+              data.states->blend_dst);
         }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -428,6 +430,51 @@ void sweep_rasterizer::process_block_small_checked(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
+void sweep_rasterizer::process_block_small_checked(
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data,
+  const small_triangle_payload& payload)
+{
+    process_block_precomputed_checked(
+      block_x,
+      block_y,
+      data,
+      payload.attributes,
+      std::span<const small_triangle_quad_payload>{
+        payload.quads.data(),
+        payload.quad_count});
+}
+
+void sweep_rasterizer::process_block_sparse_checked(
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data,
+  const sparse_triangle_payload& payload)
+{
+    process_block_precomputed_checked(
+      block_x,
+      block_y,
+      data,
+      payload.attributes,
+      payload.quads);
+}
+
+void sweep_rasterizer::process_block_sparse_checked(
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data,
+  const sparse_triangle_tile_payload& payload,
+  std::span<const small_triangle_quad_payload> quads)
+{
+    process_block_precomputed_checked(
+      block_x,
+      block_y,
+      data,
+      payload.attributes,
+      quads);
+}
+
 /**
  * Apply depth offset to triangle vertices.
  *
@@ -442,6 +489,9 @@ static float setup_polygon_offset(
   const geom::vertex& v3,
   float inv_area)
 {
+    static_assert(sizeof(float) == sizeof(std::uint32_t));
+    static_assert(std::numeric_limits<float>::is_iec559);
+
     ml::vec3 edges[2] = {
       (v2.coords - v1.coords).xyz(),
       (v3.coords - v1.coords).xyz()};    // edges in window coordinates
@@ -451,9 +501,9 @@ static float setup_polygon_offset(
                   * inv_area;
 
 #ifdef __GNUC__
-    float m = std::max(fabsf(dz.x), fabsf(dz.y));    // Eq. (14.12)
+    float m = std::max(fabs(dz.x), fabs(dz.y));    // Eq. (14.12)
 #else
-    float m = std::max(std::fabsf(dz.x), std::fabsf(dz.y));    // Eq. (14.12)
+    float m = std::max(std::fabs(dz.x), std::fabs(dz.y));    // Eq. (14.12)
 #endif
 
     /*
@@ -468,34 +518,40 @@ static float setup_polygon_offset(
      *
      * A 32-bit float has a 23-bit mantissa.
      */
-    union float_integer
-    {
-        float f;
-        std::int32_t i;
-        std::uint32_t ui;
 
-        float_integer(float in_f)
-        : f{in_f}
-        {
-        }
-    };
     // get the maximum exponent in the range of the z values spanned by the primitive
 #ifdef __GNUC__
-    float_integer r{
-      std::max({fabsf(v1.coords.z), fabsf(v2.coords.z), fabsf(v3.coords.z)})};
+    float max_z = std::max({fabs(v1.coords.z),
+                            fabs(v2.coords.z),
+                            fabs(v3.coords.z)});
 #else
-    float_integer r{
-      std::max({std::fabsf(v1.coords.z), std::fabsf(v2.coords.z), std::fabsf(v3.coords.z)})};
+    float max_z = std::max({std::fabs(v1.coords.z),
+                            std::fabs(v2.coords.z),
+                            std::fabs(v3.coords.z)});
 #endif
-    r.i &= 0xff << 23;
-
-    // calculate r by subtracting the size of mantissa from exponent
-    r.ui -= 23 << 23;
 
     // clamp to zero (this means no resolvable depth offset for very small numbers)
-    r.i = std::max(r.i, 0);
+    float r = 0.0f;
+    if(std::isfinite(max_z))
+    {
+        std::uint32_t bits = std::bit_cast<std::uint32_t>(max_z);
 
-    return m * states.polygon_offset_factor + r.f * states.polygon_offset_units;    // Eq. (14.13)
+        // Keep only exponent bits.
+        bits &= 0xffu << 23;
+
+        constexpr std::uint32_t mantissa_adjust = 23u << 23;
+
+        // Convert 2^e to 2^(e - 23), matching r = 2^(e - n) for float.
+        // Clamp to zero for very small exponents.
+        if(bits > mantissa_adjust)
+        {
+            bits -= mantissa_adjust;
+            r = std::bit_cast<float>(bits);
+        }
+    }
+
+    return m * states.polygon_offset_factor
+           + r * states.polygon_offset_units;    // Eq. (14.13)
 }
 
 void sweep_rasterizer::draw_filled_triangle(
@@ -600,6 +656,8 @@ void sweep_rasterizer::draw_filled_triangle(
           const rast::triangle_interpolator& attributes_row,
           tile_info::rasterization_mode mode,
           const quad_bounds* override_checked_quad_bounds,
+          const small_triangle_payload* precomputed_small_payload,
+          const sparse_triangle_payload* precomputed_sparse_payload,
           bool prefer_small_payload)
     {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -657,6 +715,8 @@ void sweep_rasterizer::draw_filled_triangle(
           is_single_block_triangle
           && allow_direct_block_path
           && (!is_thin_rasterization_mode(mode)
+              || !parallel_tile_processing_enabled)
+          && (!prefer_small_payload
               || !parallel_tile_processing_enabled);
 
         if(use_direct_path_for_block)
@@ -674,9 +734,21 @@ void sweep_rasterizer::draw_filled_triangle(
 
             auto& tile = tiles.entries[tile_index];
             const std::size_t shader_index = tile.get_fragment_shader_index(&states);
+            const bool use_precomputed_payload =
+              (prefer_small_payload
+               && precomputed_small_payload)
+              || (!prefer_small_payload
+                  && is_thin_rasterization_mode(mode)
+                  && precomputed_sparse_payload);
+            const tile_info::rasterization_mode direct_mode =
+              use_precomputed_payload
+                ? (prefer_small_payload
+                     ? tile_info::rasterization_mode::small_checked
+                     : tile_info::rasterization_mode::sparse_checked)
+                : mode;
             auto direct_attributes = attributes_row;    // attributes need to be mutable for tile_info.
             const geom::barycentric_coordinate_block* direct_checked_lambdas =
-              uses_checked_lambdas(mode)
+              uses_checked_lambdas(direct_mode)
                 ? &lambdas_box
                 : nullptr;
             tile_info direct_info{
@@ -684,9 +756,9 @@ void sweep_rasterizer::draw_filled_triangle(
               shader_index,
               direct_checked_lambdas,
               checked_quad_bounds,
-              &direct_attributes,
+              use_precomputed_payload ? nullptr : &direct_attributes,
               is_front_facing,
-              mode};
+              direct_mode};
 
             if(mode == tile_info::rasterization_mode::block)
             {
@@ -694,6 +766,25 @@ void sweep_rasterizer::draw_filled_triangle(
                   x,
                   y,
                   direct_info);
+            }
+            else if(use_precomputed_payload)
+            {
+                if(prefer_small_payload)
+                {
+                    process_block_small_checked(
+                      x,
+                      y,
+                      direct_info,
+                      *precomputed_small_payload);
+                }
+                else
+                {
+                    process_block_sparse_checked(
+                      x,
+                      y,
+                      direct_info,
+                      *precomputed_sparse_payload);
+                }
             }
             else
             {
@@ -720,13 +811,39 @@ void sweep_rasterizer::draw_filled_triangle(
                 if(prefer_small_payload
                    && mode == tile_info::rasterization_mode::checked)
                 {
-                    needs_flush = tiles.add_small_triangle_checked(
+                    if(precomputed_small_payload)
+                    {
+                        needs_flush = tiles.add_small_triangle_checked_payload(
+                          x,
+                          y,
+                          &states,
+                          checked_quad_bounds,
+                          *precomputed_small_payload,
+                          is_front_facing,
+                          emitted_tile_ref);
+                    }
+                    else
+                    {
+                        needs_flush = tiles.add_small_triangle_checked(
+                          x,
+                          y,
+                          &states,
+                          lambdas_box,
+                          checked_quad_bounds,
+                          attributes_row,
+                          is_front_facing,
+                          emitted_tile_ref);
+                    }
+                }
+                else if(is_thin_rasterization_mode(mode)
+                        && precomputed_sparse_payload)
+                {
+                    needs_flush = tiles.add_sparse_triangle_checked_payload(
                       x,
                       y,
                       &states,
-                      lambdas_box,
                       checked_quad_bounds,
-                      attributes_row,
+                      *precomputed_sparse_payload,
                       is_front_facing,
                       emitted_tile_ref);
                 }
@@ -813,6 +930,8 @@ void sweep_rasterizer::draw_filled_triangle(
           attributes_row,
           mode,
           override_checked_quad_bounds,
+          nullptr,
+          nullptr,
           false);
     };
 
@@ -822,7 +941,8 @@ void sweep_rasterizer::draw_filled_triangle(
           const geom::barycentric_coordinate_block& lambdas_box,
           const rast::triangle_interpolator& attributes_row,
           tile_info::rasterization_mode mode,
-          const quad_bounds* override_checked_quad_bounds = nullptr)
+          const quad_bounds* override_checked_quad_bounds = nullptr,
+          const small_triangle_payload* precomputed_small_payload = nullptr)
     {
         emit_triangle_block_impl(
           x,
@@ -831,6 +951,8 @@ void sweep_rasterizer::draw_filled_triangle(
           attributes_row,
           mode,
           override_checked_quad_bounds,
+          precomputed_small_payload,
+          nullptr,
           true);
     };
 
@@ -840,7 +962,8 @@ void sweep_rasterizer::draw_filled_triangle(
           const geom::barycentric_coordinate_block& lambdas_box,
           const rast::triangle_interpolator& attributes_row,
           tile_info::rasterization_mode mode,
-          quad_bounds thin_quad_bounds)
+          quad_bounds thin_quad_bounds,
+          const sparse_triangle_payload* precomputed_sparse_payload = nullptr)
     {
         emit_triangle_block_impl(
           x,
@@ -849,6 +972,8 @@ void sweep_rasterizer::draw_filled_triangle(
           attributes_row,
           mode,
           &thin_quad_bounds,
+          nullptr,
+          precomputed_sparse_payload,
           false);
     };
 

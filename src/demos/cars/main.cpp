@@ -886,7 +886,7 @@ class demo_viewer : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_viewer()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 
