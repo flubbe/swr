@@ -219,7 +219,7 @@ void sweep_rasterizer::process_fragment_block(
     depth_mask &= states.write_depth ? 0b1111 : 0;
 
     std::uint8_t write_color = 0b1111;
-    std::uint8_t write_stencil = 0x0; /* unimplemented */
+    std::uint8_t write_stencil = 0b0; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
@@ -447,7 +447,7 @@ void sweep_rasterizer::process_fragment_block(
     depth_mask &= states.write_depth ? 0b1111 : 0;
 
     std::uint8_t write_color = active_mask;
-    std::uint8_t write_stencil = 0x0; /* unimplemented */
+    std::uint8_t write_stencil = 0b0; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to 0. */
 
