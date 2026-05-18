@@ -47,7 +47,7 @@ struct fragment_output_block
      */
 
     /** whether the color values should be written to the color buffer. */
-    std::uint8_t write_color = 0xF;
+    std::uint8_t write_color = 0b1111;
 
     /** whether the stencil values should be written to the stencil buffer (currently unused). */
     std::uint8_t write_stencil = 0x0; /* currently unused */

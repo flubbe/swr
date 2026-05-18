@@ -111,6 +111,7 @@ void sweep_rasterizer::draw_primitives_sequential()
 }
 
 #ifdef SWR_ENABLE_MULTI_THREADING
+
 void sweep_rasterizer::draw_primitives_parallel()
 {
     if(!draw_list.size())
@@ -179,6 +180,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_raster_processed_block_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             process_block(
               in_tile.x,
               in_tile.y,
@@ -189,6 +191,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             process_block_checked(
               in_tile.x,
               in_tile.y,
@@ -199,6 +202,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             assert(it.precomputed_payload_index < in_tile.primitive_small_payloads.size());
             process_block_small_checked(
               in_tile.x,
@@ -211,6 +215,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             swr::impl::profile_raster_processed_checked_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
             assert(it.precomputed_payload_index < in_tile.primitive_sparse_payloads.size());
             const auto& payload = in_tile.primitive_sparse_payloads[it.precomputed_payload_index];
             assert(payload.quad_offset + payload.quad_count <= in_tile.primitive_sparse_quad_payloads.size());

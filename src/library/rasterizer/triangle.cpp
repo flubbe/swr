@@ -21,9 +21,11 @@ namespace rast
 {
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+
 inline void profile_checked_quad_mask(std::uint8_t mask)
 {
-    if(mask == 0xF)
+    // a mask of 0b1111 means the 2x2 block is fully covered.
+    if(mask == 0b1111)
     {
         swr::impl::profile_checked_full_mask_quads.fetch_add(1, std::memory_order_relaxed);
         return;
@@ -48,6 +50,7 @@ inline void profile_checked_quad_mask(std::uint8_t mask)
         swr::impl::profile_checked_partial_pop3_quads.fetch_add(1, std::memory_order_relaxed);
     }
 }
+
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 void sweep_rasterizer::process_block(
@@ -62,16 +65,18 @@ void sweep_rasterizer::process_block(
     utils::clock(stage_block_total);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
+    assert(data.attributes);
+    auto& attributes = *data.attributes;
+    attributes.setup_block_processing();
+
+    const std::size_t varying_count = attributes.varyings.size();
+
     std::array<
       boost::container::static_vector<
         swr::varying,
         swr::limits::max::varyings>,
       4>
       temp_varyings;
-    assert(data.attributes);
-    auto& attributes = *data.attributes;
-    attributes.setup_block_processing();
-    const std::size_t varying_count = attributes.varyings.size();
     temp_varyings[0].resize(varying_count);
     temp_varyings[1].resize(varying_count);
     temp_varyings[2].resize(varying_count);
@@ -83,9 +88,11 @@ void sweep_rasterizer::process_block(
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
-    const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
-                                        .shader_instances[data.shader_index]
-                                        .shader;
+    const swr::program_base* shader =
+      tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch
+                    + (block_x >> swr::impl::rasterizer_block_shift)]
+        .shader_instances[data.shader_index]
+        .shader;
 
     for_each_quad_in_triangle_block(
       block_x,
@@ -122,7 +129,8 @@ void sweep_rasterizer::process_block(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
           process_fragment_block(
-            x, y,
+            x,
+            y,
             *data.states,
             shader,
             one_over_viewport_z,
@@ -132,9 +140,7 @@ void sweep_rasterizer::process_block(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
           utils::unclock(stage_fragment_block);
           stage_block_fragment += stage_fragment_block;
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
           std::uint64_t stage_merge_block = 0;
           utils::clock(stage_merge_block);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
@@ -143,7 +149,8 @@ void sweep_rasterizer::process_block(
           {
               data.states->draw_target->merge_color_block(
                 0,
-                x, y,
+                x,
+                y,
                 out,
                 data.states->blending_enabled,
                 data.states->blend_src,
@@ -176,6 +183,12 @@ void sweep_rasterizer::process_block_checked(
     utils::clock(stage_block_total);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
+    assert(data.attributes);
+    auto& attributes = *data.attributes;
+    attributes.setup_block_processing();
+
+    const std::size_t varying_count = attributes.varyings.size();
+
     std::array<
       boost::container::static_vector<
         swr::varying,
@@ -183,11 +196,6 @@ void sweep_rasterizer::process_block_checked(
       4>
       temp_varyings;
 
-    assert(data.attributes);
-    auto& attributes = *data.attributes;
-    attributes.setup_block_processing();
-
-    const std::size_t varying_count = attributes.varyings.size();
     temp_varyings[0].resize(varying_count);
     temp_varyings[1].resize(varying_count);
     temp_varyings[2].resize(varying_count);
@@ -199,9 +207,11 @@ void sweep_rasterizer::process_block_checked(
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
-    const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
-                                        .shader_instances[data.shader_index]
-                                        .shader;
+    const swr::program_base* shader =
+      tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch
+                    + (block_x >> swr::impl::rasterizer_block_shift)]
+        .shader_instances[data.shader_index]
+        .shader;
     assert(data.checked_lambdas);
 
     auto process_checked_quad =
@@ -234,14 +244,13 @@ void sweep_rasterizer::process_block_checked(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_fragment_block = 0;
         utils::clock(stage_fragment_block);
+
+        profile_checked_quad_mask(static_cast<std::uint8_t>(mask));
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        if(mask == 0xF)
+        // a mask of 0b1111 means the 2x2 block is fully covered.
+        if(mask == 0b1111)
         {
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-            profile_checked_quad_mask(static_cast<std::uint8_t>(mask));
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
             process_fragment_block(
               x,
               y,
@@ -253,10 +262,6 @@ void sweep_rasterizer::process_block_checked(
         }
         else
         {
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-            profile_checked_quad_mask(static_cast<std::uint8_t>(mask));
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
             process_fragment_block(
               x,
               y,
@@ -337,9 +342,11 @@ void sweep_rasterizer::process_block_precomputed_checked(
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
 
-    const swr::program_base* shader = tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch + (block_x >> swr::impl::rasterizer_block_shift)]
-                                        .shader_instances[data.shader_index]
-                                        .shader;
+    const swr::program_base* shader =
+      tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch
+                    + (block_x >> swr::impl::rasterizer_block_shift)]
+        .shader_instances[data.shader_index]
+        .shader;
 
     for(const auto& quad: quads)
     {
@@ -372,7 +379,8 @@ void sweep_rasterizer::process_block_precomputed_checked(
         profile_checked_quad_mask(quad.mask);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        if(quad.mask == 0xF)
+        // a mask of 0b1111 means the 2x2 block is fully covered.
+        if(quad.mask == 0b1111)
         {
             process_fragment_block(
               quad.x,
@@ -607,10 +615,10 @@ void sweep_rasterizer::draw_filled_triangle(
     const bool allow_direct_block_path =
       !parallel_tile_processing_enabled
       || !has_pending_tile_work;
-#else
+#else  /* SWR_ENABLE_MULTI_THREADING */
     constexpr bool parallel_tile_processing_enabled = false;
     const bool allow_direct_block_path = true;
-#endif
+#endif /* SWR_ENABLE_MULTI_THREADING */
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::clock(stage_setup_bounds);
@@ -751,6 +759,7 @@ void sweep_rasterizer::draw_filled_triangle(
               uses_checked_lambdas(direct_mode)
                 ? &lambdas_box
                 : nullptr;
+
             tile_info direct_info{
               &states,
               shader_index,
@@ -799,7 +808,7 @@ void sweep_rasterizer::draw_filled_triangle(
             stage_setup_direct += stage_direct;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
-        else
+        else /* use_direct_path_for_block */
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             std::uint64_t stage_enqueue = 0;
