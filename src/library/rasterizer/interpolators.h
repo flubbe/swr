@@ -324,10 +324,6 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     /**
      * Initialize the interpolator along the x-direction and along the y-direction with respect to the triangle edges.
      *
-     * TODO split vertex info in (coords, varyings) in order to have a modifyable copy of the coords.
-     *      provoking_vertex is only needed for its varyings.
-     *      split into vX and vX_varying arguments for each vertex?
-     *
      * \param v0 first triangle vertex in cw orienation (w.r.t. viewport coordinstes)
      * \param v1 second triangle vertex in cw orientation (w.r.t. viewport coordinates)
      * \param v2 third triangle vertex in cw orientation (w.r.t. viewport coordinates)

@@ -528,7 +528,7 @@ static bool LoadObjAndConvert(
                 texture_id = swr::CreateTexture();
                 swr::BindTexture(swr::texture_target::texture_2d, texture_id);
                 swr::SetTextureMagnificationFilter(swr::texture_filter::linear);
-                swr::SetTextureMinificationFilter(swr::texture_filter::linear);
+                swr::SetTextureMinificationFilter(swr::texture_filter::nearest);
 
                 std::vector<std::uint8_t> image_rgba(4 * w * h);
                 if(comp == 3)

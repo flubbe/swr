@@ -431,8 +431,11 @@ std::uint32_t CreateTexture()
     impl::texture_2d* new_texture = context->texture_2d_storage[slot].get();
     new_texture->id = slot;
 
-    // TODO this should set the last used texture filters
-    new_texture->set_filter_mag(texture_filter::nearest);
+    /*
+     * TODO Set the initial value of min to nearest_mipmap_linear
+     *      (see e.g. https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexParameter.xhtml)
+     */
+    new_texture->set_filter_mag(texture_filter::linear);
     new_texture->set_filter_min(texture_filter::nearest);
 
 #define CHECK(expr)                         \
@@ -442,7 +445,10 @@ std::uint32_t CreateTexture()
         return 0;                           \
     }
 
-    // TODO this should set the last used wrap modes.
+    /*
+     * Initial values: wrap_mode::repeat
+     * (see e.g. https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexParameter.xhtml)
+     */
     CHECK(new_texture->set_wrap_s(wrap_mode::repeat));
     CHECK(new_texture->set_wrap_t(wrap_mode::repeat));
 
