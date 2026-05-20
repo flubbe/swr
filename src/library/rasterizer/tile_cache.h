@@ -25,6 +25,7 @@ inline constexpr std::size_t max_sparse_triangle_quad_payloads =
   (swr::impl::rasterizer_block_size / 2)
   * (swr::impl::rasterizer_block_size / 2);
 
+/** Covered-quad record for a small or sparse triangle payload. */
 struct small_triangle_quad_payload
 {
     unsigned int x{0};
@@ -32,6 +33,7 @@ struct small_triangle_quad_payload
     std::uint8_t mask{0};
 };
 
+/** Inline precomputed quad coverage payload for a small checked triangle. */
 struct small_triangle_payload
 {
     small_triangle_interpolator attributes;
@@ -42,6 +44,7 @@ struct small_triangle_payload
     std::uint8_t quad_count{0};
 };
 
+/** Builder payload for sparse checked triangles before tile storage compaction. */
 struct sparse_triangle_payload
 {
     small_triangle_interpolator attributes;
@@ -51,6 +54,7 @@ struct sparse_triangle_payload
       quads;
 };
 
+/** Compacted tile-local sparse payload referencing shared sparse quad storage. */
 struct sparse_triangle_tile_payload
 {
     small_triangle_interpolator attributes;
@@ -229,7 +233,10 @@ struct tile
     /** viewport y coordinate of the upper-left corner. */
     unsigned int y{0};
 
-    /** primitives associated to this tile. */
+    /*
+     * primitives, precomputed data and shaders associated to this tile.
+     */
+
     boost::container::static_vector<
       tile_info,
       max_primitive_count>
@@ -258,6 +265,7 @@ struct tile
       tile_fragment_shader_instance,
       utils::allocator<tile_fragment_shader_instance>>
       shader_instances;
+
     const swr::impl::render_states* last_shader_state{nullptr};
     std::size_t last_shader_index{0};
 
@@ -464,6 +472,7 @@ struct tile_cache
     {
         out_emitted = false;
 
+        // if we cannot store without allocation, add a checked triangle.
         if(!small_triangle_interpolator::can_store_without_allocation(in_attributes))
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
