@@ -1265,6 +1265,57 @@ BOOST_AUTO_TEST_CASE(mixed_flat_and_smooth_varyings_use_per_varying_qualifiers)
     BOOST_CHECK(saw_smooth_value_from_non_provoking_vertex);
 }
 
+BOOST_AUTO_TEST_CASE(varying_interpolation_no_perspective_and_invalid_qualifier)
+{
+    boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings> iqs;
+    iqs.emplace_back(swr::interpolation_qualifier::no_perspective);
+
+    geom::vertex a{};
+    geom::vertex b{};
+    geom::vertex c{};
+
+    a.coords = {0.0f, 0.0f, 0.0f, 0.5f};
+    b.coords = {0.0f, 4.0f, 0.0f, 2.0f};
+    c.coords = {4.0f, 0.0f, 0.0f, 1.0f};
+
+    a.varyings.emplace_back(ml::vec4{0.0f, 0.0f, 0.0f, 0.0f});
+    b.varyings.emplace_back(ml::vec4{40.0f, 0.0f, 0.0f, 0.0f});
+    c.varyings.emplace_back(ml::vec4{4.0f, 0.0f, 0.0f, 0.0f});
+
+    const auto info = rast::setup_triangle(a, b, c);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    rast::triangle_interpolator no_persp_attr{
+      ml::vec2{0.5f, 0.5f},
+      info.v0->coords,
+      info.v1->coords,
+      info.v2->coords,
+      info.v0->varyings,
+      info.v1->varyings,
+      info.v2->varyings,
+      info.v0->varyings,
+      iqs,
+      info.inv_area,
+      0.0f};
+
+    BOOST_CHECK_SMALL(no_persp_attr.varyings[0].value.x - 5.5f, 1e-5f);
+
+    iqs[0] = static_cast<swr::interpolation_qualifier>(999);
+
+    BOOST_CHECK_THROW((rast::triangle_interpolator{
+      ml::vec2{0.5f, 0.5f},
+      info.v0->coords,
+      info.v1->coords,
+      info.v2->coords,
+      info.v0->varyings,
+      info.v1->varyings,
+      info.v2->varyings,
+      info.v0->varyings,
+      iqs,
+      info.inv_area,
+      0.0f}), std::runtime_error);
+}
+
 BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
 {
     const int bs = static_cast<int>(swr::impl::rasterizer_block_size);

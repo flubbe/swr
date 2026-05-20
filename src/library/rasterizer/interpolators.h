@@ -11,6 +11,7 @@
 #pragma once
 
 #include <span>
+#include <stdexcept>
 
 #include <boost/container/small_vector.hpp>
 
@@ -35,7 +36,9 @@ struct varying_interpolator : public swr::varying
     varying_interpolator(const varying_interpolator&) = default;
     varying_interpolator(varying_interpolator&&) = default;
 
-    varying_interpolator(const varying& in_attrib, const ml::tvec2<ml::vec4>& in_step)
+    varying_interpolator(
+      const varying& in_attrib,
+      const ml::tvec2<ml::vec4>& in_step)
     : varying{in_attrib}
     , step{in_step}
     , row_start(in_attrib.value)
@@ -96,7 +99,10 @@ struct basic_interpolation_data
     T one_over_viewport_z;
 
     /** varyings from the shader. */
-    boost::container::static_vector<varying_interpolator, swr::limits::max::varyings> varyings;
+    boost::container::static_vector<
+      varying_interpolator,
+      swr::limits::max::varyings>
+      varyings;
 
     /** constructors. */
     basic_interpolation_data() = default;
@@ -107,10 +113,13 @@ struct basic_interpolation_data
     basic_interpolation_data<T>& operator=(const basic_interpolation_data<T>&) = default;
 
     /** get the varyings' values. */
-    void get_varyings(boost::container::static_vector<swr::varying, swr::limits::max::varyings>& out_varyings) const
+    void get_varyings(
+      boost::container::static_vector<
+        swr::varying,
+        swr::limits::max::varyings>& out_varyings) const
     {
         out_varyings.clear();
-        for(auto& it: varyings)
+        for(const auto& it: varyings)
         {
             out_varyings.emplace_back(it);
         }
@@ -208,7 +217,7 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
     line_interpolator(
       const geom::vertex& v1,
       const geom::vertex& v2,
-      const geom::vertex& v_ref,
+      const geom::vertex& provoking_vertex,
       const boost::container::static_vector<
         swr::interpolation_qualifier,
         swr::limits::max::varyings>& iqs,
@@ -218,12 +227,16 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
         // depth interpolation.
         float depth_diff = v2.coords.z - v1.coords.z;
         float depth_step = depth_diff * one_over_span_length;
-        depth_value = geom::linear_interpolator_1d<float>{v1.coords.z, depth_step};
+        depth_value = geom::linear_interpolator_1d<float>{
+          v1.coords.z,
+          depth_step};
 
         // viewport z interpolation
         float one_over_viewport_z_diff = v2.coords.w - v1.coords.w;
         float one_over_viewport_z_step = one_over_viewport_z_diff * one_over_span_length;
-        one_over_viewport_z = geom::linear_interpolator_1d<float>{v1.coords.w, one_over_viewport_z_step};
+        one_over_viewport_z = geom::linear_interpolator_1d<float>{
+          v1.coords.w,
+          one_over_viewport_z_step};
 
         /*
          * all other vertex attributes.
@@ -254,15 +267,27 @@ struct line_interpolator : basic_interpolation_data<geom::linear_interpolator_1d
                   swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero()},
                   {step, ml::vec4::zero()}});
             }
+            else if(iqs[i] == swr::interpolation_qualifier::no_perspective)
+            {
+                ml::vec4 varying_v1 = v1.varyings[i];
+                ml::vec4 varying_v2 = v2.varyings[i];
+
+                ml::vec4 dir = varying_v2 - varying_v1;
+                ml::vec4 step = dir * one_over_span_length;
+
+                varyings.emplace_back(varying_interpolator{
+                  swr::varying{varying_v1, ml::vec4::zero(), ml::vec4::zero()},
+                  {step, ml::vec4::zero()}});
+            }
             else if(iqs[i] == swr::interpolation_qualifier::flat)
             {
                 varyings.emplace_back(varying_interpolator{
-                  {v_ref.varyings[i], ml::vec4::zero(), ml::vec4::zero()},
+                  {provoking_vertex.varyings[i], ml::vec4::zero(), ml::vec4::zero()},
                   {ml::vec4::zero(), ml::vec4::zero()}});
             }
             else
             {
-                // TODO unimplemented.
+                throw std::runtime_error{"line_interpolator: unsupported interpolation qualifier"};
             }
         }
     }
@@ -300,13 +325,13 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
      * Initialize the interpolator along the x-direction and along the y-direction with respect to the triangle edges.
      *
      * TODO split vertex info in (coords, varyings) in order to have a modifyable copy of the coords.
-     *      v_ref is only needed for its varyings.
+     *      provoking_vertex is only needed for its varyings.
      *      split into vX and vX_varying arguments for each vertex?
      *
      * \param v0 first triangle vertex in cw orienation (w.r.t. viewport coordinstes)
      * \param v1 second triangle vertex in cw orientation (w.r.t. viewport coordinates)
      * \param v2 third triangle vertex in cw orientation (w.r.t. viewport coordinates)
-     * \param v_ref reference vertex for flat shading
+     * \param provoking_vertex provoking vertex for flat shading
      * \param iqs Interpolation qualifiers for the varyings.
      * \param one_over_area inverse area of the triangle
      * \param polygon_offset polygon offset.
@@ -317,7 +342,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
       std::span<const ml::vec4> v0_varyings,
       std::span<const ml::vec4> v1_varyings,
       std::span<const ml::vec4> v2_varyings,
-      std::span<const ml::vec4> vref_varyings,
+      std::span<const ml::vec4> provoking_vertex_varyings,
       const boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs,
       float one_over_area,
       float polygon_offset)
@@ -400,15 +425,33 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
 
                 varyings.back().set_value(varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2);
             }
+            else if(iqs[i] == swr::interpolation_qualifier::no_perspective)
+            {
+                ml::vec4 varying_v0 = v0_varyings[i];
+                ml::vec4 varying_v1 = v1_varyings[i];
+                ml::vec4 varying_v2 = v2_varyings[i];
+
+                ml::vec4 diff_v0v1 = varying_v1 - varying_v0;
+                ml::vec4 diff_v0v2 = varying_v2 - varying_v0;
+
+                ml::vec4 step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
+                ml::vec4 step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
+
+                varyings.emplace_back(varying_interpolator{
+                  {varying_v0, step_x, step_y},
+                  {step_x, step_y}});
+
+                varyings.back().set_value(varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2);
+            }
             else if(iqs[i] == swr::interpolation_qualifier::flat)
             {
                 varyings.emplace_back(varying_interpolator{
-                  {vref_varyings[i], ml::vec4::zero(), ml::vec4::zero()},
+                  {provoking_vertex_varyings[i], ml::vec4::zero(), ml::vec4::zero()},
                   {ml::vec4::zero(), ml::vec4::zero()}});
             }
             else
             {
-                // TODO unimplemented.
+                throw std::runtime_error{"triangle_interpolator: unsupported interpolation qualifier"};
             }
         }
     }
@@ -474,30 +517,44 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     }
 };
 
+/** compact interpolation data for a single varying. */
 struct small_varying_interpolator
 {
+    /** current value at the interpolation origin. */
     ml::vec4 value;
+
+    /** interpolation steps in x/y direction. */
     ml::tvec2<ml::vec4> step;
 };
 
+/** small-storage triangle interpolator for low varying counts. */
 struct small_triangle_interpolator
 {
+    /** number of varyings that can be stored inline without allocation. */
     static constexpr std::size_t inline_varying_capacity = 4;
 
+    /** interpolated depth value for the depth buffer. */
     geom::linear_interpolator_2d<float> depth_value;
+
+    /** interpolated inverse viewport z value. */
     geom::linear_interpolator_2d<float> one_over_viewport_z;
+
+    /** varyings from the shader. */
     boost::container::small_vector<
       small_varying_interpolator,
       inline_varying_capacity>
       varyings;
 
+    /** constructors. */
     small_triangle_interpolator() = default;
     small_triangle_interpolator(const small_triangle_interpolator&) = default;
     small_triangle_interpolator(small_triangle_interpolator&&) = default;
 
+    /** assignment. */
     small_triangle_interpolator& operator=(const small_triangle_interpolator&) = default;
     small_triangle_interpolator& operator=(small_triangle_interpolator&&) = default;
 
+    /** construct from a regular triangle interpolator. */
     explicit small_triangle_interpolator(const triangle_interpolator& source)
     : depth_value{source.depth_value}
     , one_over_viewport_z{source.one_over_viewport_z}
@@ -507,17 +564,18 @@ struct small_triangle_interpolator
         varyings.reserve(source.varyings.size());
         for(const auto& source_varying: source.varyings)
         {
-            varyings.push_back({
-              source_varying.value,
-              source_varying.step});
+            varyings.push_back({source_varying.value,
+                                source_varying.step});
         }
     }
 
+    /** check if a regular triangle interpolator fits into inline storage. */
     static bool can_store_without_allocation(const triangle_interpolator& source)
     {
         return source.varyings.size() <= inline_varying_capacity;
     }
 
+    /** get interpolated data for a 2x2 block at a block-relative offset. */
     void get_data_block_at(
       unsigned int offset_x,
       unsigned int offset_y,

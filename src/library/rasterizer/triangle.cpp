@@ -644,10 +644,10 @@ void sweep_rasterizer::draw_filled_triangle(
       v0.varyings.data(),
       v0.varyings.size()};
     if(states.shader_info->uses_flat_varyings()
-       && v0.flat_varying_ref != nullptr)
+       && v0.provoking_varyings != nullptr)
     {
         base_varyings = {
-          v0.flat_varying_ref,
+          v0.provoking_varyings,
           states.shader_info->varying_count};
     }
 
@@ -1024,6 +1024,8 @@ void sweep_rasterizer::draw_filled_triangle(
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_setup_iterate);
+    utils::unclock(stage_raster_setup);
+
     swr::impl::profile_triangle_tile_refs.fetch_add(triangle_tile_ref_count, std::memory_order_relaxed);
     swr::impl::profile_triangle_block_tile_refs.fetch_add(triangle_block_tile_ref_count, std::memory_order_relaxed);
     swr::impl::profile_triangle_checked_tile_refs.fetch_add(triangle_checked_tile_ref_count, std::memory_order_relaxed);
@@ -1035,7 +1037,7 @@ void sweep_rasterizer::draw_filled_triangle(
     swr::impl::profile_raster_setup_cb_enqueue_cycles.fetch_add(stage_setup_enqueue, std::memory_order_relaxed);
     swr::impl::profile_raster_setup_cb_flush_inline_cycles.fetch_add(stage_cb_flush_inline, std::memory_order_relaxed);
     swr::impl::profile_raster_setup_cb_direct_cycles.fetch_add(stage_setup_direct, std::memory_order_relaxed);
-    utils::unclock(stage_raster_setup);
+
     swr::impl::profile_raster_setup_cycles.fetch_add(stage_raster_setup, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }

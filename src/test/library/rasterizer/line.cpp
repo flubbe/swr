@@ -825,15 +825,15 @@ BOOST_AUTO_TEST_CASE(varying_interpolation_smooth_and_flat)
 {
     geom::vertex v1{};
     geom::vertex v2{};
-    geom::vertex v_ref{};
+    geom::vertex provoking_vertex{};
 
     v1.coords = {0.0f, 0.0f, 0.0f, 1.0f};
     v2.coords = {4.0f, 0.0f, 0.0f, 1.0f};
-    v_ref.coords = v1.coords;
+    provoking_vertex.coords = v1.coords;
 
     v1.varyings.emplace_back(ml::vec4{2.0f, 0.0f, 0.0f, 0.0f});
     v2.varyings.emplace_back(ml::vec4{10.0f, 0.0f, 0.0f, 0.0f});
-    v_ref.varyings.emplace_back(ml::vec4{42.0f, 0.0f, 0.0f, 0.0f});
+    provoking_vertex.varyings.emplace_back(ml::vec4{42.0f, 0.0f, 0.0f, 0.0f});
 
     boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings> iqs;
     iqs.emplace_back(swr::interpolation_qualifier::smooth);
@@ -841,7 +841,7 @@ BOOST_AUTO_TEST_CASE(varying_interpolation_smooth_and_flat)
     rast::line_interpolator smooth_attr{
       v1,
       v2,
-      v_ref,
+      provoking_vertex,
       iqs,
       1.0f / 4.0f};
 
@@ -860,7 +860,7 @@ BOOST_AUTO_TEST_CASE(varying_interpolation_smooth_and_flat)
     rast::line_interpolator flat_attr{
       v1,
       v2,
-      v_ref,
+      provoking_vertex,
       iqs,
       1.0f / 4.0f};
 
@@ -872,6 +872,50 @@ BOOST_AUTO_TEST_CASE(varying_interpolation_smooth_and_flat)
             flat_attr.advance();
         }
     }
+}
+
+BOOST_AUTO_TEST_CASE(varying_interpolation_no_perspective_and_invalid_qualifier)
+{
+    geom::vertex v1{};
+    geom::vertex v2{};
+    geom::vertex provoking_vertex{};
+
+    v1.coords = {0.0f, 0.0f, 0.0f, 0.5f};
+    v2.coords = {4.0f, 0.0f, 0.0f, 2.0f};
+    provoking_vertex.coords = v1.coords;
+
+    v1.varyings.emplace_back(ml::vec4{2.0f, 0.0f, 0.0f, 0.0f});
+    v2.varyings.emplace_back(ml::vec4{10.0f, 0.0f, 0.0f, 0.0f});
+    provoking_vertex.varyings.emplace_back(ml::vec4{42.0f, 0.0f, 0.0f, 0.0f});
+
+    boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings> iqs;
+    iqs.emplace_back(swr::interpolation_qualifier::no_perspective);
+
+    rast::line_interpolator nopersp_attr{
+      v1,
+      v2,
+      provoking_vertex,
+      iqs,
+      1.0f / 4.0f};
+
+    for(int i = 0; i <= 4; ++i)
+    {
+        const float expected_x = 2.0f + 2.0f * i;
+        BOOST_CHECK_SMALL(nopersp_attr.varyings[0].value.x - expected_x, 1e-6f);
+        if(i != 4)
+        {
+            nopersp_attr.advance();
+        }
+    }
+
+    iqs[0] = static_cast<swr::interpolation_qualifier>(999);
+
+    BOOST_CHECK_THROW((rast::line_interpolator{
+      v1,
+      v2,
+      provoking_vertex,
+      iqs,
+      1.0f / 4.0f}), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END();

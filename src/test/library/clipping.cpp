@@ -82,16 +82,16 @@ static void check_vertex_buffers_equal_bitwise(
         BOOST_CHECK_EQUAL(get_bits(a[i].coords.z), get_bits(b[i].coords.z));
         BOOST_CHECK_EQUAL(get_bits(a[i].coords.w), get_bits(b[i].coords.w));
         BOOST_CHECK_EQUAL(a[i].flags, b[i].flags);
-        BOOST_CHECK_EQUAL(a[i].flat_varying_ref == nullptr, b[i].flat_varying_ref == nullptr);
-        if(a[i].flat_varying_ref != nullptr
-           && b[i].flat_varying_ref != nullptr)
+        BOOST_CHECK_EQUAL(a[i].provoking_varyings == nullptr, b[i].provoking_varyings == nullptr);
+        if(a[i].provoking_varyings != nullptr
+           && b[i].provoking_varyings != nullptr)
         {
             for(std::uint32_t j = 0; j < varying_count; ++j)
             {
-                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].x), get_bits(b[i].flat_varying_ref[j].x));
-                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].y), get_bits(b[i].flat_varying_ref[j].y));
-                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].z), get_bits(b[i].flat_varying_ref[j].z));
-                BOOST_CHECK_EQUAL(get_bits(a[i].flat_varying_ref[j].w), get_bits(b[i].flat_varying_ref[j].w));
+                BOOST_CHECK_EQUAL(get_bits(a[i].provoking_varyings[j].x), get_bits(b[i].provoking_varyings[j].x));
+                BOOST_CHECK_EQUAL(get_bits(a[i].provoking_varyings[j].y), get_bits(b[i].provoking_varyings[j].y));
+                BOOST_CHECK_EQUAL(get_bits(a[i].provoking_varyings[j].z), get_bits(b[i].provoking_varyings[j].z));
+                BOOST_CHECK_EQUAL(get_bits(a[i].provoking_varyings[j].w), get_bits(b[i].provoking_varyings[j].w));
             }
         }
     }
@@ -498,12 +498,12 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference)
     for(std::size_t i = 0; i < obj.clipped_vertices.size(); i += 3)
     {
         const geom::vertex& emitted_first = obj.clipped_vertices[i];
-        BOOST_REQUIRE(emitted_first.flat_varying_ref != nullptr);
+        BOOST_REQUIRE(emitted_first.provoking_varyings != nullptr);
 
-        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].x), get_bits(obj.varyings[0].x));
-        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].y), get_bits(obj.varyings[0].y));
-        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].z), get_bits(obj.varyings[0].z));
-        BOOST_CHECK_EQUAL(get_bits(emitted_first.flat_varying_ref[0].w), get_bits(obj.varyings[0].w));
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.provoking_varyings[0].x), get_bits(obj.varyings[0].x));
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.provoking_varyings[0].y), get_bits(obj.varyings[0].y));
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.provoking_varyings[0].z), get_bits(obj.varyings[0].z));
+        BOOST_CHECK_EQUAL(get_bits(emitted_first.provoking_varyings[0].w), get_bits(obj.varyings[0].w));
     }
 }
 
@@ -544,12 +544,12 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference_per_input_triangle)
     auto check_flat_reference = [&](std::size_t emitted_vertex, std::size_t source_vertex)
     {
         const geom::vertex& emitted = obj.clipped_vertices[emitted_vertex];
-        BOOST_REQUIRE(emitted.flat_varying_ref != nullptr);
+        BOOST_REQUIRE(emitted.provoking_varyings != nullptr);
 
-        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].x), get_bits(obj.varyings[source_vertex].x));
-        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].y), get_bits(obj.varyings[source_vertex].y));
-        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].z), get_bits(obj.varyings[source_vertex].z));
-        BOOST_CHECK_EQUAL(get_bits(emitted.flat_varying_ref[0].w), get_bits(obj.varyings[source_vertex].w));
+        BOOST_CHECK_EQUAL(get_bits(emitted.provoking_varyings[0].x), get_bits(obj.varyings[source_vertex].x));
+        BOOST_CHECK_EQUAL(get_bits(emitted.provoking_varyings[0].y), get_bits(obj.varyings[source_vertex].y));
+        BOOST_CHECK_EQUAL(get_bits(emitted.provoking_varyings[0].z), get_bits(obj.varyings[source_vertex].z));
+        BOOST_CHECK_EQUAL(get_bits(emitted.provoking_varyings[0].w), get_bits(obj.varyings[source_vertex].w));
     };
 
     for(std::size_t i = 0; i < 6; i += 3)

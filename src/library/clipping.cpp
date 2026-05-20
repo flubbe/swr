@@ -268,9 +268,8 @@ static geom::vertex load_vertex(
   const render_object& obj,
   const std::uint32_t index)
 {
-    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
-
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+    const std::uint32_t varying_count = obj.states.shader_info->varying_count;
     constexpr std::uint64_t coord_bytes = sizeof(ml::vec4);
     constexpr std::uint64_t flag_bytes = sizeof(std::uint32_t);
     const std::uint64_t varying_bytes = static_cast<std::uint64_t>(varying_count) * sizeof(ml::vec4);
@@ -308,16 +307,16 @@ static clipped_vertex_buffer load_triangle_vertices(
     tri.reserve(3);
 
     const std::uint32_t varying_count = obj.states.shader_info->varying_count;
-    const ml::vec4* flat_varying_ref = nullptr;
+    const ml::vec4* provoking_varyings = nullptr;
     if(varying_count > 0)
     {
-        flat_varying_ref = obj.varyings_for_vertex(indices[0]).data();
+        provoking_varyings = obj.varyings_for_vertex(indices[0]).data();
     }
 
     auto append_vertex = [&](std::uint32_t index)
     {
         geom::vertex v = load_vertex(obj, index);
-        v.flat_varying_ref = flat_varying_ref;
+        v.provoking_varyings = provoking_varyings;
         tri.emplace_back(v);
     };
 
