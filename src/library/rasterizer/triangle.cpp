@@ -449,7 +449,7 @@ void sweep_rasterizer::process_block_small_checked(
       block_y,
       data,
       payload.attributes,
-      std::span<const small_triangle_quad_payload>{
+      std::span{
         payload.quads.data(),
         payload.quad_count});
 }
@@ -608,15 +608,9 @@ void sweep_rasterizer::draw_filled_triangle(
     const bool y_needs_flip = states.draw_target == framebuffer;
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    const bool parallel_tile_processing_enabled =
-      thread_pool
-      && thread_pool->get_thread_count() > 1;
-    const bool has_pending_tile_work = !tiles.active_tile_indices.empty();
     const bool allow_direct_block_path =
-      !parallel_tile_processing_enabled
-      || !has_pending_tile_work;
+      thread_pool->get_thread_count() <= 1;
 #else  /* SWR_ENABLE_MULTI_THREADING */
-    constexpr bool parallel_tile_processing_enabled = false;
     const bool allow_direct_block_path = true;
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
@@ -721,11 +715,7 @@ void sweep_rasterizer::draw_filled_triangle(
         bool emitted_tile_ref = true;
         const bool use_direct_path_for_block =
           is_single_block_triangle
-          && allow_direct_block_path
-          && (!is_thin_rasterization_mode(mode)
-              || !parallel_tile_processing_enabled)
-          && (!prefer_small_payload
-              || !parallel_tile_processing_enabled);
+          && allow_direct_block_path;
 
         if(use_direct_path_for_block)
         {

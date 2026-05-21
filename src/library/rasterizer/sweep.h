@@ -479,6 +479,9 @@ public:
 #endif
     {
         assert(framebuffer);
+#ifdef SWR_ENABLE_MULTI_THREADING
+        assert(thread_pool);
+#endif
 
         /*
          * set up tile cache.
