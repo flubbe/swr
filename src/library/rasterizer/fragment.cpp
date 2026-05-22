@@ -215,11 +215,11 @@ void sweep_rasterizer::process_fragment_block(
     const int framebuffer_height = states.draw_target->properties.height;
 
     // initialize masks.
-    std::uint8_t depth_mask = 0xF;
-    depth_mask &= states.write_depth ? 0xF : 0;
+    std::uint8_t depth_mask = 0b1111;
+    depth_mask &= states.write_depth ? 0b1111 : 0;
 
-    std::uint8_t write_color = 0xF;
-    std::uint8_t write_stencil = 0x0; /* unimplemented */
+    std::uint8_t write_color = 0b1111;
+    std::uint8_t write_stencil = 0b0; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
@@ -444,10 +444,10 @@ void sweep_rasterizer::process_fragment_block(
 
     // initialize masks.
     std::uint8_t depth_mask = active_mask;
-    depth_mask &= states.write_depth ? 0xF : 0;
+    depth_mask &= states.write_depth ? 0b1111 : 0;
 
     std::uint8_t write_color = active_mask;
-    std::uint8_t write_stencil = 0x0; /* unimplemented */
+    std::uint8_t write_stencil = 0b0; /* unimplemented */
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to 0. */
 
@@ -611,7 +611,7 @@ void sweep_rasterizer::process_fragment_block(
         return {fx, fy, depth_value[lane], z[lane]};
     };
 
-    if(active_mask == 0xF)
+    if(active_mask == 0b1111)
     {
         ml::vec4 frag_coord0 = make_frag_coord(0);
         ml::vec4 frag_coord1 = make_frag_coord(1);

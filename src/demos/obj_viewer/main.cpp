@@ -491,7 +491,7 @@ static bool LoadObjAndConvert(ml::vec3& bmin, ml::vec3& bmax,
                 texture_id = swr::CreateTexture();
                 swr::BindTexture(swr::texture_target::texture_2d, texture_id);
                 swr::SetTextureMagnificationFilter(swr::texture_filter::linear);
-                swr::SetTextureMinificationFilter(swr::texture_filter::linear);
+                swr::SetTextureMinificationFilter(swr::texture_filter::nearest);
 
                 std::vector<std::uint8_t> image_rgba(4 * w * h);
                 if(comp == 3)
@@ -796,7 +796,7 @@ class demo_viewer : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_viewer()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

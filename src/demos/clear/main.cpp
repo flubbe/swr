@@ -38,7 +38,7 @@ class demo_clear : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_clear()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

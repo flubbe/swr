@@ -81,7 +81,7 @@ class demo_bitmap_font : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_bitmap_font()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

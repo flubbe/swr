@@ -62,6 +62,10 @@ struct pipeline_cycle_profile
     std::uint64_t triangle_tile_refs{0};
     std::uint64_t triangle_block_tile_refs{0};
     std::uint64_t triangle_checked_tile_refs{0};
+    std::uint64_t raster_small_quad_primitives{0};
+    std::uint64_t raster_small_quad_queued_primitives{0};
+    std::uint64_t raster_small_quad_empty_primitives{0};
+    std::uint64_t raster_small_quad_fallback_primitives{0};
     std::uint64_t raster_direct_blocks{0};
     std::uint64_t interp_varying_copies{0};
     std::uint64_t fragment_shader_invocations{0};
@@ -158,6 +162,14 @@ inline void log_pipeline_profile_if_needed()
       triangle_tile_refs > 0.0
         ? static_cast<double>(g_pipeline_cycles.raster_direct_blocks) / triangle_tile_refs
         : 0.0;
+    const double small_quad_triangle_ratio =
+      triangles_submitted > 0.0
+        ? static_cast<double>(g_pipeline_cycles.raster_small_quad_primitives) / triangles_submitted
+        : 0.0;
+    const double small_quad_tile_ref_ratio =
+      triangle_tile_refs > 0.0
+        ? static_cast<double>(g_pipeline_cycles.raster_small_quad_queued_primitives) / triangle_tile_refs
+        : 0.0;
     const double clip_read_mib = static_cast<double>(g_pipeline_cycles.clip_vertex_read_bytes) / (1024.0 * 1024.0);
     const double clip_write_mib = static_cast<double>(g_pipeline_cycles.clip_vertex_write_bytes) / (1024.0 * 1024.0);
     const double tile_payload_write_mib = static_cast<double>(g_pipeline_cycles.raster_tile_payload_write_bytes) / (1024.0 * 1024.0);
@@ -226,6 +238,8 @@ inline void log_pipeline_profile_if_needed()
       "flush_near_full_tiles={:.1f} flush_overflow_triggers={:.1f} block_total={:.0f} "
       "block_frag={:.0f} block_merge={:.0f} tri_in={:.1f} tri_cull_deg={:.1f} "
       "tri_cull_face={:.1f} tri_submit={:.1f} tile_refs={:.1f} tiles_per_tri={:.2f} "
+      "small_quad_prims={:.1f} small_quad_queued={:.1f} small_quad_empty={:.1f} "
+      "small_quad_fallback={:.1f} small_quad_tri_ratio={:.2f} small_quad_tile_ref_ratio={:.2f} "
       "block_tile_refs={:.1f} checked_tile_refs={:.1f} block_tile_ref_ratio={:.2f} "
       "checked_tile_ref_ratio={:.2f} direct_blocks={:.1f} direct_block_ratio={:.2f} "
       "interp_var_copies={:.1f} frag_invocations={:.1f} shader_probe_steps={:.1f} "
@@ -284,6 +298,12 @@ inline void log_pipeline_profile_if_needed()
       triangles_submitted / f,
       triangle_tile_refs / f,
       tiles_per_tri,
+      static_cast<double>(g_pipeline_cycles.raster_small_quad_primitives) / f,
+      static_cast<double>(g_pipeline_cycles.raster_small_quad_queued_primitives) / f,
+      static_cast<double>(g_pipeline_cycles.raster_small_quad_empty_primitives) / f,
+      static_cast<double>(g_pipeline_cycles.raster_small_quad_fallback_primitives) / f,
+      small_quad_triangle_ratio,
+      small_quad_tile_ref_ratio,
       static_cast<double>(g_pipeline_cycles.triangle_block_tile_refs) / f,
       static_cast<double>(g_pipeline_cycles.triangle_checked_tile_refs) / f,
       block_tile_ref_ratio,
@@ -383,6 +403,10 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.triangle_tile_refs = 0;
     g_pipeline_cycles.triangle_block_tile_refs = 0;
     g_pipeline_cycles.triangle_checked_tile_refs = 0;
+    g_pipeline_cycles.raster_small_quad_primitives = 0;
+    g_pipeline_cycles.raster_small_quad_queued_primitives = 0;
+    g_pipeline_cycles.raster_small_quad_empty_primitives = 0;
+    g_pipeline_cycles.raster_small_quad_fallback_primitives = 0;
     g_pipeline_cycles.raster_direct_blocks = 0;
     g_pipeline_cycles.interp_varying_copies = 0;
     g_pipeline_cycles.fragment_shader_invocations = 0;
@@ -462,6 +486,10 @@ inline void collect_pipeline_profile_frame()
     g_pipeline_cycles.triangle_tile_refs += exchange_profile_counter(impl::profile_triangle_tile_refs);
     g_pipeline_cycles.triangle_block_tile_refs += exchange_profile_counter(impl::profile_triangle_block_tile_refs);
     g_pipeline_cycles.triangle_checked_tile_refs += exchange_profile_counter(impl::profile_triangle_checked_tile_refs);
+    g_pipeline_cycles.raster_small_quad_primitives += exchange_profile_counter(impl::profile_raster_small_quad_primitives);
+    g_pipeline_cycles.raster_small_quad_queued_primitives += exchange_profile_counter(impl::profile_raster_small_quad_queued_primitives);
+    g_pipeline_cycles.raster_small_quad_empty_primitives += exchange_profile_counter(impl::profile_raster_small_quad_empty_primitives);
+    g_pipeline_cycles.raster_small_quad_fallback_primitives += exchange_profile_counter(impl::profile_raster_small_quad_fallback_primitives);
     g_pipeline_cycles.raster_direct_blocks += exchange_profile_counter(impl::profile_raster_direct_blocks);
     g_pipeline_cycles.interp_varying_copies += exchange_profile_counter(impl::profile_interp_varying_copies);
     g_pipeline_cycles.fragment_shader_invocations += exchange_profile_counter(impl::profile_fragment_shader_invocations);

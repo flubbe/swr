@@ -233,7 +233,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(EmitFn&& emi
 std::vector<covered_triangle_block> collect_covered_triangle_blocks(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
   float polygon_offset = 0.0f,
   bool y_needs_flip = false)
 {
@@ -243,7 +243,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
           rast::for_each_covered_triangle_block(
             states,
             info,
-            base_varyings,
+            provoking_vertex_varyings,
             polygon_offset,
             y_needs_flip,
             std::forward<decltype(f)>(f));
@@ -253,7 +253,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
 std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
   float polygon_offset = 0.0f,
   bool y_needs_flip = false)
 {
@@ -262,7 +262,7 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
     rast::for_each_covered_triangle_block(
       states,
       info,
-      base_varyings,
+      provoking_vertex_varyings,
       polygon_offset,
       y_needs_flip,
       [&](int block_x,
@@ -389,6 +389,90 @@ std::vector<ml::tvec2<int>> make_expected(
     return out;
 }
 
+void check_vec4_close(
+  const ml::vec4& actual,
+  const ml::vec4& expected,
+  float epsilon = 1e-4f)
+{
+    BOOST_CHECK_SMALL(actual.x - expected.x, epsilon);
+    BOOST_CHECK_SMALL(actual.y - expected.y, epsilon);
+    BOOST_CHECK_SMALL(actual.z - expected.z, epsilon);
+    BOOST_CHECK_SMALL(actual.w - expected.w, epsilon);
+}
+
+void check_precomputed_payload_interpolation_matches_regular(
+  const swr::impl::render_states& states,
+  const rast::triangle_info& info,
+  std::span<const ml::vec4> provoking_vertex_varyings,
+  int block_x,
+  int block_y,
+  const rast::small_triangle_interpolator& precomputed_attributes,
+  std::span<const rast::small_triangle_quad_payload> quads)
+{
+    BOOST_REQUIRE(!quads.empty());
+
+    for(const auto& quad: quads)
+    {
+        BOOST_TEST_CONTEXT(std::format("quad ({}, {}) mask={:#x}", quad.x, quad.y, quad.mask))
+        {
+            std::array<
+              boost::container::static_vector<
+                swr::varying,
+                swr::limits::max::varyings>,
+              4>
+              expected_varyings;
+            std::array<
+              boost::container::static_vector<
+                swr::varying,
+                swr::limits::max::varyings>,
+              4>
+              actual_varyings;
+            ml::vec4 expected_depth;
+            ml::vec4 actual_depth;
+            ml::vec4 expected_one_over_z;
+            ml::vec4 actual_one_over_z;
+
+            rast::triangle_interpolator expected_attributes{
+              ml::vec2{
+                static_cast<float>(quad.x) + 0.5f,
+                static_cast<float>(quad.y) + 0.5f},
+              info.v0->coords,
+              info.v1->coords,
+              info.v2->coords,
+              info.v0->varyings,
+              info.v1->varyings,
+              info.v2->varyings,
+              provoking_vertex_varyings,
+              states.shader_info->iqs,
+              info.inv_area,
+              0.0f};
+
+            expected_attributes.get_data_block(
+              expected_varyings,
+              expected_depth,
+              expected_one_over_z);
+            precomputed_attributes.get_data_block_at(
+              static_cast<unsigned int>(static_cast<int>(quad.x) - block_x),
+              static_cast<unsigned int>(static_cast<int>(quad.y) - block_y),
+              actual_varyings,
+              actual_depth,
+              actual_one_over_z);
+
+            check_vec4_close(actual_depth, expected_depth);
+            check_vec4_close(actual_one_over_z, expected_one_over_z);
+
+            for(std::size_t lane = 0; lane < actual_varyings.size(); ++lane)
+            {
+                BOOST_REQUIRE_EQUAL(actual_varyings[lane].size(), expected_varyings[lane].size());
+                for(std::size_t i = 0; i < actual_varyings[lane].size(); ++i)
+                {
+                    check_vec4_close(actual_varyings[lane][i].value, expected_varyings[lane][i].value);
+                }
+            }
+        }
+    }
+}
+
 template<class F>
 void for_each_triangle_permutation(
   const geom::vertex& v0,
@@ -418,7 +502,23 @@ std::ostream& operator<<(
   std::ostream& os,
   const tile_info::rasterization_mode& mode)
 {
-    return os << (mode == tile_info::rasterization_mode::checked ? "checked" : "block");
+    switch(mode)
+    {
+    case tile_info::rasterization_mode::block:
+        return os << "block";
+    case tile_info::rasterization_mode::checked:
+        return os << "checked";
+    case tile_info::rasterization_mode::thin_x_major:
+        return os << "thin_x_major";
+    case tile_info::rasterization_mode::thin_y_major:
+        return os << "thin_y_major";
+    case tile_info::rasterization_mode::small_checked:
+        return os << "small_checked";
+    case tile_info::rasterization_mode::sparse_checked:
+        return os << "sparse_checked";
+    }
+
+    return os << "unknown";
 }
 
 }    // namespace rast
@@ -1249,6 +1349,57 @@ BOOST_AUTO_TEST_CASE(mixed_flat_and_smooth_varyings_use_per_varying_qualifiers)
     BOOST_CHECK(saw_smooth_value_from_non_provoking_vertex);
 }
 
+BOOST_AUTO_TEST_CASE(varying_interpolation_no_perspective_and_invalid_qualifier)
+{
+    boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings> iqs;
+    iqs.emplace_back(swr::interpolation_qualifier::no_perspective);
+
+    geom::vertex a{};
+    geom::vertex b{};
+    geom::vertex c{};
+
+    a.coords = {0.0f, 0.0f, 0.0f, 0.5f};
+    b.coords = {0.0f, 4.0f, 0.0f, 2.0f};
+    c.coords = {4.0f, 0.0f, 0.0f, 1.0f};
+
+    a.varyings.emplace_back(ml::vec4{0.0f, 0.0f, 0.0f, 0.0f});
+    b.varyings.emplace_back(ml::vec4{40.0f, 0.0f, 0.0f, 0.0f});
+    c.varyings.emplace_back(ml::vec4{4.0f, 0.0f, 0.0f, 0.0f});
+
+    const auto info = rast::setup_triangle(a, b, c);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    rast::triangle_interpolator no_persp_attr{
+      ml::vec2{0.5f, 0.5f},
+      info.v0->coords,
+      info.v1->coords,
+      info.v2->coords,
+      info.v0->varyings,
+      info.v1->varyings,
+      info.v2->varyings,
+      info.v0->varyings,
+      iqs,
+      info.inv_area,
+      0.0f};
+
+    BOOST_CHECK_SMALL(no_persp_attr.varyings[0].value.x - 5.5f, 1e-5f);
+
+    iqs[0] = static_cast<swr::interpolation_qualifier>(999);
+
+    BOOST_CHECK_THROW((rast::triangle_interpolator{
+      ml::vec2{0.5f, 0.5f},
+      info.v0->coords,
+      info.v1->coords,
+      info.v2->coords,
+      info.v0->varyings,
+      info.v1->varyings,
+      info.v2->varyings,
+      info.v0->varyings,
+      iqs,
+      info.inv_area,
+      0.0f}), std::runtime_error);
+}
+
 BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
 {
     const int bs = static_cast<int>(swr::impl::rasterizer_block_size);
@@ -1429,6 +1580,302 @@ BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
     BOOST_CHECK(!values_checked.empty());
 
     BOOST_CHECK_MESSAGE(ok, fail_msg);
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_preserves_exact_coverage_inside_block)
+{
+    const auto v0 = make_vertex(8.5f, 8.5f);
+    const auto v1 = make_vertex(11.5f, 8.5f);
+    const auto v2 = make_vertex(8.5f, 11.5f);
+    const auto expected = make_expected({{8, 8}, {8, 9}, {8, 10}, {9, 8}, {9, 9}, {10, 8}});
+
+    triangle_test_context ctx{16, 16};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+    BOOST_CHECK_EQUAL(bounds.end_x - bounds.start_x, static_cast<int>(swr::impl::rasterizer_block_size));
+    BOOST_CHECK_EQUAL(bounds.end_y - bounds.start_y, static_cast<int>(swr::impl::rasterizer_block_size));
+
+    const auto pixels = collect_covered_triangle_pixels(
+      ctx.states,
+      info,
+      v0.varyings);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      pixels.begin(), pixels.end(),
+      expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
+{
+    fake_draw_target draw_target{16, 16};
+    fake_program shader;
+    swr::impl::program_info program_info{&shader};
+    swr::impl::render_states states;
+    states.x = 0;
+    states.y = 0;
+    states.width = 16;
+    states.height = 16;
+    states.shader_info = &program_info;
+    states.draw_target = &draw_target;
+
+    const auto v0 = make_vertex(8.5f, 8.5f);
+    const auto v1 = make_vertex(11.5f, 8.5f);
+    const auto v2 = make_vertex(8.5f, 11.5f);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+
+    const int block_x = swr::impl::lower_align_on_block_size(bounds.tight_start_x);
+    const int block_y = swr::impl::lower_align_on_block_size(bounds.tight_start_y);
+    const auto lambdas = rast::compute_triangle_lambdas_at_block(info, block_x, block_y);
+    const auto quad_bounds = rast::compute_checked_quad_bounds(bounds, block_x, block_y);
+    const auto attributes = rast::compute_triangle_attributes_at_block(
+      states,
+      info,
+      v0.varyings,
+      0.0f,
+      block_x,
+      block_y);
+
+    rast::tile_cache cache;
+    cache.reset(1, 1);
+
+    bool emitted = false;
+    const bool needs_flush = cache.add_small_triangle_checked(
+      block_x,
+      block_y,
+      &states,
+      lambdas,
+      quad_bounds,
+      attributes,
+      true,
+      emitted);
+
+    BOOST_CHECK(!needs_flush);
+    BOOST_REQUIRE(emitted);
+    BOOST_REQUIRE_EQUAL(cache.active_tile_indices.size(), 1u);
+
+    auto& tile = cache.entries[cache.active_tile_indices[0]];
+    BOOST_REQUIRE_EQUAL(tile.primitives.size(), 1u);
+    BOOST_REQUIRE_EQUAL(tile.primitive_small_payloads.size(), 1u);
+    BOOST_CHECK_EQUAL(tile.primitives[0].mode, rast::tile_info::rasterization_mode::small_checked);
+
+    const auto& payload = tile.primitive_small_payloads[tile.primitives[0].precomputed_payload_index];
+    BOOST_REQUIRE_EQUAL(payload.quad_count, 3u);
+
+    BOOST_CHECK_EQUAL(payload.quads[0].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].mask, 0xfu);
+
+    BOOST_CHECK_EQUAL(payload.quads[1].x, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[1].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[1].mask, 0x8u);
+
+    BOOST_CHECK_EQUAL(payload.quads[2].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[2].y, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[2].mask, 0x8u);
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_iterator_provides_precomputed_payload)
+{
+    triangle_test_context ctx{16, 16};
+
+    const auto v0 = make_vertex(8.5f, 8.5f);
+    const auto v1 = make_vertex(11.5f, 8.5f);
+    const auto v2 = make_vertex(8.5f, 11.5f);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+
+    bool saw_block = false;
+    rast::small_triangle_payload payload{};
+    rast::quad_bounds payload_bounds{};
+
+    rast::for_each_small_quad_triangle(
+      ctx.states,
+      bounds,
+      info,
+      v0.varyings,
+      0.0f,
+      [&](int,
+          int,
+          const geom::barycentric_coordinate_block&,
+          const rast::triangle_interpolator&,
+          rast::tile_info::rasterization_mode mode,
+          const rast::quad_bounds* quad_bounds,
+          const rast::small_triangle_payload* precomputed_payload)
+      {
+          saw_block = true;
+          BOOST_CHECK_EQUAL(mode, rast::tile_info::rasterization_mode::checked);
+          BOOST_REQUIRE(quad_bounds);
+          BOOST_REQUIRE(precomputed_payload);
+
+          payload_bounds = *quad_bounds;
+          payload = *precomputed_payload;
+      });
+
+    BOOST_REQUIRE(saw_block);
+    BOOST_CHECK_EQUAL(payload_bounds.start_x, 8u);
+    BOOST_CHECK_EQUAL(payload_bounds.start_y, 8u);
+    BOOST_CHECK_EQUAL(payload_bounds.end_x, 12u);
+    BOOST_CHECK_EQUAL(payload_bounds.end_y, 12u);
+
+    BOOST_REQUIRE_EQUAL(payload.quad_count, 3u);
+    BOOST_CHECK_EQUAL(payload.quads[0].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[0].mask, 0xfu);
+    BOOST_CHECK_EQUAL(payload.quads[1].x, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[1].y, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[1].mask, 0x8u);
+    BOOST_CHECK_EQUAL(payload.quads[2].x, 8u);
+    BOOST_CHECK_EQUAL(payload.quads[2].y, 10u);
+    BOOST_CHECK_EQUAL(payload.quads[2].mask, 0x8u);
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_interpolation_matches_regular_interpolator)
+{
+    triangle_test_context ctx{16, 16};
+    ctx.program_info.varying_count = 3;
+    ctx.program_info.iqs.clear();
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::smooth);
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::no_perspective);
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::flat);
+    ctx.program_info.flags |= swr::impl::program_flags::has_flat_varyings;
+
+    auto make_v = [](float x,
+                     float y,
+                     float z,
+                     float w,
+                     float smooth_value,
+                     float no_perspective_value,
+                     float flat_value) -> geom::vertex
+    {
+        geom::vertex v{};
+        v.coords = {x, y, z, w};
+        v.varyings.emplace_back(ml::vec4{smooth_value, smooth_value + 1.0f, 0.0f, 0.0f});
+        v.varyings.emplace_back(ml::vec4{no_perspective_value, no_perspective_value + 1.0f, 0.0f, 0.0f});
+        v.varyings.emplace_back(ml::vec4{flat_value, flat_value + 1.0f, 0.0f, 0.0f});
+        return v;
+    };
+
+    const auto v0 = make_v(8.5f, 8.5f, 0.10f, 0.50f, 10.0f, 100.0f, 1000.0f);
+    const auto v1 = make_v(11.5f, 8.5f, 0.40f, 2.00f, 20.0f, 200.0f, 2000.0f);
+    const auto v2 = make_v(8.5f, 11.5f, 0.70f, 1.25f, 30.0f, 300.0f, 3000.0f);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+
+    bool saw_payload = false;
+    rast::for_each_small_quad_triangle(
+      ctx.states,
+      bounds,
+      info,
+      v0.varyings,
+      0.0f,
+      [&](int block_x,
+          int block_y,
+          const geom::barycentric_coordinate_block&,
+          const rast::triangle_interpolator&,
+          rast::tile_info::rasterization_mode,
+          const rast::quad_bounds*,
+          const rast::small_triangle_payload* precomputed_payload)
+      {
+          BOOST_REQUIRE(precomputed_payload);
+          saw_payload = true;
+          check_precomputed_payload_interpolation_matches_regular(
+            ctx.states,
+            info,
+            v0.varyings,
+            block_x,
+            block_y,
+            precomputed_payload->attributes,
+            std::span{
+              precomputed_payload->quads.data(),
+              precomputed_payload->quad_count});
+      });
+
+    BOOST_CHECK(saw_payload);
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
+{
+    static_assert(rast::rasterizer_quad_size == 2);
+    static_assert(rast::small_triangle_quad_span == 2);
+    static_assert(rast::small_triangle_footprint_size == 4);
+    static_assert(rast::max_sparse_payload_tight_minor_span == rast::rasterizer_quad_size);
+    static_assert(
+      rast::min_sparse_payload_quad_count
+      == rast::small_triangle_quad_span * rast::small_triangle_quad_span);
+
+    const auto v0 = make_vertex(2.5f, 0.5f);
+    const auto v1 = make_vertex(4.5f, 0.5f);
+    const auto v2 = make_vertex(2.5f, 2.5f);
+    const auto expected = make_expected({{2, 0}, {2, 1}, {3, 0}});
+
+    triangle_test_context ctx{10, 10};
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const int quad_start_x = rast::lower_align_on_quad_size(bounds.tight_start_x);
+    const int quad_start_y = rast::lower_align_on_quad_size(bounds.tight_start_y);
+    const int quad_end_x = rast::upper_align_on_quad_size(bounds.tight_end_x);
+    const int quad_end_y = rast::upper_align_on_quad_size(bounds.tight_end_y);
+
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+    BOOST_CHECK_EQUAL(quad_end_x - quad_start_x, rast::small_triangle_footprint_size);
+    BOOST_CHECK_EQUAL(quad_end_y - quad_start_y, rast::small_triangle_footprint_size);
+
+    const auto pixels = collect_covered_triangle_pixels(
+      ctx.states,
+      info,
+      v0.varyings);
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      pixels.begin(), pixels.end(),
+      expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(small_quad_triangle_crossing_block_boundary_uses_general_path)
+{
+    constexpr int block_size = static_cast<int>(swr::impl::rasterizer_block_size);
+    const auto v0 = make_vertex(block_size - 2.5f, 1.5f);
+    const auto v1 = make_vertex(block_size + 1.5f, 1.5f);
+    const auto v2 = make_vertex(block_size - 2.5f, 3.5f);
+
+    triangle_test_context ctx{block_size * 2, block_size};
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+
+    BOOST_CHECK(!rast::is_small_quad_triangle(bounds));
+
+    const auto pixels = collect_covered_triangle_pixels(ctx.states, info, v0.varyings);
+    BOOST_REQUIRE(!pixels.empty());
+
+    bool has_left = false, has_right = false;
+    for(const auto& px: pixels)
+    {
+        if(px.x < block_size)
+            has_left = true;
+        if(px.x >= block_size)
+            has_right = true;
+    }
+    BOOST_CHECK_MESSAGE(has_left && has_right, "Triangle covers both sides of the block boundary");
 }
 
 BOOST_AUTO_TEST_SUITE_END();

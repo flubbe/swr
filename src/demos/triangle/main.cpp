@@ -56,7 +56,7 @@ class demo_triangle : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_triangle()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

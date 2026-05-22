@@ -466,7 +466,7 @@ class demo_gears : public swr_app::renderwindow
 public:
     /** constructor. */
     demo_gears()
-    : swr_app::renderwindow(demo_title, width, height)
+    : swr_app::renderwindow{demo_title, width, height}
     {
     }
 

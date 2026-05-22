@@ -376,19 +376,6 @@ struct gear_object
     std::exit(1);
 }
 
-bool parse_bool(const std::string& value, bool default_value)
-{
-    if(value == "1" || value == "true" || value == "on")
-    {
-        return true;
-    }
-    if(value == "0" || value == "false" || value == "off")
-    {
-        return false;
-    }
-    return default_value;
-}
-
 std::string arg_value(const std::string& arg, const std::string& name)
 {
     const std::string prefix = name + "=";

@@ -46,7 +46,7 @@ class sweep_rasterizer : public rasterizer
         /** whether the primitive is front-facing. only relevant for triangles (otherwise always true). */
         bool is_front_facing;
 
-        /** the primitive's vertices. points use v[0], lines use v[0] and v[1], and triangles use v[0], v[1] and v[2]. */
+        /** the primitive's vertices. points use `v[0]`, lines use `v[0]` and `v[1]`, and triangles use `v[0]`, `v[1]` and `v[2]`. */
         geom::vertex* v[3];
 
         /** Points to the active render states (which are stored in the context's draw lists). */
@@ -55,7 +55,7 @@ class sweep_rasterizer : public rasterizer
         /**
          * default constructor. only for compatibility with std containers.
          *
-         * NOTE: this does not make sense to use on its own and probably leaves the object in an undefined and unusable state.
+         * NOTE This does not make sense to use on its own and probably leaves the object in an undefined and unusable state.
          */
         primitive() = default;
 
@@ -249,7 +249,18 @@ class sweep_rasterizer : public rasterizer
      * fragment processing.
      */
 
-    /** generate a color value along with depth- and stencil flags for a single fragment. writes to the depth buffer. */
+    /**
+     * Generate a color value along with depth- and stencil flags for a single fragment.
+     * Writes to the depth buffer.
+     *
+     * @param x Raster `x` coordinate of the fragment.
+     * @param y Raster `y` coordinate of the fragment.
+     * @param states Active render states.
+     * @param in_shader Fragment shader to execute.
+     * @param one_over_viewport_z Reciprocal viewport depth value for the fragment.
+     * @param info Per-fragment interpolator information.
+     * @param out Output buffer for the fragment.
+     */
     void process_fragment(
       int x,
       int y,
@@ -259,7 +270,18 @@ class sweep_rasterizer : public rasterizer
       fragment_info& info,
       swr::impl::fragment_output& out);
 
-    /** generate color values along with depth- and stencil masks for a 2x2 block of fragments. writes to the depth buffer. */
+    /**
+     * Generate color values along with depth- and stencil masks for a 2x2 fragment block.
+     * Writes to the depth buffer.
+     *
+     * @param x Left raster coordinate of the fragment block.
+     * @param y Top raster coordinate of the fragment block.
+     * @param states Active render states.
+     * @param in_shader Fragment shader to execute.
+     * @param one_over_viewport_z Reciprocal viewport depth values for the fragment block.
+     * @param info Per-fragment interpolator information.
+     * @param out Output buffers for the fragment block.
+     */
     void process_fragment_block(
       int x,
       int y,
@@ -269,6 +291,19 @@ class sweep_rasterizer : public rasterizer
       std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
+    /**
+     * Generate color values along with depth- and stencil masks for a masked 2x2 fragment block.
+     * Writes to the depth buffer. Only fragments selected by the mask are shaded and depth-tested.
+     *
+     * @param x Left raster coordinate of the fragment block.
+     * @param y Top raster coordinate of the fragment block.
+     * @param mask Coverage mask for the 2x2 fragment block.
+     * @param states Active render states.
+     * @param in_shader Fragment shader to execute.
+     * @param one_over_viewport_z Reciprocal viewport depth values for the fragment block.
+     * @param info Per-fragment interpolator information.
+     * @param out Output buffers for the fragment block.
+     */
     void process_fragment_block(
       int x,
       int y,
@@ -280,31 +315,113 @@ class sweep_rasterizer : public rasterizer
       swr::impl::fragment_output_block& out);
 
     /*
-     * fragment block processing.
+     * block processing.
      */
 
     /**
-     * Rasterize a complete block of dimension (rasterizer_block_size, rasterizer_block_size), i.e. do not perform additional edge checks.
+     * Rasterize a complete block of dimension `(rasterizer_block_size, rasterizer_block_size)`,
+     * i.e. do not perform additional edge checks.
+     *
+     * @param block_x Left raster coordinate of the block.
+     * @param block_y Top raster coordinate of the block.
+     * @param data Tile data.
      */
     void process_block(
-      unsigned int in_x,
-      unsigned int in_y,
-      tile_info& in_data);
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data);
 
     /**
-     * Rasterize block of dimension (rasterizer_block_size, rasterizer_block_size) and check for each fragment, if it is inside the triangle
-     * described by the vertex attributes.
+     * Rasterize block of dimension `(rasterizer_block_size, rasterizer_block_size)`
+     * and check for each fragment, if it is inside the triangle described by the vertex attributes.
+     *
+     * @param block_x Left raster coordinate of the block.
+     * @param block_y Top raster coordinate of the block.
+     * @param data Tile data.
      */
     void process_block_checked(
-      unsigned int in_x,
-      unsigned int in_y,
-      tile_info& in_data);
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data);
 
-    /** process a tile. */
+    /**
+     * Rasterize a block using precomputed small-triangle attributes and a set of quads.
+     * This path is optimized for small triangles where the quad payloads are already available.
+     *
+     * @param block_x Left raster coordinate of the block.
+     * @param block_y Top raster coordinate of the block.
+     * @param data Tile data.
+     * @param attributes Precomputed interpolator state for the small triangle.
+     * @param quads Precomputed payloads for the 2x2 quads covered by the triangle.
+     */
+    void process_block_precomputed_checked(
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      const small_triangle_interpolator& attributes,
+      std::span<const small_triangle_quad_payload> quads);
+
+    /**
+     * Rasterize a small triangle block and perform per-pixel checks.
+     * This path is used for tightly bounded triangles where a compact payload is sufficient.
+     *
+     * @param block_x Left raster coordinate of the block.
+     * @param block_y Top raster coordinate of the block.
+     * @param data Tile data.
+     * @param payload Payload describing the small triangle.
+     */
+    void process_block_small_checked(
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      const small_triangle_payload& payload);
+
+    /**
+     * Rasterize a sparse triangle block using a compact sparse payload.
+     * This path is optimized for triangles that cover very few pixels within the block.
+     *
+     * @param block_x Left raster coordinate of the block.
+     * @param block_y Top raster coordinate of the block.
+     * @param data Tile data.
+     * @param payload Sparse triangle payload for the block.
+     */
+    void process_block_sparse_checked(
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      const sparse_triangle_payload& payload);
+
+    /**
+     * Rasterize a sparse triangle block with additional quad payloads precomputed.
+     * This overload supports sparse blocks where quad-level coverage information is available.
+     *
+     * @param block_x Left raster coordinate of the block.
+     * @param block_y Top raster coordinate of the block.
+     * @param data Tile data.
+     * @param payload Sparse triangle tile payload.
+     * @param quads Precomputed payloads for the 2x2 quads in the block.
+     */
+    void process_block_sparse_checked(
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      const sparse_triangle_tile_payload& payload,
+      std::span<const small_triangle_quad_payload> quads);
+
+    /**
+     * Process all primitives stored in a tile and rasterize them into the framebuffer.
+     *
+     * @param in_tile Tile data containing primitives and associated state.
+     */
     void process_tile(tile& in_tile);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    /** calls rasterizer->process_tile. */
+    /**
+     * Static thread entry point that forwards tile processing to the rasterizer instance.
+     *
+     * @param rasterizer Sweep rasterizer instance.
+     * @param in_tile Tile to process.
+     */
     static void process_tile_static(
       sweep_rasterizer* rasterizer,
       tile* in_tile);
@@ -315,10 +432,8 @@ class sweep_rasterizer : public rasterizer
      */
 
     /**
-     * Draw the triangle (v1,v2,v3) using a sweep algorithm with blocks of size rasterizer_block_size.
+     * Draw the triangle `(v1,v2,v3)` using a sweep algorithm with blocks of size `rasterizer_block_size`.
      * The triangle is rasterized regardless of its orientation.
-     *
-     * NOTE Depending on the render states, the vertices may be modified.
      *
      * @param states Active render states for this triangle.
      * @param is_front_facing Whether this triangle is front facing. Passed to the fragment shader.
@@ -346,7 +461,7 @@ class sweep_rasterizer : public rasterizer
       const geom::vertex& v);
 
     /** draw the primitives in the list sequentially. */
-    void draw_primitives_sequentially();
+    void draw_primitives_sequential();
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** draw the primitives in the list in parallel. */
@@ -364,6 +479,9 @@ public:
 #endif
     {
         assert(framebuffer);
+#ifdef SWR_ENABLE_MULTI_THREADING
+        assert(thread_pool);
+#endif
 
         /*
          * set up tile cache.
