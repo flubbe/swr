@@ -354,7 +354,8 @@ inline quad_bounds compute_checked_quad_bounds(
  * @param info Triangle setup data containing biased fixed-point edge functions.
  * @param block_x Block-aligned x coordinate of the rasterizer block.
  * @param block_y Block-aligned y coordinate of the rasterizer block.
- * @return Barycentric coordinate block evaluated at pixel centers for block coverage tests.
+ * @return Barycentric coordinate block evaluated at the block's top-left pixel
+ *         center and set up for rasterizer-block coverage tests.
  */
 inline geom::barycentric_coordinate_block compute_triangle_lambdas_at_block(
   const triangle_info& info,
@@ -617,17 +618,17 @@ struct triangle_rasterization_classification
 };
 
 /**
- * Test precomputed quad-aligned spans for the small-triangle fast path.
+ * Test whether precomputed quad-aligned spans fit the small-triangle fast path.
  *
  * @param bounds Triangle bounds used to require containment within one rasterizer block.
- * @param quad_width Quad-aligned tight width in pixels.
- * @param quad_height Quad-aligned tight height in pixels.
+ * @param tight_quad_width Tight width after quad alignment, in pixels.
+ * @param tight_quad_height Tight height after quad alignment, in pixels.
  * @return True if the footprint is at most 2x2 raster quads and fits in one block.
  */
 inline bool is_small_quad_triangle(
   const bounding_box& bounds,
-  int quad_width,
-  int quad_height)
+  int tight_quad_width,
+  int tight_quad_height)
 {
     if(bounds.tight_start_x >= bounds.tight_end_x
        || bounds.tight_start_y >= bounds.tight_end_y)
@@ -640,8 +641,8 @@ inline bool is_small_quad_triangle(
     const int block_start_y = swr::impl::lower_align_on_block_size(bounds.tight_start_y);
     const int block_end_y = swr::impl::lower_align_on_block_size(bounds.tight_end_y - 1);
 
-    return quad_width <= small_triangle_footprint_size
-           && quad_height <= small_triangle_footprint_size
+    return tight_quad_width <= small_triangle_footprint_size
+           && tight_quad_height <= small_triangle_footprint_size
            && block_start_x == block_end_x
            && block_start_y == block_end_y;
 }
@@ -706,10 +707,10 @@ inline triangle_rasterization_classification classify_triangle_rasterization(
 }
 
 /**
- * Detect if a triangle's quad-aligned tight bounds cover at most 2x2 raster
- * quads in one block.
+ * Detect if a triangle's tight bounds, after quad alignment, cover at most 2x2
+ * raster quads in one block.
  *
- * @param bounds Triangle bounds whose tight fields are aligned and tested.
+ * @param bounds Triangle bounds whose tight fields are quad-aligned and tested.
  * @return True if the triangle qualifies for the small-quad fast path.
  */
 inline bool is_small_quad_triangle(
@@ -783,6 +784,16 @@ inline precomputed_triangle_payload_status build_precomputed_triangle_payload(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t quad_tests = 0;
     std::uint64_t empty_quads = 0;
+
+    const auto publish_checked_quad_profile_counts = [&]()
+    {
+        swr::impl::profile_checked_quad_tests.fetch_add(
+          quad_tests,
+          std::memory_order_relaxed);
+        swr::impl::profile_checked_empty_quads.fetch_add(
+          empty_quads,
+          std::memory_order_relaxed);
+    };
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     for(auto y = bounds.start_y; y < bounds.end_y; y += rasterizer_quad_size)
@@ -801,6 +812,10 @@ inline precomputed_triangle_payload_status build_precomputed_triangle_payload(
             {
                 if(payload.quads.size() == payload.quads.max_size())
                 {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+                    publish_checked_quad_profile_counts();
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
                     return precomputed_triangle_payload_status::overflow;
                 }
 
@@ -824,8 +839,7 @@ inline precomputed_triangle_payload_status build_precomputed_triangle_payload(
     }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-    swr::impl::profile_checked_quad_tests.fetch_add(quad_tests, std::memory_order_relaxed);
-    swr::impl::profile_checked_empty_quads.fetch_add(empty_quads, std::memory_order_relaxed);
+    publish_checked_quad_profile_counts();
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     if(payload.quads.empty())
@@ -874,21 +888,8 @@ inline void for_each_small_quad_triangle(
       static_cast<unsigned int>(quad_end_x),
       static_cast<unsigned int>(quad_end_y)};
 
-    const auto start_coord = ml::vec2_fixed<4>{
-      ml::fixed_28_4_t{block_x} + ml::fixed_28_4_t{0.5f},
-      ml::fixed_28_4_t{block_y} + ml::fixed_28_4_t{0.5f}};
-
-    geom::barycentric_coordinate_block lambdas{
-      -info.edges_fix[0].evaluate(start_coord),
-      {-info.edges_fix[0].get_change_x(), -info.edges_fix[0].get_change_y()},
-      -info.edges_fix[1].evaluate(start_coord),
-      {-info.edges_fix[1].get_change_x(), -info.edges_fix[1].get_change_y()},
-      -info.edges_fix[2].evaluate(start_coord),
-      {-info.edges_fix[2].get_change_x(), -info.edges_fix[2].get_change_y()}};
-
-    lambdas.setup(
-      swr::impl::rasterizer_block_size,
-      swr::impl::rasterizer_block_size);
+    geom::barycentric_coordinate_block lambdas =
+      compute_triangle_lambdas_at_block(info, block_x, block_y);
 
     auto coverage_lambdas = lambdas;
     coverage_lambdas.setup(1, 1);
@@ -1061,6 +1062,8 @@ inline void for_each_covered_triangle_block_general_with_bounds(
     std::uint64_t stage_callback = 0;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
+    constexpr int full_quad_mask = 0b1111;
+
     const auto start_coord = ml::vec2_fixed<4>{
       ml::fixed_28_4_t{bounds.start_x} + ml::fixed_28_4_t{0.5f},
       ml::fixed_28_4_t{bounds.start_y} + ml::fixed_28_4_t{0.5f}};
@@ -1107,8 +1110,6 @@ inline void for_each_covered_triangle_block_general_with_bounds(
 
         for(auto x = bounds.start_x; x < bounds.end_x; x += swr::impl::rasterizer_block_size)
         {
-            constexpr int full_quad_mask = 0b1111;
-
             const int mask = lambdas_box.get_coverage_mask();
             const int edge_mask0 = mask & full_quad_mask;
             const int edge_mask1 = (mask >> 4) & full_quad_mask;
@@ -1403,9 +1404,10 @@ inline void for_each_thin_triangle_block_with_bounds(
 /**
  * Compute triangle bounds and emit every potentially covered rasterizer block.
  *
- * This is the main bounds-driven checked/block iterator. Callers that want
- * specialized paths should classify first and dispatch to the matching iterator
- * when appropriate.
+ * This is the main bounds-driven checked/block iterator; it still selects the
+ * small-quad fast path internally. Callers that want the thin-triangle iterator
+ * should classify first, because that path needs the x/y-major mode chosen by
+ * classify_triangle_rasterization.
  *
  * @param states Render state supplying draw target dimensions, scissor, and interpolation qualifiers.
  * @param info Triangle setup data.
