@@ -233,7 +233,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(EmitFn&& emi
 std::vector<covered_triangle_block> collect_covered_triangle_blocks(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
   float polygon_offset = 0.0f,
   bool y_needs_flip = false)
 {
@@ -243,7 +243,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
           rast::for_each_covered_triangle_block(
             states,
             info,
-            base_varyings,
+            provoking_vertex_varyings,
             polygon_offset,
             y_needs_flip,
             std::forward<decltype(f)>(f));
@@ -253,7 +253,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
 std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  const boost::container::static_vector<ml::vec4, 15UL>& base_varyings,
+  const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
   float polygon_offset = 0.0f,
   bool y_needs_flip = false)
 {
@@ -262,7 +262,7 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
     rast::for_each_covered_triangle_block(
       states,
       info,
-      base_varyings,
+      provoking_vertex_varyings,
       polygon_offset,
       y_needs_flip,
       [&](int block_x,
@@ -403,7 +403,7 @@ void check_vec4_close(
 void check_precomputed_payload_interpolation_matches_regular(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  std::span<const ml::vec4> base_varyings,
+  std::span<const ml::vec4> provoking_vertex_varyings,
   int block_x,
   int block_y,
   const rast::small_triangle_interpolator& precomputed_attributes,
@@ -442,7 +442,7 @@ void check_precomputed_payload_interpolation_matches_regular(
               info.v0->varyings,
               info.v1->varyings,
               info.v2->varyings,
-              base_varyings,
+              provoking_vertex_varyings,
               states.shader_info->iqs,
               info.inv_area,
               0.0f};
@@ -1815,6 +1815,10 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
     static_assert(rast::rasterizer_quad_size == 2);
     static_assert(rast::small_triangle_quad_span == 2);
     static_assert(rast::small_triangle_footprint_size == 4);
+    static_assert(rast::max_sparse_payload_tight_minor_span == rast::rasterizer_quad_size);
+    static_assert(
+      rast::min_sparse_payload_quad_count
+      == rast::small_triangle_quad_span * rast::small_triangle_quad_span);
 
     const auto v0 = make_vertex(2.5f, 0.5f);
     const auto v1 = make_vertex(4.5f, 0.5f);

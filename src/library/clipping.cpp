@@ -307,16 +307,16 @@ static clipped_vertex_buffer load_triangle_vertices(
     tri.reserve(3);
 
     const std::uint32_t varying_count = obj.states.shader_info->varying_count;
-    const ml::vec4* provoking_varyings = nullptr;
+    const ml::vec4* provoking_vertex_varyings = nullptr;
     if(varying_count > 0)
     {
-        provoking_varyings = obj.varyings_for_vertex(indices[0]).data();
+        provoking_vertex_varyings = obj.varyings_for_vertex(indices[0]).data();
     }
 
     auto append_vertex = [&](std::uint32_t index)
     {
         geom::vertex v = load_vertex(obj, index);
-        v.provoking_varyings = provoking_varyings;
+        v.provoking_vertex_varyings = provoking_vertex_varyings;
         tri.emplace_back(v);
     };
 

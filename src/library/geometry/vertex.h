@@ -52,7 +52,7 @@ struct vertex
      * vertex. When set, this keeps flat-qualified varyings tied to the original
      * provoking vertex. The referenced storage is owned by the render object.
      */
-    const ml::vec4* provoking_varyings{nullptr};
+    const ml::vec4* provoking_vertex_varyings{nullptr};
 
     /** vertex flags. */
     std::uint32_t flags{vf_none};
@@ -79,9 +79,9 @@ inline vertex lerp(
     vertex r{
       .coords = ml::lerp(t, v1.coords, v2.coords),
       .varyings = {},
-      .provoking_varyings = v1.provoking_varyings != nullptr
-                            ? v1.provoking_varyings
-                            : v2.provoking_varyings,
+      .provoking_vertex_varyings = v1.provoking_vertex_varyings != nullptr
+                                      ? v1.provoking_vertex_varyings
+                                      : v2.provoking_vertex_varyings,
       .flags = vf_interpolated};
 
     // interpolate varyings

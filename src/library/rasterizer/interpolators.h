@@ -324,13 +324,13 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     /**
      * Initialize the interpolator along the x-direction and along the y-direction with respect to the triangle edges.
      *
-     * \param v0 first triangle vertex in cw orienation (w.r.t. viewport coordinstes)
-     * \param v1 second triangle vertex in cw orientation (w.r.t. viewport coordinates)
-     * \param v2 third triangle vertex in cw orientation (w.r.t. viewport coordinates)
-     * \param provoking_vertex provoking vertex for flat shading
-     * \param iqs Interpolation qualifiers for the varyings.
-     * \param one_over_area inverse area of the triangle
-     * \param polygon_offset polygon offset.
+     * @param v0 first triangle vertex in cw orienation (w.r.t. viewport coordinstes)
+     * @param v1 second triangle vertex in cw orientation (w.r.t. viewport coordinates)
+     * @param v2 third triangle vertex in cw orientation (w.r.t. viewport coordinates)
+     * @param provoking_vertex provoking vertex for flat shading
+     * @param iqs Interpolation qualifiers for the varyings.
+     * @param one_over_area inverse area of the triangle
+     * @param polygon_offset polygon offset.
      */
     triangle_interpolator(
       const ml::vec2 screen_coords,
@@ -345,7 +345,12 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
     : basic_interpolation_data{}
     {
         // the two triangle edge functions
-        geom::edge_function edge_v0v1{v0_coords.xy(), v1_coords.xy()}, edge_v0v2{v0_coords.xy(), v2_coords.xy()};
+        geom::edge_function edge_v0v1{
+          v0_coords.xy(),
+          v1_coords.xy()};
+        geom::edge_function edge_v0v2{
+          v0_coords.xy(),
+          v2_coords.xy()};
 
         // set up vertex attribute interpolation
         ml::vec2 normalized_diff_v0v1 = edge_v0v1.v_diff * one_over_area;

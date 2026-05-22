@@ -196,7 +196,7 @@ std::ostream& operator<<(std::ostream& os, const checked_quad_sample& sample)
 std::vector<checked_quad_sample> collect_checked_quads(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& base_varyings,
+  const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& provoking_vertex_varyings,
   bool use_sparse_bounds)
 {
     std::vector<checked_quad_sample> out;
@@ -209,7 +209,7 @@ std::vector<checked_quad_sample> collect_checked_quads(
     rast::for_each_covered_triangle_block(
       states,
       info,
-      base_varyings,
+      provoking_vertex_varyings,
       0.0f,
       false,
       [&](int block_x,
@@ -257,7 +257,7 @@ std::vector<checked_quad_sample> collect_checked_quads(
 std::vector<checked_quad_sample> collect_thin_trace_quads(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& base_varyings)
+  const boost::container::static_vector<ml::vec4, swr::limits::max::varyings>& provoking_vertex_varyings)
 {
     std::vector<checked_quad_sample> out;
 
@@ -265,13 +265,13 @@ std::vector<checked_quad_sample> collect_thin_trace_quads(
       states,
       info,
       false);
-    const auto mode = rast::classify_thin_triangle(bounds, info);
+    const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
 
     rast::for_each_thin_triangle_block_with_bounds(
       states,
       bounds,
       info,
-      base_varyings,
+      provoking_vertex_varyings,
       0.0f,
       mode,
       [&](int block_x,
@@ -323,7 +323,7 @@ void check_vec4_close(
 void check_precomputed_payload_interpolation_matches_regular(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
-  std::span<const ml::vec4> base_varyings,
+  std::span<const ml::vec4> provoking_vertex_varyings,
   int block_x,
   int block_y,
   const rast::small_triangle_interpolator& precomputed_attributes,
@@ -360,7 +360,7 @@ void check_precomputed_payload_interpolation_matches_regular(
           info.v0->varyings,
           info.v1->varyings,
           info.v2->varyings,
-          base_varyings,
+          provoking_vertex_varyings,
           states.shader_info->iqs,
           info.inv_area,
           0.0f};
@@ -444,7 +444,7 @@ void check_thin_trace_preserves_coverage(
           ctx.states,
           info,
           false);
-        const auto mode = rast::classify_thin_triangle(bounds, info);
+        const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
         BOOST_REQUIRE(rast::is_thin_rasterization_mode(mode));
         if(expected_mode)
         {
@@ -676,7 +676,7 @@ BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
       ctx.states,
       info,
       false);
-    const auto mode = rast::classify_thin_triangle(bounds, info);
+    const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
     BOOST_REQUIRE(mode == rast::tile_info::rasterization_mode::thin_y_major);
 
     std::vector<checked_quad_sample> payload_quads;
@@ -811,7 +811,7 @@ BOOST_AUTO_TEST_CASE(sparse_triangle_payload_interpolation_matches_regular_inter
       ctx.states,
       info,
       false);
-    const auto mode = rast::classify_thin_triangle(bounds, info);
+    const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
     BOOST_REQUIRE(mode == rast::tile_info::rasterization_mode::thin_y_major);
 
     bool saw_payload = false;

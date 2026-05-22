@@ -634,14 +634,14 @@ void sweep_rasterizer::draw_filled_triangle(
       (bounds.end_x - bounds.start_x) == static_cast<int>(swr::impl::rasterizer_block_size)
       && (bounds.end_y - bounds.start_y) == static_cast<int>(swr::impl::rasterizer_block_size);
 
-    std::span<const ml::vec4> base_varyings{
+    std::span<const ml::vec4> provoking_vertex_varyings{
       v0.varyings.data(),
       v0.varyings.size()};
     if(states.shader_info->uses_flat_varyings()
-       && v0.provoking_varyings != nullptr)
+       && v0.provoking_vertex_varyings != nullptr)
     {
-        base_varyings = {
-          v0.provoking_varyings,
+        provoking_vertex_varyings = {
+          v0.provoking_vertex_varyings,
           states.shader_info->varying_count};
     }
 
@@ -984,7 +984,7 @@ void sweep_rasterizer::draw_filled_triangle(
           states,
           bounds,
           info,
-          base_varyings,
+          provoking_vertex_varyings,
           polygon_offset,
           emit_small_triangle_block);
     }
@@ -994,7 +994,7 @@ void sweep_rasterizer::draw_filled_triangle(
           states,
           bounds,
           info,
-          base_varyings,
+          provoking_vertex_varyings,
           polygon_offset,
           rasterization.mode,
           emit_thin_triangle_block);
@@ -1005,7 +1005,7 @@ void sweep_rasterizer::draw_filled_triangle(
           states,
           bounds,
           info,
-          base_varyings,
+          provoking_vertex_varyings,
           polygon_offset,
           emit_triangle_block);
     }
