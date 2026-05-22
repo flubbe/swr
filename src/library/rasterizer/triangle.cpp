@@ -608,10 +608,10 @@ void sweep_rasterizer::draw_filled_triangle(
     const bool y_needs_flip = states.draw_target == framebuffer;
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    const bool allow_direct_block_path =
+    const bool single_thread_direct_block_path =
       thread_pool->get_thread_count() <= 1;
 #else  /* SWR_ENABLE_MULTI_THREADING */
-    const bool allow_direct_block_path = true;
+    const bool single_thread_direct_block_path = true;
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -713,11 +713,9 @@ void sweep_rasterizer::draw_filled_triangle(
 
         bool needs_flush = false;
         bool emitted_tile_ref = true;
-        const bool use_direct_path_for_block =
-          is_single_block_triangle
-          && allow_direct_block_path;
 
-        if(use_direct_path_for_block)
+        if(is_single_block_triangle
+           && single_thread_direct_block_path)
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             std::uint64_t stage_direct = 0;
@@ -744,12 +742,12 @@ void sweep_rasterizer::draw_filled_triangle(
                      ? tile_info::rasterization_mode::small_checked
                      : tile_info::rasterization_mode::sparse_checked)
                 : mode;
-            auto direct_attributes = attributes_row;    // attributes need to be mutable for tile_info.
             const geom::barycentric_coordinate_block* direct_checked_lambdas =
               uses_checked_lambdas(direct_mode)
                 ? &lambdas_box
                 : nullptr;
 
+            auto direct_attributes = attributes_row;    // attributes need to be mutable for tile_info.
             tile_info direct_info{
               &states,
               shader_index,
@@ -798,7 +796,7 @@ void sweep_rasterizer::draw_filled_triangle(
             stage_setup_direct += stage_direct;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
-        else /* use_direct_path_for_block */
+        else /* is_single_block_triangle && single_thread_direct_block_path */
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             std::uint64_t stage_enqueue = 0;
@@ -912,7 +910,7 @@ void sweep_rasterizer::draw_filled_triangle(
             stage_cb_flush_inline += stage_flush;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
-    };
+    }; /* emit_triangle_block_impl */
 
     auto emit_triangle_block =
       [&](int x,
