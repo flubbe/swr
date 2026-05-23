@@ -18,6 +18,9 @@ option(SWR_ENABLE_MULTI_THREADING "Enable multi-threaded processing in rasterize
 option(SWR_USE_MORTON_CODES "Use Morton codes for texture access." ON)
 set(SWR_TILE_CACHE_PRIMITIVE_CAPACITY "1024" CACHE STRING "Max primitive entries per rasterizer tile cache bucket")
 set(SWR_RASTERIZER_BLOCK_SHIFT "5" CACHE STRING "Rasterizer tile block shift (4=16px, 5=32px, 6=64px)")
+set(SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT "6" CACHE STRING "Thin-triangle minor-axis threshold in pixels")
+set(SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN "2" CACHE STRING "Max tight minor-axis pixel span for sparse thin-triangle payloads")
+set(SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT "4" CACHE STRING "Minimum 2x2-quad count before sparse thin-triangle payloads are used")
 
 if(NOT SWR_TILE_CACHE_PRIMITIVE_CAPACITY MATCHES "^[1-9][0-9]*$")
     message(FATAL_ERROR "SWR_TILE_CACHE_PRIMITIVE_CAPACITY must be a positive integer, got '${SWR_TILE_CACHE_PRIMITIVE_CAPACITY}'.")
@@ -27,13 +30,28 @@ if(NOT SWR_RASTERIZER_BLOCK_SHIFT MATCHES "^[0-9]+$")
     message(FATAL_ERROR "SWR_RASTERIZER_BLOCK_SHIFT must be a non-negative integer, got '${SWR_RASTERIZER_BLOCK_SHIFT}'.")
 endif()
 
+if(NOT SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT MATCHES "^[0-9]+$")
+    message(FATAL_ERROR "SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT must be a non-negative integer, got '${SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT}'.")
+endif()
+
+if(NOT SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN MATCHES "^[0-9]+$")
+    message(FATAL_ERROR "SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN must be a non-negative integer, got '${SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN}'.")
+endif()
+
+if(NOT SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT must be a positive integer, got '${SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT}'.")
+endif()
+
 #
 # Log configurable options.
 #
 
 function(print_option name)
     string(LENGTH "${name}" len)
-    math(EXPR pad "35 - ${len}")
+    math(EXPR pad "56 - ${len}")
+    if(pad LESS 1)
+        set(pad 1)
+    endif()
     string(REPEAT " " ${pad} spaces)
     message(STATUS "${name}${spaces}= ${${name}}")
 endfunction()
@@ -51,6 +69,9 @@ print_option(SWR_ENABLE_MULTI_THREADING)
 print_option(SWR_USE_MORTON_CODES)
 print_option(SWR_TILE_CACHE_PRIMITIVE_CAPACITY)
 print_option(SWR_RASTERIZER_BLOCK_SHIFT)
+print_option(SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT)
+print_option(SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN)
+print_option(SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT)
 
 message(STATUS "============================")
 
@@ -215,12 +236,33 @@ swr_provide_sdl3()
 
 add_library(swr_project_options INTERFACE)
 add_library(swr_project_warnings INTERFACE)
+add_library(swr_internal_config INTERFACE)
 
 target_compile_features(swr_project_options INTERFACE cxx_std_23)
 
 set_property(TARGET swr_project_options PROPERTY
     INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
+
+target_compile_definitions(swr_internal_config INTERFACE
+    SWR_TILE_CACHE_PRIMITIVE_CAPACITY=${SWR_TILE_CACHE_PRIMITIVE_CAPACITY}
+    SWR_RASTERIZER_BLOCK_SHIFT=${SWR_RASTERIZER_BLOCK_SHIFT}
+    SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT=${SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT}
+    SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN=${SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN}
+    SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT=${SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT}
+)
+
+if(SWR_ENABLE_PIPELINE_PROFILING)
+    target_compile_definitions(swr_internal_config INTERFACE SWR_ENABLE_PIPELINE_PROFILING)
+endif()
+
+if(SWR_ENABLE_MULTI_THREADING)
+    target_compile_definitions(swr_internal_config INTERFACE SWR_ENABLE_MULTI_THREADING)
+endif()
+
+if(SWR_USE_MORTON_CODES)
+    target_compile_definitions(swr_internal_config INTERFACE SWR_USE_MORTON_CODES)
+endif()
 
 #
 # Warnings.

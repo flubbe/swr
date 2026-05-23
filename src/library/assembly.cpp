@@ -437,6 +437,7 @@ void render_context::assemble_primitives(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
                         ++tri_cull_degenerate_count;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
                         continue;
                     }
 

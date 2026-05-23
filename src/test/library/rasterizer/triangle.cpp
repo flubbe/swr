@@ -1815,10 +1815,9 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
     static_assert(rast::rasterizer_quad_size == 2);
     static_assert(rast::small_triangle_quad_span == 2);
     static_assert(rast::small_triangle_footprint_size == 4);
-    static_assert(rast::max_sparse_payload_tight_minor_span == rast::rasterizer_quad_size);
-    static_assert(
-      rast::min_sparse_payload_quad_count
-      == rast::small_triangle_quad_span * rast::small_triangle_quad_span);
+    static_assert(rast::thin_minor_axis_limit >= 0);
+    static_assert(rast::max_sparse_payload_tight_minor_span >= 0);
+    static_assert(rast::min_sparse_payload_quad_count > 0);
 
     const auto v0 = make_vertex(2.5f, 0.5f);
     const auto v1 = make_vertex(4.5f, 0.5f);

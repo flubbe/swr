@@ -208,18 +208,38 @@ struct bounding_box
 /** Width and height in pixels of the 2x2 quad coverage unit. */
 inline constexpr int rasterizer_quad_size = 2;
 
+#ifndef SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT
+#    define SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT 6
+#endif
+
+#ifndef SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN
+#    define SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN 2
+#endif
+
+#ifndef SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT
+#    define SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT 4
+#endif
+
 /** Maximum quad span per axis for the small-triangle fast path. */
 inline constexpr int small_triangle_quad_span = 2;
 
 /** Maximum pixel span per axis for the small-triangle fast path. */
 inline constexpr int small_triangle_footprint_size = rasterizer_quad_size * small_triangle_quad_span;
 
+/** Minor-axis threshold for thin-triangle rasterization. */
+inline constexpr int thin_minor_axis_limit = SWR_RASTERIZER_THIN_MINOR_AXIS_LIMIT;
+
 /** Maximum tight minor-axis pixel span eligible for sparse thin-triangle payloads. */
-inline constexpr int max_sparse_payload_tight_minor_span = rasterizer_quad_size;
+inline constexpr int max_sparse_payload_tight_minor_span =
+  SWR_RASTERIZER_SPARSE_PAYLOAD_TIGHT_MINOR_SPAN;
 
 /** Minimum 2x2-quad count before sparse thin-triangle payloads can save work. */
 inline constexpr unsigned int min_sparse_payload_quad_count =
-  static_cast<unsigned int>(small_triangle_quad_span * small_triangle_quad_span);
+  static_cast<unsigned int>(SWR_RASTERIZER_MIN_SPARSE_PAYLOAD_QUAD_COUNT);
+
+static_assert(thin_minor_axis_limit >= 0);
+static_assert(max_sparse_payload_tight_minor_span >= 0);
+static_assert(min_sparse_payload_quad_count > 0);
 
 /**
  * Align a pixel coordinate down to the nearest 2x2 quad boundary.
@@ -659,8 +679,6 @@ inline triangle_rasterization_classification classify_triangle_rasterization(
   const bounding_box& bounds,
   const triangle_info& info)
 {
-    constexpr int thin_minor_axis_limit = 4;
-
     const int quad_start_x = lower_align_on_quad_size(bounds.tight_start_x);
     const int quad_start_y = lower_align_on_quad_size(bounds.tight_start_y);
     const int quad_end_x = upper_align_on_quad_size(bounds.tight_end_x);

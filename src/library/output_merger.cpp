@@ -5,7 +5,7 @@
  * the functions here operate in the pixel format of the output buffer.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -216,12 +216,12 @@ ml::vec4 blend(
     if(blend_src == blend_func::one
        && blend_dst == blend_func::zero)
     {
-        return dest;
+        return src;
     }
     else if(blend_src == blend_func::zero
             && blend_dst == blend_func::one)
     {
-        return src;
+        return dest;
     }
     else if(blend_src == blend_func::zero
             && blend_dst == blend_func::zero)
@@ -265,12 +265,12 @@ void blend_block(
     if(blend_src == blend_func::one
        && blend_dst == blend_func::zero)
     {
-        copy_to_out(dest);
+        copy_to_out(src);
     }
     else if(blend_src == blend_func::zero
             && blend_dst == blend_func::one)
     {
-        copy_to_out(src);
+        copy_to_out(dest);
     }
     else if(blend_src == blend_func::zero
             && blend_dst == blend_func::zero)
