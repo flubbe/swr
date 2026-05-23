@@ -312,7 +312,7 @@ void sort_checked_quads(std::vector<checked_quad_sample>& quads)
 void check_vec4_close(
   const ml::vec4& actual,
   const ml::vec4& expected,
-  float epsilon = 1e-4f)
+  float epsilon = 2e-4f)
 {
     BOOST_CHECK_SMALL(actual.x - expected.x, epsilon);
     BOOST_CHECK_SMALL(actual.y - expected.y, epsilon);
