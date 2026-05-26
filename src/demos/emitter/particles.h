@@ -78,7 +78,7 @@ class particle_system
     {
         parameters new_particle;
 
-        new_particle.position = spawn_point;
+        new_particle.position = ml::vec4{spawn_point};
 
         /*
          * for now, the emission direction is hard-coded. we emit randomly within a small cone upwards.
@@ -161,7 +161,7 @@ public:
             }
 
             // if the particle is outside some radius, consider it inactive.
-            if((it.position - spawn_point).length_squared() > activity_radius * activity_radius)
+            if((it.position - ml::vec4{spawn_point}).length_squared() > activity_radius * activity_radius)
             {
                 it.is_active = false;
                 it.respawn_time = respawn_time;
