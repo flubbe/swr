@@ -4,7 +4,7 @@
  * software rasterizer interface.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -15,6 +15,62 @@ namespace rast
 {
 
 using namespace std::literals;
+
+/** Inclusive min/max depth range. */
+struct depth_range
+{
+    /** Minimum depth value. */
+    ml::fixed_32_t min_depth{};
+
+    /** Maximum depth value. */
+    ml::fixed_32_t max_depth{};
+};
+
+/** Allocation-free lazy callback for retrieving a depth range. */
+struct depth_range_provider
+{
+    /** Callback signature for retrieving a depth range from an opaque context. */
+    using callback_t = const depth_range& (*)(void*);
+
+    /** No default construction: a provider must always have a callback. */
+    depth_range_provider() = delete;
+
+    /** Construct a provider from a non-null callback and its context. */
+    depth_range_provider(
+      callback_t in_callback,
+      void* in_context)
+    : callback{in_callback}
+    , context{in_context}
+    {
+        assert(callback);
+    }
+
+    /** Copy construction preserves the callback/context pair. */
+    depth_range_provider(const depth_range_provider&) = default;
+
+    /** Move construction preserves the callback/context pair. */
+    depth_range_provider(depth_range_provider&&) noexcept = default;
+
+    /** Reassignment is not supported; make a new provider instead. */
+    depth_range_provider& operator=(const depth_range_provider&) = delete;
+
+    /** Reassignment is not supported; make a new provider instead. */
+    depth_range_provider& operator=(depth_range_provider&&) = delete;
+
+    /** Function to call when a depth range is needed. */
+    callback_t const callback;
+
+    /** Opaque context passed to callback. */
+    void* const context;
+
+    /** Retrieve the depth range. */
+    [[nodiscard]]
+    const depth_range& operator()() const
+    {
+        assert(callback);
+        return callback(context);
+    }
+};
 
 /**
  * Bias for application to fill rules. This is edge to the line equations if the corresponding
@@ -47,7 +103,7 @@ class sweep_rasterizer : public rasterizer
         bool is_front_facing;
 
         /** the primitive's vertices. points use `v[0]`, lines use `v[0]` and `v[1]`, and triangles use `v[0]`, `v[1]` and `v[2]`. */
-        geom::vertex* v[3];
+        std::array<geom::vertex*, 3> v{nullptr, nullptr, nullptr};
 
         /** Points to the active render states (which are stored in the context's draw lists). */
         const swr::impl::render_states* states{nullptr};
@@ -325,13 +381,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
-     * @param stored_depth_range Optional cached min/max depth range for the current tile.
+     * @param range_provider Optional lazy min/max depth range provider for the current tile.
+     * @return false if the block was fully rejected before fragment processing, true otherwise.
      */
-    void process_block(
+    bool process_block(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
+      const depth_range_provider* range_provider = nullptr);
 
     /**
      * Rasterize block of dimension `(rasterizer_block_size, rasterizer_block_size)`
@@ -340,13 +397,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
-     * @param stored_depth_range Optional cached min/max depth range for the current tile.
+     * @param range_provider Optional lazy min/max depth range provider for the current tile.
+     * @return false if the block was fully rejected before fragment processing, true otherwise.
      */
-    void process_block_checked(
+    bool process_block_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
+      const depth_range_provider* range_provider = nullptr);
 
     /**
      * Rasterize a block using precomputed small-triangle attributes and a set of quads.
@@ -357,15 +415,13 @@ class sweep_rasterizer : public rasterizer
      * @param data Tile data.
      * @param attributes Precomputed interpolator state for the small triangle.
      * @param quads Precomputed payloads for the 2x2 quads covered by the triangle.
-     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_precomputed_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
       const small_triangle_interpolator& attributes,
-      std::span<const small_triangle_quad_payload> quads,
-      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
+      std::span<const small_triangle_quad_payload> quads);
 
     /**
      * Rasterize a small triangle block and perform per-pixel checks.
@@ -375,14 +431,12 @@ class sweep_rasterizer : public rasterizer
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
      * @param payload Payload describing the small triangle.
-     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_small_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const small_triangle_payload& payload,
-      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
+      const small_triangle_payload& payload);
 
     /**
      * Rasterize a sparse triangle block using a compact sparse payload.
@@ -392,14 +446,12 @@ class sweep_rasterizer : public rasterizer
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
      * @param payload Sparse triangle payload for the block.
-     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_sparse_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const sparse_triangle_payload& payload,
-      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
+      const sparse_triangle_payload& payload);
 
     /**
      * Rasterize a sparse triangle block with additional quad payloads precomputed.
@@ -410,15 +462,13 @@ class sweep_rasterizer : public rasterizer
      * @param data Tile data.
      * @param payload Sparse triangle tile payload.
      * @param quads Precomputed payloads for the 2x2 quads in the block.
-     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_sparse_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
       const sparse_triangle_tile_payload& payload,
-      std::span<const small_triangle_quad_payload> quads,
-      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
+      std::span<const small_triangle_quad_payload> quads);
 
     /**
      * Process all primitives stored in a tile and rasterize them into the framebuffer.

@@ -24,15 +24,20 @@ namespace
 {
 
 constexpr std::uint64_t early_depth_reject_adaptive_min_tests = 4096;
-constexpr std::uint64_t early_depth_reject_adaptive_threshold_num = 2;   // 2%
+constexpr std::uint64_t early_depth_reject_adaptive_threshold_num = 2;    // 2%
 constexpr std::uint64_t early_depth_reject_adaptive_threshold_den = 100;
 constexpr std::uint64_t early_depth_reject_adaptive_probe_period = 64;
-
-std::atomic<std::uint64_t> early_depth_reject_adaptive_tests{0};
-std::atomic<std::uint64_t> early_depth_reject_adaptive_rejects{0};
+constexpr unsigned int early_depth_reject_tile_quad_count =
+  (swr::impl::rasterizer_block_size / 2)
+  * (swr::impl::rasterizer_block_size / 2);
+// The stored-depth range scan is full-tile work, so only spend it on candidates
+// whose covered region can plausibly save a full tile of fragment processing.
+constexpr unsigned int early_depth_reject_min_candidate_quads =
+  early_depth_reject_tile_quad_count;
 
 [[nodiscard]]
 bool early_depth_reject_adaptive_enabled(
+  std::uint64_t observed_candidates,
   std::uint64_t observed_tests,
   std::uint64_t observed_rejects)
 {
@@ -48,8 +53,42 @@ bool early_depth_reject_adaptive_enabled(
     }
 
     // Keep occasional probes active so the gate can recover if scene behavior changes.
-    return (observed_tests % early_depth_reject_adaptive_probe_period) == 0;
+    return (observed_candidates % early_depth_reject_adaptive_probe_period) == 0;
 }
+
+struct early_depth_reject_adaptive_state
+{
+    std::atomic<std::uint64_t> candidates{0};
+    std::atomic<std::uint64_t> tests{0};
+    std::atomic<std::uint64_t> rejects{0};
+
+    [[nodiscard]]
+    bool should_test()
+    {
+        const std::uint64_t observed_candidates =
+          candidates.fetch_add(1, std::memory_order_relaxed) + 1;
+        const std::uint64_t observed_tests =
+          tests.load(std::memory_order_relaxed);
+        const std::uint64_t observed_rejects =
+          rejects.load(std::memory_order_relaxed);
+
+        return early_depth_reject_adaptive_enabled(
+          observed_candidates,
+          observed_tests,
+          observed_rejects);
+    }
+
+    void record_test_result(bool rejected)
+    {
+        tests.fetch_add(1, std::memory_order_relaxed);
+        if(rejected)
+        {
+            rejects.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+};
+
+early_depth_reject_adaptive_state early_depth_reject_adaptive{};
 
 struct block_span
 {
@@ -96,48 +135,64 @@ std::pair<float, float> conservative_depth_range_for_block(
 }
 
 [[nodiscard]]
+unsigned int estimate_quad_count(quad_bounds bounds)
+{
+    if(bounds.empty())
+    {
+        return 0;
+    }
+
+    const unsigned int width = bounds.end_x - bounds.start_x;
+    const unsigned int height = bounds.end_y - bounds.start_y;
+    return ((width + 1) / 2) * ((height + 1) / 2);
+}
+
+[[nodiscard]]
+depth_range scan_depth_range(
+  const swr::impl::attachment_depth& depth_buffer,
+  unsigned int block_x,
+  unsigned int block_y,
+  block_span span)
+{
+    constexpr int depth_value_size =
+      static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
+    const int row_stride = depth_buffer.info.pitch / depth_value_size;
+    const int start_x = static_cast<int>(block_x);
+    const int start_y = static_cast<int>(block_y);
+
+    depth_range range{
+      depth_buffer.info.data_ptr[start_y * row_stride + start_x],
+      depth_buffer.info.data_ptr[start_y * row_stride + start_x]};
+
+    for(int y = 0; y < span.height; ++y)
+    {
+        const int row = (start_y + y) * row_stride + start_x;
+        for(int x = 0; x < span.width; ++x)
+        {
+            const ml::fixed_32_t z = depth_buffer.info.data_ptr[row + x];
+            range.min_depth = std::min(range.min_depth, z);
+            range.max_depth = std::max(range.max_depth, z);
+        }
+    }
+
+    return range;
+}
+
+[[nodiscard]]
 bool can_early_reject_depth_block(
   const swr::impl::default_framebuffer* framebuffer,
   const swr::impl::render_states& states,
   unsigned int block_x,
   unsigned int block_y,
   const geom::linear_interpolator_2d<float>& depth,
-  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+  const depth_range_provider* range_provider,
+  unsigned int candidate_quad_count)
 {
-    const std::uint64_t observed_tests =
-      early_depth_reject_adaptive_tests.fetch_add(1, std::memory_order_relaxed) + 1;
-    const std::uint64_t observed_rejects =
-      early_depth_reject_adaptive_rejects.load(std::memory_order_relaxed);
-    if(!early_depth_reject_adaptive_enabled(
-         observed_tests,
-         observed_rejects))
+    if(candidate_quad_count < early_depth_reject_min_candidate_quads)
     {
         return false;
     }
 
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    swr::impl::profile_raster_early_depth_reject_tests.fetch_add(1, std::memory_order_relaxed);
-    if(stored_depth_range != nullptr)
-    {
-        swr::impl::profile_raster_early_depth_reject_tests_with_cached_range.fetch_add(1, std::memory_order_relaxed);
-    }
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    bool rejected = false;
-    auto profile_reject_and_return = [&](bool value) -> bool
-    {
-        if(value)
-        {
-            early_depth_reject_adaptive_rejects.fetch_add(1, std::memory_order_relaxed);
-        }
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-        if(value)
-        {
-            swr::impl::profile_raster_early_depth_rejects.fetch_add(1, std::memory_order_relaxed);
-        }
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-        return value;
-    };
     if(!states.depth_test_enabled)
     {
         return false;
@@ -146,11 +201,6 @@ bool can_early_reject_depth_block(
     if(states.depth_func == swr::comparison_func::pass)
     {
         return false;
-    }
-    
-    if(states.depth_func == swr::comparison_func::fail)
-    {
-        return profile_reject_and_return(true);
     }
 
     // TODO For now this optimization is only implemented for the default framebuffer depth attachment.
@@ -165,6 +215,36 @@ bool can_early_reject_depth_block(
         return false;
     }
 
+    if(states.depth_func == swr::comparison_func::fail)
+    {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_raster_early_depth_reject_tests.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_raster_early_depth_rejects.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+        return true;
+    }
+
+    if(!early_depth_reject_adaptive.should_test())
+    {
+        return false;
+    }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    swr::impl::profile_raster_early_depth_reject_tests.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    auto profile_reject_and_return = [&](bool value) -> bool
+    {
+        early_depth_reject_adaptive.record_test_result(value);
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        if(value)
+        {
+            swr::impl::profile_raster_early_depth_rejects.fetch_add(1, std::memory_order_relaxed);
+        }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+        return value;
+    };
+
     const block_span span = compute_block_span(depth_buffer, block_x, block_y);
     if(span.width <= 0
        || span.height <= 0)
@@ -177,65 +257,59 @@ bool can_early_reject_depth_block(
       span.width,
       span.height);
 
-    const int row_stride = depth_buffer.info.pitch / static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
-    ml::fixed_32_t min_stored_depth{};
-    ml::fixed_32_t max_stored_depth{};
-    if(stored_depth_range != nullptr)
+    depth_range stored_range{};
+    if(range_provider != nullptr)
     {
-        min_stored_depth = stored_depth_range->first;
-        max_stored_depth = stored_depth_range->second;
+        stored_range = (*range_provider)();
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_raster_early_depth_reject_tests_with_cached_range.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
     else
     {
-        min_stored_depth = depth_buffer.info.data_ptr[static_cast<int>(block_y) * row_stride + static_cast<int>(block_x)];
-        max_stored_depth = min_stored_depth;
-        for(int y = 0; y < span.height; ++y)
-        {
-            const int row = (static_cast<int>(block_y) + y) * row_stride + static_cast<int>(block_x);
-            for(int x = 0; x < span.width; ++x)
-            {
-                const ml::fixed_32_t z = depth_buffer.info.data_ptr[row + x];
-                min_stored_depth = std::min(min_stored_depth, z);
-                max_stored_depth = std::max(max_stored_depth, z);
-            }
-        }
+        stored_range = scan_depth_range(
+          depth_buffer,
+          block_x,
+          block_y,
+          span);
     }
 
     const ml::fixed_32_t min_depth_fixed{min_depth};
     const ml::fixed_32_t max_depth_fixed{max_depth};
+    bool rejected = false;
 
     if(states.depth_func == swr::comparison_func::less)
     {
-        rejected = min_depth_fixed >= max_stored_depth;
+        rejected = min_depth_fixed >= stored_range.max_depth;
     }
     else if(states.depth_func == swr::comparison_func::less_equal)
     {
-        rejected = min_depth_fixed > max_stored_depth;
+        rejected = min_depth_fixed > stored_range.max_depth;
     }
     else if(states.depth_func == swr::comparison_func::greater)
     {
-        rejected = max_depth_fixed <= min_stored_depth;
+        rejected = max_depth_fixed <= stored_range.min_depth;
     }
     else if(states.depth_func == swr::comparison_func::greater_equal)
     {
-        rejected = max_depth_fixed < min_stored_depth;
+        rejected = max_depth_fixed < stored_range.min_depth;
     }
     else if(states.depth_func == swr::comparison_func::equal)
     {
-        rejected = max_depth_fixed < min_stored_depth
-                   || min_depth_fixed > max_stored_depth;
+        rejected = max_depth_fixed < stored_range.min_depth
+                   || min_depth_fixed > stored_range.max_depth;
     }
     else if(states.depth_func == swr::comparison_func::not_equal)
     {
         // Only reject when both ranges collapse to one identical value.
         rejected = min_depth_fixed == max_depth_fixed
-                   && min_stored_depth == max_stored_depth
-                   && min_depth_fixed == min_stored_depth;
+                   && stored_range.min_depth == stored_range.max_depth
+                   && min_depth_fixed == stored_range.min_depth;
     }
     return profile_reject_and_return(rejected);
 }
 
-} // namespace
+}    // namespace
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
 
@@ -270,11 +344,11 @@ inline void profile_checked_quad_mask(std::uint8_t mask)
 
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-void sweep_rasterizer::process_block(
+bool sweep_rasterizer::process_block(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
-  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+  const depth_range_provider* range_provider)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -291,9 +365,10 @@ void sweep_rasterizer::process_block(
          block_x,
          block_y,
          attributes.depth_value,
-         stored_depth_range))
+         range_provider,
+         early_depth_reject_tile_quad_count))
     {
-        return;
+        return false;
     }
 
     attributes.setup_block_processing();
@@ -398,13 +473,15 @@ void sweep_rasterizer::process_block(
     swr::impl::profile_raster_block_fragment_cycles.fetch_add(stage_block_fragment, std::memory_order_relaxed);
     swr::impl::profile_raster_block_merge_cycles.fetch_add(stage_block_merge, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    return true;
 }
 
-void sweep_rasterizer::process_block_checked(
+bool sweep_rasterizer::process_block_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
-  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+  const depth_range_provider* range_provider)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -415,15 +492,18 @@ void sweep_rasterizer::process_block_checked(
 
     assert(data.attributes);
     auto& attributes = *data.attributes;
+    const unsigned int candidate_quad_count =
+      estimate_quad_count(data.checked_quad_bounds);
     if(can_early_reject_depth_block(
          framebuffer,
          *data.states,
          block_x,
          block_y,
          attributes.depth_value,
-         stored_depth_range))
+         range_provider,
+         candidate_quad_count))
     {
-        return;
+        return false;
     }
 
     attributes.setup_block_processing();
@@ -554,6 +634,8 @@ void sweep_rasterizer::process_block_checked(
     swr::impl::profile_raster_block_fragment_cycles.fetch_add(stage_block_fragment, std::memory_order_relaxed);
     swr::impl::profile_raster_block_merge_cycles.fetch_add(stage_block_merge, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    return true;
 }
 
 void sweep_rasterizer::process_block_precomputed_checked(
@@ -561,8 +643,7 @@ void sweep_rasterizer::process_block_precomputed_checked(
   unsigned int block_y,
   tile_info& data,
   const small_triangle_interpolator& attributes,
-  std::span<const small_triangle_quad_payload> quads,
-  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+  std::span<const small_triangle_quad_payload> quads)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -570,17 +651,6 @@ void sweep_rasterizer::process_block_precomputed_checked(
     std::uint64_t stage_block_merge = 0;
     utils::clock(stage_block_total);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    if(can_early_reject_depth_block(
-         framebuffer,
-         *data.states,
-         block_x,
-         block_y,
-         attributes.depth_value,
-         stored_depth_range))
-    {
-        return;
-    }
 
     std::array<
       boost::container::static_vector<
@@ -695,8 +765,7 @@ void sweep_rasterizer::process_block_small_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
-  const small_triangle_payload& payload,
-  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+  const small_triangle_payload& payload)
 {
     process_block_precomputed_checked(
       block_x,
@@ -705,24 +774,21 @@ void sweep_rasterizer::process_block_small_checked(
       payload.attributes,
       std::span{
         payload.quads.data(),
-        payload.quad_count},
-      stored_depth_range);
+        payload.quad_count});
 }
 
 void sweep_rasterizer::process_block_sparse_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
-  const sparse_triangle_payload& payload,
-  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+  const sparse_triangle_payload& payload)
 {
     process_block_precomputed_checked(
       block_x,
       block_y,
       data,
       payload.attributes,
-      payload.quads,
-      stored_depth_range);
+      payload.quads);
 }
 
 void sweep_rasterizer::process_block_sparse_checked(
@@ -730,16 +796,14 @@ void sweep_rasterizer::process_block_sparse_checked(
   unsigned int block_y,
   tile_info& data,
   const sparse_triangle_tile_payload& payload,
-  std::span<const small_triangle_quad_payload> quads,
-  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+  std::span<const small_triangle_quad_payload> quads)
 {
     process_block_precomputed_checked(
       block_x,
       block_y,
       data,
       payload.attributes,
-      quads,
-      stored_depth_range);
+      quads);
 }
 
 /**
