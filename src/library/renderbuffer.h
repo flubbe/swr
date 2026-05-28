@@ -66,6 +66,8 @@ struct fragment_output_block
 template<typename T>
 struct attachment_info
 {
+    using value_type = T;
+
     /** width of the attachment. Has to be aligned on rasterizer_block_size.  */
     int width{0};
 
@@ -95,7 +97,11 @@ struct attachment_info
     }
 
     /** set up all parameters. */
-    void setup(int in_width, int in_height, int in_pitch, T* in_data_ptr)
+    void setup(
+      int in_width,
+      int in_height,
+      int in_pitch,
+      T* in_data_ptr)
     {
         width = in_width;
         height = in_height;
@@ -107,11 +113,13 @@ struct attachment_info
 /** A fixed-point depth buffer attachment. */
 struct attachment_depth
 {
+    using value_type = ml::fixed_32_t;
+
     /** attachment info. */
-    attachment_info<ml::fixed_32_t> info;
+    attachment_info<value_type> info;
 
     /** The depth buffer data. */
-    utils::sse_aligned_vector<ml::fixed_32_t> data;
+    utils::sse_aligned_vector<value_type> data;
 
     /** free resources. */
     void reset()
@@ -123,19 +131,27 @@ struct attachment_depth
     }
 
     /** allocate the buffer. */
-    void allocate(int in_width, int in_height)
+    void allocate(
+      int in_width,
+      int in_height)
     {
         assert(in_width > 0 && in_height > 0);
         data.resize(in_width * in_height);
-        info.setup(in_width, in_height, in_width * sizeof(ml::fixed_32_t), data.data());
+        info.setup(
+          in_width,
+          in_height,
+          in_width * sizeof(value_type),
+          data.data());
     }
 };
 
 /** A 32-bit color buffer. */
 struct attachment_color_buffer
 {
+    using value_type = std::uint32_t;
+
     /** attachment info. */
-    attachment_info<std::uint32_t> info;
+    attachment_info<value_type> info;
 
     /** pixel format converter. needs explicit initialization. */
     pixel_format_converter converter;
@@ -144,15 +160,24 @@ struct attachment_color_buffer
     void reset()
     {
         info.reset();
-        converter.set_pixel_format(pixel_format_descriptor::named_format(pixel_format::unsupported));
+        converter.set_pixel_format(
+          pixel_format_descriptor::named_format(
+            pixel_format::unsupported));
     }
 
     /** attach externally managed buffer. */
-    void attach(int width, int height, int pitch, std::uint32_t* ptr)
+    void attach(
+      int width,
+      int height,
+      int pitch,
+      value_type* ptr)
     {
         info.setup(width, height, pitch, ptr);
 
-        if(width <= 0 || height <= 0 || pitch <= 0 || !ptr)
+        if(width <= 0
+           || height <= 0
+           || pitch <= 0
+           || ptr == nullptr)
         {
             info.reset();
         }
@@ -174,8 +199,10 @@ struct attachment_color_buffer
 /** texture attachment. */
 struct attachment_texture
 {
+    using value_type = ml::vec4;
+
     /** attachment info. */
-    attachment_info<ml::vec4> info;
+    attachment_info<value_type> info;
 
     /** attached texture id. */
     std::uint32_t tex_id{default_tex_id};
@@ -194,7 +221,9 @@ struct attachment_texture
     }
 
     /** attach texture. */
-    void attach(texture_2d* in_tex, std::uint32_t in_level = 0)
+    void attach(
+      texture_2d* in_tex,
+      std::uint32_t in_level = 0)
     {
         tex_id = default_tex_id;
         tex = nullptr;
@@ -202,7 +231,8 @@ struct attachment_texture
 
         info.reset();
 
-        if(in_tex && in_level < in_tex->data.data_ptrs.size())
+        if(in_tex
+           && in_level < in_tex->data.data_ptrs.size())
         {
             tex_id = in_tex->id;
             tex = in_tex;
@@ -407,7 +437,9 @@ struct default_framebuffer : public framebuffer_draw_target
     {
         reset();
         color_buffer.attach(width, height, pitch, data);
-        color_buffer.converter.set_pixel_format(pixel_format_descriptor::named_format(pixel_format));
+        color_buffer.converter.set_pixel_format(
+          pixel_format_descriptor::named_format(
+            pixel_format));
         depth_buffer.allocate(width, height);
         properties.reset(width, height);
     }
@@ -415,7 +447,9 @@ struct default_framebuffer : public framebuffer_draw_target
     /** update the color attachment's format. */
     void set_color_pixel_format(pixel_format name)
     {
-        color_buffer.converter.set_pixel_format(pixel_format_descriptor::named_format(name));
+        color_buffer.converter.set_pixel_format(
+          pixel_format_descriptor::named_format(
+            name));
     }
 
     /** check if the color attachment currently is attached to the externally supplied memory. */
@@ -438,7 +472,10 @@ class framebuffer_object : public framebuffer_draw_target
     std::uint32_t id{0};
 
     /** color attachments. */
-    std::array<std::unique_ptr<attachment_texture>, swr::limits::max::color_attachments> color_attachments;
+    std::array<
+      std::unique_ptr<attachment_texture>,
+      swr::limits::max::color_attachments>
+      color_attachments;
 
     /** current color attachment count. */
     std::uint32_t color_attachment_count{0};
@@ -460,21 +497,35 @@ class framebuffer_object : public framebuffer_draw_target
             {
                 if(it)
                 {
-                    width = (width < 0) ? it->info.width : std::min(width, it->info.width);
-                    height = (height < 0) ? it->info.height : std::min(height, it->info.height);
+                    width = (width < 0)
+                              ? it->info.width
+                              : std::min(width, it->info.width);
+                    height = (height < 0)
+                               ? it->info.height
+                               : std::min(height, it->info.height);
                 }
             }
         }
 
-        int depth_width = (depth_attachment == nullptr) ? -1 : depth_attachment->info.width;
-        int depth_height = (depth_attachment == nullptr) ? -1 : depth_attachment->info.height;
+        int depth_width = (depth_attachment == nullptr)
+                            ? -1
+                            : depth_attachment->info.width;
+        int depth_height = (depth_attachment == nullptr)
+                             ? -1
+                             : depth_attachment->info.height;
 
         // set the effective width and height. we handle all cases except both widths/heights from above being negative.
-        width = (width > 0 && depth_width > 0) ? std::min(width, depth_width) : std::max(width, depth_width);
-        height = (height > 0 && depth_height > 0) ? std::min(height, depth_height) : std::max(height, depth_height);
+        width = (width > 0 && depth_width > 0)
+                  ? std::min(width, depth_width)
+                  : std::max(width, depth_width);
+        height = (height > 0 && depth_height > 0)
+                   ? std::min(height, depth_height)
+                   : std::max(height, depth_height);
 
         // if the widths/heights from above were negative, then the respective effective size is zero.
-        properties.reset(std::max(width, 0), std::max(height, 0));
+        properties.reset(
+          std::max(width, 0),
+          std::max(height, 0));
     }
 
 public:
@@ -569,7 +620,8 @@ public:
       texture_2d* tex, int level)
     {
         auto index = static_cast<int>(attachment);
-        if(index >= 0 && index < swr::limits::max::color_attachments)
+        if(index >= 0
+           && index < swr::limits::max::color_attachments)
         {
             if(!color_attachments[index])
             {
@@ -669,7 +721,7 @@ public:
     /** check completeness. */
     bool is_complete() const
     {
-        if(color_attachments.empty())
+        if(color_attachment_count == 0)
         {
             return false;
         }
@@ -677,18 +729,23 @@ public:
         // attachment completeness.
         for(auto& it: color_attachments)
         {
-            if(it && (it->info.width == 0 || it->info.height == 0 || !it->is_valid()))
+            if(it != nullptr
+               && (it->info.width == 0
+                   || it->info.height == 0
+                   || !it->is_valid()))
             {
                 return false;
             }
         }
 
-        if(depth_attachment && (depth_attachment->info.width == 0 || depth_attachment->info.height == 0))
+        if(depth_attachment != nullptr
+           && (depth_attachment->info.width == 0
+               || depth_attachment->info.height == 0))
         {
             return false;
         }
 
-        return false;
+        return true;
     }
 };
 

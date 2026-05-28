@@ -165,6 +165,29 @@ target_link_libraries(test_framebuffer_blending
 )
 add_test(NAME framebuffer_blending COMMAND test_framebuffer_blending --color_output=no)
 
+add_executable(test_framebuffer library/framebuffer.cpp)
+target_include_directories(test_framebuffer
+    PRIVATE
+    ${SWR_SOURCE_DIR}/include
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_framebuffer
+    PRIVATE
+    BOOST_TEST_DYN_LINK
+)
+target_link_libraries(test_framebuffer
+    PRIVATE
+    swrast
+    Boost::unit_test_framework
+    libmorton
+    concurrency_utils
+    swr_internal_config
+    swr_project_options
+    swr_project_warnings
+)
+add_test(NAME framebuffer COMMAND test_framebuffer --color_output=no)
+
 add_executable(test_coverage_mask library/coverage_mask.cpp)
 target_include_directories(test_coverage_mask
     PRIVATE
