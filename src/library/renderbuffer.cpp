@@ -33,7 +33,9 @@ static auto to_uint32_mask = [](bool b) -> std::uint32_t
 
 bool attachment_texture::is_valid() const
 {
-    if(tex_id == default_tex_id || tex == nullptr || info.data_ptr == nullptr)
+    if(tex_id == default_tex_id
+       || tex == nullptr
+       || info.data_ptr == nullptr)
     {
         return false;
     }
@@ -57,58 +59,6 @@ bool attachment_texture::is_valid() const
            && tex_id == tex->id
            && info.data_ptr == tex->data.data_ptrs[level];
 }
-
-#if defined(SWR_USE_MORTON_CODES) && 0
-
-template<>
-void scissor_clear_buffer(
-  ml::vec4 clear_value,
-  attachment_info<ml::vec4>& info,
-  const utils::rect& scissor_box)
-{
-    int x_min = std::min(std::max(0, scissor_box.x_min), info.width);
-    int x_max = std::max(0, std::min(scissor_box.x_max, info.width));
-    int y_min = std::min(std::max(0, scissor_box.y_max), info.height);
-    int y_max = std::max(0, std::min(scissor_box.y_min, info.height));
-
-    const auto row_size = x_max - x_min;
-    const auto skip = info.pitch - row_size;
-
-    auto ptr = info.data_ptr + y_min * info.pitch + x_min;
-    for(int y = y_min; y < y_max; ++y)
-    {
-        for(int i = 0; i < row_size; ++i)
-        {
-            *ptr++ = clear_value;
-        }
-
-        ptr += skip;
-    }
-}
-
-#elif 0
-
-template<typename T>
-static void scissor_clear_buffer_morton(
-  T clear_value,
-  attachment_info<T>& info,
-  const utils::rect& scissor_box)
-{
-    int x_min = std::min(std::max(0, scissor_box.x_min), info.width);
-    int x_max = std::max(0, std::min(scissor_box.x_max, info.width));
-    int y_min = std::min(std::max(info.height - scissor_box.y_max, 0), info.height);
-    int y_max = std::max(0, std::min(info.height - scissor_box.y_min, info.height));
-
-    for(int y = y_min; y < y_max; ++y)
-    {
-        for(int x = x_min; x < x_max; ++x)
-        {
-            *(info.data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_value;
-        }
-    }
-}
-
-#endif
 
 /*
  * default framebuffer.
@@ -262,7 +212,7 @@ void default_framebuffer::merge_color_block(
     if(frag.write_color && block_in_bounds)
     {
         // convert color to output format.
-        alignas(utils::alignment::sse) std::array<std::uint32_t, 4> write_color = {
+        std::array<std::uint32_t, 4> write_color = {
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[0])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[1])),
           color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[2])),
@@ -275,7 +225,7 @@ void default_framebuffer::merge_color_block(
           color_buffer.info.data_ptr + (y + 1) * row_stride + x,
           color_buffer.info.data_ptr + (y + 1) * row_stride + (x + 1)};
 
-        alignas(utils::alignment::sse) std::array<std::uint32_t, 4> color_buffer_values = {
+        std::array<std::uint32_t, 4> color_buffer_values = {
           *color_buffer_ptr[0],
           *color_buffer_ptr[1],
           *color_buffer_ptr[2],
@@ -320,7 +270,7 @@ void default_framebuffer::merge_color_block(
 
         if(write_mask)
         {
-            alignas(utils::alignment::sse) std::array<std::uint32_t, 4> write_color = {
+            std::array<std::uint32_t, 4> write_color = {
               color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[0])),
               color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[1])),
               color_buffer.converter.to_pixel(ml::clamp_to_unit_interval(frag.color[2])),
@@ -332,20 +282,24 @@ void default_framebuffer::merge_color_block(
               color_buffer.info.data_ptr + (y + 1) * row_stride + x,
               color_buffer.info.data_ptr + (y + 1) * row_stride + (x + 1)};
 
-            alignas(utils::alignment::sse) std::array<std::uint32_t, 4> color_buffer_values = {
-              0u,
-              0u,
-              0u,
-              0u};
+            std::array<std::uint32_t, 4> color_buffer_values;
 
             if(write_mask & 0x8)
+            {
                 color_buffer_values[0] = *color_buffer_ptr[0];
+            }
             if(write_mask & 0x4)
+            {
                 color_buffer_values[1] = *color_buffer_ptr[1];
+            }
             if(write_mask & 0x2)
+            {
                 color_buffer_values[2] = *color_buffer_ptr[2];
+            }
             if(write_mask & 0x1)
+            {
                 color_buffer_values[3] = *color_buffer_ptr[3];
+            }
 
             if(do_blend)
             {
@@ -359,13 +313,21 @@ void default_framebuffer::merge_color_block(
             }
 
             if(write_mask & 0x8)
+            {
                 *color_buffer_ptr[0] = write_color[0];
+            }
             if(write_mask & 0x4)
+            {
                 *color_buffer_ptr[1] = write_color[1];
+            }
             if(write_mask & 0x2)
+            {
                 *color_buffer_ptr[2] = write_color[2];
+            }
             if(write_mask & 0x1)
+            {
                 *color_buffer_ptr[3] = write_color[3];
+            }
         }
     }
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -496,13 +458,21 @@ void default_framebuffer::depth_compare_write_block(
     else
     {
         if(active_mask & 0x8)
+        {
             old_depth_value[0] = *depth_buffer_ptr[0];
+        }
         if(active_mask & 0x4)
+        {
             old_depth_value[1] = *depth_buffer_ptr[1];
+        }
         if(active_mask & 0x2)
+        {
             old_depth_value[2] = *depth_buffer_ptr[2];
+        }
         if(active_mask & 0x1)
+        {
             old_depth_value[3] = *depth_buffer_ptr[3];
+        }
     }
     const std::array<ml::fixed_32_t, 4> new_depth_value = {
       depth_value[0],
@@ -534,10 +504,16 @@ void default_framebuffer::depth_compare_write_block(
     // compound comparisons for depth test.
     for(std::size_t k = 0; k < block_size; ++k)
     {
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] =
+          !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] =
+          depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k]
+          || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] =
+          !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k];
+        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] =
+          depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k]
+          || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
     }
 
     const std::array<bool, 4> depth_mask = {
@@ -651,7 +627,7 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(rect.y_min, 0), info.height);
+        int y_min = std::min(std::max(0, rect.y_min), info.height);
         int y_max = std::max(0, std::min(rect.y_max, info.height));
 
         for(int x = x_min; x < x_max; ++x)
@@ -666,7 +642,7 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(rect.y_min, 0), info.height);
+        int y_min = std::min(std::max(0, rect.y_min), info.height);
         int y_max = std::max(0, std::min(rect.y_max, info.height));
 
         const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
@@ -837,10 +813,16 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
     };
 
     // compound comparisons for depth test.
-    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
-    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
-    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)];
-    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
+    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)] =
+      !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
+    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)] =
+      depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)]
+      || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
+    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)] =
+      !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)];
+    depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)] =
+      depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)]
+      || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)];
 
     // generate write mask for this fragment.
     write_mask &= depth_compare[static_cast<std::uint32_t>(depth_func)];
