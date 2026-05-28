@@ -215,12 +215,22 @@ void sweep_rasterizer::process_tile(tile& in_tile)
             return nullptr;
         }
 
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_raster_stored_depth_range_requests.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         if(!cached_stored_depth_range_valid)
         {
             cached_stored_depth_range = compute_tile_stored_depth_range();
             cached_stored_depth_range_valid = true;
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            swr::impl::profile_raster_stored_depth_range_computes.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
         }
 
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_raster_stored_depth_range_hits.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
         return &cached_stored_depth_range;
     };
 

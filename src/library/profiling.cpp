@@ -88,6 +88,12 @@ std::atomic<std::uint64_t> profile_checked_partial_pop2_quads{0};
 std::atomic<std::uint64_t> profile_checked_partial_pop3_quads{0};
 std::atomic<std::uint64_t> profile_checked_sparse_thin_x_primitives{0};
 std::atomic<std::uint64_t> profile_checked_sparse_thin_y_primitives{0};
+std::atomic<std::uint64_t> profile_raster_stored_depth_range_requests{0};
+std::atomic<std::uint64_t> profile_raster_stored_depth_range_computes{0};
+std::atomic<std::uint64_t> profile_raster_stored_depth_range_hits{0};
+std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests{0};
+std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests_with_cached_range{0};
+std::atomic<std::uint64_t> profile_raster_early_depth_rejects{0};
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 } /* namespace swr::impl */

@@ -23,6 +23,34 @@ namespace rast
 namespace
 {
 
+constexpr std::uint64_t early_depth_reject_adaptive_min_tests = 4096;
+constexpr std::uint64_t early_depth_reject_adaptive_threshold_num = 2;   // 2%
+constexpr std::uint64_t early_depth_reject_adaptive_threshold_den = 100;
+constexpr std::uint64_t early_depth_reject_adaptive_probe_period = 64;
+
+std::atomic<std::uint64_t> early_depth_reject_adaptive_tests{0};
+std::atomic<std::uint64_t> early_depth_reject_adaptive_rejects{0};
+
+[[nodiscard]]
+bool early_depth_reject_adaptive_enabled(
+  std::uint64_t observed_tests,
+  std::uint64_t observed_rejects)
+{
+    if(observed_tests < early_depth_reject_adaptive_min_tests)
+    {
+        return true;
+    }
+
+    if((observed_rejects * early_depth_reject_adaptive_threshold_den)
+       >= (observed_tests * early_depth_reject_adaptive_threshold_num))
+    {
+        return true;
+    }
+
+    // Keep occasional probes active so the gate can recover if scene behavior changes.
+    return (observed_tests % early_depth_reject_adaptive_probe_period) == 0;
+}
+
 struct block_span
 {
     int width{0};
@@ -76,6 +104,40 @@ bool can_early_reject_depth_block(
   const geom::linear_interpolator_2d<float>& depth,
   const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
 {
+    const std::uint64_t observed_tests =
+      early_depth_reject_adaptive_tests.fetch_add(1, std::memory_order_relaxed) + 1;
+    const std::uint64_t observed_rejects =
+      early_depth_reject_adaptive_rejects.load(std::memory_order_relaxed);
+    if(!early_depth_reject_adaptive_enabled(
+         observed_tests,
+         observed_rejects))
+    {
+        return false;
+    }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    swr::impl::profile_raster_early_depth_reject_tests.fetch_add(1, std::memory_order_relaxed);
+    if(stored_depth_range != nullptr)
+    {
+        swr::impl::profile_raster_early_depth_reject_tests_with_cached_range.fetch_add(1, std::memory_order_relaxed);
+    }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    bool rejected = false;
+    auto profile_reject_and_return = [&](bool value) -> bool
+    {
+        if(value)
+        {
+            early_depth_reject_adaptive_rejects.fetch_add(1, std::memory_order_relaxed);
+        }
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        if(value)
+        {
+            swr::impl::profile_raster_early_depth_rejects.fetch_add(1, std::memory_order_relaxed);
+        }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+        return value;
+    };
     if(!states.depth_test_enabled)
     {
         return false;
@@ -88,7 +150,7 @@ bool can_early_reject_depth_block(
     
     if(states.depth_func == swr::comparison_func::fail)
     {
-        return true;
+        return profile_reject_and_return(true);
     }
 
     // TODO For now this optimization is only implemented for the default framebuffer depth attachment.
@@ -107,7 +169,7 @@ bool can_early_reject_depth_block(
     if(span.width <= 0
        || span.height <= 0)
     {
-        return true;
+        return profile_reject_and_return(true);
     }
 
     const auto [min_depth, max_depth] = conservative_depth_range_for_block(
@@ -144,39 +206,33 @@ bool can_early_reject_depth_block(
 
     if(states.depth_func == swr::comparison_func::less)
     {
-        return min_depth_fixed >= max_stored_depth;
+        rejected = min_depth_fixed >= max_stored_depth;
     }
-
-    if(states.depth_func == swr::comparison_func::less_equal)
+    else if(states.depth_func == swr::comparison_func::less_equal)
     {
-        return min_depth_fixed > max_stored_depth;
+        rejected = min_depth_fixed > max_stored_depth;
     }
-
-    if(states.depth_func == swr::comparison_func::greater)
+    else if(states.depth_func == swr::comparison_func::greater)
     {
-        return max_depth_fixed <= min_stored_depth;
+        rejected = max_depth_fixed <= min_stored_depth;
     }
-    
-    if(states.depth_func == swr::comparison_func::greater_equal)
+    else if(states.depth_func == swr::comparison_func::greater_equal)
     {
-        return max_depth_fixed < min_stored_depth;
+        rejected = max_depth_fixed < min_stored_depth;
     }
-
-    if(states.depth_func == swr::comparison_func::equal)
+    else if(states.depth_func == swr::comparison_func::equal)
     {
-        return max_depth_fixed < min_stored_depth
-               || min_depth_fixed > max_stored_depth;
+        rejected = max_depth_fixed < min_stored_depth
+                   || min_depth_fixed > max_stored_depth;
     }
-
-    if(states.depth_func == swr::comparison_func::not_equal)
+    else if(states.depth_func == swr::comparison_func::not_equal)
     {
         // Only reject when both ranges collapse to one identical value.
-        return min_depth_fixed == max_depth_fixed
-               && min_stored_depth == max_stored_depth
-               && min_depth_fixed == min_stored_depth;
+        rejected = min_depth_fixed == max_depth_fixed
+                   && min_stored_depth == max_stored_depth
+                   && min_depth_fixed == min_stored_depth;
     }
-
-    return false;
+    return profile_reject_and_return(rejected);
 }
 
 } // namespace

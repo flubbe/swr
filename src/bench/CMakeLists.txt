@@ -48,6 +48,22 @@ target_link_libraries(bench_clip
     swr_project_warnings
 )
 
+# occlusion-heavy offscreen OBJ benchmark with 5x5 model grid and orbit camera
+add_executable(bench_occlusion_grid
+    occlusion_grid_main.cpp
+)
+target_include_directories(bench_occlusion_grid
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(bench_occlusion_grid
+    PRIVATE
+    tinyobjloader
+    swrast
+    swr_project_options
+    swr_project_warnings
+)
+
 # dedicated clipping-heavy offscreen gears benchmark
 add_executable(bench_gears_clip
     gears_clip/main.cpp
@@ -81,6 +97,16 @@ if(SWR_ENABLE_DEV_BENCH_TESTS)
         --width=400
         --height=400
         --threads=0
+    )
+    add_test(
+        NAME bench_occlusion_grid
+        COMMAND $<TARGET_FILE:bench_occlusion_grid>
+        --model=${SWR_SOURCE_DIR}/src/demos/cars/assets/cars/cop/Cop_Body.obj
+        --frames=60
+        --width=400
+        --height=400
+        --threads=0
+        --camera_angle=0
     )
     add_test(
         NAME bench_gears_clip

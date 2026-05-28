@@ -112,6 +112,12 @@ struct pipeline_cycle_profile
     std::uint64_t checked_partial_pop3_quads{0};
     std::uint64_t checked_sparse_thin_x_primitives{0};
     std::uint64_t checked_sparse_thin_y_primitives{0};
+    std::uint64_t raster_stored_depth_range_requests{0};
+    std::uint64_t raster_stored_depth_range_computes{0};
+    std::uint64_t raster_stored_depth_range_hits{0};
+    std::uint64_t raster_early_depth_reject_tests{0};
+    std::uint64_t raster_early_depth_reject_tests_with_cached_range{0};
+    std::uint64_t raster_early_depth_rejects{0};
     std::uint64_t frame_count{0};
 };
 
@@ -214,6 +220,21 @@ inline void log_pipeline_profile_if_needed()
       checked_sparse_total > 0.0
         ? static_cast<double>(g_pipeline_cycles.checked_sparse_thin_x_primitives) / checked_sparse_total
         : 0.0;
+    const double cached_depth_range_compute_per_request =
+      g_pipeline_cycles.raster_stored_depth_range_requests > 0
+        ? static_cast<double>(g_pipeline_cycles.raster_stored_depth_range_computes)
+            / static_cast<double>(g_pipeline_cycles.raster_stored_depth_range_requests)
+        : 0.0;
+    const double early_depth_cached_test_ratio =
+      g_pipeline_cycles.raster_early_depth_reject_tests > 0
+        ? static_cast<double>(g_pipeline_cycles.raster_early_depth_reject_tests_with_cached_range)
+            / static_cast<double>(g_pipeline_cycles.raster_early_depth_reject_tests)
+        : 0.0;
+    const double early_depth_reject_ratio =
+      g_pipeline_cycles.raster_early_depth_reject_tests > 0
+        ? static_cast<double>(g_pipeline_cycles.raster_early_depth_rejects)
+            / static_cast<double>(g_pipeline_cycles.raster_early_depth_reject_tests)
+        : 0.0;
     const double clip_triangle_expand_ratio =
       g_pipeline_cycles.clip_input_triangles > 0
         ? static_cast<double>(g_pipeline_cycles.clip_output_triangles) / static_cast<double>(g_pipeline_cycles.clip_input_triangles)
@@ -252,7 +273,7 @@ inline void log_pipeline_profile_if_needed()
       "setup_enqueue={:.0f} clip_read_mib={:.2f} clip_write_mib={:.2f} "
       "tile_payload_write_mib={:.2f} tile_payload_checked_mib={:.2f} "
       "tile_payload_block_mib={:.2f} tile_info_mib={:.2f} interp_mib={:.2f} "
-      "checked_lambda_mib={:.2f} clip_mt_across_obj={:.1f} clip_mt_internal={:.1f}"
+      "checked_lambda_mib={:.2f} clip_mt_across_obj={:.1f} clip_mt_internal={:.1f} "
       "clip_serial={:.1f} clip_mt_tasks={:.1f} clip_mt_prims={:.1f} "
       "clip_reject_small={:.1f} clip_reject_no_discard={:.1f} "
       "clip_reject_low_discard={:.1f} clip_tri_in={:.1f} clip_tri_out={:.1f} "
@@ -263,7 +284,11 @@ inline void log_pipeline_profile_if_needed()
       "checked_partial_pop2_quads={:.1f} checked_partial_pop3_quads={:.1f} "
       "checked_partial_pop1_ratio={:.2f} checked_partial_pop2_ratio={:.2f} "
       "checked_partial_pop3_ratio={:.2f} checked_sparse_thin_x_prims={:.1f} "
-      "checked_sparse_thin_y_prims={:.1f} checked_sparse_thin_x_ratio={:.2f} tile_size={}",
+      "checked_sparse_thin_y_prims={:.1f} checked_sparse_thin_x_ratio={:.2f} "
+      "depth_range_requests={:.1f} depth_range_computes={:.1f} depth_range_hits={:.1f} "
+      "depth_range_compute_per_req={:.2f} early_depth_tests={:.1f} "
+      "early_depth_cached_tests={:.1f} early_depth_cached_ratio={:.2f} "
+      "early_depth_rejects={:.1f} early_depth_reject_ratio={:.2f} tile_size={}",
       profile_log_interval_frames,
       static_cast<double>(g_pipeline_cycles.present_total) / f,
       static_cast<double>(g_pipeline_cycles.vertex) / f,
@@ -371,6 +396,15 @@ inline void log_pipeline_profile_if_needed()
       static_cast<double>(g_pipeline_cycles.checked_sparse_thin_x_primitives) / f,
       static_cast<double>(g_pipeline_cycles.checked_sparse_thin_y_primitives) / f,
       checked_sparse_thin_x_ratio,
+      static_cast<double>(g_pipeline_cycles.raster_stored_depth_range_requests) / f,
+      static_cast<double>(g_pipeline_cycles.raster_stored_depth_range_computes) / f,
+      static_cast<double>(g_pipeline_cycles.raster_stored_depth_range_hits) / f,
+      cached_depth_range_compute_per_request,
+      static_cast<double>(g_pipeline_cycles.raster_early_depth_reject_tests) / f,
+      static_cast<double>(g_pipeline_cycles.raster_early_depth_reject_tests_with_cached_range) / f,
+      early_depth_cached_test_ratio,
+      static_cast<double>(g_pipeline_cycles.raster_early_depth_rejects) / f,
+      early_depth_reject_ratio,
       impl::rasterizer_block_size);
 
     g_pipeline_cycles.vertex = 0;
@@ -451,6 +485,12 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.checked_partial_pop3_quads = 0;
     g_pipeline_cycles.checked_sparse_thin_x_primitives = 0;
     g_pipeline_cycles.checked_sparse_thin_y_primitives = 0;
+    g_pipeline_cycles.raster_stored_depth_range_requests = 0;
+    g_pipeline_cycles.raster_stored_depth_range_computes = 0;
+    g_pipeline_cycles.raster_stored_depth_range_hits = 0;
+    g_pipeline_cycles.raster_early_depth_reject_tests = 0;
+    g_pipeline_cycles.raster_early_depth_reject_tests_with_cached_range = 0;
+    g_pipeline_cycles.raster_early_depth_rejects = 0;
     g_pipeline_cycles.raster_setup_direct = 0;
     g_pipeline_cycles.raster_setup_enqueue = 0;
 }
@@ -534,6 +574,12 @@ inline void collect_pipeline_profile_frame()
     g_pipeline_cycles.checked_partial_pop3_quads += exchange_profile_counter(impl::profile_checked_partial_pop3_quads);
     g_pipeline_cycles.checked_sparse_thin_x_primitives += exchange_profile_counter(impl::profile_checked_sparse_thin_x_primitives);
     g_pipeline_cycles.checked_sparse_thin_y_primitives += exchange_profile_counter(impl::profile_checked_sparse_thin_y_primitives);
+    g_pipeline_cycles.raster_stored_depth_range_requests += exchange_profile_counter(impl::profile_raster_stored_depth_range_requests);
+    g_pipeline_cycles.raster_stored_depth_range_computes += exchange_profile_counter(impl::profile_raster_stored_depth_range_computes);
+    g_pipeline_cycles.raster_stored_depth_range_hits += exchange_profile_counter(impl::profile_raster_stored_depth_range_hits);
+    g_pipeline_cycles.raster_early_depth_reject_tests += exchange_profile_counter(impl::profile_raster_early_depth_reject_tests);
+    g_pipeline_cycles.raster_early_depth_reject_tests_with_cached_range += exchange_profile_counter(impl::profile_raster_early_depth_reject_tests_with_cached_range);
+    g_pipeline_cycles.raster_early_depth_rejects += exchange_profile_counter(impl::profile_raster_early_depth_rejects);
     g_pipeline_cycles.raster_setup_direct += exchange_profile_counter(impl::profile_raster_setup_direct_cycles);
     g_pipeline_cycles.raster_setup_enqueue += exchange_profile_counter(impl::profile_raster_setup_enqueue_cycles);
 }

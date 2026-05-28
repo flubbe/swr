@@ -88,5 +88,11 @@ extern std::atomic<std::uint64_t> profile_checked_partial_pop2_quads;
 extern std::atomic<std::uint64_t> profile_checked_partial_pop3_quads;
 extern std::atomic<std::uint64_t> profile_checked_sparse_thin_x_primitives;
 extern std::atomic<std::uint64_t> profile_checked_sparse_thin_y_primitives;
+extern std::atomic<std::uint64_t> profile_raster_stored_depth_range_requests;
+extern std::atomic<std::uint64_t> profile_raster_stored_depth_range_computes;
+extern std::atomic<std::uint64_t> profile_raster_stored_depth_range_hits;
+extern std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests;
+extern std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests_with_cached_range;
+extern std::atomic<std::uint64_t> profile_raster_early_depth_rejects;
 
 }    // namespace swr::impl
