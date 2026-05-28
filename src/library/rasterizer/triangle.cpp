@@ -20,6 +20,167 @@
 namespace rast
 {
 
+namespace
+{
+
+struct block_span
+{
+    int width{0};
+    int height{0};
+};
+
+[[nodiscard]]
+block_span compute_block_span(
+  const swr::impl::attachment_depth& depth_buffer,
+  unsigned int block_x,
+  unsigned int block_y)
+{
+    const int x = static_cast<int>(block_x);
+    const int y = static_cast<int>(block_y);
+    if(x >= depth_buffer.info.width
+       || y >= depth_buffer.info.height)
+    {
+        return {};
+    }
+
+    return {
+      std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.width - x),
+      std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.height - y)};
+}
+
+[[nodiscard]]
+std::pair<float, float> conservative_depth_range_for_block(
+  const geom::linear_interpolator_2d<float>& depth,
+  int block_width,
+  int block_height)
+{
+    const float max_dx = static_cast<float>(block_width - 1);
+    const float max_dy = static_cast<float>(block_height - 1);
+
+    const float d00 = depth.value;
+    const float d10 = d00 + depth.step.x * max_dx;
+    const float d01 = d00 + depth.step.y * max_dy;
+    const float d11 = d10 + depth.step.y * max_dy;
+
+    const float min_depth = std::min(std::min(d00, d10), std::min(d01, d11));
+    const float max_depth = std::max(std::max(d00, d10), std::max(d01, d11));
+    return {min_depth, max_depth};
+}
+
+[[nodiscard]]
+bool can_early_reject_depth_block(
+  const swr::impl::default_framebuffer* framebuffer,
+  const swr::impl::render_states& states,
+  unsigned int block_x,
+  unsigned int block_y,
+  const geom::linear_interpolator_2d<float>& depth,
+  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
+{
+    if(!states.depth_test_enabled)
+    {
+        return false;
+    }
+
+    if(states.depth_func == swr::comparison_func::pass)
+    {
+        return false;
+    }
+    
+    if(states.depth_func == swr::comparison_func::fail)
+    {
+        return true;
+    }
+
+    // TODO For now this optimization is only implemented for the default framebuffer depth attachment.
+    if(states.draw_target != framebuffer)
+    {
+        return false;
+    }
+
+    const auto& depth_buffer = framebuffer->depth_buffer;
+    if(!depth_buffer.info.data_ptr)
+    {
+        return false;
+    }
+
+    const block_span span = compute_block_span(depth_buffer, block_x, block_y);
+    if(span.width <= 0
+       || span.height <= 0)
+    {
+        return true;
+    }
+
+    const auto [min_depth, max_depth] = conservative_depth_range_for_block(
+      depth,
+      span.width,
+      span.height);
+
+    const int row_stride = depth_buffer.info.pitch / static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
+    ml::fixed_32_t min_stored_depth{};
+    ml::fixed_32_t max_stored_depth{};
+    if(stored_depth_range != nullptr)
+    {
+        min_stored_depth = stored_depth_range->first;
+        max_stored_depth = stored_depth_range->second;
+    }
+    else
+    {
+        min_stored_depth = depth_buffer.info.data_ptr[static_cast<int>(block_y) * row_stride + static_cast<int>(block_x)];
+        max_stored_depth = min_stored_depth;
+        for(int y = 0; y < span.height; ++y)
+        {
+            const int row = (static_cast<int>(block_y) + y) * row_stride + static_cast<int>(block_x);
+            for(int x = 0; x < span.width; ++x)
+            {
+                const ml::fixed_32_t z = depth_buffer.info.data_ptr[row + x];
+                min_stored_depth = std::min(min_stored_depth, z);
+                max_stored_depth = std::max(max_stored_depth, z);
+            }
+        }
+    }
+
+    const ml::fixed_32_t min_depth_fixed{min_depth};
+    const ml::fixed_32_t max_depth_fixed{max_depth};
+
+    if(states.depth_func == swr::comparison_func::less)
+    {
+        return min_depth_fixed >= max_stored_depth;
+    }
+
+    if(states.depth_func == swr::comparison_func::less_equal)
+    {
+        return min_depth_fixed > max_stored_depth;
+    }
+
+    if(states.depth_func == swr::comparison_func::greater)
+    {
+        return max_depth_fixed <= min_stored_depth;
+    }
+    
+    if(states.depth_func == swr::comparison_func::greater_equal)
+    {
+        return max_depth_fixed < min_stored_depth;
+    }
+
+    if(states.depth_func == swr::comparison_func::equal)
+    {
+        return max_depth_fixed < min_stored_depth
+               || min_depth_fixed > max_stored_depth;
+    }
+
+    if(states.depth_func == swr::comparison_func::not_equal)
+    {
+        // Only reject when both ranges collapse to one identical value.
+        return min_depth_fixed == max_depth_fixed
+               && min_stored_depth == max_stored_depth
+               && min_depth_fixed == min_stored_depth;
+    }
+
+    return false;
+}
+
+} // namespace
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
 
 inline void profile_checked_quad_mask(std::uint8_t mask)
@@ -56,7 +217,8 @@ inline void profile_checked_quad_mask(std::uint8_t mask)
 void sweep_rasterizer::process_block(
   unsigned int block_x,
   unsigned int block_y,
-  tile_info& data)
+  tile_info& data,
+  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -67,6 +229,17 @@ void sweep_rasterizer::process_block(
 
     assert(data.attributes);
     auto& attributes = *data.attributes;
+    if(can_early_reject_depth_block(
+         framebuffer,
+         *data.states,
+         block_x,
+         block_y,
+         attributes.depth_value,
+         stored_depth_range))
+    {
+        return;
+    }
+
     attributes.setup_block_processing();
 
     const std::size_t varying_count = attributes.varyings.size();
@@ -174,7 +347,8 @@ void sweep_rasterizer::process_block(
 void sweep_rasterizer::process_block_checked(
   unsigned int block_x,
   unsigned int block_y,
-  tile_info& data)
+  tile_info& data,
+  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -185,6 +359,17 @@ void sweep_rasterizer::process_block_checked(
 
     assert(data.attributes);
     auto& attributes = *data.attributes;
+    if(can_early_reject_depth_block(
+         framebuffer,
+         *data.states,
+         block_x,
+         block_y,
+         attributes.depth_value,
+         stored_depth_range))
+    {
+        return;
+    }
+
     attributes.setup_block_processing();
 
     const std::size_t varying_count = attributes.varyings.size();
@@ -320,7 +505,8 @@ void sweep_rasterizer::process_block_precomputed_checked(
   unsigned int block_y,
   tile_info& data,
   const small_triangle_interpolator& attributes,
-  std::span<const small_triangle_quad_payload> quads)
+  std::span<const small_triangle_quad_payload> quads,
+  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -328,6 +514,17 @@ void sweep_rasterizer::process_block_precomputed_checked(
     std::uint64_t stage_block_merge = 0;
     utils::clock(stage_block_total);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    if(can_early_reject_depth_block(
+         framebuffer,
+         *data.states,
+         block_x,
+         block_y,
+         attributes.depth_value,
+         stored_depth_range))
+    {
+        return;
+    }
 
     std::array<
       boost::container::static_vector<
@@ -442,7 +639,8 @@ void sweep_rasterizer::process_block_small_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
-  const small_triangle_payload& payload)
+  const small_triangle_payload& payload,
+  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
 {
     process_block_precomputed_checked(
       block_x,
@@ -451,21 +649,24 @@ void sweep_rasterizer::process_block_small_checked(
       payload.attributes,
       std::span{
         payload.quads.data(),
-        payload.quad_count});
+        payload.quad_count},
+      stored_depth_range);
 }
 
 void sweep_rasterizer::process_block_sparse_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
-  const sparse_triangle_payload& payload)
+  const sparse_triangle_payload& payload,
+  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
 {
     process_block_precomputed_checked(
       block_x,
       block_y,
       data,
       payload.attributes,
-      payload.quads);
+      payload.quads,
+      stored_depth_range);
 }
 
 void sweep_rasterizer::process_block_sparse_checked(
@@ -473,14 +674,16 @@ void sweep_rasterizer::process_block_sparse_checked(
   unsigned int block_y,
   tile_info& data,
   const sparse_triangle_tile_payload& payload,
-  std::span<const small_triangle_quad_payload> quads)
+  std::span<const small_triangle_quad_payload> quads,
+  const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range)
 {
     process_block_precomputed_checked(
       block_x,
       block_y,
       data,
       payload.attributes,
-      quads);
+      quads,
+      stored_depth_range);
 }
 
 /**

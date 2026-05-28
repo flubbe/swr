@@ -173,8 +173,60 @@ void sweep_rasterizer::draw_primitives_parallel()
 
 void sweep_rasterizer::process_tile(tile& in_tile)
 {
+    bool cached_stored_depth_range_valid = false;
+    std::pair<ml::fixed_32_t, ml::fixed_32_t> cached_stored_depth_range{};
+
+    auto compute_tile_stored_depth_range = [&]() -> std::pair<ml::fixed_32_t, ml::fixed_32_t>
+    {
+        const auto& depth_buffer = framebuffer->depth_buffer;
+        const int x0 = static_cast<int>(in_tile.x);
+        const int y0 = static_cast<int>(in_tile.y);
+        const int width =
+          std::max(0, std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.width - x0));
+        const int height =
+          std::max(0, std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.height - y0));
+        if(width <= 0 || height <= 0)
+        {
+            return {0, 0};
+        }
+
+        const int row_stride = depth_buffer.info.pitch / static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
+        ml::fixed_32_t min_z = depth_buffer.info.data_ptr[y0 * row_stride + x0];
+        ml::fixed_32_t max_z = min_z;
+        for(int y = 0; y < height; ++y)
+        {
+            const int row = (y0 + y) * row_stride + x0;
+            for(int x = 0; x < width; ++x)
+            {
+                const ml::fixed_32_t z = depth_buffer.info.data_ptr[row + x];
+                min_z = std::min(min_z, z);
+                max_z = std::max(max_z, z);
+            }
+        }
+        return {min_z, max_z};
+    };
+
+    auto get_cached_range_for = [&](const tile_info& it) -> const std::pair<ml::fixed_32_t, ml::fixed_32_t>*
+    {
+        if(!it.states
+           || it.states->draw_target != framebuffer
+           || !framebuffer->depth_buffer.info.data_ptr)
+        {
+            return nullptr;
+        }
+
+        if(!cached_stored_depth_range_valid)
+        {
+            cached_stored_depth_range = compute_tile_stored_depth_range();
+            cached_stored_depth_range_valid = true;
+        }
+
+        return &cached_stored_depth_range;
+    };
+
     for(auto& it: in_tile.primitives)
     {
+        const auto* stored_depth_range = get_cached_range_for(it);
         if(it.mode == tile_info::rasterization_mode::block)
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -184,7 +236,8 @@ void sweep_rasterizer::process_tile(tile& in_tile)
             process_block(
               in_tile.x,
               in_tile.y,
-              it);
+              it,
+              stored_depth_range);
         }
         else if(uses_checked_lambdas(it.mode))
         {
@@ -195,7 +248,8 @@ void sweep_rasterizer::process_tile(tile& in_tile)
             process_block_checked(
               in_tile.x,
               in_tile.y,
-              it);
+              it,
+              stored_depth_range);
         }
         else if(it.mode == tile_info::rasterization_mode::small_checked)
         {
@@ -208,7 +262,8 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               in_tile.x,
               in_tile.y,
               it,
-              in_tile.primitive_small_payloads[it.precomputed_payload_index]);
+              in_tile.primitive_small_payloads[it.precomputed_payload_index],
+              stored_depth_range);
         }
         else if(it.mode == tile_info::rasterization_mode::sparse_checked)
         {
@@ -226,7 +281,18 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               payload,
               std::span<const small_triangle_quad_payload>{
                 in_tile.primitive_sparse_quad_payloads.data() + payload.quad_offset,
-                payload.quad_count});
+                payload.quad_count},
+              stored_depth_range);
+        }
+
+        if(it.states
+           && it.states->draw_target == framebuffer
+           && framebuffer->depth_buffer.info.data_ptr
+           && it.states->depth_test_enabled
+           && it.states->write_depth
+           && it.states->depth_func != swr::comparison_func::fail)
+        {
+            cached_stored_depth_range_valid = false;
         }
     }
 }

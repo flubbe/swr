@@ -325,11 +325,13 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
+     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block(
       unsigned int block_x,
       unsigned int block_y,
-      tile_info& data);
+      tile_info& data,
+      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
 
     /**
      * Rasterize block of dimension `(rasterizer_block_size, rasterizer_block_size)`
@@ -338,11 +340,13 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
+     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_checked(
       unsigned int block_x,
       unsigned int block_y,
-      tile_info& data);
+      tile_info& data,
+      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
 
     /**
      * Rasterize a block using precomputed small-triangle attributes and a set of quads.
@@ -353,13 +357,15 @@ class sweep_rasterizer : public rasterizer
      * @param data Tile data.
      * @param attributes Precomputed interpolator state for the small triangle.
      * @param quads Precomputed payloads for the 2x2 quads covered by the triangle.
+     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_precomputed_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
       const small_triangle_interpolator& attributes,
-      std::span<const small_triangle_quad_payload> quads);
+      std::span<const small_triangle_quad_payload> quads,
+      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
 
     /**
      * Rasterize a small triangle block and perform per-pixel checks.
@@ -369,12 +375,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
      * @param payload Payload describing the small triangle.
+     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_small_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const small_triangle_payload& payload);
+      const small_triangle_payload& payload,
+      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
 
     /**
      * Rasterize a sparse triangle block using a compact sparse payload.
@@ -384,12 +392,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
      * @param payload Sparse triangle payload for the block.
+     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_sparse_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const sparse_triangle_payload& payload);
+      const sparse_triangle_payload& payload,
+      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
 
     /**
      * Rasterize a sparse triangle block with additional quad payloads precomputed.
@@ -400,13 +410,15 @@ class sweep_rasterizer : public rasterizer
      * @param data Tile data.
      * @param payload Sparse triangle tile payload.
      * @param quads Precomputed payloads for the 2x2 quads in the block.
+     * @param stored_depth_range Optional cached min/max depth range for the current tile.
      */
     void process_block_sparse_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
       const sparse_triangle_tile_payload& payload,
-      std::span<const small_triangle_quad_payload> quads);
+      std::span<const small_triangle_quad_payload> quads,
+      const std::pair<ml::fixed_32_t, ml::fixed_32_t>* stored_depth_range = nullptr);
 
     /**
      * Process all primitives stored in a tile and rasterize them into the framebuffer.
