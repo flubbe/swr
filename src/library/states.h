@@ -44,6 +44,10 @@ struct render_states
     bool write_depth{true};
     comparison_func depth_func{comparison_func::less};
 
+    /* rasterizer implementation features. */
+    rasterizer_feature_mode block_early_depth_reject_mode{rasterizer_feature_mode::automatic};
+    rasterizer_feature_mode early_fragment_depth_test_mode{rasterizer_feature_mode::automatic};
+
     /* culling. */
     bool culling_enabled{false};
     front_face_orientation front_face{front_face_orientation::ccw};
@@ -101,6 +105,9 @@ struct render_states
         depth_test_enabled = true;
         write_depth = true;
         depth_func = comparison_func::less;
+
+        block_early_depth_reject_mode = rasterizer_feature_mode::automatic;
+        early_fragment_depth_test_mode = rasterizer_feature_mode::automatic;
 
         culling_enabled = false;
         front_face = front_face_orientation::ccw;

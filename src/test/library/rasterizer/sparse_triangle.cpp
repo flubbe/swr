@@ -105,7 +105,7 @@ struct fake_draw_target : swr::impl::framebuffer_draw_target
     void depth_compare_write_block(
       [[maybe_unused]] int x,
       [[maybe_unused]] int y,
-      [[maybe_unused]] std::array<float, 4>& depth_value,
+      [[maybe_unused]] const std::array<float, 4>& depth_value,
       [[maybe_unused]] swr::comparison_func depth_func,
       [[maybe_unused]] bool write_depth,
       [[maybe_unused]] std::uint8_t& write_mask) override
@@ -116,6 +116,13 @@ struct fake_draw_target : swr::impl::framebuffer_draw_target
 class fake_program : public swr::program<fake_program>
 {
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     void pre_link(
       boost::container::static_vector<
         swr::interpolation_qualifier,
@@ -709,12 +716,11 @@ BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
           saw_payload = true;
           for(const auto& quad: precomputed_payload->quads)
           {
-              payload_quads.push_back({
-                block_x,
-                block_y,
-                static_cast<int>(quad.x),
-                static_cast<int>(quad.y),
-                quad.mask});
+              payload_quads.push_back({block_x,
+                                       block_y,
+                                       static_cast<int>(quad.x),
+                                       static_cast<int>(quad.y),
+                                       quad.mask});
           }
 
           bool emitted = false;
@@ -747,12 +753,11 @@ BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
             for(std::uint16_t i = 0; i < cached_payload.quad_count; ++i)
             {
                 const auto& quad = tile.primitive_sparse_quad_payloads[cached_payload.quad_offset + i];
-                cached_quads.push_back({
-                  static_cast<int>(tile.x),
-                  static_cast<int>(tile.y),
-                  static_cast<int>(quad.x),
-                  static_cast<int>(quad.y),
-                  quad.mask});
+                cached_quads.push_back({static_cast<int>(tile.x),
+                                        static_cast<int>(tile.y),
+                                        static_cast<int>(quad.x),
+                                        static_cast<int>(quad.y),
+                                        quad.mask});
             }
         }
     }

@@ -46,7 +46,17 @@ class normal_mapping : public swr::program<normal_mapping>
     const float ambient_diffuse_factor{0.5f};
 
 public:
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
+    void pre_link(
+      boost::container::static_vector<
+        swr::interpolation_qualifier,
+        swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
         iqs = {

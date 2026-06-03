@@ -8,69 +8,18 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <algorithm>
+#include <atomic>
+#include <vector>
+
 #include "geometry/barycentric_coords.h"
+#include "early_depth.h"
 #include "tile_cache.h"
 
 namespace rast
 {
 
 using namespace std::literals;
-
-/** Inclusive min/max depth range. */
-struct depth_range
-{
-    /** Minimum depth value. */
-    ml::fixed_32_t min_depth{};
-
-    /** Maximum depth value. */
-    ml::fixed_32_t max_depth{};
-};
-
-/** Allocation-free lazy callback for retrieving a depth range. */
-struct depth_range_provider
-{
-    /** Callback signature for retrieving a depth range from an opaque context. */
-    using callback_t = const depth_range& (*)(void*);
-
-    /** No default construction: a provider must always have a callback. */
-    depth_range_provider() = delete;
-
-    /** Construct a provider from a non-null callback and its context. */
-    depth_range_provider(
-      callback_t in_callback,
-      void* in_context)
-    : callback{in_callback}
-    , context{in_context}
-    {
-        assert(callback);
-    }
-
-    /** Copy construction preserves the callback/context pair. */
-    depth_range_provider(const depth_range_provider&) = default;
-
-    /** Move construction preserves the callback/context pair. */
-    depth_range_provider(depth_range_provider&&) noexcept = default;
-
-    /** Reassignment is not supported; make a new provider instead. */
-    depth_range_provider& operator=(const depth_range_provider&) = delete;
-
-    /** Reassignment is not supported; make a new provider instead. */
-    depth_range_provider& operator=(depth_range_provider&&) = delete;
-
-    /** Function to call when a depth range is needed. */
-    callback_t const callback;
-
-    /** Opaque context passed to callback. */
-    void* const context;
-
-    /** Retrieve the depth range. */
-    [[nodiscard]]
-    const depth_range& operator()() const
-    {
-        assert(callback);
-        return callback(context);
-    }
-};
 
 /**
  * Bias for application to fill rules. This is edge to the line equations if the corresponding
@@ -83,9 +32,129 @@ struct depth_range_provider
  */
 inline constexpr std::uint32_t FILL_RULE_EDGE_BIAS = 1;
 
+/** Rasterizer-owned adaptive early depth policy state. */
+class early_depth_policy_store
+{
+#ifdef SWR_ENABLE_MULTI_THREADING
+    /** Unique key for this store's thread-local worker-state assignments. */
+    std::size_t instance_id{0};
+
+    /** Per-worker adaptive policy states, plus one direct-call state. */
+    std::vector<early_depth_policy_state> worker_states;
+
+    /** Next policy state assigned to a worker thread for this store. */
+    std::atomic<std::size_t> next_worker_state{0};
+
+    /** Thread pool used to size the worker-state set and detect single-thread execution. */
+    swr::impl::render_context::thread_pool_type* thread_pool{nullptr};
+
+    /** Allocate a unique key for thread-local policy-state assignments. */
+    static std::size_t allocate_instance_id();
+
+public:
+    /** Construct an early-depth policy store for a rasterizer. */
+    explicit early_depth_policy_store(
+      swr::impl::render_context::thread_pool_type* in_thread_pool);
+#else
+    /** Adaptive policy state for the single-threaded rasterizer. */
+    early_depth_policy_state state;
+
+public:
+    /** Construct an early-depth policy store for the single-threaded rasterizer. */
+    early_depth_policy_store() = default;
+#endif
+
+    /** Return the adaptive policy state for the current render worker. */
+    [[nodiscard]]
+    early_depth_policy_state& current_state();
+};
+
+/** Shared execution context for one rasterizer block path. */
+struct block_raster_context
+{
+    /** Default framebuffer used by the sweep rasterizer. */
+    swr::impl::default_framebuffer* framebuffer{nullptr};
+
+    /** Tile cache that owns per-tile shader instances. */
+    tile_cache& tiles;
+
+    /** Adaptive early depth policy state for the current render worker. */
+    early_depth_policy_state& early_depth_policy;
+
+    /** Optional tile-local depth range cache. */
+    tile_depth_context* depth_context{nullptr};
+
+    /** Return the fragment shader instance for a primitive in the given tile. */
+    [[nodiscard]]
+    const swr::program_base* fragment_shader(
+      unsigned int block_x,
+      unsigned int block_y,
+      std::size_t shader_index) const
+    {
+        return tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch
+                             + (block_x >> swr::impl::rasterizer_block_shift)]
+          .shader_instances[shader_index]
+          .shader;
+    }
+};
+
+class sweep_rasterizer;
+
+template<early_fragment_depth_test_path fragment_depth_path>
+bool process_block(
+  sweep_rasterizer& rasterizer,
+  block_raster_context& context,
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data);
+
+template<early_fragment_depth_test_path fragment_depth_path>
+bool process_block_checked(
+  sweep_rasterizer& rasterizer,
+  block_raster_context& context,
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data);
+
+template<early_fragment_depth_test_path fragment_depth_path>
+void process_block_precomputed_checked(
+  sweep_rasterizer& rasterizer,
+  block_raster_context& context,
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data,
+  const small_triangle_interpolator& attributes,
+  std::span<const small_triangle_quad_payload> quads);
+
 /** Sweep rasterizer. */
 class sweep_rasterizer : public rasterizer
 {
+    template<early_fragment_depth_test_path fragment_depth_path>
+    friend bool process_block(
+      sweep_rasterizer& rasterizer,
+      block_raster_context& context,
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data);
+
+    template<early_fragment_depth_test_path fragment_depth_path>
+    friend bool process_block_checked(
+      sweep_rasterizer& rasterizer,
+      block_raster_context& context,
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data);
+
+    template<early_fragment_depth_test_path fragment_depth_path>
+    friend void process_block_precomputed_checked(
+      sweep_rasterizer& rasterizer,
+      block_raster_context& context,
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      const small_triangle_interpolator& attributes,
+      std::span<const small_triangle_quad_payload> quads);
+
     /** a geometric primitive understood by sweep_rasterizer */
     struct primitive
     {
@@ -162,10 +231,15 @@ class sweep_rasterizer : public rasterizer
     /** tile cache. */
     tile_cache tiles;
 
+    /** Adaptive early depth policy state. */
+    early_depth_policy_store early_depth_policies;
+
 #ifdef SWR_ENABLE_MULTI_THREADING
     /** thread pool. */
     swr::impl::render_context::thread_pool_type* thread_pool{nullptr};
+#endif
 
+#ifdef SWR_ENABLE_MULTI_THREADING
     /** process all tiles stored in the tile cache. */
     void process_tile_cache()
     {
@@ -348,6 +422,49 @@ class sweep_rasterizer : public rasterizer
       swr::impl::fragment_output_block& out);
 
     /**
+     * Generate a 2x2 fragment block with depth testing before fragment shading.
+     * Used when shader metadata guarantees early depth testing is legal.
+     *
+     * @param x Left raster coordinate of the fragment block.
+     * @param y Top raster coordinate of the fragment block.
+     * @param states Active render states.
+     * @param in_shader Fragment shader to execute.
+     * @param one_over_viewport_z Reciprocal viewport depth values for the fragment block.
+     * @param info Per-fragment interpolator information.
+     * @param out Output buffers for the fragment block.
+     */
+    void process_fragment_block_early_z(
+      int x,
+      int y,
+      const swr::impl::render_states& states,
+      const swr::program_base* in_shader,
+      const ml::vec4& one_over_viewport_z,
+      std::array<fragment_info, 4>& info,
+      swr::impl::fragment_output_block& out);
+
+    /**
+     * Generate a 2x2 fragment block with early depth testing and collect rejection stats.
+     *
+     * @param x Left raster coordinate of the fragment block.
+     * @param y Top raster coordinate of the fragment block.
+     * @param states Active render states.
+     * @param in_shader Fragment shader to execute.
+     * @param one_over_viewport_z Reciprocal viewport depth values for the fragment block.
+     * @param info Per-fragment interpolator information.
+     * @param out Output buffers for the fragment block.
+     * @param early_depth Early depth test/rejection sample for the adaptive gate.
+     */
+    void process_fragment_block_early_z_collect_stats(
+      int x,
+      int y,
+      const swr::impl::render_states& states,
+      const swr::program_base* in_shader,
+      const ml::vec4& one_over_viewport_z,
+      std::array<fragment_info, 4>& info,
+      swr::impl::fragment_output_block& out,
+      early_depth_sample& early_depth);
+
+    /**
      * Generate color values along with depth- and stencil masks for a masked 2x2 fragment block.
      * Writes to the depth buffer. Only fragments selected by the mask are shaded and depth-tested.
      *
@@ -370,6 +487,53 @@ class sweep_rasterizer : public rasterizer
       std::array<fragment_info, 4>& info,
       swr::impl::fragment_output_block& out);
 
+    /**
+     * Generate a masked 2x2 fragment block with depth testing before fragment shading.
+     * Only fragments selected by the mask are considered.
+     *
+     * @param x Left raster coordinate of the fragment block.
+     * @param y Top raster coordinate of the fragment block.
+     * @param mask Coverage mask for the 2x2 fragment block.
+     * @param states Active render states.
+     * @param in_shader Fragment shader to execute.
+     * @param one_over_viewport_z Reciprocal viewport depth values for the fragment block.
+     * @param info Per-fragment interpolator information.
+     * @param out Output buffers for the fragment block.
+     */
+    void process_fragment_block_early_z(
+      int x,
+      int y,
+      std::uint8_t mask,
+      const swr::impl::render_states& states,
+      const swr::program_base* in_shader,
+      const ml::vec4& one_over_viewport_z,
+      std::array<fragment_info, 4>& info,
+      swr::impl::fragment_output_block& out);
+
+    /**
+     * Generate a masked 2x2 fragment block with early depth testing and collect rejection stats.
+     *
+     * @param x Left raster coordinate of the fragment block.
+     * @param y Top raster coordinate of the fragment block.
+     * @param mask Coverage mask for the 2x2 fragment block.
+     * @param states Active render states.
+     * @param in_shader Fragment shader to execute.
+     * @param one_over_viewport_z Reciprocal viewport depth values for the fragment block.
+     * @param info Per-fragment interpolator information.
+     * @param out Output buffers for the fragment block.
+     * @param early_depth Early depth test/rejection sample for the adaptive gate.
+     */
+    void process_fragment_block_early_z_collect_stats(
+      int x,
+      int y,
+      std::uint8_t mask,
+      const swr::impl::render_states& states,
+      const swr::program_base* in_shader,
+      const ml::vec4& one_over_viewport_z,
+      std::array<fragment_info, 4>& info,
+      swr::impl::fragment_output_block& out,
+      early_depth_sample& early_depth);
+
     /*
      * block processing.
      */
@@ -381,14 +545,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
-     * @param range_provider Optional lazy min/max depth range provider for the current tile.
+     * @param context Shared block execution context.
      * @return false if the block was fully rejected before fragment processing, true otherwise.
      */
     bool process_block(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const depth_range_provider* range_provider = nullptr);
+      block_raster_context& context);
 
     /**
      * Rasterize block of dimension `(rasterizer_block_size, rasterizer_block_size)`
@@ -397,14 +561,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
-     * @param range_provider Optional lazy min/max depth range provider for the current tile.
+     * @param context Shared block execution context.
      * @return false if the block was fully rejected before fragment processing, true otherwise.
      */
     bool process_block_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
-      const depth_range_provider* range_provider = nullptr);
+      block_raster_context& context);
 
     /**
      * Rasterize a block using precomputed small-triangle attributes and a set of quads.
@@ -413,6 +577,7 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
+     * @param context Shared block execution context.
      * @param attributes Precomputed interpolator state for the small triangle.
      * @param quads Precomputed payloads for the 2x2 quads covered by the triangle.
      */
@@ -420,6 +585,7 @@ class sweep_rasterizer : public rasterizer
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
+      block_raster_context& context,
       const small_triangle_interpolator& attributes,
       std::span<const small_triangle_quad_payload> quads);
 
@@ -430,12 +596,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
+     * @param context Shared block execution context.
      * @param payload Payload describing the small triangle.
      */
     void process_block_small_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
+      block_raster_context& context,
       const small_triangle_payload& payload);
 
     /**
@@ -445,12 +613,14 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
+     * @param context Shared block execution context.
      * @param payload Sparse triangle payload for the block.
      */
     void process_block_sparse_checked(
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
+      block_raster_context& context,
       const sparse_triangle_payload& payload);
 
     /**
@@ -460,6 +630,7 @@ class sweep_rasterizer : public rasterizer
      * @param block_x Left raster coordinate of the block.
      * @param block_y Top raster coordinate of the block.
      * @param data Tile data.
+     * @param context Shared block execution context.
      * @param payload Sparse triangle tile payload.
      * @param quads Precomputed payloads for the 2x2 quads in the block.
      */
@@ -467,6 +638,7 @@ class sweep_rasterizer : public rasterizer
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
+      block_raster_context& context,
       const sparse_triangle_tile_payload& payload,
       std::span<const small_triangle_quad_payload> quads);
 
@@ -537,6 +709,7 @@ public:
       swr::impl::default_framebuffer* in_framebuffer)
     : framebuffer{in_framebuffer}
 #ifdef SWR_ENABLE_MULTI_THREADING
+    , early_depth_policies{in_thread_pool}
     , thread_pool{in_thread_pool}
 #endif
     {

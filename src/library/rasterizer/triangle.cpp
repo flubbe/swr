@@ -16,123 +16,13 @@
 #include "sweep.h"
 #include "triangle.h"
 #include "block.h"
+#include "early_depth.h"
 
 namespace rast
 {
 
 namespace
 {
-
-constexpr std::uint64_t early_depth_reject_adaptive_min_tests = 4096;
-constexpr std::uint64_t early_depth_reject_adaptive_threshold_num = 2;    // 2%
-constexpr std::uint64_t early_depth_reject_adaptive_threshold_den = 100;
-constexpr std::uint64_t early_depth_reject_adaptive_probe_period = 64;
-constexpr unsigned int early_depth_reject_tile_quad_count =
-  (swr::impl::rasterizer_block_size / 2)
-  * (swr::impl::rasterizer_block_size / 2);
-// The stored-depth range scan is full-tile work, so only spend it on candidates
-// whose covered region can plausibly save a full tile of fragment processing.
-constexpr unsigned int early_depth_reject_min_candidate_quads =
-  early_depth_reject_tile_quad_count;
-
-[[nodiscard]]
-bool early_depth_reject_adaptive_enabled(
-  std::uint64_t observed_candidates,
-  std::uint64_t observed_tests,
-  std::uint64_t observed_rejects)
-{
-    if(observed_tests < early_depth_reject_adaptive_min_tests)
-    {
-        return true;
-    }
-
-    if((observed_rejects * early_depth_reject_adaptive_threshold_den)
-       >= (observed_tests * early_depth_reject_adaptive_threshold_num))
-    {
-        return true;
-    }
-
-    // Keep occasional probes active so the gate can recover if scene behavior changes.
-    return (observed_candidates % early_depth_reject_adaptive_probe_period) == 0;
-}
-
-struct early_depth_reject_adaptive_state
-{
-    std::atomic<std::uint64_t> candidates{0};
-    std::atomic<std::uint64_t> tests{0};
-    std::atomic<std::uint64_t> rejects{0};
-
-    [[nodiscard]]
-    bool should_test()
-    {
-        const std::uint64_t observed_candidates =
-          candidates.fetch_add(1, std::memory_order_relaxed) + 1;
-        const std::uint64_t observed_tests =
-          tests.load(std::memory_order_relaxed);
-        const std::uint64_t observed_rejects =
-          rejects.load(std::memory_order_relaxed);
-
-        return early_depth_reject_adaptive_enabled(
-          observed_candidates,
-          observed_tests,
-          observed_rejects);
-    }
-
-    void record_test_result(bool rejected)
-    {
-        tests.fetch_add(1, std::memory_order_relaxed);
-        if(rejected)
-        {
-            rejects.fetch_add(1, std::memory_order_relaxed);
-        }
-    }
-};
-
-early_depth_reject_adaptive_state early_depth_reject_adaptive{};
-
-struct block_span
-{
-    int width{0};
-    int height{0};
-};
-
-[[nodiscard]]
-block_span compute_block_span(
-  const swr::impl::attachment_depth& depth_buffer,
-  unsigned int block_x,
-  unsigned int block_y)
-{
-    const int x = static_cast<int>(block_x);
-    const int y = static_cast<int>(block_y);
-    if(x >= depth_buffer.info.width
-       || y >= depth_buffer.info.height)
-    {
-        return {};
-    }
-
-    return {
-      std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.width - x),
-      std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.height - y)};
-}
-
-[[nodiscard]]
-std::pair<float, float> conservative_depth_range_for_block(
-  const geom::linear_interpolator_2d<float>& depth,
-  int block_width,
-  int block_height)
-{
-    const float max_dx = static_cast<float>(block_width - 1);
-    const float max_dy = static_cast<float>(block_height - 1);
-
-    const float d00 = depth.value;
-    const float d10 = d00 + depth.step.x * max_dx;
-    const float d01 = d00 + depth.step.y * max_dy;
-    const float d11 = d10 + depth.step.y * max_dy;
-
-    const float min_depth = std::min(std::min(d00, d10), std::min(d01, d11));
-    const float max_depth = std::max(std::max(d00, d10), std::max(d01, d11));
-    return {min_depth, max_depth};
-}
 
 [[nodiscard]]
 unsigned int estimate_quad_count(quad_bounds bounds)
@@ -145,168 +35,6 @@ unsigned int estimate_quad_count(quad_bounds bounds)
     const unsigned int width = bounds.end_x - bounds.start_x;
     const unsigned int height = bounds.end_y - bounds.start_y;
     return ((width + 1) / 2) * ((height + 1) / 2);
-}
-
-[[nodiscard]]
-depth_range scan_depth_range(
-  const swr::impl::attachment_depth& depth_buffer,
-  unsigned int block_x,
-  unsigned int block_y,
-  block_span span)
-{
-    constexpr int depth_value_size =
-      static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
-    const int row_stride = depth_buffer.info.pitch / depth_value_size;
-    const int start_x = static_cast<int>(block_x);
-    const int start_y = static_cast<int>(block_y);
-
-    depth_range range{
-      depth_buffer.info.data_ptr[start_y * row_stride + start_x],
-      depth_buffer.info.data_ptr[start_y * row_stride + start_x]};
-
-    for(int y = 0; y < span.height; ++y)
-    {
-        const int row = (start_y + y) * row_stride + start_x;
-        for(int x = 0; x < span.width; ++x)
-        {
-            const ml::fixed_32_t z = depth_buffer.info.data_ptr[row + x];
-            range.min_depth = std::min(range.min_depth, z);
-            range.max_depth = std::max(range.max_depth, z);
-        }
-    }
-
-    return range;
-}
-
-[[nodiscard]]
-bool can_early_reject_depth_block(
-  const swr::impl::default_framebuffer* framebuffer,
-  const swr::impl::render_states& states,
-  unsigned int block_x,
-  unsigned int block_y,
-  const geom::linear_interpolator_2d<float>& depth,
-  const depth_range_provider* range_provider,
-  unsigned int candidate_quad_count)
-{
-    if(candidate_quad_count < early_depth_reject_min_candidate_quads)
-    {
-        return false;
-    }
-
-    if(!states.depth_test_enabled)
-    {
-        return false;
-    }
-
-    if(states.depth_func == swr::comparison_func::pass)
-    {
-        return false;
-    }
-
-    // TODO For now this optimization is only implemented for the default framebuffer depth attachment.
-    if(states.draw_target != framebuffer)
-    {
-        return false;
-    }
-
-    const auto& depth_buffer = framebuffer->depth_buffer;
-    if(!depth_buffer.info.data_ptr)
-    {
-        return false;
-    }
-
-    if(states.depth_func == swr::comparison_func::fail)
-    {
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-        swr::impl::profile_raster_early_depth_reject_tests.fetch_add(1, std::memory_order_relaxed);
-        swr::impl::profile_raster_early_depth_rejects.fetch_add(1, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-        return true;
-    }
-
-    if(!early_depth_reject_adaptive.should_test())
-    {
-        return false;
-    }
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    swr::impl::profile_raster_early_depth_reject_tests.fetch_add(1, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    auto profile_reject_and_return = [&](bool value) -> bool
-    {
-        early_depth_reject_adaptive.record_test_result(value);
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-        if(value)
-        {
-            swr::impl::profile_raster_early_depth_rejects.fetch_add(1, std::memory_order_relaxed);
-        }
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-        return value;
-    };
-
-    const block_span span = compute_block_span(depth_buffer, block_x, block_y);
-    if(span.width <= 0
-       || span.height <= 0)
-    {
-        return profile_reject_and_return(true);
-    }
-
-    const auto [min_depth, max_depth] = conservative_depth_range_for_block(
-      depth,
-      span.width,
-      span.height);
-
-    depth_range stored_range{};
-    if(range_provider != nullptr)
-    {
-        stored_range = (*range_provider)();
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-        swr::impl::profile_raster_early_depth_reject_tests_with_cached_range.fetch_add(1, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-    }
-    else
-    {
-        stored_range = scan_depth_range(
-          depth_buffer,
-          block_x,
-          block_y,
-          span);
-    }
-
-    const ml::fixed_32_t min_depth_fixed{min_depth};
-    const ml::fixed_32_t max_depth_fixed{max_depth};
-    bool rejected = false;
-
-    if(states.depth_func == swr::comparison_func::less)
-    {
-        rejected = min_depth_fixed >= stored_range.max_depth;
-    }
-    else if(states.depth_func == swr::comparison_func::less_equal)
-    {
-        rejected = min_depth_fixed > stored_range.max_depth;
-    }
-    else if(states.depth_func == swr::comparison_func::greater)
-    {
-        rejected = max_depth_fixed <= stored_range.min_depth;
-    }
-    else if(states.depth_func == swr::comparison_func::greater_equal)
-    {
-        rejected = max_depth_fixed < stored_range.min_depth;
-    }
-    else if(states.depth_func == swr::comparison_func::equal)
-    {
-        rejected = max_depth_fixed < stored_range.min_depth
-                   || min_depth_fixed > stored_range.max_depth;
-    }
-    else if(states.depth_func == swr::comparison_func::not_equal)
-    {
-        // Only reject when both ranges collapse to one identical value.
-        rejected = min_depth_fixed == max_depth_fixed
-                   && stored_range.min_depth == stored_range.max_depth
-                   && min_depth_fixed == stored_range.min_depth;
-    }
-    return profile_reject_and_return(rejected);
 }
 
 }    // namespace
@@ -344,12 +72,18 @@ inline void profile_checked_quad_mask(std::uint8_t mask)
 
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-bool sweep_rasterizer::process_block(
+template<
+  early_fragment_depth_test_path fragment_depth_path>
+bool process_block(
+  sweep_rasterizer& rasterizer,
+  block_raster_context& context,
   unsigned int block_x,
   unsigned int block_y,
-  tile_info& data,
-  const depth_range_provider* range_provider)
+  tile_info& data)
 {
+    constexpr bool collect_early_fragment_depth_test_auto_stats =
+      fragment_depth_path == early_fragment_depth_test_path::early_collect_stats;
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
     std::uint64_t stage_block_fragment = 0;
@@ -359,14 +93,18 @@ bool sweep_rasterizer::process_block(
 
     assert(data.attributes);
     auto& attributes = *data.attributes;
-    if(can_early_reject_depth_block(
-         framebuffer,
-         *data.states,
-         block_x,
-         block_y,
-         attributes.depth_value,
-         range_provider,
-         early_depth_reject_tile_quad_count))
+    const block_early_depth_reject_result block_reject =
+      early_depth_controller::try_reject_block(
+        {
+          .default_framebuffer = context.framebuffer,
+          .states = *data.states,
+          .block_x = block_x,
+          .block_y = block_y,
+          .depth = attributes.depth_value,
+          .tile_depth = context.depth_context,
+          .candidate_quad_count = early_depth_reject_tile_quad_count},
+        context.early_depth_policy);
+    if(block_reject.rejected)
     {
         return false;
     }
@@ -391,81 +129,119 @@ bool sweep_rasterizer::process_block(
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
+    early_depth_sample early_fragment_depth_test_auto_sample;
 
     const swr::program_base* shader =
-      tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch
-                    + (block_x >> swr::impl::rasterizer_block_shift)]
-        .shader_instances[data.shader_index]
-        .shader;
+      context.fragment_shader(block_x, block_y, data.shader_index);
+
+    auto block_callback =
+      [&](unsigned int x,
+          unsigned int y,
+          rast::triangle_interpolator& attributes_quad)
+    {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_interp = 0;
+        utils::clock(stage_interp);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        attributes_quad.get_data_block(
+          temp_varyings,
+          frag_depth,
+          one_over_viewport_z);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_interp);
+        swr::impl::profile_interp_cycles.fetch_add(stage_interp, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        std::array<rast::fragment_info, 4> frag_info =
+          {{{frag_depth[0], front_facing, temp_varyings[0]},
+            {frag_depth[1], front_facing, temp_varyings[1]},
+            {frag_depth[2], front_facing, temp_varyings[2]},
+            {frag_depth[3], front_facing, temp_varyings[3]}}};
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_fragment_block = 0;
+        utils::clock(stage_fragment_block);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        if constexpr(collect_early_fragment_depth_test_auto_stats)
+        {
+            early_depth_sample early_depth;
+            rasterizer.process_fragment_block_early_z_collect_stats(
+              x,
+              y,
+              *data.states,
+              shader,
+              one_over_viewport_z,
+              frag_info,
+              out,
+              early_depth);
+            early_fragment_depth_test_auto_sample.add(early_depth);
+        }
+        else
+        {
+            if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+            {
+                rasterizer.process_fragment_block_early_z(
+                  x,
+                  y,
+                  *data.states,
+                  shader,
+                  one_over_viewport_z,
+                  frag_info,
+                  out);
+            }
+            else
+            {
+                rasterizer.process_fragment_block(
+                  x,
+                  y,
+                  *data.states,
+                  shader,
+                  one_over_viewport_z,
+                  frag_info,
+                  out);
+            }
+        }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_fragment_block);
+        stage_block_fragment += stage_fragment_block;
+
+        std::uint64_t stage_merge_block = 0;
+        utils::clock(stage_merge_block);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        if(out.write_color)
+        {
+            data.states->draw_target->merge_color_block(
+              0,
+              x,
+              y,
+              out,
+              data.states->blending_enabled,
+              data.states->blend_src,
+              data.states->blend_dst);
+        }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_merge_block);
+        stage_block_merge += stage_merge_block;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+    }; /* block_callback */
 
     for_each_quad_in_triangle_block(
       block_x,
       block_y,
       attributes,
-      [&](unsigned int x,
-          unsigned int y,
-          rast::triangle_interpolator& attributes_quad)
-      {
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          std::uint64_t stage_interp = 0;
-          utils::clock(stage_interp);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+      block_callback);
 
-          attributes_quad.get_data_block(
-            temp_varyings,
-            frag_depth,
-            one_over_viewport_z);
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          utils::unclock(stage_interp);
-          swr::impl::profile_interp_cycles.fetch_add(stage_interp, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-          std::array<rast::fragment_info, 4> frag_info =
-            {{{frag_depth[0], front_facing, temp_varyings[0]},
-              {frag_depth[1], front_facing, temp_varyings[1]},
-              {frag_depth[2], front_facing, temp_varyings[2]},
-              {frag_depth[3], front_facing, temp_varyings[3]}}};
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          std::uint64_t stage_fragment_block = 0;
-          utils::clock(stage_fragment_block);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-          process_fragment_block(
-            x,
-            y,
-            *data.states,
-            shader,
-            one_over_viewport_z,
-            frag_info,
-            out);
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          utils::unclock(stage_fragment_block);
-          stage_block_fragment += stage_fragment_block;
-
-          std::uint64_t stage_merge_block = 0;
-          utils::clock(stage_merge_block);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-          if(out.write_color)
-          {
-              data.states->draw_target->merge_color_block(
-                0,
-                x,
-                y,
-                out,
-                data.states->blending_enabled,
-                data.states->blend_src,
-                data.states->blend_dst);
-          }
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-          utils::unclock(stage_merge_block);
-          stage_block_merge += stage_merge_block;
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-      });
+    if constexpr(collect_early_fragment_depth_test_auto_stats)
+    {
+        context.early_depth_policy.fragment_test.record_test_result(
+          early_fragment_depth_test_auto_sample);
+    }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_block_total);
@@ -477,12 +253,57 @@ bool sweep_rasterizer::process_block(
     return true;
 }
 
-bool sweep_rasterizer::process_block_checked(
+bool sweep_rasterizer::process_block(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
-  const depth_range_provider* range_provider)
+  block_raster_context& context)
 {
+    const early_fragment_depth_test_plan fragment_depth_plan =
+      early_depth_controller::choose_fragment_depth_test(
+        *data.states,
+        context.early_depth_policy);
+
+    if(fragment_depth_plan.path == early_fragment_depth_test_path::early_collect_stats)
+    {
+        return rast::process_block<early_fragment_depth_test_path::early_collect_stats>(
+          *this,
+          context,
+          block_x,
+          block_y,
+          data);
+    }
+
+    if(fragment_depth_plan.path == early_fragment_depth_test_path::early)
+    {
+        return rast::process_block<early_fragment_depth_test_path::early>(
+          *this,
+          context,
+          block_x,
+          block_y,
+          data);
+    }
+
+    return rast::process_block<early_fragment_depth_test_path::late>(
+      *this,
+      context,
+      block_x,
+      block_y,
+      data);
+}
+
+template<
+  early_fragment_depth_test_path fragment_depth_path>
+bool process_block_checked(
+  sweep_rasterizer& rasterizer,
+  block_raster_context& context,
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data)
+{
+    constexpr bool collect_early_fragment_depth_test_auto_stats =
+      fragment_depth_path == early_fragment_depth_test_path::early_collect_stats;
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
     std::uint64_t stage_block_fragment = 0;
@@ -494,14 +315,18 @@ bool sweep_rasterizer::process_block_checked(
     auto& attributes = *data.attributes;
     const unsigned int candidate_quad_count =
       estimate_quad_count(data.checked_quad_bounds);
-    if(can_early_reject_depth_block(
-         framebuffer,
-         *data.states,
-         block_x,
-         block_y,
-         attributes.depth_value,
-         range_provider,
-         candidate_quad_count))
+    const block_early_depth_reject_result block_reject =
+      early_depth_controller::try_reject_block(
+        {
+          .default_framebuffer = context.framebuffer,
+          .states = *data.states,
+          .block_x = block_x,
+          .block_y = block_y,
+          .depth = attributes.depth_value,
+          .tile_depth = context.depth_context,
+          .candidate_quad_count = candidate_quad_count},
+        context.early_depth_policy);
+    if(block_reject.rejected)
     {
         return false;
     }
@@ -527,12 +352,10 @@ bool sweep_rasterizer::process_block_checked(
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
+    early_depth_sample early_fragment_depth_test_auto_sample;
 
     const swr::program_base* shader =
-      tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch
-                    + (block_x >> swr::impl::rasterizer_block_shift)]
-        .shader_instances[data.shader_index]
-        .shader;
+      context.fragment_shader(block_x, block_y, data.shader_index);
     assert(data.checked_lambdas);
 
     auto process_checked_quad =
@@ -569,29 +392,94 @@ bool sweep_rasterizer::process_block_checked(
         profile_checked_quad_mask(static_cast<std::uint8_t>(mask));
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        // a mask of 0b1111 means the 2x2 block is fully covered.
-        if(mask == 0b1111)
+        if constexpr(collect_early_fragment_depth_test_auto_stats)
         {
-            process_fragment_block(
-              x,
-              y,
-              *data.states,
-              shader,
-              one_over_viewport_z,
-              frag_info,
-              out);
+            early_depth_sample early_depth;
+
+            // a mask of 0b1111 means the 2x2 block is fully covered.
+            if(mask == 0b1111)
+            {
+                rasterizer.process_fragment_block_early_z_collect_stats(
+                  x,
+                  y,
+                  *data.states,
+                  shader,
+                  one_over_viewport_z,
+                  frag_info,
+                  out,
+                  early_depth);
+            }
+            else
+            {
+                rasterizer.process_fragment_block_early_z_collect_stats(
+                  x,
+                  y,
+                  static_cast<std::uint8_t>(mask),
+                  *data.states,
+                  shader,
+                  one_over_viewport_z,
+                  frag_info,
+                  out,
+                  early_depth);
+            }
+
+            early_fragment_depth_test_auto_sample.add(early_depth);
         }
         else
         {
-            process_fragment_block(
-              x,
-              y,
-              mask,
-              *data.states,
-              shader,
-              one_over_viewport_z,
-              frag_info,
-              out);
+            // a mask of 0b1111 means the 2x2 block is fully covered.
+            if(mask == 0b1111)
+            {
+                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+                {
+                    rasterizer.process_fragment_block_early_z(
+                      x,
+                      y,
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+                else
+                {
+                    rasterizer.process_fragment_block(
+                      x,
+                      y,
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+            }
+            else
+            {
+                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+                {
+                    rasterizer.process_fragment_block_early_z(
+                      x,
+                      y,
+                      static_cast<std::uint8_t>(mask),
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+                else
+                {
+                    rasterizer.process_fragment_block(
+                      x,
+                      y,
+                      static_cast<std::uint8_t>(mask),
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+            }
         }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -628,6 +516,12 @@ bool sweep_rasterizer::process_block_checked(
       attributes,
       process_checked_quad);
 
+    if constexpr(collect_early_fragment_depth_test_auto_stats)
+    {
+        context.early_depth_policy.fragment_test.record_test_result(
+          early_fragment_depth_test_auto_sample);
+    }
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_block_total);
     swr::impl::profile_raster_block_total_cycles.fetch_add(stage_block_total, std::memory_order_relaxed);
@@ -638,13 +532,61 @@ bool sweep_rasterizer::process_block_checked(
     return true;
 }
 
-void sweep_rasterizer::process_block_precomputed_checked(
+bool sweep_rasterizer::process_block_checked(
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data,
+  block_raster_context& context)
+{
+    const early_fragment_depth_test_plan fragment_depth_plan =
+      early_depth_controller::choose_fragment_depth_test(
+        *data.states,
+        context.early_depth_policy);
+
+    if(fragment_depth_plan.path == early_fragment_depth_test_path::early_collect_stats)
+    {
+        return rast::process_block_checked<early_fragment_depth_test_path::early_collect_stats>(
+          *this,
+          context,
+          block_x,
+          block_y,
+          data);
+    }
+
+    if(fragment_depth_plan.path == early_fragment_depth_test_path::early)
+    {
+        return rast::process_block_checked<early_fragment_depth_test_path::early>(
+          *this,
+          context,
+          block_x,
+          block_y,
+          data);
+    }
+
+    return rast::process_block_checked<early_fragment_depth_test_path::late>(
+      *this,
+      context,
+      block_x,
+      block_y,
+      data);
+}
+
+template<
+  early_fragment_depth_test_path fragment_depth_path>
+void process_block_precomputed_checked(
+  sweep_rasterizer& rasterizer,
+  block_raster_context& context,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
   const small_triangle_interpolator& attributes,
   std::span<const small_triangle_quad_payload> quads)
 {
+    constexpr bool collect_early_fragment_depth_test_auto_stats =
+      fragment_depth_path == early_fragment_depth_test_path::early_collect_stats;
+
+    // Small/sparse payloads already narrowed the work to explicit covered quads,
+    // so the full-block depth range reject is intentionally skipped here.
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
     std::uint64_t stage_block_fragment = 0;
@@ -664,12 +606,10 @@ void sweep_rasterizer::process_block_precomputed_checked(
     ml::vec4 frag_depth;
     ml::vec4 one_over_viewport_z;
     swr::impl::fragment_output_block out;
+    early_depth_sample early_fragment_depth_test_auto_sample;
 
     const swr::program_base* shader =
-      tiles.entries[(block_y >> swr::impl::rasterizer_block_shift) * tiles.pitch
-                    + (block_x >> swr::impl::rasterizer_block_shift)]
-        .shader_instances[data.shader_index]
-        .shader;
+      context.fragment_shader(block_x, block_y, data.shader_index);
 
     for(const auto& quad: quads)
     {
@@ -702,29 +642,94 @@ void sweep_rasterizer::process_block_precomputed_checked(
         profile_checked_quad_mask(quad.mask);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        // a mask of 0b1111 means the 2x2 block is fully covered.
-        if(quad.mask == 0b1111)
+        if constexpr(collect_early_fragment_depth_test_auto_stats)
         {
-            process_fragment_block(
-              quad.x,
-              quad.y,
-              *data.states,
-              shader,
-              one_over_viewport_z,
-              frag_info,
-              out);
+            early_depth_sample early_depth;
+
+            // a mask of 0b1111 means the 2x2 block is fully covered.
+            if(quad.mask == 0b1111)
+            {
+                rasterizer.process_fragment_block_early_z_collect_stats(
+                  quad.x,
+                  quad.y,
+                  *data.states,
+                  shader,
+                  one_over_viewport_z,
+                  frag_info,
+                  out,
+                  early_depth);
+            }
+            else
+            {
+                rasterizer.process_fragment_block_early_z_collect_stats(
+                  quad.x,
+                  quad.y,
+                  quad.mask,
+                  *data.states,
+                  shader,
+                  one_over_viewport_z,
+                  frag_info,
+                  out,
+                  early_depth);
+            }
+
+            early_fragment_depth_test_auto_sample.add(early_depth);
         }
         else
         {
-            process_fragment_block(
-              quad.x,
-              quad.y,
-              quad.mask,
-              *data.states,
-              shader,
-              one_over_viewport_z,
-              frag_info,
-              out);
+            // a mask of 0b1111 means the 2x2 block is fully covered.
+            if(quad.mask == 0b1111)
+            {
+                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+                {
+                    rasterizer.process_fragment_block_early_z(
+                      quad.x,
+                      quad.y,
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+                else
+                {
+                    rasterizer.process_fragment_block(
+                      quad.x,
+                      quad.y,
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+            }
+            else
+            {
+                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+                {
+                    rasterizer.process_fragment_block_early_z(
+                      quad.x,
+                      quad.y,
+                      quad.mask,
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+                else
+                {
+                    rasterizer.process_fragment_block(
+                      quad.x,
+                      quad.y,
+                      quad.mask,
+                      *data.states,
+                      shader,
+                      one_over_viewport_z,
+                      frag_info,
+                      out);
+                }
+            }
         }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -753,6 +758,12 @@ void sweep_rasterizer::process_block_precomputed_checked(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 
+    if constexpr(collect_early_fragment_depth_test_auto_stats)
+    {
+        context.early_depth_policy.fragment_test.record_test_result(
+          early_fragment_depth_test_auto_sample);
+    }
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_block_total);
     swr::impl::profile_raster_block_total_cycles.fetch_add(stage_block_total, std::memory_order_relaxed);
@@ -761,16 +772,67 @@ void sweep_rasterizer::process_block_precomputed_checked(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
 
+void sweep_rasterizer::process_block_precomputed_checked(
+  unsigned int block_x,
+  unsigned int block_y,
+  tile_info& data,
+  block_raster_context& context,
+  const small_triangle_interpolator& attributes,
+  std::span<const small_triangle_quad_payload> quads)
+{
+    const early_fragment_depth_test_plan fragment_depth_plan =
+      early_depth_controller::choose_fragment_depth_test(
+        *data.states,
+        context.early_depth_policy);
+
+    if(fragment_depth_plan.path == early_fragment_depth_test_path::early_collect_stats)
+    {
+        rast::process_block_precomputed_checked<early_fragment_depth_test_path::early_collect_stats>(
+          *this,
+          context,
+          block_x,
+          block_y,
+          data,
+          attributes,
+          quads);
+        return;
+    }
+
+    if(fragment_depth_plan.path == early_fragment_depth_test_path::early)
+    {
+        rast::process_block_precomputed_checked<early_fragment_depth_test_path::early>(
+          *this,
+          context,
+          block_x,
+          block_y,
+          data,
+          attributes,
+          quads);
+        return;
+    }
+
+    rast::process_block_precomputed_checked<early_fragment_depth_test_path::late>(
+      *this,
+      context,
+      block_x,
+      block_y,
+      data,
+      attributes,
+      quads);
+}
+
 void sweep_rasterizer::process_block_small_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
+  block_raster_context& context,
   const small_triangle_payload& payload)
 {
     process_block_precomputed_checked(
       block_x,
       block_y,
       data,
+      context,
       payload.attributes,
       std::span{
         payload.quads.data(),
@@ -781,12 +843,14 @@ void sweep_rasterizer::process_block_sparse_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
+  block_raster_context& context,
   const sparse_triangle_payload& payload)
 {
     process_block_precomputed_checked(
       block_x,
       block_y,
       data,
+      context,
       payload.attributes,
       payload.quads);
 }
@@ -795,6 +859,7 @@ void sweep_rasterizer::process_block_sparse_checked(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
+  block_raster_context& context,
   const sparse_triangle_tile_payload& payload,
   std::span<const small_triangle_quad_payload> quads)
 {
@@ -802,6 +867,7 @@ void sweep_rasterizer::process_block_sparse_checked(
       block_x,
       block_y,
       data,
+      context,
       payload.attributes,
       quads);
 }
@@ -1079,13 +1145,21 @@ void sweep_rasterizer::draw_filled_triangle(
               use_precomputed_payload ? nullptr : &direct_attributes,
               is_front_facing,
               direct_mode};
+            early_depth_policy_state& early_depth_policy =
+              early_depth_policies.current_state();
+            block_raster_context block_context{
+              .framebuffer = framebuffer,
+              .tiles = tiles,
+              .early_depth_policy = early_depth_policy,
+              .depth_context = nullptr};
 
             if(mode == tile_info::rasterization_mode::block)
             {
                 process_block(
                   x,
                   y,
-                  direct_info);
+                  direct_info,
+                  block_context);
             }
             else if(use_precomputed_payload)
             {
@@ -1095,6 +1169,7 @@ void sweep_rasterizer::draw_filled_triangle(
                       x,
                       y,
                       direct_info,
+                      block_context,
                       *precomputed_small_payload);
                 }
                 else
@@ -1103,6 +1178,7 @@ void sweep_rasterizer::draw_filled_triangle(
                       x,
                       y,
                       direct_info,
+                      block_context,
                       *precomputed_sparse_payload);
                 }
             }
@@ -1111,7 +1187,8 @@ void sweep_rasterizer::draw_filled_triangle(
                 process_block_checked(
                   x,
                   y,
-                  direct_info);
+                  direct_info,
+                  block_context);
             }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING

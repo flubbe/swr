@@ -49,14 +49,14 @@ target_link_libraries(bench_clip
 )
 
 # occlusion-heavy offscreen OBJ benchmark with 5x5 model grid and orbit camera
-add_executable(bench_occlusion_grid
-    occlusion_grid_main.cpp
+add_executable(bench_occlusion
+    occlusion/main.cpp
 )
-target_include_directories(bench_occlusion_grid
+target_include_directories(bench_occlusion
     PRIVATE
     ${SWR_SOURCE_DIR}/src
 )
-target_link_libraries(bench_occlusion_grid
+target_link_libraries(bench_occlusion
     PRIVATE
     tinyobjloader
     swrast
@@ -99,8 +99,8 @@ if(SWR_ENABLE_DEV_BENCH_TESTS)
         --threads=0
     )
     add_test(
-        NAME bench_occlusion_grid
-        COMMAND $<TARGET_FILE:bench_occlusion_grid>
+        NAME bench_occlusion
+        COMMAND $<TARGET_FILE:bench_occlusion>
         --model=${SWR_SOURCE_DIR}/src/demos/cars/assets/cars/cop/Cop_Body.obj
         --frames=60
         --width=400

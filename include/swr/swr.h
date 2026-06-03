@@ -156,6 +156,35 @@ void BindUniform(std::uint32_t UniformId, ml::vec4 Value);
 /** a handle to a render context. */
 typedef void* context_handle;
 
+/** Rasterizer implementation features that can be controlled e.g. for benchmarking/tests. */
+enum class rasterizer_feature
+{
+    block_early_depth_reject, /** Conservative block-level early depth rejection. */
+    early_fragment_depth_test /** Quad/fragment-level depth testing before fragment shading. */
+};
+
+/** Rasterizer feature mode. */
+enum class rasterizer_feature_mode
+{
+    automatic, /** Let the rasterizer adaptively decide whether the feature is worthwhile. */
+    on,        /** Turn the feature on. */
+    off        /** Turn the feature off. */
+};
+
+/**
+ * Set a rasterizer implementation feature mode.
+ *
+ * @param feature The feature to change.
+ * @param mode The new feature mode.
+ */
+void SetRasterizerFeature(
+  rasterizer_feature feature,
+  rasterizer_feature_mode mode);
+
+/** Return the current rasterizer implementation feature mode. */
+rasterizer_feature_mode GetRasterizerFeature(
+  rasterizer_feature feature);
+
 /**
  * This function sythesizes the image from the contents of the (internal) drawing lists.
  */
@@ -569,14 +598,14 @@ void BindFramebufferObject(framebuffer_target target, std::uint32_t id);
 /** framebuffer attachment names. */
 enum class framebuffer_attachment
 {
-    color_attachment_0 = 0, /** color attachment 0 */
-    color_attachment_1 = 1, /** color attachment 1 */
-    color_attachment_2 = 2, /** color attachment 2 */
-    color_attachment_3 = 3, /** color attachment 3 */
-    color_attachment_4 = 4, /** color attachment 4 */
-    color_attachment_5 = 5, /** color attachment 5 */
-    color_attachment_6 = 6, /** color attachment 6 */
-    color_attachment_7 = 7, /** color attachment 7 */
+    color_attachment_0 = 0,                           /** color attachment 0 */
+    color_attachment_1 = 1,                           /** color attachment 1 */
+    color_attachment_2 = 2,                           /** color attachment 2 */
+    color_attachment_3 = 3,                           /** color attachment 3 */
+    color_attachment_4 = 4,                           /** color attachment 4 */
+    color_attachment_5 = 5,                           /** color attachment 5 */
+    color_attachment_6 = 6,                           /** color attachment 6 */
+    color_attachment_7 = 7,                           /** color attachment 7 */
     depth_attachment = limits::max::color_attachments /** depth attachment */
 };
 

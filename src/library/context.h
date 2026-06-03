@@ -78,6 +78,9 @@ struct program_info
     /** flags. */
     program_flags flags{program_flags::none};
 
+    /** Shader behavior metadata. */
+    swr::program_metadata metadata{};
+
     /** (pointer to) the graphics program/shader. */
     const program_base* shader{nullptr};
 
@@ -97,7 +100,8 @@ struct program_info
 
     /** constructor. */
     program_info(const program_base* in_shader)
-    : shader{in_shader}
+    : metadata{in_shader->get_metadata()}
+    , shader{in_shader}
     , program_size{in_shader->size()}
     , program_alignment{in_shader->alignment()}
 #ifndef SWR_ENABLE_MULTI_THREADING

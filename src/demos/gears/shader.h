@@ -4,7 +4,7 @@
  * color shader with directional lighting.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -38,6 +38,13 @@ public:
     : diffuse_color{in_color}
     , ambient_color{in_color}
     {
+    }
+
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
     }
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
@@ -97,6 +104,13 @@ public:
     : diffuse_color{in_color}
     , ambient_color{in_color}
     {
+    }
+
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
     }
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override

@@ -4,7 +4,7 @@
  * frame buffer buffer implementation.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -351,7 +351,7 @@ void default_framebuffer::depth_compare_write(
         return;
     }
 
-    write_mask = write_depth;
+    write_mask = true;
 
     // if no depth buffer was created, accept.
     if(!depth_buffer.info.data_ptr)
@@ -397,7 +397,7 @@ void default_framebuffer::depth_compare_write(
 void default_framebuffer::depth_compare_write_block(
   int x,
   int y,
-  std::array<float, 4>& depth_value,
+  const std::array<float, 4>& depth_value,
   comparison_func depth_func,
   bool write_depth,
   std::uint8_t& write_mask)
@@ -542,9 +542,12 @@ void default_framebuffer::depth_compare_write_block(
  * framebuffer_object
  */
 
-void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_color)
+void framebuffer_object::clear_color(
+  std::uint32_t attachment,
+  ml::vec4 clear_color)
 {
-    if(attachment < color_attachments.size() && color_attachments[attachment])
+    if(attachment < color_attachments.size()
+       && color_attachments[attachment])
     {
         // this also clears mipmaps, if present
         auto& info = color_attachments[attachment]->info;
@@ -556,9 +559,13 @@ void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_co
     }
 }
 
-void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect)
+void framebuffer_object::clear_color(
+  std::uint32_t attachment,
+  ml::vec4 clear_color,
+  const utils::rect& rect)
 {
-    if(attachment < color_attachments.size() && color_attachments[attachment])
+    if(attachment < color_attachments.size()
+       && color_attachments[attachment])
     {
 #ifdef SWR_USE_MORTON_CODES
         auto& info = color_attachments[attachment]->info;
@@ -609,16 +616,22 @@ void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_co
     }
 }
 
-void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth)
+void framebuffer_object::clear_depth(
+  ml::fixed_32_t clear_depth)
 {
     if(depth_attachment)
     {
         auto& info = depth_attachment->info;
-        utils::memset32(reinterpret_cast<std::uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
+        utils::memset32(
+          reinterpret_cast<std::uint32_t*>(info.data_ptr),
+          ml::unwrap(clear_depth),
+          info.pitch * info.height);
     }
 }
 
-void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect)
+void framebuffer_object::clear_depth(
+  ml::fixed_32_t clear_depth,
+  const utils::rect& rect)
 {
     if(depth_attachment)
     {
@@ -657,9 +670,17 @@ void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::re
     }
 }
 
-void framebuffer_object::merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void framebuffer_object::merge_color(
+  std::uint32_t attachment,
+  int x,
+  int y,
+  const fragment_output& frag,
+  bool do_blend,
+  blend_func blend_src,
+  blend_func blend_dst)
 {
-    if(attachment > color_attachments.size() || !color_attachments[attachment])
+    if(attachment > color_attachments.size()
+       || !color_attachments[attachment])
     {
         return;
     }
@@ -687,7 +708,14 @@ void framebuffer_object::merge_color(std::uint32_t attachment, int x, int y, con
     }
 }
 
-void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void framebuffer_object::merge_color_block(
+  std::uint32_t attachment,
+  int x,
+  int y,
+  const fragment_output_block& frag,
+  bool do_blend,
+  blend_func blend_src,
+  blend_func blend_dst)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_merge = 0;
@@ -766,6 +794,7 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
 
 #undef CONDITIONAL_WRITE
     }
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_merge);
     swr::impl::profile_merge_cycles.fetch_add(stage_merge, std::memory_order_relaxed);
@@ -773,7 +802,13 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write.
-void framebuffer_object::depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask)
+void framebuffer_object::depth_compare_write(
+  int x,
+  int y,
+  float depth_value,
+  comparison_func depth_func,
+  bool write_depth,
+  bool& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -833,7 +868,13 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write_block.
-void framebuffer_object::depth_compare_write_block(int x, int y, std::array<float, 4>& depth_value, comparison_func depth_func, bool write_depth, std::uint8_t& write_mask)
+void framebuffer_object::depth_compare_write_block(
+  int x,
+  int y,
+  const std::array<float, 4>& depth_value,
+  comparison_func depth_func,
+  bool write_depth,
+  std::uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -962,7 +1003,8 @@ std::uint32_t CreateFramebufferObject()
     return slot_to_id(slot);
 }
 
-void ReleaseFramebufferObject(std::uint32_t id)
+void ReleaseFramebufferObject(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -974,7 +1016,8 @@ void ReleaseFramebufferObject(std::uint32_t id)
     }
 
     auto slot = id_to_slot(id);
-    if(slot < context->framebuffer_objects.size() && !context->framebuffer_objects.is_free(slot))
+    if(slot < context->framebuffer_objects.size()
+       && !context->framebuffer_objects.is_free(slot))
     {
         // check if we are bound to a target and reset the target if necessary.
         if(context->states.draw_target == &context->framebuffer_objects[slot])
@@ -988,7 +1031,9 @@ void ReleaseFramebufferObject(std::uint32_t id)
     }
 }
 
-void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
+void BindFramebufferObject(
+  framebuffer_target target,
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -996,12 +1041,14 @@ void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
     if(id == default_framebuffer_id)
     {
         // bind the default framebuffer.
-        if(target == framebuffer_target::draw || target == framebuffer_target::draw_read)
+        if(target == framebuffer_target::draw
+           || target == framebuffer_target::draw_read)
         {
             context->states.draw_target = &context->framebuffer;
         }
 
-        if(target == framebuffer_target::read || target == framebuffer_target::draw_read)
+        if(target == framebuffer_target::read
+           || target == framebuffer_target::draw_read)
         {
             /* unimplemented. */
         }
@@ -1011,24 +1058,33 @@ void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
 
     // check that the id is valid.
     auto slot = id_to_slot(id);
-    if(slot >= context->framebuffer_objects.size() || context->framebuffer_objects.is_free(slot))
+    if(slot >= context->framebuffer_objects.size()
+       || context->framebuffer_objects.is_free(slot))
     {
         context->last_error = error::invalid_operation;
         return;
     }
 
-    if(target == framebuffer_target::draw || target == framebuffer_target::draw_read)
+    if(target == framebuffer_target::draw
+       || target == framebuffer_target::draw_read)
     {
         context->states.draw_target = &context->framebuffer_objects[slot];
     }
 
-    if(target == framebuffer_target::read || target == framebuffer_target::draw_read)
+    if(target == framebuffer_target::read
+       || target == framebuffer_target::draw_read)
     {
         /* unimplemented. */
+
+        assert(0);    // TODO
     }
 }
 
-void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id, std::uint32_t level)
+void FramebufferTexture(
+  std::uint32_t id,
+  framebuffer_attachment attachment,
+  std::uint32_t attachment_id,
+  std::uint32_t level)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -1041,13 +1097,15 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
     }
 
     int numeric_attachment = static_cast<int>(attachment);
-    if(numeric_attachment >= static_cast<int>(framebuffer_attachment::color_attachment_0) && numeric_attachment <= static_cast<int>(framebuffer_attachment::color_attachment_7))
+    if(numeric_attachment >= static_cast<int>(framebuffer_attachment::color_attachment_0)
+       && numeric_attachment <= static_cast<int>(framebuffer_attachment::color_attachment_7))
     {
         // use texture as color buffer.
 
         // get framebuffer object.
         auto slot = id_to_slot(id);
-        if(slot >= context->framebuffer_objects.size() || context->framebuffer_objects.is_free(slot))
+        if(slot >= context->framebuffer_objects.size()
+           || context->framebuffer_objects.is_free(slot))
         {
             context->last_error = error::invalid_value;
             return;
@@ -1056,14 +1114,18 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
 
         // get texture.
         auto tex_id = attachment_id;
-        if(tex_id >= context->texture_2d_storage.size() || context->texture_2d_storage.is_free(tex_id))
+        if(tex_id >= context->texture_2d_storage.size()
+           || context->texture_2d_storage.is_free(tex_id))
         {
             context->last_error = error::invalid_value;
             return;
         }
 
         // associate texture to fbo.
-        fbo->attach_texture(attachment, context->texture_2d_storage[tex_id].get(), level);
+        fbo->attach_texture(
+          attachment,
+          context->texture_2d_storage[tex_id].get(),
+          level);
     }
     else
     {
@@ -1072,7 +1134,9 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
     }
 }
 
-std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
+std::uint32_t CreateDepthRenderbuffer(
+  std::uint32_t width,
+  std::uint32_t height)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -1083,18 +1147,23 @@ std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
     return slot;
 }
 
-void ReleaseDepthRenderbuffer(std::uint32_t id)
+void ReleaseDepthRenderbuffer(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id < context->depth_attachments.size() && !context->depth_attachments.is_free(id))
+    if(id < context->depth_attachments.size()
+       && !context->depth_attachments.is_free(id))
     {
         context->depth_attachments.free(id);
     }
 }
 
-void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id)
+void FramebufferRenderbuffer(
+  std::uint32_t id,
+  framebuffer_attachment attachment,
+  std::uint32_t attachment_id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -1113,14 +1182,16 @@ void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment
         return;
     }
 
-    if(attachment_id >= context->depth_attachments.size() || context->depth_attachments.is_free(attachment_id))
+    if(attachment_id >= context->depth_attachments.size()
+       || context->depth_attachments.is_free(attachment_id))
     {
         context->last_error = error::invalid_value;
         return;
     }
 
     auto slot = id_to_slot(id);
-    if(slot >= context->framebuffer_objects.size() || context->framebuffer_objects.is_free(slot))
+    if(slot >= context->framebuffer_objects.size()
+       || context->framebuffer_objects.is_free(slot))
     {
         context->last_error = error::invalid_value;
         return;

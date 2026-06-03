@@ -98,7 +98,7 @@ struct fake_draw_target : swr::impl::framebuffer_draw_target
     void depth_compare_write_block(
       [[maybe_unused]] int x,
       [[maybe_unused]] int y,
-      [[maybe_unused]] std::array<float, 4>& depth_value,
+      [[maybe_unused]] const std::array<float, 4>& depth_value,
       [[maybe_unused]] swr::comparison_func depth_func,
       [[maybe_unused]] bool write_depth,
       [[maybe_unused]] std::uint8_t& write_mask) override
@@ -109,6 +109,13 @@ struct fake_draw_target : swr::impl::framebuffer_draw_target
 class fake_program : public swr::program<fake_program>
 {
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     void pre_link(
       boost::container::static_vector<
         swr::interpolation_qualifier,
@@ -145,6 +152,13 @@ public:
 class alignas(64) over_aligned_program : public swr::program<over_aligned_program>
 {
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     void pre_link(
       boost::container::static_vector<
         swr::interpolation_qualifier,
@@ -1387,17 +1401,18 @@ BOOST_AUTO_TEST_CASE(varying_interpolation_no_perspective_and_invalid_qualifier)
     iqs[0] = static_cast<swr::interpolation_qualifier>(999);
 
     BOOST_CHECK_THROW((rast::triangle_interpolator{
-      ml::vec2{0.5f, 0.5f},
-      info.v0->coords,
-      info.v1->coords,
-      info.v2->coords,
-      info.v0->varyings,
-      info.v1->varyings,
-      info.v2->varyings,
-      info.v0->varyings,
-      iqs,
-      info.inv_area,
-      0.0f}), std::runtime_error);
+                        ml::vec2{0.5f, 0.5f},
+                        info.v0->coords,
+                        info.v1->coords,
+                        info.v2->coords,
+                        info.v0->varyings,
+                        info.v1->varyings,
+                        info.v2->varyings,
+                        info.v0->varyings,
+                        iqs,
+                        info.inv_area,
+                        0.0f}),
+                      std::runtime_error);
 }
 
 BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)

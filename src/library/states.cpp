@@ -4,7 +4,7 @@
  * render pipeline state management.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -18,7 +18,9 @@ namespace swr
  * render context state setter and getter.
  */
 
-void SetState(state s, bool enable)
+void SetState(
+  state s,
+  bool enable)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -82,11 +84,47 @@ bool GetState(state s)
     return false;
 }
 
+void SetRasterizerFeature(
+  rasterizer_feature feature,
+  rasterizer_feature_mode mode)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    auto* context = impl::global_context;
+
+    if(feature == rasterizer_feature::block_early_depth_reject)
+    {
+        context->states.block_early_depth_reject_mode = mode;
+    }
+    else if(feature == rasterizer_feature::early_fragment_depth_test)
+    {
+        context->states.early_fragment_depth_test_mode = mode;
+    }
+}
+
+rasterizer_feature_mode GetRasterizerFeature(rasterizer_feature feature)
+{
+    ASSERT_INTERNAL_CONTEXT;
+    const auto* context = impl::global_context;
+
+    if(feature == rasterizer_feature::block_early_depth_reject)
+    {
+        return context->states.block_early_depth_reject_mode;
+    }
+    else if(feature == rasterizer_feature::early_fragment_depth_test)
+    {
+        return context->states.early_fragment_depth_test_mode;
+    }
+
+    return rasterizer_feature_mode::off;
+}
+
 /*
  * blending.
  */
 
-void SetBlendFunc(blend_func sfactor, blend_func dfactor)
+void SetBlendFunc(
+  blend_func sfactor,
+  blend_func dfactor)
 {
     ASSERT_INTERNAL_CONTEXT;
     auto* context = impl::global_context;
@@ -155,10 +193,10 @@ cull_face_direction GetCullMode()
  * polygon mode.
  */
 
-void SetPolygonMode(polygon_mode Mode)
+void SetPolygonMode(polygon_mode mode)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->states.poly_mode = Mode;
+    impl::global_context->states.poly_mode = mode;
 }
 
 polygon_mode GetPolygonMode()
@@ -171,7 +209,9 @@ polygon_mode GetPolygonMode()
  * polygon offset.
  */
 
-void PolygonOffset(float factor, float units)
+void PolygonOffset(
+  float factor,
+  float units)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::global_context->states.polygon_offset_factor = factor;

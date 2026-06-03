@@ -215,12 +215,24 @@ enum fragment_shader_result
     accept
 };
 
+/**
+ * Optional shader behavior contract supplied by programs.
+ *
+ * A program must explicitly opt in before the rasterizer may run fragment
+ * depth tests before the fragment shader.
+ */
+struct program_metadata
+{
+    /** True if the fragment shader may return fragment_shader_result::discard. */
+    bool fragment_shader_may_discard{true};
+
+    /** True if the fragment shader may modify gl_FragDepth. */
+    bool fragment_shader_may_write_depth{true};
+};
+
 /** A complete graphics program, consisting of vertex- and fragment shader. */
 class program_base
 {
-    template<typename T>
-    friend class program;
-
 protected:
     std::span<const uniform> uniforms{};
     std::span<sampler_2d* const> samplers{};
@@ -251,6 +263,18 @@ public:
     virtual program_base* create_instance(
       void* mem,
       const program_instance_bindings& bindings) const = 0;
+
+    /**
+     * Return optional shader behavior metadata.
+     *
+     * Existing shaders inherit the conservative default. Override this in a
+     * shader to opt into optimizations that depend on fragment shader behavior.
+     */
+    [[nodiscard]]
+    virtual program_metadata get_metadata() const
+    {
+        return {};
+    }
 
     /**
      * pre-link the program.

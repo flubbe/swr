@@ -1,6 +1,7 @@
 find_package(Boost CONFIG REQUIRED)
 
 set(SOURCES
+    rasterizer/early_depth.cpp
     rasterizer/fragment.cpp
     rasterizer/line.cpp
     rasterizer/point.cpp

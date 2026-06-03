@@ -33,6 +33,13 @@ class color_flat : public swr::program<color_flat>
 public:
     color_flat() = default;
 
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
@@ -95,6 +102,13 @@ class wireframe : public swr::program<wireframe>
 
 public:
     wireframe() = default;
+
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {

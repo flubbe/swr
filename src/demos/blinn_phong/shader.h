@@ -24,7 +24,7 @@
  *   location 0: diffuse texture
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -41,6 +41,13 @@ class blinn_phong : public swr::program<blinn_phong>
     const float ambient_diffuse_factor{0.1f};
 
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.

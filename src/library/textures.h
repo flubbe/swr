@@ -145,16 +145,20 @@ inline int wrap(wrap_mode m, int coord, int max)
 /** texture sampler implementation. */
 class sampler_2d_impl : public sampler_2d
 {
-    friend class rast::sweep_rasterizer;
-
     /** associated texture. */
     texture_2d* associated_texture{nullptr};
 
-    /** texture minification and magnification filters. */
-    texture_filter filter_min{texture_filter::nearest}, filter_mag{texture_filter::nearest};
+    /** texture minification filter. */
+    texture_filter filter_min{texture_filter::nearest};
+
+    /** texture magnification filter. */
+    texture_filter filter_mag{texture_filter::nearest};
 
     /** edge value sampling. */
-    wrap_mode wrap_s{wrap_mode::repeat}, wrap_t{wrap_mode::repeat};
+    wrap_mode wrap_s{wrap_mode::repeat};
+
+    /** edge value sampling. */
+    wrap_mode wrap_t{wrap_mode::repeat};
 
     /**
      * given dFdx and dFdy, calculate the corresponding mipmap level,

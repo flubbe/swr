@@ -49,6 +49,8 @@ struct bench_config
     std::uint32_t threads{0};
     bool cull_face{true};
     bool depth_test{true};
+    swr::rasterizer_feature_mode block_early_depth_reject{swr::rasterizer_feature_mode::automatic};
+    swr::rasterizer_feature_mode early_fragment_depth_test{swr::rasterizer_feature_mode::automatic};
 };
 
 struct drawable_object
@@ -75,6 +77,39 @@ bool parse_bool(const std::string& value, bool default_value)
         return false;
     }
     return default_value;
+}
+
+swr::rasterizer_feature_mode parse_rasterizer_feature_mode(
+  const std::string& value,
+  swr::rasterizer_feature_mode default_value)
+{
+    if(value == "auto" || value == "automatic")
+    {
+        return swr::rasterizer_feature_mode::automatic;
+    }
+    if(value == "1" || value == "true" || value == "on" || value == "enabled")
+    {
+        return swr::rasterizer_feature_mode::on;
+    }
+    if(value == "0" || value == "false" || value == "off" || value == "disabled")
+    {
+        return swr::rasterizer_feature_mode::off;
+    }
+    return default_value;
+}
+
+const char* rasterizer_feature_mode_name(swr::rasterizer_feature_mode mode)
+{
+    switch(mode)
+    {
+    case swr::rasterizer_feature_mode::automatic:
+        return "auto";
+    case swr::rasterizer_feature_mode::on:
+        return "on";
+    case swr::rasterizer_feature_mode::off:
+        return "off";
+    }
+    return "unknown";
 }
 
 std::string arg_value(const std::string& arg, const std::string& name)
@@ -127,6 +162,16 @@ bench_config parse_args(int argc, char** argv)
         else if(auto v = arg_value(arg, "--depth_test"); !v.empty())
         {
             cfg.depth_test = parse_bool(v, cfg.depth_test);
+        }
+        else if(auto v = arg_value(arg, "--block_early_depth_reject"); !v.empty())
+        {
+            cfg.block_early_depth_reject =
+              parse_rasterizer_feature_mode(v, cfg.block_early_depth_reject);
+        }
+        else if(auto v = arg_value(arg, "--early_fragment_depth_test"); !v.empty())
+        {
+            cfg.early_fragment_depth_test =
+              parse_rasterizer_feature_mode(v, cfg.early_fragment_depth_test);
         }
     }
 
@@ -311,6 +356,12 @@ int main(int argc, char** argv)
     swr::SetViewport(0, 0, static_cast<int>(cfg.width), static_cast<int>(cfg.height));
     swr::SetState(swr::state::cull_face, cfg.cull_face);
     swr::SetState(swr::state::depth_test, cfg.depth_test);
+    swr::SetRasterizerFeature(
+      swr::rasterizer_feature::block_early_depth_reject,
+      cfg.block_early_depth_reject);
+    swr::SetRasterizerFeature(
+      swr::rasterizer_feature::early_fragment_depth_test,
+      cfg.early_fragment_depth_test);
 
     std::vector<drawable_object> objects;
     ml::vec3 bmin;
@@ -375,7 +426,7 @@ int main(int argc, char** argv)
     const double fps = static_cast<double>(cfg.frames) / seconds;
     const double msec = 1000.0 / fps;
     std::println(
-      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} model: {} size: {}x{} threads: {} benchmark: bench_clip",
+      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} model: {} size: {}x{} threads: {} block_early_depth_reject: {} early_fragment_depth_test: {} benchmark: bench_clip",
       cfg.frames,
       seconds,
       fps,
@@ -383,7 +434,9 @@ int main(int argc, char** argv)
       cfg.model_path,
       cfg.width,
       cfg.height,
-      cfg.threads);
+      cfg.threads,
+      rasterizer_feature_mode_name(cfg.block_early_depth_reject),
+      rasterizer_feature_mode_name(cfg.early_fragment_depth_test));
 
     release_drawables(objects);
     swr::UnregisterShader(flat_shader_id);

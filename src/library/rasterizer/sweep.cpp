@@ -11,6 +11,9 @@
 /* user headers. */
 #include "../swr_internal.h"
 
+#include <optional>
+#include <utility>
+
 #include "interpolators.h"
 #include "fragment.h"
 #include "sweep.h"
@@ -20,86 +23,6 @@ namespace rast
 
 namespace
 {
-
-struct tile_depth_range_cache
-{
-    swr::impl::default_framebuffer* framebuffer{nullptr};
-    int x{0};
-    int y{0};
-    bool valid{false};
-    depth_range range{};
-};
-
-const depth_range& get_or_compute_depth_range(
-  void* context)
-{
-    assert(context);
-
-    auto& cache = *static_cast<tile_depth_range_cache*>(context);
-    const auto& depth_buffer = cache.framebuffer->depth_buffer;
-    const int x0 = cache.x;
-    const int y0 = cache.y;
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    swr::impl::profile_raster_stored_depth_range_requests.fetch_add(1, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    if(cache.valid)
-    {
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-        swr::impl::profile_raster_stored_depth_range_hits.fetch_add(1, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-        return cache.range;
-    }
-
-    const int width =
-      std::max(
-        0,
-        std::min<int>(
-          swr::impl::rasterizer_block_size,
-          depth_buffer.info.width - x0));
-    const int height =
-      std::max(
-        0,
-        std::min<int>(
-          swr::impl::rasterizer_block_size,
-          depth_buffer.info.height - y0));
-
-    if(width <= 0 || height <= 0)
-    {
-        cache.range = {0, 0};
-        cache.valid = true;
-        return cache.range;
-    }
-
-    constexpr int depth_value_size =
-      static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
-    const int row_stride = depth_buffer.info.pitch / depth_value_size;
-    ml::fixed_32_t min_z = depth_buffer.info.data_ptr[y0 * row_stride + x0];
-    ml::fixed_32_t max_z = min_z;
-
-    for(int y = 0; y < height; ++y)
-    {
-        const int row = (y0 + y) * row_stride + x0;
-        for(int x = 0; x < width; ++x)
-        {
-            const ml::fixed_32_t z = depth_buffer.info.data_ptr[row + x];
-            min_z = std::min(min_z, z);
-            max_z = std::max(max_z, z);
-        }
-    }
-
-    cache.range = {min_z, max_z};
-    cache.valid = true;
-
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    swr::impl::profile_raster_stored_depth_range_computes.fetch_add(1, std::memory_order_relaxed);
-    swr::impl::profile_raster_stored_depth_range_hits.fetch_add(1, std::memory_order_relaxed);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    return cache.range;
-}
 
 [[nodiscard]]
 bool may_write_default_depth_buffer(
@@ -112,6 +35,42 @@ bool may_write_default_depth_buffer(
            && primitive.states->depth_test_enabled
            && primitive.states->write_depth
            && primitive.states->depth_func != swr::comparison_func::fail;
+}
+
+[[nodiscard]]
+std::optional<depth_range> describe_possible_depth_write(
+  const tile_info& primitive,
+  const tile& owning_tile,
+  tile_depth_context& depth_context)
+{
+    if(primitive.states == nullptr
+       || primitive.states->shader_info == nullptr
+       || primitive.states->shader_info->metadata.fragment_shader_may_write_depth)
+    {
+        return std::nullopt;
+    }
+
+    if(primitive.mode == tile_info::rasterization_mode::small_checked)
+    {
+        assert(primitive.precomputed_payload_index < owning_tile.primitive_small_payloads.size());
+        return depth_context.conservative_depth_range(
+          owning_tile.primitive_small_payloads[primitive.precomputed_payload_index].attributes.depth_value);
+    }
+
+    if(primitive.mode == tile_info::rasterization_mode::sparse_checked)
+    {
+        assert(primitive.precomputed_payload_index < owning_tile.primitive_sparse_payloads.size());
+        return depth_context.conservative_depth_range(
+          owning_tile.primitive_sparse_payloads[primitive.precomputed_payload_index].attributes.depth_value);
+    }
+
+    if(primitive.attributes == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    return depth_context.conservative_depth_range(
+      primitive.attributes->depth_value);
 }
 
 } /* namespace */
@@ -154,6 +113,66 @@ void sweep_rasterizer::add_triangle(
       v2,
       v3);
 }
+
+#ifdef SWR_ENABLE_MULTI_THREADING
+std::size_t early_depth_policy_store::allocate_instance_id()
+{
+    static std::atomic<std::size_t> next_id{1};
+    return next_id.fetch_add(1, std::memory_order_relaxed);
+}
+
+early_depth_policy_store::early_depth_policy_store(
+  swr::impl::render_context::thread_pool_type* in_thread_pool)
+: instance_id{allocate_instance_id()}
+, thread_pool{in_thread_pool}
+{
+    assert(thread_pool);
+    worker_states.resize(
+      std::max<std::size_t>(
+        1,
+        thread_pool->get_thread_count() + 1));
+}
+
+early_depth_policy_state& early_depth_policy_store::current_state()
+{
+    assert(instance_id != 0);
+    assert(!worker_states.empty());
+
+    if(thread_pool->get_thread_count() <= 1)
+    {
+        return worker_states.front();
+    }
+
+    thread_local std::vector<
+      std::pair<std::size_t, std::size_t>>
+      worker_state_assignments;
+
+    for(const auto& assignment: worker_state_assignments)
+    {
+        if(assignment.first == instance_id)
+        {
+            return worker_states[assignment.second];
+        }
+    }
+
+    const std::size_t raw_state_index =
+      next_worker_state.fetch_add(
+        1,
+        std::memory_order_relaxed);
+    const std::size_t state_index =
+      raw_state_index % worker_states.size();
+
+    worker_state_assignments.emplace_back(
+      instance_id,
+      state_index);
+    return worker_states[state_index];
+}
+#else
+early_depth_policy_state& early_depth_policy_store::current_state()
+{
+    return state;
+}
+#endif
 
 void sweep_rasterizer::draw_primitives()
 {
@@ -273,21 +292,35 @@ void sweep_rasterizer::process_tile(tile& in_tile)
 {
     const unsigned int tile_x = in_tile.x;
     const unsigned int tile_y = in_tile.y;
+    early_depth_policy_state& early_depth_policy =
+      early_depth_policies.current_state();
 
     /*
      * per-tile depth cache.
      */
 
-    tile_depth_range_cache depth_range_cache{
+    tile_depth_context depth_context{
+      framebuffer,
+      tile_x,
+      tile_y};
+    block_raster_context block_context{
       .framebuffer = framebuffer,
-      .x = static_cast<int>(tile_x),
-      .y = static_cast<int>(tile_y)};
-    const depth_range_provider tile_depth_range_provider =
-      {get_or_compute_depth_range, &depth_range_cache};
+      .tiles = tiles,
+      .early_depth_policy = early_depth_policy,
+      .depth_context = &depth_context};
 
     for(auto& it: in_tile.primitives)
     {
         bool block_was_processed = false;
+        const bool may_write_depth =
+          may_write_default_depth_buffer(it, framebuffer);
+        const std::optional<depth_range> possible_depth_write =
+          may_write_depth
+            ? describe_possible_depth_write(
+                it,
+                in_tile,
+                depth_context)
+            : std::nullopt;
 
         if(it.mode == tile_info::rasterization_mode::block)
         {
@@ -299,7 +332,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               tile_x,
               tile_y,
               it,
-              &tile_depth_range_provider);
+              block_context);
         }
         else if(uses_checked_lambdas(it.mode))
         {
@@ -311,7 +344,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               tile_x,
               tile_y,
               it,
-              &tile_depth_range_provider);
+              block_context);
         }
         else if(it.mode == tile_info::rasterization_mode::small_checked)
         {
@@ -325,6 +358,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               tile_x,
               tile_y,
               it,
+              block_context,
               in_tile.primitive_small_payloads[it.precomputed_payload_index]);
 
             block_was_processed = true;
@@ -343,6 +377,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
               tile_x,
               tile_y,
               it,
+              block_context,
               payload,
               std::span<const small_triangle_quad_payload>{
                 in_tile.primitive_sparse_quad_payloads.data() + payload.quad_offset,
@@ -352,9 +387,17 @@ void sweep_rasterizer::process_tile(tile& in_tile)
         }
 
         if(block_was_processed
-           && may_write_default_depth_buffer(it, framebuffer))
+           && may_write_depth)
         {
-            depth_range_cache.valid = false;
+            if(possible_depth_write.has_value())
+            {
+                depth_context.include_possible_depth_write(
+                  *possible_depth_write);
+            }
+            else
+            {
+                depth_context.invalidate();
+            }
         }
     }
 }

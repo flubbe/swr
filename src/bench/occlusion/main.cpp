@@ -1,11 +1,11 @@
 /**
  * swr - a software rasterizer
  *
- * offscreen obj occlusion-grid benchmark (no SDL window/framework).
+ * occlusion benchmark.
  *
- * \\author Felix Lubbe
- * \\copyright Copyright (c) 2026
- * \\license Distributed under the MIT software license (see accompanying LICENSE.txt).
+ * \author Felix Lubbe
+ * \copyright Copyright (c) 2026
+ * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 #include <algorithm>
@@ -23,7 +23,7 @@
 #include "swr/swr.h"
 #include "swr/shaders.h"
 
-#include "bench/obj/shader.h"
+#include "shader.h"
 
 #if defined(__clang__) || defined(__GNUC__)
 #    pragma GCC diagnostic push
@@ -44,12 +44,15 @@ struct bench_config
 {
     std::string model_path;
     std::uint32_t frames{600};
+    std::uint32_t orbit_frames{0};
     std::uint32_t width{400};
     std::uint32_t height{400};
     std::uint32_t threads{0};
     bool cull_face{true};
     bool depth_test{true};
     bool show_window{false};
+    swr::rasterizer_feature_mode block_early_depth_reject{swr::rasterizer_feature_mode::automatic};
+    swr::rasterizer_feature_mode early_fragment_depth_test{swr::rasterizer_feature_mode::automatic};
     float camera_angle_deg{0.0f};
     float fov_deg{18.0f};
 };
@@ -78,6 +81,39 @@ bool parse_bool(const std::string& value, bool default_value)
         return false;
     }
     return default_value;
+}
+
+swr::rasterizer_feature_mode parse_rasterizer_feature_mode(
+  const std::string& value,
+  swr::rasterizer_feature_mode default_value)
+{
+    if(value == "auto" || value == "automatic")
+    {
+        return swr::rasterizer_feature_mode::automatic;
+    }
+    if(value == "1" || value == "true" || value == "on" || value == "enabled")
+    {
+        return swr::rasterizer_feature_mode::on;
+    }
+    if(value == "0" || value == "false" || value == "off" || value == "disabled")
+    {
+        return swr::rasterizer_feature_mode::off;
+    }
+    return default_value;
+}
+
+const char* rasterizer_feature_mode_name(swr::rasterizer_feature_mode mode)
+{
+    switch(mode)
+    {
+    case swr::rasterizer_feature_mode::automatic:
+        return "auto";
+    case swr::rasterizer_feature_mode::on:
+        return "on";
+    case swr::rasterizer_feature_mode::off:
+        return "off";
+    }
+    return "unknown";
 }
 
 std::string arg_value(const std::string& arg, const std::string& name)
@@ -111,6 +147,10 @@ bench_config parse_args(int argc, char** argv)
         {
             run_time_seconds = std::stod(v);
         }
+        else if(auto v = arg_value(arg, "--orbit_frames"); !v.empty())
+        {
+            cfg.orbit_frames = static_cast<std::uint32_t>(std::stoul(v));
+        }
         else if(auto v = arg_value(arg, "--width"); !v.empty())
         {
             cfg.width = static_cast<std::uint32_t>(std::stoul(v));
@@ -135,6 +175,16 @@ bench_config parse_args(int argc, char** argv)
         {
             cfg.show_window = parse_bool(v, cfg.show_window);
         }
+        else if(auto v = arg_value(arg, "--block_early_depth_reject"); !v.empty())
+        {
+            cfg.block_early_depth_reject =
+              parse_rasterizer_feature_mode(v, cfg.block_early_depth_reject);
+        }
+        else if(auto v = arg_value(arg, "--early_fragment_depth_test"); !v.empty())
+        {
+            cfg.early_fragment_depth_test =
+              parse_rasterizer_feature_mode(v, cfg.early_fragment_depth_test);
+        }
         else if(auto v = arg_value(arg, "--camera_angle"); !v.empty())
         {
             cfg.camera_angle_deg = std::stof(v);
@@ -156,6 +206,10 @@ bench_config parse_args(int argc, char** argv)
     if(cfg.frames == 0)
     {
         die("--frames must be > 0");
+    }
+    if(cfg.orbit_frames == 0)
+    {
+        cfg.orbit_frames = cfg.frames;
     }
     if(cfg.width == 0 || cfg.height == 0)
     {
@@ -328,7 +382,7 @@ int main(int argc, char** argv)
             die(std::format("SDL_Init failed: {}", SDL_GetError()));
         }
         if(!SDL_CreateWindowAndRenderer(
-             "swr bench_occlusion_grid",
+             "swr bench_occlusion",
              static_cast<int>(cfg.width),
              static_cast<int>(cfg.height),
              SDL_WINDOW_RESIZABLE,
@@ -375,6 +429,12 @@ int main(int argc, char** argv)
     swr::SetViewport(0, 0, static_cast<int>(cfg.width), static_cast<int>(cfg.height));
     swr::SetState(swr::state::cull_face, cfg.cull_face);
     swr::SetState(swr::state::depth_test, cfg.depth_test);
+    swr::SetRasterizerFeature(
+      swr::rasterizer_feature::block_early_depth_reject,
+      cfg.block_early_depth_reject);
+    swr::SetRasterizerFeature(
+      swr::rasterizer_feature::early_fragment_depth_test,
+      cfg.early_fragment_depth_test);
 
     std::vector<drawable_object> objects;
     ml::vec3 bmin;
@@ -426,7 +486,7 @@ int main(int argc, char** argv)
             }
         }
 
-        const float t = static_cast<float>(frame) / static_cast<float>(cfg.frames);
+        const float t = static_cast<float>(frame % cfg.orbit_frames) / static_cast<float>(cfg.orbit_frames);
         const float orbit_angle = 2.0f * static_cast<float>(M_PI) * t;
         const float y = camera_radius * std::sin(camera_angle_radians);
         const float xz_radius = camera_radius * std::cos(camera_angle_radians);
@@ -455,7 +515,7 @@ int main(int argc, char** argv)
                 for(const auto& o: objects)
                 {
                     swr::EnableAttributeBuffer(o.vertex_buffer_id, 0);
-                    swr::EnableAttributeBuffer(o.color_buffer_id, 2);
+                    swr::EnableAttributeBuffer(o.color_buffer_id, 1);
                     swr::DrawElements(swr::vertex_buffer_mode::triangles, 3 * o.triangle_count);
                     swr::DisableAttributeBuffer(o.color_buffer_id);
                     swr::DisableAttributeBuffer(o.vertex_buffer_id);
@@ -477,7 +537,7 @@ int main(int argc, char** argv)
     const double fps = (seconds > 0.0) ? (static_cast<double>(frames_rendered) / seconds) : 0.0;
     const double msec = (fps > 0.0) ? (1000.0 / fps) : 0.0;
     std::println(
-      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} model: {} size: {}x{} threads: {} camera_angle: {:.2f} fov: {:.2f} show_window: {} benchmark: bench_occlusion_grid",
+      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} model: {} size: {}x{} threads: {} block_early_depth_reject: {} early_fragment_depth_test: {} camera_angle: {:.2f} fov: {:.2f} show_window: {} orbit_frames: {} benchmark: bench_occlusion",
       frames_rendered,
       seconds,
       fps,
@@ -486,9 +546,12 @@ int main(int argc, char** argv)
       cfg.width,
       cfg.height,
       cfg.threads,
+      rasterizer_feature_mode_name(cfg.block_early_depth_reject),
+      rasterizer_feature_mode_name(cfg.early_fragment_depth_test),
       cfg.camera_angle_deg,
       cfg.fov_deg,
-      cfg.show_window);
+      cfg.show_window,
+      cfg.orbit_frames);
 
     release_drawables(objects);
     swr::UnregisterShader(flat_shader_id);

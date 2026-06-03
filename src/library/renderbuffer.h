@@ -345,7 +345,7 @@ struct framebuffer_draw_target
     virtual void depth_compare_write_block(
       int x,
       int y,
-      std::array<float, 4>& depth_value,
+      const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
       std::uint8_t& write_mask) = 0;
@@ -410,7 +410,7 @@ struct default_framebuffer : public framebuffer_draw_target
     virtual void depth_compare_write_block(
       int x,
       int y,
-      std::array<float, 4>& depth_value,
+      const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
       std::uint8_t& write_mask) override;
@@ -588,7 +588,7 @@ public:
     virtual void depth_compare_write_block(
       int x,
       int y,
-      std::array<float, 4>& depth_value,
+      const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
       std::uint8_t& write_mask) override;
