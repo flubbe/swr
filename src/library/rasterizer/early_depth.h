@@ -30,12 +30,12 @@ struct depth_range
 };
 
 /** Full-tile quad count used by block-level early depth rejection. */
-inline constexpr unsigned int early_depth_reject_tile_quad_count =
+inline constexpr std::uint32_t early_depth_reject_tile_quad_count =
   (swr::impl::rasterizer_block_size / 2)
   * (swr::impl::rasterizer_block_size / 2);
 
 /** Tile-local cached view of the stored depth range. */
-class tile_depth_context
+class tile_depth_cache
 {
     /** Default framebuffer that owns the depth attachment. */
     swr::impl::default_framebuffer* framebuffer{nullptr};
@@ -54,23 +54,19 @@ class tile_depth_context
 
 public:
     /** Construct a tile depth context for one rasterizer block. */
-    tile_depth_context(
+    tile_depth_cache(
       swr::impl::default_framebuffer* framebuffer,
       unsigned int x,
       unsigned int y);
 
     /** Return the stored-depth range, computing it lazily on first use. */
     [[nodiscard]]
-    const depth_range& stored_range();
+    const depth_range& stored_depth_range();
 
     /** Return this tile's conservative depth range for a primitive depth plane. */
     [[nodiscard]]
     std::optional<depth_range> conservative_depth_range(
       const geom::linear_interpolator_2d<float>& depth) const;
-
-    /** Keep the cached range valid after a represented depth write. */
-    void include_possible_depth_write(
-      depth_range written_range);
 
     /** Invalidate the cached range after a primitive may have written depth. */
     void invalidate()
@@ -80,7 +76,7 @@ public:
 };
 
 /** Fragment-level early depth execution path for one rasterizer block. */
-enum class early_fragment_depth_test_path
+enum class early_depth_test_path
 {
     /** Run the ordinary late-depth path. */
     late,
@@ -93,28 +89,28 @@ enum class early_fragment_depth_test_path
 };
 
 /** Fragment-level early depth decision for one rasterizer block. */
-struct early_fragment_depth_test_plan
+struct fragment_depth_test_plan
 {
     /** Chosen execution path. */
-    early_fragment_depth_test_path path{early_fragment_depth_test_path::late};
+    early_depth_test_path path{early_depth_test_path::late};
 
     /** Whether the selected path performs depth testing before fragment shading. */
     [[nodiscard]]
     bool uses_early_depth() const
     {
-        return path != early_fragment_depth_test_path::late;
+        return path != early_depth_test_path::late;
     }
 
     /** Whether the selected path should report early-depth telemetry to the auto policy. */
     [[nodiscard]]
     bool collects_auto_stats() const
     {
-        return path == early_fragment_depth_test_path::early_collect_stats;
+        return path == early_depth_test_path::early_collect_stats;
     }
 };
 
 /** Inputs needed for a block-level conservative early depth reject decision. */
-struct block_early_depth_reject_request
+struct block_depth_reject_request
 {
     /** Default framebuffer whose depth attachment may be used for the optimization. */
     const swr::impl::default_framebuffer* default_framebuffer{nullptr};
@@ -132,14 +128,14 @@ struct block_early_depth_reject_request
     const geom::linear_interpolator_2d<float>& depth;
 
     /** Optional tile-local stored-depth cache. */
-    tile_depth_context* tile_depth{nullptr};
+    tile_depth_cache* tile_depth{nullptr};
 
     /** Estimated number of candidate quads that could be skipped. */
     unsigned int candidate_quad_count{0};
 };
 
 /** Outcome of a block-level conservative early depth reject decision. */
-struct block_early_depth_reject_result
+struct block_depth_reject_result
 {
     /** Whether the block-level depth-range test actually ran. */
     bool tested{false};
@@ -153,24 +149,24 @@ struct early_depth_controller
 {
     /** Whether shader metadata permits moving depth testing before fragment shading. */
     [[nodiscard]]
-    static bool supports_fragment_early_depth(
+    static bool shader_allows_early_depth(
       const swr::program_metadata& metadata);
 
     /** Whether the current render state permits moving depth testing before fragment shading. */
     [[nodiscard]]
-    static bool fragment_early_depth_is_legal(
+    static bool render_state_allows_early_depth(
       const swr::impl::render_states& states);
 
     /** Choose the fragment-level early depth path for one rasterizer block. */
     [[nodiscard]]
-    static early_fragment_depth_test_plan choose_fragment_depth_test(
+    static fragment_depth_test_plan choose_depth_test_path(
       const swr::impl::render_states& states,
       early_depth_policy_state& policy);
 
     /** Try to reject a whole rasterizer block with conservative depth ranges. */
     [[nodiscard]]
-    static block_early_depth_reject_result try_reject_block(
-      const block_early_depth_reject_request& request,
+    static block_depth_reject_result try_reject_block(
+      const block_depth_reject_request& request,
       early_depth_policy_state& policy);
 };
 

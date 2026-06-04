@@ -31,14 +31,6 @@ static_assert(swr::fragment_shader_result::accept == 1, "swr::fragment_shader_re
 namespace
 {
 
-[[nodiscard]]
-static bool should_run_early_fragment_depth_test(
-  const swr::impl::render_states& states)
-{
-    return states.early_fragment_depth_test_mode == swr::rasterizer_feature_mode::on
-           && early_depth_controller::fragment_early_depth_is_legal(states);
-}
-
 static void clamp_depth_values(
   std::array<float, 4>& depth_value)
 {
@@ -132,7 +124,8 @@ void sweep_rasterizer::process_fragment(
 
     bool depth_write_mask = true;
     const bool early_fragment_depth_test =
-      should_run_early_fragment_depth_test(states);
+      states.early_fragment_depth_test_mode == swr::rasterizer_feature_mode::on
+      && early_depth_controller::render_state_allows_early_depth(states);
 
     if(early_fragment_depth_test)
     {
@@ -365,7 +358,7 @@ void process_fragment_block(
     {
         alignas(utils::alignment::sse) std::array<float, 4> depth_test_value = depth_value;
         clamp_depth_values(depth_test_value);
-        [[maybe_unused]] const std::uint8_t early_depth_input_mask = depth_mask;
+        const std::uint8_t early_depth_input_mask = depth_mask;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_depth = 0;
@@ -382,6 +375,39 @@ void process_fragment_block(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_depth);
         swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
+        const std::uint8_t prof_early_depth_rejected_mask =
+          early_depth_input_mask & static_cast<std::uint8_t>(~depth_mask);
+        const std::uint64_t prof_early_depth_tested =
+          count_masked_fragments(early_depth_input_mask);
+        const std::uint64_t prof_early_depth_rejected =
+          count_masked_fragments(prof_early_depth_rejected_mask);
+        swr::impl::profile_fragment_early_depth_blocks.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_fragments_tested.fetch_add(
+          prof_early_depth_tested,
+          std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_fragments_rejected.fetch_add(
+          prof_early_depth_rejected,
+          std::memory_order_relaxed);
+        if(early_depth_input_mask == 0b1111)
+        {
+            swr::impl::profile_fragment_early_depth_full_mask_blocks.fetch_add(1, std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_full_mask_fragments_tested.fetch_add(
+              prof_early_depth_tested,
+              std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_full_mask_fragments_rejected.fetch_add(
+              prof_early_depth_rejected,
+              std::memory_order_relaxed);
+        }
+        else
+        {
+            swr::impl::profile_fragment_early_depth_partial_mask_blocks.fetch_add(1, std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_partial_mask_fragments_tested.fetch_add(
+              prof_early_depth_tested,
+              std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_partial_mask_fragments_rejected.fetch_add(
+              prof_early_depth_rejected,
+              std::memory_order_relaxed);
+        }
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         if constexpr(collect_early_depth_stats)
@@ -676,7 +702,7 @@ void process_fragment_block(
     {
         alignas(utils::alignment::sse) std::array<float, 4> depth_test_value = depth_value;
         clamp_depth_values(depth_test_value);
-        [[maybe_unused]] const std::uint8_t early_depth_input_mask = depth_mask;
+        const std::uint8_t early_depth_input_mask = depth_mask;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_depth = 0;
@@ -694,6 +720,39 @@ void process_fragment_block(
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_depth);
         swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
+        const std::uint8_t prof_early_depth_rejected_mask =
+          early_depth_input_mask & static_cast<std::uint8_t>(~depth_mask);
+        const std::uint64_t prof_early_depth_tested =
+          count_masked_fragments(early_depth_input_mask);
+        const std::uint64_t prof_early_depth_rejected =
+          count_masked_fragments(prof_early_depth_rejected_mask);
+        swr::impl::profile_fragment_early_depth_blocks.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_fragments_tested.fetch_add(
+          prof_early_depth_tested,
+          std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_fragments_rejected.fetch_add(
+          prof_early_depth_rejected,
+          std::memory_order_relaxed);
+        if(early_depth_input_mask == 0b1111)
+        {
+            swr::impl::profile_fragment_early_depth_full_mask_blocks.fetch_add(1, std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_full_mask_fragments_tested.fetch_add(
+              prof_early_depth_tested,
+              std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_full_mask_fragments_rejected.fetch_add(
+              prof_early_depth_rejected,
+              std::memory_order_relaxed);
+        }
+        else
+        {
+            swr::impl::profile_fragment_early_depth_partial_mask_blocks.fetch_add(1, std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_partial_mask_fragments_tested.fetch_add(
+              prof_early_depth_tested,
+              std::memory_order_relaxed);
+            swr::impl::profile_fragment_early_depth_partial_mask_fragments_rejected.fetch_add(
+              prof_early_depth_rejected,
+              std::memory_order_relaxed);
+        }
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         if constexpr(collect_early_depth_stats)

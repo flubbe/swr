@@ -194,7 +194,11 @@ public:
 
 geom::vertex make_vertex(float x, float y)
 {
-    return geom::vertex{.coords = {x, y, 0, 0}};
+    return geom::vertex{
+      .coords = {x, y, 0, 0},
+      .varyings = {},
+      .provoking_vertex_varyings = nullptr,
+      .flags = geom::vf_none};
 }
 
 struct triangle_test_context

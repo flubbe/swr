@@ -37,6 +37,353 @@ unsigned int estimate_quad_count(quad_bounds bounds)
     return ((width + 1) / 2) * ((height + 1) / 2);
 }
 
+constexpr std::uint8_t full_fragment_mask = 0b1111;
+const ml::vec2 fragment_pixel_center{0.5f, 0.5f};
+
+static void clamp_fragment_depth_values(
+  std::array<float, 4>& depth_value)
+{
+#ifdef SWR_USE_SIMD
+    _mm_store_ps(
+      depth_value.data(),
+      _mm_min_ps(
+        _mm_max_ps(
+          _mm_load_ps(depth_value.data()),
+          _mm_set1_ps(0.0f)),
+        _mm_set1_ps(1.0f)));
+#else  /* SWR_USE_SIMD */
+    depth_value[0] = std::clamp(depth_value[0], 0.f, 1.f);
+    depth_value[1] = std::clamp(depth_value[1], 0.f, 1.f);
+    depth_value[2] = std::clamp(depth_value[2], 0.f, 1.f);
+    depth_value[3] = std::clamp(depth_value[3], 0.f, 1.f);
+#endif /* SWR_USE_SIMD */
+}
+
+[[nodiscard]]
+static std::uint64_t count_fragment_masked(
+  std::uint8_t mask)
+{
+    return ((mask & 8) ? 1u : 0u)
+           + ((mask & 4) ? 1u : 0u)
+           + ((mask & 2) ? 1u : 0u)
+           + ((mask & 1) ? 1u : 0u);
+}
+
+template<bool collect_early_depth_stats>
+void process_precomputed_fragment_block_early_z(
+  swr::impl::default_framebuffer* framebuffer,
+  int x,
+  int y,
+  std::uint8_t mask,
+  unsigned int offset_x,
+  unsigned int offset_y,
+  const swr::impl::render_states& states,
+  const swr::program_base* in_shader,
+  const small_triangle_interpolator& attributes,
+  const ml::vec4& in_depth,
+  const ml::vec4& one_over_viewport_z,
+  bool front_facing,
+  std::array<
+    boost::container::static_vector<
+      swr::varying,
+      swr::limits::max::varyings>,
+    4>& temp_varyings,
+  swr::impl::fragment_output_block& out,
+  early_depth_sample* early_depth = nullptr)
+{
+    const bool is_default_framebuffer = (states.draw_target == framebuffer);
+    const int framebuffer_height = states.draw_target->properties.height;
+    if constexpr(collect_early_depth_stats)
+    {
+        assert(early_depth != nullptr);
+        early_depth->reset();
+    }
+
+    std::uint8_t active_mask = mask;
+    std::uint8_t depth_mask = active_mask;
+    std::uint8_t write_color = active_mask;
+    std::uint8_t write_stencil = 0b0;
+
+    const int x0 = x;
+    const int x1 = x + 1;
+    const int y0 = y;
+    const int y1 = y + 1;
+
+    if(states.scissor_test_enabled)
+    {
+        const int x_min = states.scissor_box.x_min;
+        const int x_max = states.scissor_box.x_max;
+        int y_min{states.scissor_box.y_min};
+        int y_max{states.scissor_box.y_max};
+
+        if(is_default_framebuffer)
+        {
+            const int y_temp = y_min;
+            y_min = framebuffer_height - y_max;
+            y_max = framebuffer_height - y_temp;
+        }
+
+        const std::uint8_t scissor_mask =
+          (((x0 >= x_min && x0 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 3)
+          | (((x1 >= x_min && x1 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 2)
+          | (((x0 >= x_min && x0 < x_max && y1 >= y_min && y1 < y_max) ? 1 : 0) << 1)
+          | ((x1 >= x_min && x1 < x_max && y1 >= y_min && y1 < y_max) ? 1 : 0);
+
+        if(scissor_mask == 0)
+        {
+            out.write_color = 0;
+            out.write_stencil = 0;
+            return;
+        }
+
+        active_mask &= scissor_mask;
+        if(active_mask == 0)
+        {
+            out.write_color = 0;
+            out.write_stencil = 0;
+            return;
+        }
+
+        depth_mask &= active_mask;
+        write_color &= active_mask;
+        write_stencil &= active_mask;
+    }
+
+    alignas(utils::alignment::sse) std::array<float, 4> depth_value = {
+      in_depth[0],
+      in_depth[1],
+      in_depth[2],
+      in_depth[3]};
+    alignas(utils::alignment::sse) std::array<float, 4> depth_test_value = depth_value;
+    clamp_fragment_depth_values(depth_test_value);
+    const std::uint8_t early_depth_input_mask = depth_mask;
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_depth = 0;
+    utils::clock(stage_depth);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    states.draw_target->depth_compare_write_block(
+      x,
+      y,
+      depth_test_value,
+      states.depth_func,
+      states.write_depth,
+      depth_mask);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_depth);
+    swr::impl::profile_depth_cycles.fetch_add(stage_depth, std::memory_order_relaxed);
+    const std::uint8_t prof_early_depth_rejected_mask =
+      early_depth_input_mask & static_cast<std::uint8_t>(~depth_mask);
+    const std::uint64_t prof_early_depth_tested =
+      count_fragment_masked(early_depth_input_mask);
+    const std::uint64_t prof_early_depth_rejected =
+      count_fragment_masked(prof_early_depth_rejected_mask);
+    swr::impl::profile_fragment_early_depth_blocks.fetch_add(1, std::memory_order_relaxed);
+    swr::impl::profile_fragment_early_depth_fragments_tested.fetch_add(
+      prof_early_depth_tested,
+      std::memory_order_relaxed);
+    swr::impl::profile_fragment_early_depth_fragments_rejected.fetch_add(
+      prof_early_depth_rejected,
+      std::memory_order_relaxed);
+    if(early_depth_input_mask == full_fragment_mask)
+    {
+        swr::impl::profile_fragment_early_depth_full_mask_blocks.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_full_mask_fragments_tested.fetch_add(
+          prof_early_depth_tested,
+          std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_full_mask_fragments_rejected.fetch_add(
+          prof_early_depth_rejected,
+          std::memory_order_relaxed);
+    }
+    else
+    {
+        swr::impl::profile_fragment_early_depth_partial_mask_blocks.fetch_add(1, std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_partial_mask_fragments_tested.fetch_add(
+          prof_early_depth_tested,
+          std::memory_order_relaxed);
+        swr::impl::profile_fragment_early_depth_partial_mask_fragments_rejected.fetch_add(
+          prof_early_depth_rejected,
+          std::memory_order_relaxed);
+    }
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    if constexpr(collect_early_depth_stats)
+    {
+        const std::uint8_t early_depth_rejected_mask =
+          early_depth_input_mask & static_cast<std::uint8_t>(~depth_mask);
+        early_depth->set(
+          count_fragment_masked(early_depth_input_mask),
+          count_fragment_masked(early_depth_rejected_mask));
+    }
+
+    active_mask &= depth_mask;
+    if(active_mask == 0)
+    {
+        out.write_color = 0;
+        out.write_stencil = 0;
+        return;
+    }
+
+    write_color &= active_mask;
+    write_stencil &= active_mask;
+
+    attributes.get_varyings_block_at(
+      offset_x,
+      offset_y,
+      temp_varyings);
+
+    std::array<rast::fragment_info, 4> frag_info =
+      {{{depth_value[0], front_facing, temp_varyings[0]},
+        {depth_value[1], front_facing, temp_varyings[1]},
+        {depth_value[2], front_facing, temp_varyings[2]},
+        {depth_value[3], front_facing, temp_varyings[3]}}};
+
+#ifdef SWR_USE_SIMD
+    alignas(utils::alignment::sse) std::array<float, 4> z;
+    _mm_store_ps(
+      z.data(),
+      _mm_div_ps(
+        _mm_set1_ps(1.0f),
+        _mm_set_ps(
+          one_over_viewport_z[3],
+          one_over_viewport_z[2],
+          one_over_viewport_z[1],
+          one_over_viewport_z[0])));
+#else  /* SWR_USE_SIMD */
+    const ml::vec4 z = ml::vec4::one() / ml::vec4(one_over_viewport_z);
+#endif /* SWR_USE_SIMD */
+
+    for(std::size_t i = 0; i < states.shader_info->iqs.size(); ++i)
+    {
+        if(states.shader_info->iqs[i] == swr::interpolation_qualifier::smooth)
+        {
+            frag_info[0].varyings[i].value *= z[0];
+            frag_info[1].varyings[i].value *= z[1];
+            frag_info[2].varyings[i].value *= z[2];
+            frag_info[3].varyings[i].value *= z[3];
+
+            frag_info[0].varyings[i].dFdx = frag_info[1].varyings[i].value - frag_info[0].varyings[i].value;
+            frag_info[1].varyings[i].dFdx = frag_info[0].varyings[i].dFdx;
+            frag_info[2].varyings[i].dFdx = frag_info[3].varyings[i].value - frag_info[2].varyings[i].value;
+            frag_info[3].varyings[i].dFdx = frag_info[2].varyings[i].dFdx;
+
+            frag_info[0].varyings[i].dFdy = frag_info[2].varyings[i].value - frag_info[0].varyings[i].value;
+            frag_info[1].varyings[i].dFdy = frag_info[3].varyings[i].value - frag_info[1].varyings[i].value;
+            frag_info[2].varyings[i].dFdy = frag_info[0].varyings[i].dFdy;
+            frag_info[3].varyings[i].dFdy = frag_info[1].varyings[i].dFdy;
+        }
+    }
+
+    std::array<ml::vec4, 4> color =
+      {{{0, 0, 0, 1},
+        {0, 0, 0, 1},
+        {0, 0, 0, 1},
+        {0, 0, 0, 1}}};
+
+    const float fx0 = static_cast<float>(x0) - fragment_pixel_center.x;
+    const float fx1 = static_cast<float>(x1) - fragment_pixel_center.x;
+    const float fy0 = static_cast<float>(y0) - fragment_pixel_center.y;
+    const float fy1 = static_cast<float>(y1) - fragment_pixel_center.y;
+    std::uint8_t accept_mask = 0;
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_fragment_shader = 0;
+    utils::clock(stage_fragment_shader);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    auto make_frag_coord = [&](int fragment_index) -> ml::vec4
+    {
+        float fx = fx0;
+        float fy = fy0;
+        switch(fragment_index)
+        {
+        case 1:
+            fx = fx1;
+            break;
+        case 2:
+            fy = fy1;
+            break;
+        case 3:
+            fx = fx1;
+            fy = fy1;
+            break;
+        default:
+            break;
+        }
+
+        if(is_default_framebuffer)
+        {
+            fy = framebuffer_height - fy;
+        }
+
+        return {fx, fy, depth_value[fragment_index], z[fragment_index]};
+    };
+
+    if(active_mask == full_fragment_mask)
+    {
+        ml::vec4 frag_coord0 = make_frag_coord(0);
+        ml::vec4 frag_coord1 = make_frag_coord(1);
+        ml::vec4 frag_coord2 = make_frag_coord(2);
+        ml::vec4 frag_coord3 = make_frag_coord(3);
+
+        accept_mask |= in_shader->fragment_shader(frag_coord0, frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
+        accept_mask |= in_shader->fragment_shader(frag_coord1, frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
+        accept_mask |= in_shader->fragment_shader(frag_coord2, frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
+        accept_mask |= in_shader->fragment_shader(frag_coord3, frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
+    }
+    else
+    {
+        if(active_mask & 8)
+        {
+            ml::vec4 frag_coord0 = make_frag_coord(0);
+            accept_mask |= in_shader->fragment_shader(frag_coord0, frag_info[0].front_facing, {0, 0}, frag_info[0].varyings, depth_value[0], color[0]) << 3;
+        }
+        if(active_mask & 4)
+        {
+            ml::vec4 frag_coord1 = make_frag_coord(1);
+            accept_mask |= in_shader->fragment_shader(frag_coord1, frag_info[1].front_facing, {0, 0}, frag_info[1].varyings, depth_value[1], color[1]) << 2;
+        }
+        if(active_mask & 2)
+        {
+            ml::vec4 frag_coord2 = make_frag_coord(2);
+            accept_mask |= in_shader->fragment_shader(frag_coord2, frag_info[2].front_facing, {0, 0}, frag_info[2].varyings, depth_value[2], color[2]) << 1;
+        }
+        if(active_mask & 1)
+        {
+            ml::vec4 frag_coord3 = make_frag_coord(3);
+            accept_mask |= in_shader->fragment_shader(frag_coord3, frag_info[3].front_facing, {0, 0}, frag_info[3].varyings, depth_value[3], color[3]);
+        }
+    }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_fragment_shader);
+    swr::impl::profile_fragment_shader_cycles.fetch_add(stage_fragment_shader, std::memory_order_relaxed);
+    swr::impl::profile_fragment_shader_invocations.fetch_add(
+      count_fragment_masked(active_mask),
+      std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    if(accept_mask == 0)
+    {
+        out.write_color = 0;
+        out.write_stencil = 0;
+        return;
+    }
+
+    depth_mask &= accept_mask;
+    write_color &= accept_mask;
+    write_stencil &= accept_mask;
+
+    out.color[0] = color[0];
+    out.color[1] = color[1];
+    out.color[2] = color[2];
+    out.color[3] = color[3];
+    out.write_color = write_color;
+    out.write_stencil = write_stencil;
+}
+
 }    // namespace
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -73,16 +420,15 @@ inline void profile_checked_quad_mask(std::uint8_t mask)
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 template<
-  early_fragment_depth_test_path fragment_depth_path>
-bool process_block(
-  sweep_rasterizer& rasterizer,
-  block_raster_context& context,
+  early_depth_test_path fragment_depth_path>
+bool sweep_rasterizer::process_block_impl(
   unsigned int block_x,
   unsigned int block_y,
-  tile_info& data)
+  tile_info& data,
+  block_raster_context& context)
 {
     constexpr bool collect_early_fragment_depth_test_auto_stats =
-      fragment_depth_path == early_fragment_depth_test_path::early_collect_stats;
+      fragment_depth_path == early_depth_test_path::early_collect_stats;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -93,7 +439,7 @@ bool process_block(
 
     assert(data.attributes);
     auto& attributes = *data.attributes;
-    const block_early_depth_reject_result block_reject =
+    const block_depth_reject_result block_reject =
       early_depth_controller::try_reject_block(
         {
           .default_framebuffer = context.framebuffer,
@@ -168,7 +514,7 @@ bool process_block(
         if constexpr(collect_early_fragment_depth_test_auto_stats)
         {
             early_depth_sample early_depth;
-            rasterizer.process_fragment_block_early_z_collect_stats(
+            process_fragment_block_early_z_collect_stats(
               x,
               y,
               *data.states,
@@ -181,9 +527,9 @@ bool process_block(
         }
         else
         {
-            if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+            if constexpr(fragment_depth_path == early_depth_test_path::early)
             {
-                rasterizer.process_fragment_block_early_z(
+                process_fragment_block_early_z(
                   x,
                   y,
                   *data.states,
@@ -194,7 +540,7 @@ bool process_block(
             }
             else
             {
-                rasterizer.process_fragment_block(
+                process_fragment_block(
                   x,
                   y,
                   *data.states,
@@ -259,50 +605,46 @@ bool sweep_rasterizer::process_block(
   tile_info& data,
   block_raster_context& context)
 {
-    const early_fragment_depth_test_plan fragment_depth_plan =
-      early_depth_controller::choose_fragment_depth_test(
+    const fragment_depth_test_plan fragment_depth_plan =
+      early_depth_controller::choose_depth_test_path(
         *data.states,
         context.early_depth_policy);
 
-    if(fragment_depth_plan.path == early_fragment_depth_test_path::early_collect_stats)
+    if(fragment_depth_plan.path == early_depth_test_path::early_collect_stats)
     {
-        return rast::process_block<early_fragment_depth_test_path::early_collect_stats>(
-          *this,
-          context,
+        return process_block_impl<early_depth_test_path::early_collect_stats>(
           block_x,
           block_y,
-          data);
+          data,
+          context);
     }
 
-    if(fragment_depth_plan.path == early_fragment_depth_test_path::early)
+    if(fragment_depth_plan.path == early_depth_test_path::early)
     {
-        return rast::process_block<early_fragment_depth_test_path::early>(
-          *this,
-          context,
+        return process_block_impl<early_depth_test_path::early>(
           block_x,
           block_y,
-          data);
+          data,
+          context);
     }
 
-    return rast::process_block<early_fragment_depth_test_path::late>(
-      *this,
-      context,
+    return process_block_impl<early_depth_test_path::late>(
       block_x,
       block_y,
-      data);
+      data,
+      context);
 }
 
 template<
-  early_fragment_depth_test_path fragment_depth_path>
-bool process_block_checked(
-  sweep_rasterizer& rasterizer,
-  block_raster_context& context,
+  early_depth_test_path fragment_depth_path>
+bool sweep_rasterizer::process_block_checked_impl(
   unsigned int block_x,
   unsigned int block_y,
-  tile_info& data)
+  tile_info& data,
+  block_raster_context& context)
 {
     constexpr bool collect_early_fragment_depth_test_auto_stats =
-      fragment_depth_path == early_fragment_depth_test_path::early_collect_stats;
+      fragment_depth_path == early_depth_test_path::early_collect_stats;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_block_total = 0;
@@ -315,7 +657,7 @@ bool process_block_checked(
     auto& attributes = *data.attributes;
     const unsigned int candidate_quad_count =
       estimate_quad_count(data.checked_quad_bounds);
-    const block_early_depth_reject_result block_reject =
+    const block_depth_reject_result block_reject =
       early_depth_controller::try_reject_block(
         {
           .default_framebuffer = context.framebuffer,
@@ -399,7 +741,7 @@ bool process_block_checked(
             // a mask of 0b1111 means the 2x2 block is fully covered.
             if(mask == 0b1111)
             {
-                rasterizer.process_fragment_block_early_z_collect_stats(
+                process_fragment_block_early_z_collect_stats(
                   x,
                   y,
                   *data.states,
@@ -411,7 +753,7 @@ bool process_block_checked(
             }
             else
             {
-                rasterizer.process_fragment_block_early_z_collect_stats(
+                process_fragment_block_early_z_collect_stats(
                   x,
                   y,
                   static_cast<std::uint8_t>(mask),
@@ -430,9 +772,9 @@ bool process_block_checked(
             // a mask of 0b1111 means the 2x2 block is fully covered.
             if(mask == 0b1111)
             {
-                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+                if constexpr(fragment_depth_path == early_depth_test_path::early)
                 {
-                    rasterizer.process_fragment_block_early_z(
+                    process_fragment_block_early_z(
                       x,
                       y,
                       *data.states,
@@ -443,7 +785,7 @@ bool process_block_checked(
                 }
                 else
                 {
-                    rasterizer.process_fragment_block(
+                    process_fragment_block(
                       x,
                       y,
                       *data.states,
@@ -455,9 +797,9 @@ bool process_block_checked(
             }
             else
             {
-                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+                if constexpr(fragment_depth_path == early_depth_test_path::early)
                 {
-                    rasterizer.process_fragment_block_early_z(
+                    process_fragment_block_early_z(
                       x,
                       y,
                       static_cast<std::uint8_t>(mask),
@@ -469,7 +811,7 @@ bool process_block_checked(
                 }
                 else
                 {
-                    rasterizer.process_fragment_block(
+                    process_fragment_block(
                       x,
                       y,
                       static_cast<std::uint8_t>(mask),
@@ -538,52 +880,48 @@ bool sweep_rasterizer::process_block_checked(
   tile_info& data,
   block_raster_context& context)
 {
-    const early_fragment_depth_test_plan fragment_depth_plan =
-      early_depth_controller::choose_fragment_depth_test(
+    const fragment_depth_test_plan fragment_depth_plan =
+      early_depth_controller::choose_depth_test_path(
         *data.states,
         context.early_depth_policy);
 
-    if(fragment_depth_plan.path == early_fragment_depth_test_path::early_collect_stats)
+    if(fragment_depth_plan.path == early_depth_test_path::early_collect_stats)
     {
-        return rast::process_block_checked<early_fragment_depth_test_path::early_collect_stats>(
-          *this,
-          context,
+        return process_block_checked_impl<early_depth_test_path::early_collect_stats>(
           block_x,
           block_y,
-          data);
+          data,
+          context);
     }
 
-    if(fragment_depth_plan.path == early_fragment_depth_test_path::early)
+    if(fragment_depth_plan.path == early_depth_test_path::early)
     {
-        return rast::process_block_checked<early_fragment_depth_test_path::early>(
-          *this,
-          context,
+        return process_block_checked_impl<early_depth_test_path::early>(
           block_x,
           block_y,
-          data);
+          data,
+          context);
     }
 
-    return rast::process_block_checked<early_fragment_depth_test_path::late>(
-      *this,
-      context,
+    return process_block_checked_impl<early_depth_test_path::late>(
       block_x,
       block_y,
-      data);
+      data,
+      context);
 }
 
 template<
-  early_fragment_depth_test_path fragment_depth_path>
-void process_block_precomputed_checked(
-  sweep_rasterizer& rasterizer,
-  block_raster_context& context,
+  early_depth_test_path fragment_depth_path>
+void sweep_rasterizer::process_block_precomputed_checked_impl(
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
+  block_raster_context& context,
   const small_triangle_interpolator& attributes,
   std::span<const small_triangle_quad_payload> quads)
 {
     constexpr bool collect_early_fragment_depth_test_auto_stats =
-      fragment_depth_path == early_fragment_depth_test_path::early_collect_stats;
+      fragment_depth_path == early_depth_test_path::early_collect_stats;
 
     // Small/sparse payloads already narrowed the work to explicit covered quads,
     // so the full-block depth range reject is intentionally skipped here.
@@ -618,23 +956,30 @@ void process_block_precomputed_checked(
         utils::clock(stage_interp);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        attributes.get_data_block_at(
-          quad.x - block_x,
-          quad.y - block_y,
-          temp_varyings,
-          frag_depth,
-          one_over_viewport_z);
+        const unsigned int offset_x = quad.x - block_x;
+        const unsigned int offset_y = quad.y - block_y;
+        if constexpr(fragment_depth_path == early_depth_test_path::late)
+        {
+            attributes.get_data_block_at(
+              offset_x,
+              offset_y,
+              temp_varyings,
+              frag_depth,
+              one_over_viewport_z);
+        }
+        else
+        {
+            attributes.get_depth_block_at(
+              offset_x,
+              offset_y,
+              frag_depth,
+              one_over_viewport_z);
+        }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_interp);
         swr::impl::profile_interp_cycles.fetch_add(stage_interp, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-        std::array<rast::fragment_info, 4> frag_info =
-          {{{frag_depth[0], front_facing, temp_varyings[0]},
-            {frag_depth[1], front_facing, temp_varyings[1]},
-            {frag_depth[2], front_facing, temp_varyings[2]},
-            {frag_depth[3], front_facing, temp_varyings[3]}}};
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         std::uint64_t stage_fragment_block = 0;
@@ -645,72 +990,58 @@ void process_block_precomputed_checked(
         if constexpr(collect_early_fragment_depth_test_auto_stats)
         {
             early_depth_sample early_depth;
-
-            // a mask of 0b1111 means the 2x2 block is fully covered.
-            if(quad.mask == 0b1111)
-            {
-                rasterizer.process_fragment_block_early_z_collect_stats(
-                  quad.x,
-                  quad.y,
-                  *data.states,
-                  shader,
-                  one_over_viewport_z,
-                  frag_info,
-                  out,
-                  early_depth);
-            }
-            else
-            {
-                rasterizer.process_fragment_block_early_z_collect_stats(
-                  quad.x,
-                  quad.y,
-                  quad.mask,
-                  *data.states,
-                  shader,
-                  one_over_viewport_z,
-                  frag_info,
-                  out,
-                  early_depth);
-            }
+            process_precomputed_fragment_block_early_z<true>(
+              framebuffer,
+              static_cast<int>(quad.x),
+              static_cast<int>(quad.y),
+              quad.mask,
+              offset_x,
+              offset_y,
+              *data.states,
+              shader,
+              attributes,
+              frag_depth,
+              one_over_viewport_z,
+              front_facing,
+              temp_varyings,
+              out,
+              &early_depth);
 
             early_fragment_depth_test_auto_sample.add(early_depth);
         }
         else
         {
-            // a mask of 0b1111 means the 2x2 block is fully covered.
-            if(quad.mask == 0b1111)
+            if constexpr(fragment_depth_path == early_depth_test_path::early)
             {
-                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
-                {
-                    rasterizer.process_fragment_block_early_z(
-                      quad.x,
-                      quad.y,
-                      *data.states,
-                      shader,
-                      one_over_viewport_z,
-                      frag_info,
-                      out);
-                }
-                else
-                {
-                    rasterizer.process_fragment_block(
-                      quad.x,
-                      quad.y,
-                      *data.states,
-                      shader,
-                      one_over_viewport_z,
-                      frag_info,
-                      out);
-                }
+                process_precomputed_fragment_block_early_z<false>(
+                  framebuffer,
+                  static_cast<int>(quad.x),
+                  static_cast<int>(quad.y),
+                  quad.mask,
+                  offset_x,
+                  offset_y,
+                  *data.states,
+                  shader,
+                  attributes,
+                  frag_depth,
+                  one_over_viewport_z,
+                  front_facing,
+                  temp_varyings,
+                  out);
             }
             else
             {
-                if constexpr(fragment_depth_path == early_fragment_depth_test_path::early)
+                std::array<rast::fragment_info, 4> frag_info =
+                  {{{frag_depth[0], front_facing, temp_varyings[0]},
+                    {frag_depth[1], front_facing, temp_varyings[1]},
+                    {frag_depth[2], front_facing, temp_varyings[2]},
+                    {frag_depth[3], front_facing, temp_varyings[3]}}};
+
+                if(quad.mask == full_fragment_mask)
                 {
-                    rasterizer.process_fragment_block_early_z(
+                    process_fragment_block(
                       quad.x,
                       quad.y,
-                      quad.mask,
                       *data.states,
                       shader,
                       one_over_viewport_z,
@@ -719,7 +1050,7 @@ void process_block_precomputed_checked(
                 }
                 else
                 {
-                    rasterizer.process_fragment_block(
+                    process_fragment_block(
                       quad.x,
                       quad.y,
                       quad.mask,
@@ -780,43 +1111,40 @@ void sweep_rasterizer::process_block_precomputed_checked(
   const small_triangle_interpolator& attributes,
   std::span<const small_triangle_quad_payload> quads)
 {
-    const early_fragment_depth_test_plan fragment_depth_plan =
-      early_depth_controller::choose_fragment_depth_test(
+    const fragment_depth_test_plan fragment_depth_plan =
+      early_depth_controller::choose_depth_test_path(
         *data.states,
         context.early_depth_policy);
 
-    if(fragment_depth_plan.path == early_fragment_depth_test_path::early_collect_stats)
+    if(fragment_depth_plan.path == early_depth_test_path::early_collect_stats)
     {
-        rast::process_block_precomputed_checked<early_fragment_depth_test_path::early_collect_stats>(
-          *this,
-          context,
+        process_block_precomputed_checked_impl<early_depth_test_path::early_collect_stats>(
           block_x,
           block_y,
           data,
+          context,
           attributes,
           quads);
         return;
     }
 
-    if(fragment_depth_plan.path == early_fragment_depth_test_path::early)
+    if(fragment_depth_plan.path == early_depth_test_path::early)
     {
-        rast::process_block_precomputed_checked<early_fragment_depth_test_path::early>(
-          *this,
-          context,
+        process_block_precomputed_checked_impl<early_depth_test_path::early>(
           block_x,
           block_y,
           data,
+          context,
           attributes,
           quads);
         return;
     }
 
-    rast::process_block_precomputed_checked<early_fragment_depth_test_path::late>(
-      *this,
-      context,
+    process_block_precomputed_checked_impl<early_depth_test_path::late>(
       block_x,
       block_y,
       data,
+      context,
       attributes,
       quads);
 }

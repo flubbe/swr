@@ -82,7 +82,7 @@ struct block_raster_context
     early_depth_policy_state& early_depth_policy;
 
     /** Optional tile-local depth range cache. */
-    tile_depth_context* depth_context{nullptr};
+    tile_depth_cache* depth_context{nullptr};
 
     /** Return the fragment shader instance for a primitive in the given tile. */
     [[nodiscard]]
@@ -98,63 +98,9 @@ struct block_raster_context
     }
 };
 
-class sweep_rasterizer;
-
-template<early_fragment_depth_test_path fragment_depth_path>
-bool process_block(
-  sweep_rasterizer& rasterizer,
-  block_raster_context& context,
-  unsigned int block_x,
-  unsigned int block_y,
-  tile_info& data);
-
-template<early_fragment_depth_test_path fragment_depth_path>
-bool process_block_checked(
-  sweep_rasterizer& rasterizer,
-  block_raster_context& context,
-  unsigned int block_x,
-  unsigned int block_y,
-  tile_info& data);
-
-template<early_fragment_depth_test_path fragment_depth_path>
-void process_block_precomputed_checked(
-  sweep_rasterizer& rasterizer,
-  block_raster_context& context,
-  unsigned int block_x,
-  unsigned int block_y,
-  tile_info& data,
-  const small_triangle_interpolator& attributes,
-  std::span<const small_triangle_quad_payload> quads);
-
 /** Sweep rasterizer. */
 class sweep_rasterizer : public rasterizer
 {
-    template<early_fragment_depth_test_path fragment_depth_path>
-    friend bool process_block(
-      sweep_rasterizer& rasterizer,
-      block_raster_context& context,
-      unsigned int block_x,
-      unsigned int block_y,
-      tile_info& data);
-
-    template<early_fragment_depth_test_path fragment_depth_path>
-    friend bool process_block_checked(
-      sweep_rasterizer& rasterizer,
-      block_raster_context& context,
-      unsigned int block_x,
-      unsigned int block_y,
-      tile_info& data);
-
-    template<early_fragment_depth_test_path fragment_depth_path>
-    friend void process_block_precomputed_checked(
-      sweep_rasterizer& rasterizer,
-      block_raster_context& context,
-      unsigned int block_x,
-      unsigned int block_y,
-      tile_info& data,
-      const small_triangle_interpolator& attributes,
-      std::span<const small_triangle_quad_payload> quads);
-
     /** a geometric primitive understood by sweep_rasterizer */
     struct primitive
     {
@@ -537,6 +483,29 @@ class sweep_rasterizer : public rasterizer
     /*
      * block processing.
      */
+
+    template<early_depth_test_path fragment_depth_path>
+    bool process_block_impl(
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      block_raster_context& context);
+
+    template<early_depth_test_path fragment_depth_path>
+    bool process_block_checked_impl(
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      block_raster_context& context);
+
+    template<early_depth_test_path fragment_depth_path>
+    void process_block_precomputed_checked_impl(
+      unsigned int block_x,
+      unsigned int block_y,
+      tile_info& data,
+      block_raster_context& context,
+      const small_triangle_interpolator& attributes,
+      std::span<const small_triangle_quad_payload> quads);
 
     /**
      * Rasterize a complete block of dimension `(rasterizer_block_size, rasterizer_block_size)`,

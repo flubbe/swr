@@ -118,6 +118,15 @@ struct pipeline_cycle_profile
     std::uint64_t raster_early_depth_reject_tests{0};
     std::uint64_t raster_early_depth_reject_tests_with_cached_range{0};
     std::uint64_t raster_early_depth_rejects{0};
+    std::uint64_t fragment_early_depth_blocks{0};
+    std::uint64_t fragment_early_depth_fragments_tested{0};
+    std::uint64_t fragment_early_depth_fragments_rejected{0};
+    std::uint64_t fragment_early_depth_full_mask_blocks{0};
+    std::uint64_t fragment_early_depth_full_mask_fragments_tested{0};
+    std::uint64_t fragment_early_depth_full_mask_fragments_rejected{0};
+    std::uint64_t fragment_early_depth_partial_mask_blocks{0};
+    std::uint64_t fragment_early_depth_partial_mask_fragments_tested{0};
+    std::uint64_t fragment_early_depth_partial_mask_fragments_rejected{0};
     std::uint64_t frame_count{0};
 };
 
@@ -235,6 +244,21 @@ inline void log_pipeline_profile_if_needed()
         ? static_cast<double>(g_pipeline_cycles.raster_early_depth_rejects)
             / static_cast<double>(g_pipeline_cycles.raster_early_depth_reject_tests)
         : 0.0;
+    const double fragment_early_depth_reject_ratio =
+      g_pipeline_cycles.fragment_early_depth_fragments_tested > 0
+        ? static_cast<double>(g_pipeline_cycles.fragment_early_depth_fragments_rejected)
+            / static_cast<double>(g_pipeline_cycles.fragment_early_depth_fragments_tested)
+        : 0.0;
+    const double fragment_early_depth_full_mask_reject_ratio =
+      g_pipeline_cycles.fragment_early_depth_full_mask_fragments_tested > 0
+        ? static_cast<double>(g_pipeline_cycles.fragment_early_depth_full_mask_fragments_rejected)
+            / static_cast<double>(g_pipeline_cycles.fragment_early_depth_full_mask_fragments_tested)
+        : 0.0;
+    const double fragment_early_depth_partial_mask_reject_ratio =
+      g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_tested > 0
+        ? static_cast<double>(g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_rejected)
+            / static_cast<double>(g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_tested)
+        : 0.0;
     const double clip_triangle_expand_ratio =
       g_pipeline_cycles.clip_input_triangles > 0
         ? static_cast<double>(g_pipeline_cycles.clip_output_triangles) / static_cast<double>(g_pipeline_cycles.clip_input_triangles)
@@ -288,7 +312,13 @@ inline void log_pipeline_profile_if_needed()
       "depth_range_requests={:.1f} depth_range_computes={:.1f} depth_range_hits={:.1f} "
       "depth_range_compute_per_req={:.2f} early_depth_tests={:.1f} "
       "early_depth_cached_tests={:.1f} early_depth_cached_ratio={:.2f} "
-      "early_depth_rejects={:.1f} early_depth_reject_ratio={:.2f} tile_size={}",
+      "early_depth_rejects={:.1f} early_depth_reject_ratio={:.2f} "
+      "frag_early_depth_blocks={:.1f} frag_early_depth_tested={:.1f} "
+      "frag_early_depth_rejected={:.1f} frag_early_depth_reject_ratio={:.2f} "
+      "frag_early_depth_full_blocks={:.1f} frag_early_depth_full_tested={:.1f} "
+      "frag_early_depth_full_rejected={:.1f} frag_early_depth_full_reject_ratio={:.2f} "
+      "frag_early_depth_partial_blocks={:.1f} frag_early_depth_partial_tested={:.1f} "
+      "frag_early_depth_partial_rejected={:.1f} frag_early_depth_partial_reject_ratio={:.2f} tile_size={}",
       profile_log_interval_frames,
       static_cast<double>(g_pipeline_cycles.present_total) / f,
       static_cast<double>(g_pipeline_cycles.vertex) / f,
@@ -405,6 +435,18 @@ inline void log_pipeline_profile_if_needed()
       early_depth_cached_test_ratio,
       static_cast<double>(g_pipeline_cycles.raster_early_depth_rejects) / f,
       early_depth_reject_ratio,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_blocks) / f,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_fragments_tested) / f,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_fragments_rejected) / f,
+      fragment_early_depth_reject_ratio,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_full_mask_blocks) / f,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_full_mask_fragments_tested) / f,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_full_mask_fragments_rejected) / f,
+      fragment_early_depth_full_mask_reject_ratio,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_partial_mask_blocks) / f,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_tested) / f,
+      static_cast<double>(g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_rejected) / f,
+      fragment_early_depth_partial_mask_reject_ratio,
       impl::rasterizer_block_size);
 
     g_pipeline_cycles.vertex = 0;
@@ -491,6 +533,15 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.raster_early_depth_reject_tests = 0;
     g_pipeline_cycles.raster_early_depth_reject_tests_with_cached_range = 0;
     g_pipeline_cycles.raster_early_depth_rejects = 0;
+    g_pipeline_cycles.fragment_early_depth_blocks = 0;
+    g_pipeline_cycles.fragment_early_depth_fragments_tested = 0;
+    g_pipeline_cycles.fragment_early_depth_fragments_rejected = 0;
+    g_pipeline_cycles.fragment_early_depth_full_mask_blocks = 0;
+    g_pipeline_cycles.fragment_early_depth_full_mask_fragments_tested = 0;
+    g_pipeline_cycles.fragment_early_depth_full_mask_fragments_rejected = 0;
+    g_pipeline_cycles.fragment_early_depth_partial_mask_blocks = 0;
+    g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_tested = 0;
+    g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_rejected = 0;
     g_pipeline_cycles.raster_setup_direct = 0;
     g_pipeline_cycles.raster_setup_enqueue = 0;
 }
@@ -580,6 +631,15 @@ inline void collect_pipeline_profile_frame()
     g_pipeline_cycles.raster_early_depth_reject_tests += exchange_profile_counter(impl::profile_raster_early_depth_reject_tests);
     g_pipeline_cycles.raster_early_depth_reject_tests_with_cached_range += exchange_profile_counter(impl::profile_raster_early_depth_reject_tests_with_cached_range);
     g_pipeline_cycles.raster_early_depth_rejects += exchange_profile_counter(impl::profile_raster_early_depth_rejects);
+    g_pipeline_cycles.fragment_early_depth_blocks += exchange_profile_counter(impl::profile_fragment_early_depth_blocks);
+    g_pipeline_cycles.fragment_early_depth_fragments_tested += exchange_profile_counter(impl::profile_fragment_early_depth_fragments_tested);
+    g_pipeline_cycles.fragment_early_depth_fragments_rejected += exchange_profile_counter(impl::profile_fragment_early_depth_fragments_rejected);
+    g_pipeline_cycles.fragment_early_depth_full_mask_blocks += exchange_profile_counter(impl::profile_fragment_early_depth_full_mask_blocks);
+    g_pipeline_cycles.fragment_early_depth_full_mask_fragments_tested += exchange_profile_counter(impl::profile_fragment_early_depth_full_mask_fragments_tested);
+    g_pipeline_cycles.fragment_early_depth_full_mask_fragments_rejected += exchange_profile_counter(impl::profile_fragment_early_depth_full_mask_fragments_rejected);
+    g_pipeline_cycles.fragment_early_depth_partial_mask_blocks += exchange_profile_counter(impl::profile_fragment_early_depth_partial_mask_blocks);
+    g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_tested += exchange_profile_counter(impl::profile_fragment_early_depth_partial_mask_fragments_tested);
+    g_pipeline_cycles.fragment_early_depth_partial_mask_fragments_rejected += exchange_profile_counter(impl::profile_fragment_early_depth_partial_mask_fragments_rejected);
     g_pipeline_cycles.raster_setup_direct += exchange_profile_counter(impl::profile_raster_setup_direct_cycles);
     g_pipeline_cycles.raster_setup_enqueue += exchange_profile_counter(impl::profile_raster_setup_enqueue_cycles);
 }

@@ -94,5 +94,14 @@ extern std::atomic<std::uint64_t> profile_raster_stored_depth_range_hits;
 extern std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests;
 extern std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests_with_cached_range;
 extern std::atomic<std::uint64_t> profile_raster_early_depth_rejects;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_blocks;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_fragments_tested;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_fragments_rejected;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_full_mask_blocks;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_full_mask_fragments_tested;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_full_mask_fragments_rejected;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_partial_mask_blocks;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_partial_mask_fragments_tested;
+extern std::atomic<std::uint64_t> profile_fragment_early_depth_partial_mask_fragments_rejected;
 
 }    // namespace swr::impl

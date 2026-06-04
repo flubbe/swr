@@ -577,14 +577,9 @@ struct small_triangle_interpolator
     }
 
     /** get interpolated data for a 2x2 block at a block-relative offset. */
-    void get_data_block_at(
+    void get_depth_block_at(
       unsigned int offset_x,
       unsigned int offset_y,
-      std::array<
-        boost::container::static_vector<
-          swr::varying,
-          swr::limits::max::varyings>,
-        4>& out_varyings,
       ml::vec4& out_depth,
       ml::vec4& out_one_over_viewport_z) const
     {
@@ -616,7 +611,20 @@ struct small_triangle_interpolator
         out_one_over_viewport_z[1] = z10;
         out_one_over_viewport_z[2] = z01;
         out_one_over_viewport_z[3] = z11;
+    }
 
+    /** get interpolated varyings for a 2x2 block at a block-relative offset. */
+    void get_varyings_block_at(
+      unsigned int offset_x,
+      unsigned int offset_y,
+      std::array<
+        boost::container::static_vector<
+          swr::varying,
+          swr::limits::max::varyings>,
+        4>& out_varyings) const
+    {
+        const float dx = static_cast<float>(offset_x);
+        const float dy = static_cast<float>(offset_y);
         const std::size_t varying_count = varyings.size();
         out_varyings[0].resize(varying_count);
         out_varyings[1].resize(varying_count);
@@ -643,6 +651,29 @@ struct small_triangle_interpolator
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         swr::impl::profile_interp_varying_copies.fetch_add(varying_count * 4, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
+    }
+
+    /** get interpolated data for a 2x2 block at a block-relative offset. */
+    void get_data_block_at(
+      unsigned int offset_x,
+      unsigned int offset_y,
+      std::array<
+        boost::container::static_vector<
+          swr::varying,
+          swr::limits::max::varyings>,
+        4>& out_varyings,
+      ml::vec4& out_depth,
+      ml::vec4& out_one_over_viewport_z) const
+    {
+        get_depth_block_at(
+          offset_x,
+          offset_y,
+          out_depth,
+          out_one_over_viewport_z);
+        get_varyings_block_at(
+          offset_x,
+          offset_y,
+          out_varyings);
     }
 };
 

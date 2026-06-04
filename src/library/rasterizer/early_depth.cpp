@@ -161,7 +161,7 @@ void record_block_reject_sample(
 
 }    // namespace
 
-tile_depth_context::tile_depth_context(
+tile_depth_cache::tile_depth_cache(
   swr::impl::default_framebuffer* framebuffer,
   unsigned int x,
   unsigned int y)
@@ -172,7 +172,7 @@ tile_depth_context::tile_depth_context(
     assert(framebuffer);
 }
 
-const depth_range& tile_depth_context::stored_range()
+const depth_range& tile_depth_cache::stored_depth_range()
 {
     assert(framebuffer);
 
@@ -228,7 +228,7 @@ const depth_range& tile_depth_context::stored_range()
     return range;
 }
 
-std::optional<depth_range> tile_depth_context::conservative_depth_range(
+std::optional<depth_range> tile_depth_cache::conservative_depth_range(
   const geom::linear_interpolator_2d<float>& depth) const
 {
     assert(framebuffer);
@@ -250,40 +250,28 @@ std::optional<depth_range> tile_depth_context::conservative_depth_range(
       span.height);
 }
 
-void tile_depth_context::include_possible_depth_write(
-  depth_range written_range)
-{
-    if(!valid)
-    {
-        return;
-    }
-
-    range.min_depth = std::min(range.min_depth, written_range.min_depth);
-    range.max_depth = std::max(range.max_depth, written_range.max_depth);
-}
-
-bool early_depth_controller::supports_fragment_early_depth(
+bool early_depth_controller::shader_allows_early_depth(
   const swr::program_metadata& metadata)
 {
     return !metadata.fragment_shader_may_discard
            && !metadata.fragment_shader_may_write_depth;
 }
 
-bool early_depth_controller::fragment_early_depth_is_legal(
+bool early_depth_controller::render_state_allows_early_depth(
   const swr::impl::render_states& states)
 {
     assert(states.shader_info != nullptr);
 
     return states.depth_test_enabled
            && states.depth_func != swr::comparison_func::pass
-           && supports_fragment_early_depth(states.shader_info->metadata);
+           && shader_allows_early_depth(states.shader_info->metadata);
 }
 
-early_fragment_depth_test_plan early_depth_controller::choose_fragment_depth_test(
+fragment_depth_test_plan early_depth_controller::choose_depth_test_path(
   const swr::impl::render_states& states,
   early_depth_policy_state& policy)
 {
-    if(!fragment_early_depth_is_legal(states))
+    if(!render_state_allows_early_depth(states))
     {
         return {};
     }
@@ -295,7 +283,7 @@ early_fragment_depth_test_plan early_depth_controller::choose_fragment_depth_tes
 
     if(states.early_fragment_depth_test_mode == swr::rasterizer_feature_mode::on)
     {
-        return {early_fragment_depth_test_path::early};
+        return {early_depth_test_path::early};
     }
 
     const early_fragment_depth_test_auto_action action =
@@ -307,12 +295,12 @@ early_fragment_depth_test_plan early_depth_controller::choose_fragment_depth_tes
 
     return {
       action == early_fragment_depth_test_auto_action::enabled_collect
-        ? early_fragment_depth_test_path::early_collect_stats
-        : early_fragment_depth_test_path::early};
+        ? early_depth_test_path::early_collect_stats
+        : early_depth_test_path::early};
 }
 
-block_early_depth_reject_result early_depth_controller::try_reject_block(
-  const block_early_depth_reject_request& request,
+block_depth_reject_result early_depth_controller::try_reject_block(
+  const block_depth_reject_request& request,
   early_depth_policy_state& policy)
 {
     assert(request.default_framebuffer != nullptr);
@@ -401,7 +389,7 @@ block_early_depth_reject_result early_depth_controller::try_reject_block(
     depth_range stored_range{};
     if(request.tile_depth != nullptr)
     {
-        stored_range = request.tile_depth->stored_range();
+        stored_range = request.tile_depth->stored_depth_range();
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         swr::impl::profile_raster_early_depth_reject_tests_with_cached_range.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */

@@ -11,7 +11,6 @@
 /* user headers. */
 #include "../swr_internal.h"
 
-#include <optional>
 #include <utility>
 
 #include "interpolators.h"
@@ -35,42 +34,6 @@ bool may_write_default_depth_buffer(
            && primitive.states->depth_test_enabled
            && primitive.states->write_depth
            && primitive.states->depth_func != swr::comparison_func::fail;
-}
-
-[[nodiscard]]
-std::optional<depth_range> describe_possible_depth_write(
-  const tile_info& primitive,
-  const tile& owning_tile,
-  tile_depth_context& depth_context)
-{
-    if(primitive.states == nullptr
-       || primitive.states->shader_info == nullptr
-       || primitive.states->shader_info->metadata.fragment_shader_may_write_depth)
-    {
-        return std::nullopt;
-    }
-
-    if(primitive.mode == tile_info::rasterization_mode::small_checked)
-    {
-        assert(primitive.precomputed_payload_index < owning_tile.primitive_small_payloads.size());
-        return depth_context.conservative_depth_range(
-          owning_tile.primitive_small_payloads[primitive.precomputed_payload_index].attributes.depth_value);
-    }
-
-    if(primitive.mode == tile_info::rasterization_mode::sparse_checked)
-    {
-        assert(primitive.precomputed_payload_index < owning_tile.primitive_sparse_payloads.size());
-        return depth_context.conservative_depth_range(
-          owning_tile.primitive_sparse_payloads[primitive.precomputed_payload_index].attributes.depth_value);
-    }
-
-    if(primitive.attributes == nullptr)
-    {
-        return std::nullopt;
-    }
-
-    return depth_context.conservative_depth_range(
-      primitive.attributes->depth_value);
 }
 
 } /* namespace */
@@ -299,7 +262,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
      * per-tile depth cache.
      */
 
-    tile_depth_context depth_context{
+    tile_depth_cache depth_context{
       framebuffer,
       tile_x,
       tile_y};
@@ -314,13 +277,6 @@ void sweep_rasterizer::process_tile(tile& in_tile)
         bool block_was_processed = false;
         const bool may_write_depth =
           may_write_default_depth_buffer(it, framebuffer);
-        const std::optional<depth_range> possible_depth_write =
-          may_write_depth
-            ? describe_possible_depth_write(
-                it,
-                in_tile,
-                depth_context)
-            : std::nullopt;
 
         if(it.mode == tile_info::rasterization_mode::block)
         {
@@ -389,15 +345,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
         if(block_was_processed
            && may_write_depth)
         {
-            if(possible_depth_write.has_value())
-            {
-                depth_context.include_possible_depth_write(
-                  *possible_depth_write);
-            }
-            else
-            {
-                depth_context.invalidate();
-            }
+            depth_context.invalidate();
         }
     }
 }

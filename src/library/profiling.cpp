@@ -94,6 +94,15 @@ std::atomic<std::uint64_t> profile_raster_stored_depth_range_hits{0};
 std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests{0};
 std::atomic<std::uint64_t> profile_raster_early_depth_reject_tests_with_cached_range{0};
 std::atomic<std::uint64_t> profile_raster_early_depth_rejects{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_blocks{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_fragments_tested{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_fragments_rejected{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_full_mask_blocks{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_full_mask_fragments_tested{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_full_mask_fragments_rejected{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_partial_mask_blocks{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_partial_mask_fragments_tested{0};
+std::atomic<std::uint64_t> profile_fragment_early_depth_partial_mask_fragments_rejected{0};
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
 } /* namespace swr::impl */
