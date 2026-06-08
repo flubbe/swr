@@ -11,6 +11,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <utility>
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
 #    include <print>
 #    include <string>
@@ -19,8 +21,6 @@
 /* user headers. */
 #include "swr_internal.h"
 #include "clipping.h"
-
-#include <utility>
 
 namespace swr
 {
@@ -1318,11 +1318,14 @@ static void vertex_shader_task(
   std::size_t end,
   impl::vertex_shader_instance_container* shader_instance)
 {
+    const auto* shader = shader_instance->get();
+
     for(std::size_t i = offset; i < end; ++i)
     {
         float gl_PointSize{0}; /* currently unused */
         const auto vertex_attribs = obj->attribs_for_vertex(i);
-        shader_instance->get()->vertex_shader(
+
+        shader->vertex_shader(
           0 /* gl_VertexID */,
           0 /* gl_InstanceID */,
           vertex_attribs,
