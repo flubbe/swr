@@ -215,18 +215,13 @@ enum fragment_shader_result
     accept
 };
 
-/**
- * Optional shader behavior contract supplied by programs.
- *
- * A program must explicitly opt in before the rasterizer may run fragment
- * depth tests before the fragment shader.
- */
+/** Shader behavior metadata. */
 struct program_metadata
 {
-    /** True if the fragment shader may return fragment_shader_result::discard. */
+    /** True if the fragment shader may return `fragment_shader_result::discard`. */
     bool fragment_shader_may_discard{true};
 
-    /** True if the fragment shader may modify gl_FragDepth. */
+    /** True if the fragment shader may modify `gl_FragDepth`. */
     bool fragment_shader_may_write_depth{true};
 };
 
@@ -264,12 +259,7 @@ public:
       void* mem,
       const program_instance_bindings& bindings) const = 0;
 
-    /**
-     * Return optional shader behavior metadata.
-     *
-     * Existing shaders inherit the conservative default. Override this in a
-     * shader to opt into optimizations that depend on fragment shader behavior.
-     */
+    /** return shader behavior metadata. */
     [[nodiscard]]
     virtual program_metadata get_metadata() const
     {
@@ -296,9 +286,7 @@ public:
         swr::limits::max::varyings>&
         iqs) const = 0;
 
-    /**
-     * Vertex shader entry point.
-     */
+    /** Vertex shader entry point. */
     virtual void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
@@ -308,9 +296,7 @@ public:
       [[maybe_unused]] std::span<float> gl_ClipDistance,
       [[maybe_unused]] std::span<ml::vec4> varyings) const = 0;
 
-    /**
-     * Fragment shader entry point.
-     */
+    /** Fragment shader entry point. */
     virtual fragment_shader_result fragment_shader(
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
