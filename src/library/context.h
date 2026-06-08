@@ -484,7 +484,7 @@ struct render_context
 };
 
 /** a render context for an SDL window. */
-class sdl_render_context : public render_context
+class sdl_render_context final : public render_context
 {
 protected:
     /** context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
@@ -542,7 +542,7 @@ public:
 };
 
 /** a offscreen render context. */
-class offscreen_render_context : public render_context
+class offscreen_render_context final : public render_context
 {
     int width = 0;
     int height = 0;

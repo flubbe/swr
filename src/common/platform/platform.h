@@ -68,7 +68,7 @@ inline void log_n()
 }
 
 /** Fall-back null log device. Does not log. */
-class log_null : public log_device
+class log_null final : public log_device
 {
 protected:
     void log_n(const std::string&)

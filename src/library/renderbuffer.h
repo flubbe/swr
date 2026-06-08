@@ -352,7 +352,7 @@ struct framebuffer_draw_target
 };
 
 /** default framebuffer. */
-struct default_framebuffer : public framebuffer_draw_target
+struct default_framebuffer final : public framebuffer_draw_target
 {
     /** default color buffer. */
     attachment_color_buffer color_buffer;
@@ -466,7 +466,7 @@ struct default_framebuffer : public framebuffer_draw_target
 };
 
 /** framebuffer objects. */
-class framebuffer_object : public framebuffer_draw_target
+class framebuffer_object final : public framebuffer_draw_target
 {
     /** id of this object. */
     std::uint32_t id{0};

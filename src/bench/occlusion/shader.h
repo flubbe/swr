@@ -51,7 +51,7 @@ static ml::vec3 palette(float t)
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class color_flat : public swr::program<color_flat>
+class color_flat final : public swr::program<color_flat>
 {
 public:
     color_flat() = default;

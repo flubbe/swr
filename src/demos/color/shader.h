@@ -26,7 +26,7 @@ namespace shader
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class color : public swr::program<color>
+class color final : public swr::program<color>
 {
 public:
     swr::program_metadata get_metadata() const override

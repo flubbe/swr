@@ -133,7 +133,7 @@ protected:
 };
 
 /** demo application class. */
-class demo_app : public swr_app::application
+class demo_app final : public swr_app::application
 {
     log_std log;
 

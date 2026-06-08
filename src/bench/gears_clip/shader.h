@@ -27,7 +27,7 @@ namespace shader
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class color_flat : public swr::program<color_flat>
+class color_flat final : public swr::program<color_flat>
 {
     ml::vec4 diffuse_color{1, 0, 0, 1};
     ml::vec4 ambient_color{1, 0, 0, 1};
@@ -93,7 +93,7 @@ public:
     }
 };
 
-class color_smooth : public swr::program<color_smooth>
+class color_smooth final : public swr::program<color_smooth>
 {
     ml::vec4 diffuse_color{1, 0, 0, 1};
     ml::vec4 ambient_color{1, 0, 0, 1};

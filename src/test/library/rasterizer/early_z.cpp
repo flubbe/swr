@@ -43,7 +43,7 @@ struct offscreen_context_fixture
     }
 };
 
-class constant_color_shader : public swr::program<constant_color_shader>
+class constant_color_shader final : public swr::program<constant_color_shader>
 {
     ml::vec4 color;
 
@@ -93,7 +93,7 @@ public:
     }
 };
 
-class counting_color_shader : public swr::program<counting_color_shader>
+class counting_color_shader final : public swr::program<counting_color_shader>
 {
     ml::vec4 color;
     std::uint64_t* invocation_count{nullptr};
@@ -156,7 +156,7 @@ public:
     }
 };
 
-class depth_writing_color_shader : public swr::program<depth_writing_color_shader>
+class depth_writing_color_shader final : public swr::program<depth_writing_color_shader>
 {
     ml::vec4 color;
     float depth{0.0f};

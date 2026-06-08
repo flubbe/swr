@@ -29,7 +29,7 @@ namespace shader
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
  */
-class mesh_color : public swr::program<mesh_color>
+class mesh_color final : public swr::program<mesh_color>
 {
 public:
     swr::program_metadata get_metadata() const override

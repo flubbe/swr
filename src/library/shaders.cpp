@@ -34,7 +34,7 @@ static bool has_flat_varyings(
 }
 
 /** Default (empty) program. */
-class default_program : public program<default_program>
+class default_program final : public program<default_program>
 {
 public:
     swr::program_metadata get_metadata() const override

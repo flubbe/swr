@@ -143,7 +143,7 @@ inline int wrap(wrap_mode m, int coord, int max)
 }
 
 /** texture sampler implementation. */
-class sampler_2d_impl : public sampler_2d
+class sampler_2d_impl final : public sampler_2d
 {
     /** associated texture. */
     texture_2d* associated_texture{nullptr};

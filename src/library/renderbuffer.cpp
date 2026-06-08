@@ -532,10 +532,32 @@ void default_framebuffer::depth_compare_write_block(
       to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x1) != 0 && write_depth)};
 
-    *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
-    *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));
-    *(depth_buffer_ptr[2]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[2])) & ~depth_write_mask[2]) | (ml::unwrap(new_depth_value[2]) & depth_write_mask[2]));
-    *(depth_buffer_ptr[3]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[3])) & ~depth_write_mask[3]) | (ml::unwrap(new_depth_value[3]) & depth_write_mask[3]));
+    if(block_in_bounds)
+    {
+        *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
+        *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));
+        *(depth_buffer_ptr[2]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[2])) & ~depth_write_mask[2]) | (ml::unwrap(new_depth_value[2]) & depth_write_mask[2]));
+        *(depth_buffer_ptr[3]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[3])) & ~depth_write_mask[3]) | (ml::unwrap(new_depth_value[3]) & depth_write_mask[3]));
+    }
+    else
+    {
+        if(depth_write_mask[0])
+        {
+            *(depth_buffer_ptr[0]) = new_depth_value[0];
+        }
+        if(depth_write_mask[1])
+        {
+            *(depth_buffer_ptr[1]) = new_depth_value[1];
+        }
+        if(depth_write_mask[2])
+        {
+            *(depth_buffer_ptr[2]) = new_depth_value[2];
+        }
+        if(depth_write_mask[3])
+        {
+            *(depth_buffer_ptr[3]) = new_depth_value[3];
+        }
+    }
 }
 
 /*
@@ -764,35 +786,105 @@ void framebuffer_object::merge_color_block(
           data_ptr + coords[3].y * pitch + coords[3].x};
 #endif
 
-        const std::array<ml::vec4, 4> color_buffer_values = {
-          *color_buffer_ptrs[0],
-          *color_buffer_ptrs[1],
-          *color_buffer_ptrs[2],
-          *color_buffer_ptrs[3]};
+        // check bounds for partial blocks
+        const int width = color_attachments[attachment]->info.width;
+        const int height = color_attachments[attachment]->info.height;
+        const bool block_in_bounds = (x + 1 < width) && (y + 1 < height);
 
-        if(do_blend)
+        if(block_in_bounds)
         {
-            swr::output_merger::blend_block(
-              blend_src,
-              blend_dst,
-              write_color,
-              color_buffer_values,
-              write_color);
-        }
+            const std::array<ml::vec4, 4> color_buffer_values = {
+              *color_buffer_ptrs[0],
+              *color_buffer_ptrs[1],
+              *color_buffer_ptrs[2],
+              *color_buffer_ptrs[3]};
 
-        // write color.
+            if(do_blend)
+            {
+                swr::output_merger::blend_block(
+                  blend_src,
+                  blend_dst,
+                  write_color,
+                  color_buffer_values,
+                  write_color);
+            }
+
+            // write color for fully in-bounds block
 #define CONDITIONAL_WRITE(condition, write_target, write_source) \
     if(condition)                                                \
     {                                                            \
         write_target = write_source;                             \
     }
 
-        CONDITIONAL_WRITE(((frag.write_color & 0x8) >> 3), *(color_buffer_ptrs[0]), write_color[0]);
-        CONDITIONAL_WRITE(((frag.write_color & 0x4) >> 2), *(color_buffer_ptrs[1]), write_color[1]);
-        CONDITIONAL_WRITE(((frag.write_color & 0x2) >> 1), *(color_buffer_ptrs[2]), write_color[2]);
-        CONDITIONAL_WRITE((frag.write_color & 0x1), *(color_buffer_ptrs[3]), write_color[3]);
+            CONDITIONAL_WRITE(((frag.write_color & 0x8) >> 3), *(color_buffer_ptrs[0]), write_color[0]);
+            CONDITIONAL_WRITE(((frag.write_color & 0x4) >> 2), *(color_buffer_ptrs[1]), write_color[1]);
+            CONDITIONAL_WRITE(((frag.write_color & 0x2) >> 1), *(color_buffer_ptrs[2]), write_color[2]);
+            CONDITIONAL_WRITE((frag.write_color & 0x1), *(color_buffer_ptrs[3]), write_color[3]);
 
 #undef CONDITIONAL_WRITE
+        }
+        else
+        {
+            const bool x0_valid = x < width;
+            const bool x1_valid = (x + 1) < width;
+            const bool y0_valid = y < height;
+            const bool y1_valid = (y + 1) < height;
+            const std::uint8_t valid_mask = static_cast<std::uint8_t>(
+              (static_cast<std::uint8_t>(x0_valid && y0_valid) << 3)
+              | (static_cast<std::uint8_t>(x1_valid && y0_valid) << 2)
+              | (static_cast<std::uint8_t>(x0_valid && y1_valid) << 1)
+              | static_cast<std::uint8_t>(x1_valid && y1_valid));
+
+            std::uint8_t write_mask = static_cast<std::uint8_t>(frag.write_color) & valid_mask;
+            if(write_mask)
+            {
+                std::array<ml::vec4, 4> color_buffer_values;    // default-init
+
+                if(write_mask & 0x8)
+                {
+                    color_buffer_values[0] = *color_buffer_ptrs[0];
+                }
+                if(write_mask & 0x4)
+                {
+                    color_buffer_values[1] = *color_buffer_ptrs[1];
+                }
+                if(write_mask & 0x2)
+                {
+                    color_buffer_values[2] = *color_buffer_ptrs[2];
+                }
+                if(write_mask & 0x1)
+                {
+                    color_buffer_values[3] = *color_buffer_ptrs[3];
+                }
+
+                if(do_blend)
+                {
+                    swr::output_merger::blend_block(
+                      blend_src,
+                      blend_dst,
+                      write_color,
+                      color_buffer_values,
+                      write_color);
+                }
+
+                if(write_mask & 0x8)
+                {
+                    *(color_buffer_ptrs[0]) = write_color[0];
+                }
+                if(write_mask & 0x4)
+                {
+                    *(color_buffer_ptrs[1]) = write_color[1];
+                }
+                if(write_mask & 0x2)
+                {
+                    *(color_buffer_ptrs[2]) = write_color[2];
+                }
+                if(write_mask & 0x1)
+                {
+                    *(color_buffer_ptrs[3]) = write_color[3];
+                }
+            }
+        }
     }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -913,11 +1005,57 @@ void framebuffer_object::depth_compare_write_block(
       depth_attachment->info.data_ptr + coords[3].y * row_stride + coords[3].x};
 #endif
 
-    const std::array<ml::fixed_32_t, 4> old_depth_value = {
-      *depth_buffer_ptr[0],
-      *depth_buffer_ptr[1],
-      *depth_buffer_ptr[2],
-      *depth_buffer_ptr[3]};
+    const int width = depth_attachment->info.width;
+    const int height = depth_attachment->info.height;
+    const bool block_in_bounds = (x + 1 < width) && (y + 1 < height);
+
+    std::array<ml::fixed_32_t, 4> old_depth_value = {};
+    if(block_in_bounds)
+    {
+        old_depth_value[0] = *depth_buffer_ptr[0];
+        old_depth_value[1] = *depth_buffer_ptr[1];
+        old_depth_value[2] = *depth_buffer_ptr[2];
+        old_depth_value[3] = *depth_buffer_ptr[3];
+    }
+    else
+    {
+        const bool x0_valid = x < width;
+        const bool x1_valid = (x + 1) < width;
+        const bool y0_valid = y < height;
+        const bool y1_valid = (y + 1) < height;
+        const std::uint8_t valid_mask = static_cast<std::uint8_t>(
+          (static_cast<std::uint8_t>(x0_valid && y0_valid) << 3)
+          | (static_cast<std::uint8_t>(x1_valid && y0_valid) << 2)
+          | (static_cast<std::uint8_t>(x0_valid && y1_valid) << 1)
+          | static_cast<std::uint8_t>(x1_valid && y1_valid));
+
+        std::uint8_t active_mask = write_mask & valid_mask;
+        if(!active_mask)
+        {
+            write_mask = 0;
+            return;
+        }
+
+        if(active_mask & 0x8)
+        {
+            old_depth_value[0] = *depth_buffer_ptr[0];
+        }
+        if(active_mask & 0x4)
+        {
+            old_depth_value[1] = *depth_buffer_ptr[1];
+        }
+        if(active_mask & 0x2)
+        {
+            old_depth_value[2] = *depth_buffer_ptr[2];
+        }
+        if(active_mask & 0x1)
+        {
+            old_depth_value[3] = *depth_buffer_ptr[3];
+        }
+        // ensure write_mask reflects only active pixels
+        write_mask &= active_mask;
+    }
+
     const std::array<ml::fixed_32_t, 4> new_depth_value = {
       depth_value[0],
       depth_value[1],

@@ -46,7 +46,7 @@ struct offscreen_context_fixture
     }
 };
 
-class constant_color_shader : public swr::program<constant_color_shader>
+class constant_color_shader final : public swr::program<constant_color_shader>
 {
     ml::vec4 color;
 

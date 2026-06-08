@@ -106,7 +106,7 @@ struct fake_draw_target : swr::impl::framebuffer_draw_target
     }
 };
 
-class fake_program : public swr::program<fake_program>
+class fake_program final : public swr::program<fake_program>
 {
 public:
     swr::program_metadata get_metadata() const override
@@ -149,7 +149,7 @@ public:
     }
 };
 
-class alignas(64) over_aligned_program : public swr::program<over_aligned_program>
+class alignas(64) over_aligned_program final : public swr::program<over_aligned_program>
 {
 public:
     swr::program_metadata get_metadata() const override

@@ -39,7 +39,7 @@ namespace shader
  *   location 0: diffuse texture
  *   location 1: normal map
  */
-class normal_mapping : public swr::program<normal_mapping>
+class normal_mapping final : public swr::program<normal_mapping>
 {
     const ml::vec4 light_color{0.7, 1, 1, 1};
     const ml::vec4 light_specular_color{0.25, 0.5, 0.75, 1};
@@ -187,7 +187,7 @@ public:
  * samplers:
  *   location 0: diffuse texture
  */
-class blend : public swr::program<blend>
+class blend final : public swr::program<blend>
 {
 public:
     swr::program_metadata get_metadata() const override

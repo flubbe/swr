@@ -23,7 +23,7 @@ namespace rast
  *
  * the advance_y method is geared towards the data living on an object with a left vertical edge.
  */
-struct varying_interpolator : public swr::varying
+struct varying_interpolator final : public swr::varying
 {
     /** Linear or weighted step (with respect to window coordinates). */
     ml::tvec2<ml::vec4> step;

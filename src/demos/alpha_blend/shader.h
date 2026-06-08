@@ -25,7 +25,7 @@ namespace shader
  *   location 0: projection matrix              [mat4x4]
  *   location 1: view matrix                    [mat4x4]
  */
-class color : public swr::program<color>
+class color final : public swr::program<color>
 {
 public:
     swr::program_metadata get_metadata() const override
@@ -96,7 +96,7 @@ public:
  * samplers:
  *   location 0: diffuse texture
  */
-class texture : public swr::program<texture>
+class texture final : public swr::program<texture>
 {
 public:
     swr::program_metadata get_metadata() const override

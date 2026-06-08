@@ -28,7 +28,7 @@ namespace shader
  * samplers:
  *   location 0: diffuse texture
  */
-class texture : public swr::program<texture>
+class texture final : public swr::program<texture>
 {
 public:
     swr::program_metadata get_metadata() const override
@@ -106,7 +106,7 @@ public:
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class color_flat : public swr::program<color_flat>
+class color_flat final : public swr::program<color_flat>
 {
 public:
     color_flat() = default;
@@ -174,7 +174,7 @@ public:
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class wireframe : public swr::program<wireframe>
+class wireframe final : public swr::program<wireframe>
 {
     const ml::vec4 diffuse_color{0, 0, 0.4f, 1.0f};
 

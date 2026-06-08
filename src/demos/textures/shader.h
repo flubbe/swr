@@ -26,7 +26,7 @@ namespace shader
 {
 
 /** A shader that applies the diffuse texture. */
-class texture : public swr::program<texture>
+class texture final : public swr::program<texture>
 {
 public:
     swr::program_metadata get_metadata() const override
