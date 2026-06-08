@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <ranges>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace swr
@@ -74,6 +75,12 @@ public:
     /** Ordered vertices after clipping. */
     vertex_buffer clipped_vertices;
 
+    /** Whether clipped_vertices is addressed by indices instead of already expanded into primitives. */
+    bool clipped_vertices_are_indexed{false};
+
+    /** Whether any vertex was marked outside the clip volume by the vertex stage. */
+    bool has_clip_discard{false};
+
     /** Constructors */
     render_object() = default;
 
@@ -102,6 +109,20 @@ public:
     {
         allocate_coords(in_indices.size());
         vertex_flags.resize(in_indices.size());
+    }
+
+    /** Initialize the object with remapped indices and compact vertex storage. */
+    render_object(
+      std::vector<std::uint32_t> in_indices,
+      std::size_t vertex_count,
+      vertex_buffer_mode in_mode,
+      const render_states& in_states)
+    : indices{std::move(in_indices)}
+    , mode{in_mode}
+    , states{in_states}
+    {
+        allocate_coords(vertex_count);
+        vertex_flags.resize(vertex_count);
     }
 
     /**

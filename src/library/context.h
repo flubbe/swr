@@ -447,6 +447,18 @@ struct render_context
       vertex_buffer_mode mode,
       vertex_buffer& vb);
 
+    /**
+     * Assemble primitives from an indexed viewport-space vertex buffer.
+     *
+     * This is used by the no-clipping fast path, where vertices can stay compact
+     * and primitives are described by render_object::indices.
+     */
+    void assemble_indexed_primitives(
+      const render_states* states,
+      vertex_buffer_mode mode,
+      vertex_buffer& vb,
+      std::span<const std::uint32_t> indices);
+
     /*
      * render_device_context interface.
      */
