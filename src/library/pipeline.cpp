@@ -926,7 +926,7 @@ static void process_vertices(swr::impl::render_object& obj)
         emit_unclipped_indexed_vertices(obj);
     }
     else if(obj.mode == vertex_buffer_mode::points
-       || obj.states.poly_mode == polygon_mode::point)
+            || obj.states.poly_mode == polygon_mode::point)
     {
         const auto varying_count = obj.states.shader_info->varying_count;
         obj.clipped_vertices.reserve(obj.indices.size());
@@ -1262,7 +1262,7 @@ static void clip_vertex_buffer_serial(
         emit_unclipped_indexed_vertices(*obj);
     }
     else if(obj->mode == vertex_buffer_mode::points
-       || obj->states.poly_mode == polygon_mode::point)
+            || obj->states.poly_mode == polygon_mode::point)
     {
         const auto varying_count = obj->states.shader_info->varying_count;
         obj->clipped_vertices.reserve(obj->indices.size());

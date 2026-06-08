@@ -49,7 +49,7 @@ swr::impl::texture_2d* get_texture_ptr(
     return render_context->texture_2d_storage[texture_id].get();
 }
 
-} // namespace
+}    // namespace
 
 BOOST_FIXTURE_TEST_SUITE(framebuffer_tests, offscreen_context_fixture)
 
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(framebuffer_object_with_invalid_color_attachment_is_incompl
     fbo.attach_texture(
       swr::framebuffer_attachment::color_attachment_0,
       get_texture_ptr(context, texture_id),
-      99); // invalid mip level
+      99);    // invalid mip level
 
     BOOST_CHECK(!fbo.is_complete());
 }

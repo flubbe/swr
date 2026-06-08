@@ -80,8 +80,8 @@ inline vertex lerp(
       .coords = ml::lerp(t, v1.coords, v2.coords),
       .varyings = {},
       .provoking_vertex_varyings = v1.provoking_vertex_varyings != nullptr
-                                      ? v1.provoking_vertex_varyings
-                                      : v2.provoking_vertex_varyings,
+                                     ? v1.provoking_vertex_varyings
+                                     : v2.provoking_vertex_varyings,
       .flags = vf_interpolated};
 
     // interpolate varyings

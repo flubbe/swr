@@ -441,14 +441,13 @@ bool sweep_rasterizer::process_block_impl(
     auto& attributes = *data.attributes;
     const block_depth_reject_result block_reject =
       early_depth_controller::try_reject_block(
-        {
-          .default_framebuffer = context.framebuffer,
-          .states = *data.states,
-          .block_x = block_x,
-          .block_y = block_y,
-          .depth = attributes.depth_value,
-          .tile_depth = context.depth_context,
-          .candidate_quad_count = early_depth_reject_tile_quad_count},
+        {.default_framebuffer = context.framebuffer,
+         .states = *data.states,
+         .block_x = block_x,
+         .block_y = block_y,
+         .depth = attributes.depth_value,
+         .tile_depth = context.depth_context,
+         .candidate_quad_count = early_depth_reject_tile_quad_count},
         context.early_depth_policy);
     if(block_reject.rejected)
     {
@@ -659,14 +658,13 @@ bool sweep_rasterizer::process_block_checked_impl(
       estimate_quad_count(data.checked_quad_bounds);
     const block_depth_reject_result block_reject =
       early_depth_controller::try_reject_block(
-        {
-          .default_framebuffer = context.framebuffer,
-          .states = *data.states,
-          .block_x = block_x,
-          .block_y = block_y,
-          .depth = attributes.depth_value,
-          .tile_depth = context.depth_context,
-          .candidate_quad_count = candidate_quad_count},
+        {.default_framebuffer = context.framebuffer,
+         .states = *data.states,
+         .block_x = block_x,
+         .block_y = block_y,
+         .depth = attributes.depth_value,
+         .tile_depth = context.depth_context,
+         .candidate_quad_count = candidate_quad_count},
         context.early_depth_policy);
     if(block_reject.rejected)
     {
