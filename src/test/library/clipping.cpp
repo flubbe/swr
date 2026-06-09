@@ -69,6 +69,40 @@ auto get_bits = [](float f) -> std::uint32_t
     return temp;
 };
 
+static std::uint32_t compute_clip_flags_from_coord(const ml::vec4& v)
+{
+    std::uint32_t flags = 0;
+    if(v.x < -v.w)
+    {
+        flags |= geom::vf_clip_x_min;
+    }
+    if(v.x > v.w)
+    {
+        flags |= geom::vf_clip_x_max;
+    }
+    if(v.y < -v.w)
+    {
+        flags |= geom::vf_clip_y_min;
+    }
+    if(v.y > v.w)
+    {
+        flags |= geom::vf_clip_y_max;
+    }
+    if(v.z < -v.w)
+    {
+        flags |= geom::vf_clip_z_min;
+    }
+    if(v.z > v.w)
+    {
+        flags |= geom::vf_clip_z_max;
+    }
+    if(v.w <= 1e-5f)
+    {
+        flags |= geom::vf_clip_w_min;
+    }
+    return flags;
+}
+
 static void check_vertex_buffers_equal_bitwise(
   const swr::impl::vertex_buffer& a,
   const swr::impl::vertex_buffer& b,
@@ -171,7 +205,6 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     {
         return (v.w > 0) && (-v.w <= v.x) && (v.x <= v.w) && (-v.w <= v.y) && (v.y <= v.w) && (-v.w <= v.z) && (v.z <= v.w);
     };
-
     obj.indices = {0, 1};
     obj.vertex_flags.resize(2);
 
@@ -198,6 +231,8 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
 
         obj.coords[0] = points[0];
         obj.coords[1] = points[1];
+        obj.vertex_flags[0] = 0;
+        obj.vertex_flags[1] = 0;
 
         obj.clipped_vertices.clear();
         swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
@@ -249,7 +284,6 @@ BOOST_AUTO_TEST_CASE(line_clip)
     {
         return (v.w > 0) && (-v.w <= v.x) && (v.x <= v.w) && (-v.w <= v.y) && (v.y <= v.w) && (-v.w <= v.z) && (v.z <= v.w);
     };
-
     std::size_t lines_in_frustum = 0;
     const std::size_t total_lines = 100000;
     for(std::size_t k = 0; k < total_lines; ++k)
@@ -268,18 +302,8 @@ BOOST_AUTO_TEST_CASE(line_clip)
 
         obj.coords[0] = v1;
         obj.coords[1] = v2;
-
-        /*
-         * clip_line_buffer does not do frustum checks, but relies on the vf_clip_discard flag being set.
-         */
-        if(!v1_inside)
-        {
-            obj.vertex_flags[0] |= geom::vf_clip_discard;
-        }
-        if(!v2_inside)
-        {
-            obj.vertex_flags[1] |= geom::vf_clip_discard;
-        }
+        obj.vertex_flags[0] = compute_clip_flags_from_coord(v1);
+        obj.vertex_flags[1] = compute_clip_flags_from_coord(v2);
 
         out1.clear();
         swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
@@ -287,18 +311,8 @@ BOOST_AUTO_TEST_CASE(line_clip)
 
         obj.coords[0] = v2;
         obj.coords[1] = v1;
-
-        /*
-         * clip_line_buffer does not do frustum checks, but relies on the vf_clip_discard flag being set.
-         */
-        if(!v1_inside)
-        {
-            obj.vertex_flags[1] |= geom::vf_clip_discard;
-        }
-        if(!v2_inside)
-        {
-            obj.vertex_flags[0] |= geom::vf_clip_discard;
-        }
+        obj.vertex_flags[0] = compute_clip_flags_from_coord(v2);
+        obj.vertex_flags[1] = compute_clip_flags_from_coord(v1);
 
         out2.clear();
         swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
@@ -365,13 +379,23 @@ BOOST_AUTO_TEST_CASE(line_clip_range_parity)
     std::uniform_real_distribution<float> coord_dist(-2.0f, 2.0f);
     std::bernoulli_distribution discard_dist(0.25);
 
+    constexpr std::array<std::uint32_t, 7> clip_plane_flags = {
+      geom::vf_clip_x_min,
+      geom::vf_clip_x_max,
+      geom::vf_clip_y_min,
+      geom::vf_clip_y_max,
+      geom::vf_clip_z_min,
+      geom::vf_clip_z_max,
+      geom::vf_clip_w_min};
+    std::uniform_int_distribution<std::size_t> plane_dist(0, clip_plane_flags.size() - 1);
+
     for(std::size_t i = 0; i < vertex_count; ++i)
     {
         obj.indices[i] = static_cast<std::uint32_t>(i);
         obj.coords[i] = {coord_dist(rng), coord_dist(rng), coord_dist(rng), coord_dist(rng)};
         if(discard_dist(rng))
         {
-            obj.vertex_flags[i] |= geom::vf_clip_discard;
+            obj.vertex_flags[i] |= clip_plane_flags[plane_dist(rng)];
         }
     }
 
@@ -425,13 +449,23 @@ BOOST_AUTO_TEST_CASE(triangle_clip_range_parity)
     std::uniform_real_distribution<float> coord_dist(-2.0f, 2.0f);
     std::bernoulli_distribution discard_dist(0.3);
 
+    constexpr std::array<std::uint32_t, 7> clip_plane_flags = {
+      geom::vf_clip_x_min,
+      geom::vf_clip_x_max,
+      geom::vf_clip_y_min,
+      geom::vf_clip_y_max,
+      geom::vf_clip_z_min,
+      geom::vf_clip_z_max,
+      geom::vf_clip_w_min};
+    std::uniform_int_distribution<std::size_t> plane_dist(0, clip_plane_flags.size() - 1);
+
     for(std::size_t i = 0; i < vertex_count; ++i)
     {
         obj.indices[i] = static_cast<std::uint32_t>(i);
         obj.coords[i] = {coord_dist(rng), coord_dist(rng), coord_dist(rng), coord_dist(rng)};
         if(discard_dist(rng))
         {
-            obj.vertex_flags[i] |= geom::vf_clip_discard;
+            obj.vertex_flags[i] |= clip_plane_flags[plane_dist(rng)];
         }
     }
 
@@ -484,7 +518,7 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference)
     obj.coords[0] = {-2.0f, 0.0f, 0.0f, 1.0f};
     obj.coords[1] = {0.0f, 0.8f, 0.0f, 1.0f};
     obj.coords[2] = {0.0f, -0.8f, 0.0f, 1.0f};
-    obj.vertex_flags[0] |= geom::vf_clip_discard;
+    obj.vertex_flags[0] |= geom::vf_clip_x_min;
 
     obj.varyings[0] = {11.0f, 1.0f, 2.0f, 3.0f};
     obj.varyings[1] = {22.0f, 4.0f, 5.0f, 6.0f};
@@ -528,7 +562,7 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference_per_input_triangle)
     obj.coords[3] = {2.0f, 0.0f, 0.0f, 1.0f};
     obj.coords[4] = {0.0f, -0.9f, 0.0f, 1.0f};
     obj.coords[5] = {0.0f, 0.9f, 0.0f, 1.0f};
-    obj.vertex_flags[3] |= geom::vf_clip_discard;
+    obj.vertex_flags[3] |= geom::vf_clip_x_max;
 
     obj.varyings[0] = {11.0f, 1.0f, 2.0f, 3.0f};
     obj.varyings[1] = {12.0f, 1.0f, 2.0f, 3.0f};

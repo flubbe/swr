@@ -735,47 +735,43 @@ inline void finalize_pipeline_profile_frame(std::uint64_t stage_present_total)
 namespace
 {
 
-bool can_use_unclipped_indexed_vertices(
-  const impl::render_object& obj)
+void transform_clip_coord_to_viewport(
+  ml::vec4& coords,
+  float x,
+  float y,
+  float width,
+  float height,
+  float z_near,
+  float z_far)
 {
-    return obj.mode == vertex_buffer_mode::triangles
-           && obj.states.poly_mode == polygon_mode::fill
-           && !obj.has_clip_discard;
-}
+    // calculate the normalized device coordinates.
+    // w is set to 1/w (see https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf, section 15.2.2).
+    coords.divide_by_w();
 
-void emit_unclipped_indexed_vertices(
-  impl::render_object& obj)
-{
-    obj.clipped_vertices.clear();
-    obj.clipped_vertices_are_indexed = true;
-    obj.clipped_vertices.reserve(obj.coord_count);
+    // normalized device coordinates are in the range [-1,1], which we need to convert to viewport coordinates.
 
-    for(std::size_t i = 0; i < obj.coord_count; ++i)
-    {
-        geom::vertex v;
-        v.coords = obj.coords[i];
-        v.flags = obj.vertex_flags[i];
+    // Note that the y direction needs to be flipped, since viewport y coordinates go from top down, while NDC
+    // coordinates go bottom up. The flipping of the Y coordinate also flips the orientation of the primitives.
+    float viewport_x = (1 + coords.x) * 0.5f * width + x;
+    float viewport_y = (1 - coords.y) * 0.5f * height + y;
 
-        const auto vertex_varyings = obj.varyings_for_vertex(i);
-        v.varyings.assign(
-          std::begin(vertex_varyings),
-          std::end(vertex_varyings));
+    // the viewport z coordinates is defined by linearly mapping z from the range [0,1] to [z_near, z_far].
+    float viewport_z = ml::lerp(0.5f * (1.0f + coords.z), z_near, z_far);
 
-        obj.clipped_vertices.emplace_back(std::move(v));
-    }
+    // Then, store the viewport coordinates.
+    coords = {viewport_x, viewport_y, viewport_z, coords.w};
 }
 
 void assemble_render_object(
   impl::render_context* context,
   impl::render_object& obj)
 {
-    if(obj.clipped_vertices_are_indexed)
+    if(obj.clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices)
     {
-        context->assemble_indexed_primitives(
+        context->assemble_original_indexed_primitives(
           &obj.states,
           obj.mode,
-          obj.clipped_vertices,
-          obj.indices);
+          obj);
         return;
     }
 
@@ -796,12 +792,11 @@ namespace st
 {
 
 /** Call vertex shaders and set clipping markers. */
-static bool invoke_vertex_shader_and_clip_preprocess(
+static void invoke_vertex_shader_and_clip_preprocess(
   impl::vertex_shader_instance_container& shader_instance,
   impl::render_object& obj)
 {
     // check if the whole buffer should be discarded.
-    bool clip_discard{true};
     obj.has_clip_discard = false;
 
     // allocate varyings.
@@ -828,21 +823,40 @@ static bool invoke_vertex_shader_and_clip_preprocess(
          *    -w <= z <= w
          *      0 < w.
          */
-        if(obj.coords[i].x < -obj.coords[i].w || obj.coords[i].x > obj.coords[i].w
-           || obj.coords[i].y < -obj.coords[i].w || obj.coords[i].y > obj.coords[i].w
-           || obj.coords[i].z < -obj.coords[i].w || obj.coords[i].z > obj.coords[i].w
-           || obj.coords[i].w <= 0)
+        if(obj.coords[i].x < -obj.coords[i].w)
         {
-            obj.vertex_flags[i] |= geom::vf_clip_discard;
+            obj.vertex_flags[i] |= geom::vf_clip_x_min;
+        }
+        if(obj.coords[i].x > obj.coords[i].w)
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_x_max;
+        }
+        if(obj.coords[i].y < -obj.coords[i].w)
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_y_min;
+        }
+        if(obj.coords[i].y > obj.coords[i].w)
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_y_max;
+        }
+        if(obj.coords[i].z < -obj.coords[i].w)
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_z_min;
+        }
+        if(obj.coords[i].z > obj.coords[i].w)
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_z_max;
+        }
+        if(obj.coords[i].w <= 0)
+        {
+            obj.vertex_flags[i] |= geom::vf_clip_w_min;
+        }
+
+        if(obj.vertex_flags[i] & geom::vf_clip_discard)
+        {
             obj.has_clip_discard = true;
         }
-        else
-        {
-            clip_discard = false;
-        }
     }
-
-    return clip_discard;
 }
 
 /**
@@ -859,34 +873,53 @@ static void transform_to_viewport_coords(
 {
     for(auto& vertex_it: vb)
     {
-        // calculate the normalized device coordinates.
-        // w is set to 1/w (see https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf, section 15.2.2).
-        vertex_it.coords.divide_by_w();
+        transform_clip_coord_to_viewport(
+          vertex_it.coords,
+          x,
+          y,
+          width,
+          height,
+          z_near,
+          z_far);
+    }
+}
 
-        // normalized device coordinates are in the range [-1,1], which we need to convert to viewport coordinates.
-
-        // Note that the y direction needs to be flipped, since viewport y coordinates go from top down, while NDC
-        // coordinates go bottom up. The flipping of the Y coordinate also flips the orientation of the primitives.
-        float viewport_x = (1 + vertex_it.coords.x) * 0.5f * width + x;
-        float viewport_y = (1 - vertex_it.coords.y) * 0.5f * height + y;
-
-        // the viewport z coordinates is defined by linearly mapping z from the range [0,1] to [z_near, z_far].
-        float viewport_z = ml::lerp(0.5f * (1.0f + vertex_it.coords.z), z_near, z_far);
-
-        // Then, store the viewport coordinates.
-        vertex_it.coords = {viewport_x, viewport_y, viewport_z, vertex_it.coords.w};
+static void transform_to_viewport_coords(
+  std::span<ml::vec4> coords,
+  float x,
+  float y,
+  float width,
+  float height,
+  float z_near,
+  float z_far)
+{
+    for(auto& coord: coords)
+    {
+        transform_clip_coord_to_viewport(
+          coord,
+          x,
+          y,
+          width,
+          height,
+          z_near,
+          z_far);
     }
 }
 
 static void process_vertices(swr::impl::render_object& obj)
 {
-    obj.clipped_vertices.clear();
-    obj.clipped_vertices_are_indexed = false;
+    obj.clear_clipped_output();
 
     if(obj.coord_count == 0 || obj.indices.empty())
     {
         return;
     }
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_vertex = 0;
+    std::uint64_t stage_clipping = 0;
+    std::uint64_t stage_viewport = 0;
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     // create shader instance.
     impl::vertex_shader_instance_container shader_instance{
@@ -899,11 +932,16 @@ static void process_vertices(swr::impl::render_object& obj)
      * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
      * The clip preprecessing sets a marker for each vertex outside the view frustum.
      */
-    bool discard_buffer = invoke_vertex_shader_and_clip_preprocess(shader_instance, obj);
-    if(discard_buffer)
-    {
-        return;
-    }
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::clock(stage_vertex);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    invoke_vertex_shader_and_clip_preprocess(shader_instance, obj);
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_vertex);
+    g_pipeline_cycles.vertex += stage_vertex;
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     // check we have valid drawing and polygon modes.
     assert(obj.mode == vertex_buffer_mode::points
@@ -921,9 +959,13 @@ static void process_vertices(swr::impl::render_object& obj)
      *
      * Clipping pre-assembles the primitives, i.e. it creates triangles.
      */
-    if(can_use_unclipped_indexed_vertices(obj))
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::clock(stage_clipping);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    if(!obj.has_clip_discard)
     {
-        emit_unclipped_indexed_vertices(obj);
+        obj.use_original_indexed_vertices();
     }
     else if(obj.mode == vertex_buffer_mode::points
             || obj.states.poly_mode == polygon_mode::point)
@@ -965,15 +1007,41 @@ static void process_vertices(swr::impl::render_object& obj)
         clip_triangle_buffer(obj, impl::triangle_list);
     }
 
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_clipping);
+    g_pipeline_cycles.clipping += stage_clipping;
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
     // skip the rest of the pipeline if no clipped vertices were produced.
-    if(!obj.clipped_vertices.empty())
+    if(obj.has_clipped_output())
     {
-        // perspective divide and viewport transformation.
-        transform_to_viewport_coords(
-          obj.clipped_vertices,
-          obj.states.x, obj.states.y,
-          obj.states.width, obj.states.height,
-          obj.states.z_near, obj.states.z_far);
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::clock(stage_viewport);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        if(obj.clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices)
+        {
+            // perspective divide and viewport transformation.
+            transform_to_viewport_coords(
+              obj.coord_span(),
+              obj.states.x, obj.states.y,
+              obj.states.width, obj.states.height,
+              obj.states.z_near, obj.states.z_far);
+        }
+        else
+        {
+            // perspective divide and viewport transformation.
+            transform_to_viewport_coords(
+              obj.clipped_vertices,
+              obj.states.x, obj.states.y,
+              obj.states.width, obj.states.height,
+              obj.states.z_near, obj.states.z_far);
+        }
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_viewport);
+        g_pipeline_cycles.viewport += stage_viewport;
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 }
 
@@ -1040,18 +1108,27 @@ static bool should_parallelize_clipping_across_objects(
     impl::vertex_shader_instance_container>>& program_instances)
 {
     const std::size_t thread_count = thread_pool.get_thread_count();
-    const std::size_t object_count = program_instances.size();
-
-    if(thread_count <= 1
-       || object_count < min_parallel_clip_render_objects)
+    if(thread_count <= 1)
     {
         return false;
     }
 
+    std::size_t clip_object_count = 0;
     std::size_t total_clip_primitives = 0;
     for(const auto& [obj, shader]: program_instances)
     {
+        if(!obj->has_clip_discard)
+        {
+            continue;
+        }
+
+        ++clip_object_count;
         total_clip_primitives += clip_primitive_count(obj);
+    }
+
+    if(clip_object_count < min_parallel_clip_render_objects)
+    {
+        return false;
     }
 
     // Path 1: enough aggregate work to keep all threads busy.
@@ -1063,8 +1140,8 @@ static bool should_parallelize_clipping_across_objects(
     }
 
     // Path 2: lots of tiny objects; allow parallel fan-out with a lower per-object floor.
-    if(object_count >= thread_count
-       && total_clip_primitives >= object_count * min_parallel_clip_primitives_per_object_floor)
+    if(clip_object_count >= thread_count
+       && total_clip_primitives >= clip_object_count * min_parallel_clip_primitives_per_object_floor)
     {
         return true;
     }
@@ -1165,17 +1242,24 @@ static void clip_indexed_primitives_parallel(
 
     thread_pool.run_tasks_and_wait();
 
-    obj->clipped_vertices.clear();
-    obj->clipped_vertices_are_indexed = false;
+    obj->clear_clipped_output();
     std::size_t output_size = 0;
     for(const auto& chunk: chunk_outputs)
     {
         output_size += chunk.size();
     }
+    if(chunk_outputs.empty())
+    {
+        return;
+    }
+
+    // Reuse the first chunk buffer directly, then append remaining chunks.
+    obj->clipped_vertices = std::move(chunk_outputs.front());
     obj->clipped_vertices.reserve(output_size);
 
-    for(auto& chunk: chunk_outputs)
+    for(std::size_t i = 1; i < chunk_outputs.size(); ++i)
     {
+        auto& chunk = chunk_outputs[i];
         obj->clipped_vertices.insert(
           std::end(obj->clipped_vertices),
           std::make_move_iterator(std::begin(chunk)),
@@ -1203,12 +1287,22 @@ static bool should_parallelize_clipping(
         return false;
     }
 
+    const std::size_t index_count = obj->indices.size();
+    const float min_discarded_index_count =
+      min_parallel_clip_discard_ratio * static_cast<float>(index_count);
+
     std::size_t discarded_index_count = 0;
     for(const std::uint32_t i: obj->indices)
     {
         if(obj->vertex_flags[i] & geom::vf_clip_discard)
         {
             ++discarded_index_count;
+
+            // Enough discarded indices to satisfy the ratio heuristic: no need to scan the rest.
+            if(static_cast<float>(discarded_index_count) >= min_discarded_index_count)
+            {
+                return true;
+            }
         }
     }
 
@@ -1221,25 +1315,17 @@ static bool should_parallelize_clipping(
         return false;
     }
 
-    const float discard_ratio =
-      static_cast<float>(discarded_index_count)
-      / static_cast<float>(obj->indices.size());
-    if(discard_ratio < min_parallel_clip_discard_ratio)
-    {
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
-        impl::profile_clip_parallel_reject_low_discard_ratio.fetch_add(1, std::memory_order_relaxed);
+    impl::profile_clip_parallel_reject_low_discard_ratio.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        return false;
-    }
-    return true;
+    return false;
 }
 
 static void clip_vertex_buffer_serial(
   swr::impl::render_object* obj)
 {
-    obj->clipped_vertices.clear();
-    obj->clipped_vertices_are_indexed = false;
+    obj->clear_clipped_output();
 
     // check we have valid drawing and polygon modes.
     assert(obj->mode == vertex_buffer_mode::points
@@ -1257,9 +1343,9 @@ static void clip_vertex_buffer_serial(
      *
      * Clipping pre-assembles the primitives, i.e. it creates triangles.
      */
-    if(can_use_unclipped_indexed_vertices(*obj))
+    if(!obj->has_clip_discard)
     {
-        emit_unclipped_indexed_vertices(*obj);
+        obj->use_original_indexed_vertices();
     }
     else if(obj->mode == vertex_buffer_mode::points
             || obj->states.poly_mode == polygon_mode::point)
@@ -1342,12 +1428,33 @@ static void vertex_shader_task(
          *    -w <= z <= w
          *      0 < w.
          */
-        if(obj->coords[i].x < -obj->coords[i].w || obj->coords[i].x > obj->coords[i].w
-           || obj->coords[i].y < -obj->coords[i].w || obj->coords[i].y > obj->coords[i].w
-           || obj->coords[i].z < -obj->coords[i].w || obj->coords[i].z > obj->coords[i].w
-           || obj->coords[i].w <= 0)
+        if(obj->coords[i].x < -obj->coords[i].w)
         {
-            obj->vertex_flags[i] |= geom::vf_clip_discard;
+            obj->vertex_flags[i] |= geom::vf_clip_x_min;
+        }
+        if(obj->coords[i].x > obj->coords[i].w)
+        {
+            obj->vertex_flags[i] |= geom::vf_clip_x_max;
+        }
+        if(obj->coords[i].y < -obj->coords[i].w)
+        {
+            obj->vertex_flags[i] |= geom::vf_clip_y_min;
+        }
+        if(obj->coords[i].y > obj->coords[i].w)
+        {
+            obj->vertex_flags[i] |= geom::vf_clip_y_max;
+        }
+        if(obj->coords[i].z < -obj->coords[i].w)
+        {
+            obj->vertex_flags[i] |= geom::vf_clip_z_min;
+        }
+        if(obj->coords[i].z > obj->coords[i].w)
+        {
+            obj->vertex_flags[i] |= geom::vf_clip_z_max;
+        }
+        if(obj->coords[i].w <= 0)
+        {
+            obj->vertex_flags[i] |= geom::vf_clip_w_min;
         }
     }
 }
@@ -1389,11 +1496,14 @@ static void invoke_vertex_shader_and_clip_preprocess(
 }
 
 /**
- * @brief Apply the viewport transformation to a part of a vertex buffer. Meant to be supplied to a thread pool.
+ * Apply the viewport transformation to a part of a coordinate container.
+ * Meant to be supplied to a thread pool.
  *
- * @param vb Pointer to the vertex buffer.
- * @param offset Starting offset into the vertex buffer.
- * @param end End offset. Has to be less than vb->size().
+ * @tparam Container The container type.
+ * @tparam Selector Selector for the buffer. Returns a `ml::vec4` coordinate.
+ * @param coord_container Coordinate container handle passed to the selector.
+ * @param offset Starting offset into the container.
+ * @param end End offset. Has to be less than the container size.
  * @param x Viewport x coordinate.
  * @param y Viewport y coordinate.
  * @param width Viewport width.
@@ -1401,8 +1511,14 @@ static void invoke_vertex_shader_and_clip_preprocess(
  * @param z_near Near clipping plane coordinate.
  * @param z_far Far clipping plane coordinate.
  */
-static void transform_to_viewport_coords_task(
-  impl::vertex_buffer* vb,
+template<
+  typename Container,
+  auto Selector>
+    requires std::same_as<
+      decltype(Selector(std::declval<Container>(), std::declval<std::size_t>())),
+      ml::vec4&>
+void transform_to_viewport_coords_task(
+  Container coord_container,
   std::size_t offset,
   std::size_t end,
   float x,
@@ -1414,29 +1530,90 @@ static void transform_to_viewport_coords_task(
 {
     for(std::size_t i = offset; i < end; ++i)
     {
-        geom::vertex& v = (*vb)[i];
+        ml::vec4& coord = Selector(coord_container, i);
 
-        // calculate the normalized device coordinates.
-        // w is set to 1/w (see https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf, section 15.2.2).
-        v.coords.divide_by_w();
-
-        // normalized device coordinates are in the range [-1,1], which we need to convert to viewport coordinates.
-
-        // Note that the y direction needs to be flipped, since viewport y coordinates go from top down, while NDC
-        // coordinates go bottom up. The flipping of the Y coordinate also flips the orientation of the primitives.
-        float viewport_x = (1 + v.coords.x) * 0.5f * width + x;
-        float viewport_y = (1 - v.coords.y) * 0.5f * height + y;
-
-        // the viewport z coordinates is defined by linearly mapping z from the range [0,1] to [z_near, z_far].
-        float viewport_z = ml::lerp(0.5f * (1.0f + v.coords.z), z_near, z_far);
-
-        // Then, store the viewport coordinates.
-        v.coords = {viewport_x, viewport_y, viewport_z, v.coords.w};
+        transform_clip_coord_to_viewport(
+          coord,
+          x,
+          y,
+          width,
+          height,
+          z_near,
+          z_far);
     }
 }
 
+/** Identity selector for the viewport transform. */
+static ml::vec4& select_raw_coord(
+  ml::vec4* coords,
+  std::size_t i)
+{
+    return coords[i];
+}
+
+/** Select entry `i` of the vertex buffer and return its `coord` member. */
+static ml::vec4& select_vertex_buffer_coord(
+  impl::vertex_buffer* vb,
+  std::size_t i)
+{
+    return (*vb)[i].coords;
+}
+
+template<typename PushTask>
+static void for_each_task_range(
+  std::size_t count,
+  std::size_t chunk_size,
+  PushTask push_task)
+{
+    for(std::size_t begin = 0; begin < count; begin += chunk_size)
+    {
+        const std::size_t end = std::min(begin + chunk_size, count);
+        push_task(begin, end);
+    }
+}
+
+template<typename Container, auto Selector>
 static void transform_to_viewport_coords(
-  swr::impl::sdl_render_context::thread_pool_type& thread_pool,
+  impl::sdl_render_context::thread_pool_type& thread_pool,
+  Container coord_container,
+  std::size_t count,
+  float x,
+  float y,
+  float width,
+  float height,
+  float z_near,
+  float z_far)
+{
+    if(count == 0)
+        return;
+
+    const std::size_t thread_count = thread_pool.get_thread_count();
+    const std::size_t chunk_size = std::max(
+      min_tasks_per_thread,
+      count / thread_count);
+
+    for_each_task_range(
+      count,
+      chunk_size,
+      [&](std::size_t begin, std::size_t end)
+      {
+          thread_pool.push_immediate_task(
+            transform_to_viewport_coords_task<Container, Selector>,
+            coord_container,
+            begin,
+            end,
+            x,
+            y,
+            width,
+            height,
+            z_near,
+            z_far);
+      });
+}
+
+/** Viewport transform for clipped output stored in a vertex buffer. */
+static void transform_to_viewport_coords(
+  impl::sdl_render_context::thread_pool_type& thread_pool,
   impl::vertex_buffer& vb,
   float x,
   float y,
@@ -1445,52 +1622,54 @@ static void transform_to_viewport_coords(
   float z_near,
   float z_far)
 {
-    auto thread_count = thread_pool.get_thread_count();
-    std::size_t thread_vertex_count = std::max(min_tasks_per_thread, vb.size() / thread_count);
+    transform_to_viewport_coords<
+      impl::vertex_buffer*,
+      select_vertex_buffer_coord>(
+      thread_pool,
+      &vb,
+      vb.size(),
+      x,
+      y,
+      width,
+      height,
+      z_near,
+      z_far);
+}
 
-    std::size_t offset = 0;
-    for(; offset + thread_vertex_count < vb.size(); offset += thread_vertex_count)
-    {
-        thread_pool.push_immediate_task(
-          transform_to_viewport_coords_task,
-          &vb,
-          offset,
-          offset + thread_vertex_count,
-          x,
-          y,
-          width,
-          height,
-          z_near,
-          z_far);
-    }
-
-    // push remaining vertices.
-    if(offset < vb.size())
-    {
-        thread_pool.push_immediate_task(
-          transform_to_viewport_coords_task,
-          &vb,
-          offset,
-          vb.size(),
-          x,
-          y,
-          width,
-          height,
-          z_near,
-          z_far);
-    }
+/** Viewport transform for the no-clip path, i.e. original indexed vertex coordinates. */
+static void transform_to_viewport_coords(
+  impl::sdl_render_context::thread_pool_type& thread_pool,
+  std::span<ml::vec4> coords,
+  float x,
+  float y,
+  float width,
+  float height,
+  float z_near,
+  float z_far)
+{
+    transform_to_viewport_coords<
+      ml::vec4*,
+      select_raw_coord>(
+      thread_pool,
+      coords.data(),
+      coords.size(),
+      x,
+      y,
+      width,
+      height,
+      z_near,
+      z_far);
 }
 
 static void clip_vertex_buffer(
   impl::sdl_render_context::thread_pool_type& thread_pool,
   swr::impl::render_object* obj)
 {
-    obj->clipped_vertices.clear();
-    obj->clipped_vertices_are_indexed = false;
+    obj->clear_clipped_output();
 
-    if(can_use_unclipped_indexed_vertices(*obj))
+    if(!obj->has_clip_discard)
     {
-        emit_unclipped_indexed_vertices(*obj);
+        obj->use_original_indexed_vertices();
         return;
     }
 
@@ -1699,13 +1878,25 @@ static void process_vertices(
         impl::profile_clip_parallel_across_objects_frames.fetch_add(1, std::memory_order_relaxed);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
+        std::size_t enqueued_clip_tasks = 0;
         for(auto& [obj, shader]: context->program_instances)
         {
+            if(!obj->has_clip_discard)
+            {
+                obj->use_original_indexed_vertices();
+                continue;
+            }
+
             context->thread_pool.push_immediate_task(
               clip_vertex_buffer_serial_task,
               obj);
+            ++enqueued_clip_tasks;
         }
-        context->thread_pool.run_tasks_and_wait();
+
+        if(enqueued_clip_tasks > 0)
+        {
+            context->thread_pool.run_tasks_and_wait();
+        }
     }
     else
     {
@@ -1737,7 +1928,22 @@ static void process_vertices(
     for(auto& [obj, shader]: context->program_instances)
     {
         // skip the rest of the pipeline if no clipped vertices were produced.
-        if(!obj->clipped_vertices.empty())
+        if(!obj->has_clipped_output())
+        {
+            continue;
+        }
+
+        if(obj->clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices)
+        {
+            // perspective divide and viewport transformation.
+            transform_to_viewport_coords(
+              context->thread_pool,
+              obj->coord_span(),
+              obj->states.x, obj->states.y,
+              obj->states.width, obj->states.height,
+              obj->states.z_near, obj->states.z_far);
+        }
+        else
         {
             // perspective divide and viewport transformation.
             transform_to_viewport_coords(
@@ -1803,7 +2009,7 @@ void Present()
 
     for(auto& it: context->render_object_list)
     {
-        if(it.clipped_vertices.empty())
+        if(!it.has_clipped_output())
         {
             continue;
         }
@@ -1823,26 +2029,13 @@ void Present()
     // process render commands.
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_assembly = 0;
-    std::uint64_t stage_vertex = 0;
-    std::uint64_t stage_clipping = 0;
-    std::uint64_t stage_viewport = 0;
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     for(auto& it: context->render_object_list)
     {
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-        utils::clock(stage_vertex);
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
         st::process_vertices(it);
 
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-        utils::unclock(stage_vertex);
-        g_pipeline_cycles.vertex += stage_vertex;
-        stage_vertex = 0;
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-        if(!it.clipped_vertices.empty())
+        if(it.has_clipped_output())
         {
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::clock(stage_assembly);

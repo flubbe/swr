@@ -459,6 +459,18 @@ struct render_context
       vertex_buffer& vb,
       std::span<const std::uint32_t> indices);
 
+    /**
+     * Assemble primitives from original post-shader vertex storage.
+     *
+     * This is used by the no-clipping fast path. Coordinates have already been
+     * transformed in-place in render_object::coords; vertices are materialized
+     * only when stable rasterizer pointers are needed.
+     */
+    void assemble_original_indexed_primitives(
+      const render_states* states,
+      vertex_buffer_mode mode,
+      render_object& obj);
+
     /*
      * render_device_context interface.
      */

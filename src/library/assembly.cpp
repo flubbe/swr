@@ -8,6 +8,9 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+/* C++ headers. */
+#include <limits>
+
 /* user headers. */
 #include "swr_internal.h"
 
@@ -403,6 +406,154 @@ struct indexed_triangle_source
     }
 };
 
+constexpr std::size_t invalid_vertex_cache_index =
+  std::numeric_limits<std::size_t>::max();
+
+static geom::vertex make_original_vertex(
+  const render_object& obj,
+  const std::uint32_t index)
+{
+    assert(index < obj.coord_count);
+
+    geom::vertex v;
+    v.coords = obj.coords[index];
+    v.flags = obj.vertex_flags[index];
+
+    const auto vertex_varyings = obj.varyings_for_vertex(index);
+    v.varyings.assign(
+      std::begin(vertex_varyings),
+      std::end(vertex_varyings));
+
+    return v;
+}
+
+class lazy_vertex_cache
+{
+    render_object& obj;
+    std::vector<std::size_t> original_to_cached_index;
+
+public:
+    explicit lazy_vertex_cache(render_object& obj)
+    : obj{obj}
+    , original_to_cached_index(obj.coord_count, invalid_vertex_cache_index)
+    {
+    }
+
+    std::size_t cached_index_of(std::uint32_t original_index)
+    {
+        assert(original_index < original_to_cached_index.size());
+
+        std::size_t& mapped_index = original_to_cached_index[original_index];
+
+        if(mapped_index == invalid_vertex_cache_index)
+        {
+            mapped_index = obj.clipped_vertices.size();
+
+            obj.clipped_vertices.emplace_back(
+              make_original_vertex(obj, original_index));
+        }
+
+        assert(mapped_index < obj.clipped_vertices.size());
+        return mapped_index;
+    }
+
+    geom::vertex& at(std::size_t cached_index)
+    {
+        assert(cached_index < obj.clipped_vertices.size());
+        return obj.clipped_vertices[cached_index];
+    }
+};
+
+static void submit_original_indexed_triangle(
+  rast::rasterizer* rasterizer,
+  const render_states* states,
+  lazy_vertex_cache& vertices,
+  std::uint32_t i1,
+  std::uint32_t i2,
+  std::uint32_t i3,
+  bool is_front_facing)
+{
+    const std::size_t m1 = vertices.cached_index_of(i1);
+    const std::size_t m2 = vertices.cached_index_of(i2);
+    const std::size_t m3 = vertices.cached_index_of(i3);
+
+    rasterizer->add_triangle(
+      states,
+      is_front_facing,
+      &vertices.at(m1),
+      &vertices.at(m2),
+      &vertices.at(m3));
+}
+
+/**
+ * Assemble original-indexed fill triangles over a triangle range.
+ *
+ * This mirrors assemble_fill_indexed_triangles_range(), but reads viewport-space
+ * coordinates directly from render_object::coords so the no-clipping path does
+ * not need to prebuild a geom::vertex buffer.
+ */
+template<
+  typename EmitTriangle,
+  typename Profile = no_primitive_assembly_profile>
+void assemble_fill_original_indexed_triangles_range(
+  const render_states* states,
+  const render_object* obj,
+  std::size_t begin_triangle,
+  std::size_t end_triangle,
+  Profile& profile,
+  EmitTriangle emit_triangle)
+{
+    for(std::size_t tri = begin_triangle; tri < end_triangle; ++tri)
+    {
+        const std::size_t index_offset = tri * 3;
+        assert(index_offset + 2 < obj->indices.size());
+
+        const std::uint32_t i1 = obj->indices[index_offset];
+        const std::uint32_t i2 = obj->indices[index_offset + 1];
+        const std::uint32_t i3 = obj->indices[index_offset + 2];
+        assert(i1 < obj->coord_count);
+        assert(i2 < obj->coord_count);
+        assert(i3 < obj->coord_count);
+
+        const auto& v1 = obj->coords[i1];
+        const auto& v2 = obj->coords[i2];
+        const auto& v3 = obj->coords[i3];
+
+        profile.triangle_input();
+
+        const int area_sign = triangle_area_sign(
+          v1.xy(),
+          v2.xy(),
+          v3.xy());
+        if(area_sign == 0)
+        {
+            profile.triangle_culled_degenerate();
+            continue;
+        }
+
+        const bool is_front_facing =
+          (states->front_face == front_face_orientation::cw
+           && area_sign >= 0)
+          || (states->front_face == front_face_orientation::ccw
+              && area_sign <= 0);
+
+        const cull_face_direction orient =
+          is_front_facing
+            ? cull_face_direction::front
+            : cull_face_direction::back;
+
+        if(states->culling_enabled
+           && cull_reject(states->cull_mode, orient))
+        {
+            profile.triangle_culled_face();
+            continue;
+        }
+
+        emit_triangle(i1, i2, i3, is_front_facing);
+        profile.triangle_emitted();
+    }
+}
+
 /**
  * Assemble indexed fill triangles over a triangle range.
  *
@@ -664,6 +815,40 @@ void assemble_fill_indexed_triangles_chunk(
       end_triangle,
       out->profile,
       src,
+      [out](
+        std::size_t i1,
+        std::size_t i2,
+        std::size_t i3,
+        bool is_front_facing)
+      {
+          out->triangles.emplace_back(
+            indexed_assembled_triangle_ref{i1, i2, i3, is_front_facing});
+      });
+}
+
+/**
+ * Assemble original-indexed triangles into an output chunk.
+ *
+ * The chunk is cleared and refilled with references to assembled triangles,
+ * and the provided profile is updated with assembly statistics.
+ */
+void assemble_fill_original_indexed_triangles_chunk(
+  const render_states* states,
+  const render_object* obj,
+  std::size_t begin_triangle,
+  std::size_t end_triangle,
+  indexed_assembled_triangle_chunk* out)
+{
+    out->triangles.clear();
+    out->triangles.reserve(end_triangle - begin_triangle);
+    out->profile = {};
+
+    assemble_fill_original_indexed_triangles_range(
+      states,
+      obj,
+      begin_triangle,
+      end_triangle,
+      out->profile,
       [out](
         std::size_t i1,
         std::size_t i2,
@@ -1059,6 +1244,202 @@ void render_context::assemble_indexed_primitives(
                     &v1,
                     &v2,
                     &v3);
+              });
+#ifdef SWR_ENABLE_MULTI_THREADING
+        }
+#endif /* SWR_ENABLE_MULTI_THREADING */
+    }
+
+    submit_primitive_assembly_profile(profile);
+}
+
+void render_context::assemble_original_indexed_primitives(
+  const render_states* states,
+  vertex_buffer_mode mode,
+  render_object& obj)
+{
+    primitive_assembly_profile profile;
+
+    if(obj.indices.empty())
+    {
+        return;
+    }
+
+    obj.clipped_vertices.clear();
+    obj.clipped_vertices.reserve(
+      std::min(
+        obj.coord_count,
+        obj.indices.size()));
+
+    lazy_vertex_cache vertices{obj};
+
+    if(mode == vertex_buffer_mode::points
+       || states->poly_mode == polygon_mode::point)
+    {
+        for(const std::uint32_t index: obj.indices)
+        {
+            assert(index < obj.coord_count);
+
+            profile.point_input();
+
+            auto& vertex = vertices.at(index);
+
+            rasterizer->add_point(states, &vertex);
+            profile.point_emitted();
+        }
+    }
+    else if(mode == vertex_buffer_mode::lines)
+    {
+        const std::size_t size = obj.indices.size() & ~std::size_t{1};
+        for(std::size_t i = 0; i < size; i += 2)
+        {
+            assert(obj.indices[i] < obj.coord_count);
+            assert(obj.indices[i + 1] < obj.coord_count);
+
+            profile.line_input();
+
+            auto& v1 = vertices.at(obj.indices[i]);
+            auto& v2 = vertices.at(obj.indices[i + 1]);
+
+            rasterizer->add_line(states, &v1, &v2);
+            profile.line_emitted();
+        }
+    }
+    else if(mode == vertex_buffer_mode::triangles
+            && states->poly_mode == polygon_mode::line)
+    {
+        const std::size_t size = (obj.indices.size() / 3) * 3;
+        for(std::size_t i = 0; i < size; i += 3)
+        {
+            assert(obj.indices[i] < obj.coord_count);
+            assert(obj.indices[i + 1] < obj.coord_count);
+            assert(obj.indices[i + 2] < obj.coord_count);
+
+            const std::uint32_t i1 = obj.indices[i];
+            const std::uint32_t i2 = obj.indices[i + 1];
+            const std::uint32_t i3 = obj.indices[i + 2];
+
+            profile.triangle_input();
+
+            if(states->culling_enabled)
+            {
+                const int area_sign =
+                  triangle_area_sign(
+                    obj.coords[i1].xy(),
+                    obj.coords[i2].xy(),
+                    obj.coords[i3].xy());
+                if(area_sign == 0)
+                {
+                    profile.triangle_culled_degenerate();
+                    continue;
+                }
+
+                const bool is_front_facing =
+                  (states->front_face == front_face_orientation::cw && area_sign >= 0)
+                  || (states->front_face == front_face_orientation::ccw && area_sign <= 0);
+                const cull_face_direction orient =
+                  is_front_facing
+                    ? cull_face_direction::front
+                    : cull_face_direction::back;
+                if(cull_reject(states->cull_mode, orient))
+                {
+                    profile.triangle_culled_face();
+                    continue;
+                }
+            }
+
+            auto& v1 = vertices.at(obj.indices[i]);
+            auto& v2 = vertices.at(obj.indices[i + 1]);
+            auto& v3 = vertices.at(obj.indices[i + 2]);
+
+            rasterizer->add_line(states, &v1, &v2);
+            profile.line_emitted();
+
+            rasterizer->add_line(states, &v2, &v3);
+            profile.line_emitted();
+
+            rasterizer->add_line(states, &v3, &v1);
+            profile.line_emitted();
+        }
+    }
+    else if(mode == vertex_buffer_mode::triangles
+            && states->poly_mode == polygon_mode::fill)
+    {
+        const std::size_t triangle_count = obj.indices.size() / 3;
+        if(triangle_count == 0)
+        {
+            submit_primitive_assembly_profile(profile);
+            return;
+        }
+
+#ifdef SWR_ENABLE_MULTI_THREADING
+        const std::size_t thread_count = thread_pool.get_thread_count();
+        const bool do_parallel_assembly =
+          thread_count > 1
+          && triangle_count >= min_parallel_assembly_triangles;
+
+        if(do_parallel_assembly)
+        {
+            const std::size_t task_count = std::min(thread_count, triangle_count);
+            std::vector<indexed_assembled_triangle_chunk> chunks(task_count);
+
+            for(std::size_t t = 0; t < task_count; ++t)
+            {
+                const std::size_t begin_triangle = (t * triangle_count) / task_count;
+                const std::size_t end_triangle = ((t + 1) * triangle_count) / task_count;
+
+                thread_pool.push_immediate_task(
+                  assemble_fill_original_indexed_triangles_chunk,
+                  states,
+                  &obj,
+                  begin_triangle,
+                  end_triangle,
+                  &chunks[t]);
+            }
+
+            thread_pool.run_tasks_and_wait();
+
+            for(const auto& chunk: chunks)
+            {
+                profile.merge(chunk.profile);
+
+                for(const auto& tri: chunk.triangles)
+                {
+                    submit_original_indexed_triangle(
+                      rasterizer.get(),
+                      states,
+                      vertices,
+                      static_cast<std::uint32_t>(tri.i1),
+                      static_cast<std::uint32_t>(tri.i2),
+                      static_cast<std::uint32_t>(tri.i3),
+                      tri.is_front_facing);
+                }
+            }
+        }
+        else
+        {
+#endif /* SWR_ENABLE_MULTI_THREADING */
+            auto* rasterizer_ptr = rasterizer.get();
+            assemble_fill_original_indexed_triangles_range(
+              states,
+              &obj,
+              0,
+              triangle_count,
+              profile,
+              [rasterizer_ptr, states, &obj, &vertices](
+                std::uint32_t i1,
+                std::uint32_t i2,
+                std::uint32_t i3,
+                bool is_front_facing)
+              {
+                  submit_original_indexed_triangle(
+                    rasterizer_ptr,
+                    states,
+                    vertices,
+                    i1,
+                    i2,
+                    i3,
+                    is_front_facing);
               });
 #ifdef SWR_ENABLE_MULTI_THREADING
         }
