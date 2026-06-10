@@ -1282,7 +1282,7 @@ void render_context::assemble_original_indexed_primitives(
 
             profile.point_input();
 
-            auto& vertex = vertices.at(index);
+            auto& vertex = vertices.at(vertices.cached_index_of(index));
 
             rasterizer->add_point(states, &vertex);
             profile.point_emitted();
@@ -1298,8 +1298,8 @@ void render_context::assemble_original_indexed_primitives(
 
             profile.line_input();
 
-            auto& v1 = vertices.at(obj.indices[i]);
-            auto& v2 = vertices.at(obj.indices[i + 1]);
+            auto& v1 = vertices.at(vertices.cached_index_of(obj.indices[i]));
+            auto& v2 = vertices.at(vertices.cached_index_of(obj.indices[i + 1]));
 
             rasterizer->add_line(states, &v1, &v2);
             profile.line_emitted();
@@ -1348,9 +1348,9 @@ void render_context::assemble_original_indexed_primitives(
                 }
             }
 
-            auto& v1 = vertices.at(obj.indices[i]);
-            auto& v2 = vertices.at(obj.indices[i + 1]);
-            auto& v3 = vertices.at(obj.indices[i + 2]);
+            auto& v1 = vertices.at(vertices.cached_index_of(obj.indices[i]));
+            auto& v2 = vertices.at(vertices.cached_index_of(obj.indices[i + 1]));
+            auto& v3 = vertices.at(vertices.cached_index_of(obj.indices[i + 2]));
 
             rasterizer->add_line(states, &v1, &v2);
             profile.line_emitted();
