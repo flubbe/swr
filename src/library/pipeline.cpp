@@ -73,6 +73,10 @@ struct pipeline_cycle_profile
     std::uint64_t raster_small_quad_queued_primitives{0};
     std::uint64_t raster_small_quad_empty_primitives{0};
     std::uint64_t raster_small_quad_fallback_primitives{0};
+    std::uint64_t raster_small_quad_coverage{0};
+    std::uint64_t raster_small_quad_attributes{0};
+    std::uint64_t raster_small_quad_callback{0};
+    std::uint64_t raster_small_quad_store{0};
     std::uint64_t raster_direct_blocks{0};
     std::uint64_t interp_varying_copies{0};
     std::uint64_t fragment_shader_invocations{0};
@@ -410,7 +414,11 @@ inline void log_pipeline_profile_if_needed()
     print_json_number(6, "primitives", per_frame(g_pipeline_cycles.raster_small_quad_primitives, f));
     print_json_number(6, "queued_primitives", per_frame(g_pipeline_cycles.raster_small_quad_queued_primitives, f));
     print_json_number(6, "empty_primitives", per_frame(g_pipeline_cycles.raster_small_quad_empty_primitives, f));
-    print_json_number(6, "fallback_primitives", per_frame(g_pipeline_cycles.raster_small_quad_fallback_primitives, f), false);
+    print_json_number(6, "fallback_primitives", per_frame(g_pipeline_cycles.raster_small_quad_fallback_primitives, f));
+    print_json_number(6, "coverage_cycles", per_frame(g_pipeline_cycles.raster_small_quad_coverage, f));
+    print_json_number(6, "attribute_cycles", per_frame(g_pipeline_cycles.raster_small_quad_attributes, f));
+    print_json_number(6, "callback_cycles", per_frame(g_pipeline_cycles.raster_small_quad_callback, f));
+    print_json_number(6, "store_cycles", per_frame(g_pipeline_cycles.raster_small_quad_store, f), false);
     std::println("    }},");
     std::println("    \"processed_primitives\": {{");
     print_json_number(6, "block", per_frame(g_pipeline_cycles.raster_processed_block_primitives, f));
@@ -557,6 +565,10 @@ inline void log_pipeline_profile_if_needed()
     g_pipeline_cycles.raster_small_quad_queued_primitives = 0;
     g_pipeline_cycles.raster_small_quad_empty_primitives = 0;
     g_pipeline_cycles.raster_small_quad_fallback_primitives = 0;
+    g_pipeline_cycles.raster_small_quad_coverage = 0;
+    g_pipeline_cycles.raster_small_quad_attributes = 0;
+    g_pipeline_cycles.raster_small_quad_callback = 0;
+    g_pipeline_cycles.raster_small_quad_store = 0;
     g_pipeline_cycles.raster_direct_blocks = 0;
     g_pipeline_cycles.interp_varying_copies = 0;
     g_pipeline_cycles.fragment_shader_invocations = 0;
@@ -659,6 +671,10 @@ inline void collect_pipeline_profile_frame()
     g_pipeline_cycles.raster_small_quad_queued_primitives += exchange_profile_counter(impl::profile_raster_small_quad_queued_primitives);
     g_pipeline_cycles.raster_small_quad_empty_primitives += exchange_profile_counter(impl::profile_raster_small_quad_empty_primitives);
     g_pipeline_cycles.raster_small_quad_fallback_primitives += exchange_profile_counter(impl::profile_raster_small_quad_fallback_primitives);
+    g_pipeline_cycles.raster_small_quad_coverage += exchange_profile_counter(impl::profile_raster_small_quad_coverage_cycles);
+    g_pipeline_cycles.raster_small_quad_attributes += exchange_profile_counter(impl::profile_raster_small_quad_attribute_cycles);
+    g_pipeline_cycles.raster_small_quad_callback += exchange_profile_counter(impl::profile_raster_small_quad_callback_cycles);
+    g_pipeline_cycles.raster_small_quad_store += exchange_profile_counter(impl::profile_raster_small_quad_store_cycles);
     g_pipeline_cycles.raster_direct_blocks += exchange_profile_counter(impl::profile_raster_direct_blocks);
     g_pipeline_cycles.interp_varying_copies += exchange_profile_counter(impl::profile_interp_varying_copies);
     g_pipeline_cycles.fragment_shader_invocations += exchange_profile_counter(impl::profile_fragment_shader_invocations);

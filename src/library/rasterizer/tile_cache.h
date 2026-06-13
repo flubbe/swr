@@ -591,9 +591,18 @@ struct tile_cache
         assert(in_mode == tile_info::rasterization_mode::small_checked);
         out_emitted = false;
 
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_store = 0;
+        utils::clock(stage_store);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         if(payload.quad_count == 0)
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+            utils::unclock(stage_store);
+            swr::impl::profile_raster_small_quad_store_cycles.fetch_add(
+              stage_store,
+              std::memory_order_relaxed);
             swr::impl::profile_raster_small_quad_empty_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
@@ -608,6 +617,12 @@ struct tile_cache
         auto& tile = entries[tile_index];
         if(tile.primitives.size() == tile.primitives.max_size())
         {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            utils::unclock(stage_store);
+            swr::impl::profile_raster_small_quad_store_cycles.fetch_add(
+              stage_store,
+              std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
             return true;
         }
         if(tile.primitives.empty())
@@ -631,6 +646,10 @@ struct tile_cache
         out_emitted = true;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_store);
+        swr::impl::profile_raster_small_quad_store_cycles.fetch_add(
+          stage_store,
+          std::memory_order_relaxed);
         constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
         constexpr std::uint64_t small_payload_bytes = sizeof(small_triangle_payload);
         const std::uint64_t checked_payload_bytes =

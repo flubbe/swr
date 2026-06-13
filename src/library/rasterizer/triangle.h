@@ -18,6 +18,7 @@
 #include "../swr_internal.h"
 
 #include <array>
+#include <concepts>
 #include <span>
 
 namespace rast
@@ -433,6 +434,138 @@ inline rast::triangle_interpolator compute_triangle_attributes_at_block(
       provoking_vertex_varyings,
       states.shader_info->iqs, info.inv_area, polygon_offset};
 }
+
+/**
+ * Compute compact interpolation state for a small triangle at a block origin.
+ *
+ * The caller must ensure the varying count fits inline storage.
+ */
+inline rast::small_triangle_interpolator compute_small_triangle_attributes_at_block(
+  const swr::impl::render_states& states,
+  const triangle_info& info,
+  std::span<const ml::vec4> provoking_vertex_varyings,
+  float polygon_offset,
+  int block_x,
+  int block_y)
+{
+    const ml::vec2 screen_coords{
+      static_cast<float>(block_x) + 0.5f,
+      static_cast<float>(block_y) + 0.5f};
+
+    return {
+      screen_coords,
+      info.v0->coords, info.v1->coords, info.v2->coords,
+      std::span<const ml::vec4>{info.v0->varyings.data(), info.v0->varyings.size()},
+      std::span<const ml::vec4>{info.v1->varyings.data(), info.v1->varyings.size()},
+      std::span<const ml::vec4>{info.v2->varyings.data(), info.v2->varyings.size()},
+      provoking_vertex_varyings,
+      states.shader_info->iqs, info.inv_area, polygon_offset};
+}
+
+template<typename F>
+inline void for_each_covered_small_triangle_quad(
+  const quad_bounds& checked_quad_bounds,
+  geom::barycentric_coordinate_block coverage_lambdas,
+  F&& f)
+{
+    const unsigned int quad_width = checked_quad_bounds.end_x - checked_quad_bounds.start_x;
+    const unsigned int quad_height = checked_quad_bounds.end_y - checked_quad_bounds.start_y;
+
+    assert(quad_width == rasterizer_quad_size
+           || quad_width == small_triangle_footprint_size);
+    assert(quad_height == rasterizer_quad_size
+           || quad_height == small_triangle_footprint_size);
+
+    const auto emit_current_quad = [&](unsigned int x, unsigned int y)
+    {
+        f(x, y, geom::reduce_coverage_mask(coverage_lambdas.get_coverage_mask()));
+    };
+
+    if(quad_width == rasterizer_quad_size)
+    {
+        emit_current_quad(
+          checked_quad_bounds.start_x,
+          checked_quad_bounds.start_y);
+
+        if(quad_height == small_triangle_footprint_size)
+        {
+            coverage_lambdas.step_y(rasterizer_quad_size);
+            emit_current_quad(
+              checked_quad_bounds.start_x,
+              checked_quad_bounds.start_y + rasterizer_quad_size);
+        }
+
+        return;
+    }
+
+    if(quad_height == rasterizer_quad_size)
+    {
+        emit_current_quad(
+          checked_quad_bounds.start_x,
+          checked_quad_bounds.start_y);
+        coverage_lambdas.step_x(rasterizer_quad_size);
+        emit_current_quad(
+          checked_quad_bounds.start_x + rasterizer_quad_size,
+          checked_quad_bounds.start_y);
+        return;
+    }
+
+    const auto row_start = coverage_lambdas;
+
+    emit_current_quad(
+      checked_quad_bounds.start_x,
+      checked_quad_bounds.start_y);
+    coverage_lambdas.step_x(rasterizer_quad_size);
+    emit_current_quad(
+      checked_quad_bounds.start_x + rasterizer_quad_size,
+      checked_quad_bounds.start_y);
+
+    coverage_lambdas = row_start;
+    coverage_lambdas.step_y(rasterizer_quad_size);
+    emit_current_quad(
+      checked_quad_bounds.start_x,
+      checked_quad_bounds.start_y + rasterizer_quad_size);
+    coverage_lambdas.step_x(rasterizer_quad_size);
+    emit_current_quad(
+      checked_quad_bounds.start_x + rasterizer_quad_size,
+      checked_quad_bounds.start_y + rasterizer_quad_size);
+}
+
+template<typename F>
+concept small_quad_triangle_callback_with_payload = std::invocable<
+  F&,
+  int,
+  int,
+  const geom::barycentric_coordinate_block&,
+  const rast::triangle_interpolator&,
+  tile_info::rasterization_mode,
+  const quad_bounds*,
+  const small_triangle_payload*>;
+
+template<typename F>
+concept small_quad_triangle_callback_with_bounds = std::invocable<
+  F&,
+  int,
+  int,
+  const geom::barycentric_coordinate_block&,
+  const rast::triangle_interpolator&,
+  tile_info::rasterization_mode,
+  const quad_bounds*>;
+
+template<typename F>
+concept small_quad_triangle_callback_basic = std::invocable<
+  F&,
+  int,
+  int,
+  const geom::barycentric_coordinate_block&,
+  const rast::triangle_interpolator&,
+  tile_info::rasterization_mode>;
+
+template<typename F>
+concept small_quad_triangle_callback =
+  small_quad_triangle_callback_with_payload<F>
+  || small_quad_triangle_callback_with_bounds<F>
+  || small_quad_triangle_callback_basic<F>;
 
 /** Minor-axis bounds for a thin triangle over one major-axis range. */
 struct thin_span
@@ -883,6 +1016,7 @@ inline precomputed_triangle_payload_status build_precomputed_triangle_payload(
  * @param f Callback invoked for the emitted checked block.
  */
 template<typename F>
+    requires small_quad_triangle_callback<F>
 inline void for_each_small_quad_triangle(
   const swr::impl::render_states& states,
   const bounding_box& bounds,
@@ -925,45 +1059,41 @@ inline void for_each_small_quad_triangle(
     std::uint8_t covered_quad_count = 0;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_coverage = 0;
     std::uint64_t quad_tests = 0;
     std::uint64_t empty_quads = 0;
+    utils::clock(stage_coverage);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    for(auto y = checked_quad_bounds.start_y; y < checked_quad_bounds.end_y; y += rasterizer_quad_size)
-    {
-        geom::barycentric_coordinate_block::fixed_24_8_array_4 row_start[3];
-        coverage_lambdas.store_position(row_start[0], row_start[1], row_start[2]);
-
-        for(auto x = checked_quad_bounds.start_x; x < checked_quad_bounds.end_x; x += rasterizer_quad_size)
-        {
+    for_each_covered_small_triangle_quad(
+      checked_quad_bounds,
+      coverage_lambdas,
+      [&](unsigned int x, unsigned int y, int mask)
+      {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-            ++quad_tests;
+          ++quad_tests;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-            const int mask = geom::reduce_coverage_mask(coverage_lambdas.get_coverage_mask());
-            if(mask)
-            {
-                assert(covered_quad_count < covered_quads.size());
-                covered_quads[covered_quad_count++] = {
-                  x,
-                  y,
-                  static_cast<std::uint8_t>(mask)};
-            }
-            else
-            {
+          if(mask)
+          {
+              assert(covered_quad_count < covered_quads.size());
+              covered_quads[covered_quad_count++] = {
+                x,
+                y,
+                static_cast<std::uint8_t>(mask)};
+          }
+          else
+          {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
-                ++empty_quads;
+              ++empty_quads;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-            }
-
-            coverage_lambdas.step_x(rasterizer_quad_size);
-        }
-
-        coverage_lambdas.load_position(row_start[0], row_start[1], row_start[2]);
-        coverage_lambdas.step_y(rasterizer_quad_size);
-    }
+          }
+      });
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_coverage);
+    swr::impl::profile_raster_small_quad_coverage_cycles.fetch_add(
+      stage_coverage,
+      std::memory_order_relaxed);
     swr::impl::profile_checked_quad_tests.fetch_add(quad_tests, std::memory_order_relaxed);
     swr::impl::profile_checked_empty_quads.fetch_add(empty_quads, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
@@ -976,6 +1106,11 @@ inline void for_each_small_quad_triangle(
 
         return;
     }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_attributes = 0;
+    utils::clock(stage_attributes);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     rast::triangle_interpolator attributes =
       compute_triangle_attributes_at_block(
@@ -997,20 +1132,15 @@ inline void for_each_small_quad_triangle(
     }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_attributes);
+    swr::impl::profile_raster_small_quad_attribute_cycles.fetch_add(
+      stage_attributes,
+      std::memory_order_relaxed);
     std::uint64_t callback_cycles = 0;
     utils::clock(callback_cycles);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    if constexpr(
-      std::is_invocable_v<
-        F&,
-        int,
-        int,
-        const geom::barycentric_coordinate_block&,
-        const rast::triangle_interpolator&,
-        tile_info::rasterization_mode,
-        const quad_bounds*,
-        const small_triangle_payload*>)
+    if constexpr(small_quad_triangle_callback_with_payload<F>)
     {
         f(block_x,
           block_y,
@@ -1020,15 +1150,7 @@ inline void for_each_small_quad_triangle(
           &checked_quad_bounds,
           small_payload_ptr);
     }
-    else if constexpr(
-      std::is_invocable_v<
-        F&,
-        int,
-        int,
-        const geom::barycentric_coordinate_block&,
-        const rast::triangle_interpolator&,
-        tile_info::rasterization_mode,
-        const quad_bounds*>)
+    else if constexpr(small_quad_triangle_callback_with_bounds<F>)
     {
         f(block_x,
           block_y,
@@ -1049,6 +1171,141 @@ inline void for_each_small_quad_triangle(
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(callback_cycles);
+    swr::impl::profile_raster_small_quad_callback_cycles.fetch_add(
+      callback_cycles,
+      std::memory_order_relaxed);
+    swr::impl::profile_raster_setup_iter_callback_cycles.fetch_add(callback_cycles, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+}
+
+/**
+ * Iterate a small triangle and provide a compact precomputed payload directly.
+ *
+ * The caller must ensure the varying count fits inline storage.
+ */
+template<typename F>
+inline void for_each_small_quad_triangle_payload(
+  const swr::impl::render_states& states,
+  const bounding_box& bounds,
+  const triangle_info& info,
+  std::span<const ml::vec4> provoking_vertex_varyings,
+  float polygon_offset,
+  F&& f)
+{
+    const int quad_start_x = lower_align_on_quad_size(bounds.tight_start_x);
+    const int quad_start_y = lower_align_on_quad_size(bounds.tight_start_y);
+    const int quad_end_x = upper_align_on_quad_size(bounds.tight_end_x);
+    const int quad_end_y = upper_align_on_quad_size(bounds.tight_end_y);
+
+    assert(is_small_quad_triangle(bounds));
+    assert(small_triangle_interpolator::can_store_without_allocation(states.shader_info->iqs.size()));
+
+    const int block_x = swr::impl::lower_align_on_block_size(quad_start_x);
+    const int block_y = swr::impl::lower_align_on_block_size(quad_start_y);
+    const quad_bounds checked_quad_bounds{
+      static_cast<unsigned int>(quad_start_x),
+      static_cast<unsigned int>(quad_start_y),
+      static_cast<unsigned int>(quad_end_x),
+      static_cast<unsigned int>(quad_end_y)};
+
+    geom::barycentric_coordinate_block lambdas =
+      compute_triangle_lambdas_at_block(info, block_x, block_y);
+
+    auto coverage_lambdas = lambdas;
+    coverage_lambdas.setup(1, 1);
+    coverage_lambdas.step_y(
+      static_cast<int>(
+        checked_quad_bounds.start_y - block_y));
+    coverage_lambdas.step_x(
+      static_cast<int>(
+        checked_quad_bounds.start_x - block_x));
+
+    small_triangle_payload small_payload{};
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_coverage = 0;
+    std::uint64_t quad_tests = 0;
+    std::uint64_t empty_quads = 0;
+    utils::clock(stage_coverage);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    for_each_covered_small_triangle_quad(
+      checked_quad_bounds,
+      coverage_lambdas,
+      [&](unsigned int x, unsigned int y, int mask)
+      {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+          ++quad_tests;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+          if(mask)
+          {
+              assert(small_payload.quad_count < small_payload.quads.size());
+              small_payload.quads[small_payload.quad_count++] = {
+                x,
+                y,
+                static_cast<std::uint8_t>(mask)};
+          }
+          else
+          {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+              ++empty_quads;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+          }
+      });
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_coverage);
+    swr::impl::profile_raster_small_quad_coverage_cycles.fetch_add(
+      stage_coverage,
+      std::memory_order_relaxed);
+    swr::impl::profile_checked_quad_tests.fetch_add(quad_tests, std::memory_order_relaxed);
+    swr::impl::profile_checked_empty_quads.fetch_add(empty_quads, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    if(small_payload.quad_count == 0)
+    {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        swr::impl::profile_raster_small_quad_empty_primitives.fetch_add(1, std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        return;
+    }
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    std::uint64_t stage_attributes = 0;
+    utils::clock(stage_attributes);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    small_payload.attributes =
+      compute_small_triangle_attributes_at_block(
+        states,
+        info,
+        provoking_vertex_varyings,
+        polygon_offset,
+        block_x,
+        block_y);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(stage_attributes);
+    swr::impl::profile_raster_small_quad_attribute_cycles.fetch_add(
+      stage_attributes,
+      std::memory_order_relaxed);
+    std::uint64_t callback_cycles = 0;
+    utils::clock(callback_cycles);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+    f(block_x,
+      block_y,
+      lambdas,
+      tile_info::rasterization_mode::checked,
+      &checked_quad_bounds,
+      &small_payload);
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+    utils::unclock(callback_cycles);
+    swr::impl::profile_raster_small_quad_callback_cycles.fetch_add(
+      callback_cycles,
+      std::memory_order_relaxed);
     swr::impl::profile_raster_setup_iter_callback_cycles.fetch_add(callback_cycles, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 }
@@ -1213,6 +1470,32 @@ inline void for_each_covered_triangle_block_with_bounds(
       std::forward<F>(f));
 }
 
+template<typename F>
+concept thin_triangle_callback_with_payload = std::invocable<
+  F&,
+  int,
+  int,
+  const geom::barycentric_coordinate_block&,
+  const rast::triangle_interpolator&,
+  tile_info::rasterization_mode,
+  quad_bounds,
+  const sparse_triangle_payload*>;
+
+template<typename F>
+concept thin_triangle_callback_basic = std::invocable<
+  F&,
+  int,
+  int,
+  const geom::barycentric_coordinate_block&,
+  const rast::triangle_interpolator&,
+  tile_info::rasterization_mode,
+  quad_bounds>;
+
+template<typename F>
+concept thin_triangle_callback =
+  thin_triangle_callback_with_payload<F>
+  || thin_triangle_callback_basic<F>;
+
 /**
  * Iterate a thin triangle by walking major-axis blocks and tightening the minor-axis range.
  *
@@ -1228,6 +1511,7 @@ inline void for_each_covered_triangle_block_with_bounds(
  * @param f Callback invoked for emitted thin-triangle blocks.
  */
 template<typename F>
+    requires thin_triangle_callback<F>
 inline void for_each_thin_triangle_block_with_bounds(
   const swr::impl::render_states& states,
   const bounding_box& bounds,
@@ -1306,16 +1590,7 @@ inline void for_each_thin_triangle_block_with_bounds(
         utils::clock(callback_cycles);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        if constexpr(
-          std::is_invocable_v<
-            F&,
-            int,
-            int,
-            const geom::barycentric_coordinate_block&,
-            const rast::triangle_interpolator&,
-            tile_info::rasterization_mode,
-            quad_bounds,
-            const sparse_triangle_payload*>)
+        if constexpr(thin_triangle_callback_with_payload<F>)
         {
             f(x,
               y,

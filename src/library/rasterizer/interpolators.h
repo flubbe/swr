@@ -555,6 +555,116 @@ struct small_triangle_interpolator
     small_triangle_interpolator& operator=(const small_triangle_interpolator&) = default;
     small_triangle_interpolator& operator=(small_triangle_interpolator&&) = default;
 
+    /** construct directly from triangle interpolation inputs. */
+    small_triangle_interpolator(
+      const ml::vec2 screen_coords,
+      const ml::vec4& v0_coords, const ml::vec4& v1_coords, const ml::vec4& v2_coords,
+      std::span<const ml::vec4> v0_varyings,
+      std::span<const ml::vec4> v1_varyings,
+      std::span<const ml::vec4> v2_varyings,
+      std::span<const ml::vec4> provoking_vertex_varyings,
+      const boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs,
+      float one_over_area,
+      float polygon_offset)
+    {
+        assert(can_store_without_allocation(iqs.size()));
+
+        geom::edge_function edge_v0v1{
+          v0_coords.xy(),
+          v1_coords.xy()};
+        geom::edge_function edge_v0v2{
+          v0_coords.xy(),
+          v2_coords.xy()};
+
+        ml::vec2 normalized_diff_v0v1 = edge_v0v1.v_diff * one_over_area;
+        ml::vec2 normalized_diff_v0v2 = edge_v0v2.v_diff * one_over_area;
+
+        const float lambda2 = -edge_v0v1.evaluate(screen_coords) * one_over_area;
+        const float lambda0 = edge_v0v2.evaluate(screen_coords) * one_over_area;
+
+        const float depth_diff_v0v1 = v1_coords.z - v0_coords.z;
+        const float depth_diff_v0v2 = v2_coords.z - v0_coords.z;
+        const ml::vec2 depth_steps{
+          depth_diff_v0v1 * normalized_diff_v0v2.y - depth_diff_v0v2 * normalized_diff_v0v1.y,
+          -depth_diff_v0v1 * normalized_diff_v0v2.x + depth_diff_v0v2 * normalized_diff_v0v1.x,
+        };
+
+        const float base_depth = v0_coords.z + polygon_offset;
+        const float interpolated_depth =
+          v0_coords.z + depth_diff_v0v1 * lambda0 + depth_diff_v0v2 * lambda2 + polygon_offset;
+
+        depth_value = geom::linear_interpolator_2d<float>{
+          base_depth,
+          ml::to_tvec2<float>(depth_steps)};
+        depth_value.set_value(interpolated_depth);
+
+        const float viewport_z_diff_v0v1 = v1_coords.w - v0_coords.w;
+        const float viewport_z_diff_v0v2 = v2_coords.w - v0_coords.w;
+        const ml::vec2 viewport_z_steps{
+          viewport_z_diff_v0v1 * normalized_diff_v0v2.y - viewport_z_diff_v0v2 * normalized_diff_v0v1.y,
+          -viewport_z_diff_v0v1 * normalized_diff_v0v2.x + viewport_z_diff_v0v2 * normalized_diff_v0v1.x};
+        one_over_viewport_z = geom::linear_interpolator_2d<float>{
+          v0_coords.w,
+          ml::to_tvec2<float>(viewport_z_steps)};
+        one_over_viewport_z.set_value(v0_coords.w + viewport_z_diff_v0v1 * lambda0 + viewport_z_diff_v0v2 * lambda2);
+
+        assert(v0_varyings.size() == v1_varyings.size());
+        assert(v1_varyings.size() == v2_varyings.size());
+        assert(iqs.size() == v0_varyings.size());
+
+        const std::size_t varying_count = iqs.size();
+        varyings.reserve(varying_count);
+        for(std::size_t i = 0; i < varying_count; ++i)
+        {
+            if(iqs[i] == swr::interpolation_qualifier::smooth)
+            {
+                ml::vec4 varying_v0 = v0_varyings[i];
+                ml::vec4 varying_v1 = v1_varyings[i];
+                ml::vec4 varying_v2 = v2_varyings[i];
+
+                varying_v0 *= v0_coords.w;
+                varying_v1 *= v1_coords.w;
+                varying_v2 *= v2_coords.w;
+
+                const ml::vec4 diff_v0v1 = varying_v1 - varying_v0;
+                const ml::vec4 diff_v0v2 = varying_v2 - varying_v0;
+
+                const ml::vec4 step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
+                const ml::vec4 step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
+
+                varyings.push_back({
+                  varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2,
+                  {step_x, step_y}});
+            }
+            else if(iqs[i] == swr::interpolation_qualifier::no_perspective)
+            {
+                const ml::vec4 varying_v0 = v0_varyings[i];
+                const ml::vec4 varying_v1 = v1_varyings[i];
+                const ml::vec4 varying_v2 = v2_varyings[i];
+
+                const ml::vec4 diff_v0v1 = varying_v1 - varying_v0;
+                const ml::vec4 diff_v0v2 = varying_v2 - varying_v0;
+
+                const ml::vec4 step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
+                const ml::vec4 step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
+
+                varyings.push_back({
+                  varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2,
+                  {step_x, step_y}});
+            }
+            else if(iqs[i] == swr::interpolation_qualifier::flat)
+            {
+                varyings.push_back({
+                  provoking_vertex_varyings[i],
+                  {ml::vec4::zero(), ml::vec4::zero()}});
+            }
+            else
+            {
+                throw std::runtime_error{"small_triangle_interpolator: unsupported interpolation qualifier"};
+            }
+        }
+    }
+
     /** construct from a regular triangle interpolator. */
     explicit small_triangle_interpolator(const triangle_interpolator& source)
     : depth_value{source.depth_value}
@@ -574,6 +684,12 @@ struct small_triangle_interpolator
     static bool can_store_without_allocation(const triangle_interpolator& source)
     {
         return source.varyings.size() <= inline_varying_capacity;
+    }
+
+    /** check if a varying count fits into inline storage. */
+    static bool can_store_without_allocation(std::size_t varying_count)
+    {
+        return varying_count <= inline_varying_capacity;
     }
 
     /** get interpolated data for a 2x2 block at a block-relative offset. */
