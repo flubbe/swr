@@ -435,8 +435,10 @@ void GetTextureWrapMode(std::uint32_t id, wrap_mode* s, wrap_mode* t);
 /** Texture Filter. */
 enum class texture_filter
 {
-    nearest, /** Get the nearest texel in the nearest mipmap. */
-    linear   /** Filter linearly between the nearest four texels in the mipmap. */
+    nearest,                /** Get the nearest texel. */
+    linear,                 /** Filter linearly between the nearest four texels. */
+    nearest_mipmap_nearest, /** Get nearest texel in nearest mipmap. */
+    linear_mipmap_nearest   /** Filter linearly between the nearest four texels in nearest mipmap. */
 };
 
 /**
@@ -469,6 +471,9 @@ struct sampler_2d
 
     /** Return a texel (as a 4-vector) while respecting the active texture filters. */
     virtual ml::vec4 sample_at(const struct varying& tex_coords) const = 0;
+
+    /** Return the texture size. */
+    virtual ml::tvec2<int> size(std::uint32_t mip_level) const = 0;
 };
 
 /*

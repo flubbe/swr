@@ -194,6 +194,12 @@ public:
 
         std::vector<std::uint8_t> image_data(framebuffer_width * framebuffer_height * sizeof(std::uint32_t));
         cube_texture = swr::CreateTexture();
+
+        swr::BindTexture(swr::texture_target::texture_2d, cube_texture);
+        swr::SetTextureMagnificationFilter(swr::texture_filter::linear);
+        swr::SetTextureMinificationFilter(swr::texture_filter::nearest);
+        swr::BindTexture(swr::texture_target::texture_2d, 0);
+
         swr::SetImage(cube_texture, 0, framebuffer_width, framebuffer_height, swr::pixel_format::rgba8888, image_data);
         if(const auto error = swr::GetLastError();
            error != swr::error::none)
@@ -323,6 +329,7 @@ public:
         swr::ClearColorBuffer();
         swr::ClearDepthBuffer();
 
+        // bind default framebuffer
         swr::BindFramebufferObject(swr::framebuffer_target::draw, 0);
         swr::SetViewport(0, 0, width, height);
         swr::SetClearColor(0.08f, 0.08f, 0.1f, 1.0f);
@@ -340,7 +347,10 @@ public:
     {
         swr::BindFramebufferObject(swr::framebuffer_target::draw, cube_fbo);
         swr::SetViewport(0, 0, framebuffer_width, framebuffer_height);
+
         draw_cube(ml::vec3{0.0f, 0.0f, -5.0f});
+
+        // bind default framebuffer
         swr::BindFramebufferObject(swr::framebuffer_target::draw, 0);
         swr::SetViewport(0, 0, width, height);
     }

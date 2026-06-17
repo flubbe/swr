@@ -292,10 +292,26 @@ public:
                 // this filter does not use mipmaps.
                 return sample_at_linear(0, uv);
             }
+            else if(filter_min == texture_filter::nearest_mipmap_nearest)
+            {
+                return sample_at_nearest(mipmap_level, uv);
+            }
+            else if(filter_min == texture_filter::linear_mipmap_nearest)
+            {
+                return sample_at_linear(mipmap_level, uv);
+            }
         }
 
         // unknown filter.
         return ml::vec4::zero();
+    }
+
+    ml::tvec2<int> size(std::uint32_t mipmap_level) const override
+    {
+        int w{0}, h{0};
+        int level = static_cast<int>(mipmap_level);
+        get_mipmap_params(level, w, h);
+        return {w, h};
     }
 };
 
