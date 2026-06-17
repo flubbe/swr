@@ -594,8 +594,8 @@ void framebuffer_object::clear_color(
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
+        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
 
         for(int x = x_min; x < x_max; ++x)
         {
@@ -609,8 +609,8 @@ void framebuffer_object::clear_color(
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
+        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
 
         const auto row_size = x_max - x_min;
 
@@ -662,8 +662,8 @@ void framebuffer_object::clear_depth(
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
+        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
 
         for(int x = x_min; x < x_max; ++x)
         {
@@ -677,8 +677,8 @@ void framebuffer_object::clear_depth(
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
+        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
 
         const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
 

@@ -252,8 +252,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
   const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
-  float polygon_offset = 0.0f,
-  bool y_needs_flip = false)
+  float polygon_offset = 0.0f)
 {
     return collect_covered_triangle_blocks(
       [&](auto&& f)
@@ -263,7 +262,6 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
             info,
             provoking_vertex_varyings,
             polygon_offset,
-            y_needs_flip,
             std::forward<decltype(f)>(f));
       });
 }
@@ -272,8 +270,7 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
   const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
-  float polygon_offset = 0.0f,
-  bool y_needs_flip = false)
+  float polygon_offset = 0.0f)
 {
     std::vector<ml::tvec2<int>> out;
 
@@ -282,7 +279,6 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
       info,
       provoking_vertex_varyings,
       polygon_offset,
-      y_needs_flip,
       [&](int block_x,
           int block_y,
           const geom::barycentric_coordinate_block& lambdas_box,
@@ -688,8 +684,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
       ctx.states,
-      info,
-      false);
+      info);
     const int block_x = bounds.start_x;
     const int block_y = bounds.start_y;
     const rast::quad_bounds quad_bounds = rast::compute_checked_quad_bounds(
@@ -716,7 +711,6 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
           info,
           v0.varyings,
           0.0f,
-          false,
           [&](int block_x,
               int block_y,
               const geom::barycentric_coordinate_block& lambdas_box,
@@ -1331,7 +1325,6 @@ BOOST_AUTO_TEST_CASE(mixed_flat_and_smooth_varyings_use_per_varying_qualifiers)
       info,
       v0.varyings,
       0.0f,
-      false,
       [&](int block_x,
           int block_y,
           const geom::barycentric_coordinate_block& lambdas_box,
@@ -1464,7 +1457,6 @@ BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
       info,
       v0.varyings,
       0.0f,
-      false,
       [&](int block_x,
           int block_y,
           const geom::barycentric_coordinate_block& lambdas_box,
@@ -1613,7 +1605,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_preserves_exact_coverage_inside_block)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
     BOOST_CHECK_EQUAL(bounds.end_x - bounds.start_x, static_cast<int>(swr::impl::rasterizer_block_size));
     BOOST_CHECK_EQUAL(bounds.end_y - bounds.start_y, static_cast<int>(swr::impl::rasterizer_block_size));
@@ -1648,7 +1640,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(states, info, false);
+    const auto bounds = rast::compute_triangle_bounds(states, info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     const int block_x = swr::impl::lower_align_on_block_size(bounds.tight_start_x);
@@ -1713,7 +1705,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_iterator_provides_precomputed_payload)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     bool saw_block = false;
@@ -1794,7 +1786,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_interpolation_matches_regular_i
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     bool saw_payload = false;
@@ -1862,7 +1854,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_fast_payload_callback_matches_regular_i
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     bool saw_payload = false;
@@ -1918,7 +1910,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
     const int quad_start_x = rast::lower_align_on_quad_size(bounds.tight_start_x);
     const int quad_start_y = rast::lower_align_on_quad_size(bounds.tight_start_y);
     const int quad_end_x = rast::upper_align_on_quad_size(bounds.tight_end_x);
@@ -1948,7 +1940,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_crossing_block_boundary_uses_general_pa
     triangle_test_context ctx{block_size * 2, block_size};
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
 
     BOOST_CHECK(!rast::is_small_quad_triangle(bounds));
 

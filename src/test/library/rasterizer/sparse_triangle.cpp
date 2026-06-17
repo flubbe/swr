@@ -210,15 +210,13 @@ std::vector<checked_quad_sample> collect_checked_quads(
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
       states,
-      info,
-      false);
+      info);
 
     rast::for_each_covered_triangle_block(
       states,
       info,
       provoking_vertex_varyings,
       0.0f,
-      false,
       [&](int block_x,
           int block_y,
           const geom::barycentric_coordinate_block& lambdas_box,
@@ -270,8 +268,7 @@ std::vector<checked_quad_sample> collect_thin_trace_quads(
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
       states,
-      info,
-      false);
+      info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
 
     rast::for_each_thin_triangle_block_with_bounds(
@@ -449,8 +446,7 @@ void check_thin_trace_preserves_coverage(
 
         const rast::bounding_box bounds = rast::compute_triangle_bounds(
           ctx.states,
-          info,
-          false);
+          info);
         const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
         BOOST_REQUIRE(rast::is_thin_rasterization_mode(mode));
         if(expected_mode)
@@ -502,8 +498,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_are_quad_aligned_and_block_clamped)
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
       ctx.states,
-      info,
-      false);
+      info);
 
     BOOST_CHECK_EQUAL(bounds.tight_start_x, 17);
     BOOST_CHECK_EQUAL(bounds.tight_end_x, 19);
@@ -514,7 +509,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_are_quad_aligned_and_block_clamped)
       info,
       v0.varyings,
       0.0f,
-      false,
+
       [&](int block_x,
           int block_y,
           const geom::barycentric_coordinate_block&,
@@ -566,8 +561,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_respect_scissor)
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
       ctx.states,
-      info,
-      false);
+      info);
     const rast::quad_bounds quad_bounds = rast::compute_checked_quad_bounds(
       bounds,
       bounds.start_x,
@@ -575,13 +569,13 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_respect_scissor)
 
     BOOST_CHECK_EQUAL(bounds.tight_start_x, 17);
     BOOST_CHECK_EQUAL(bounds.tight_end_x, 19);
-    BOOST_CHECK_EQUAL(bounds.tight_start_y, 20);
-    BOOST_CHECK_EQUAL(bounds.tight_end_y, 30);
+    BOOST_CHECK_EQUAL(bounds.tight_start_y, 34);
+    BOOST_CHECK_EQUAL(bounds.tight_end_y, 44);
 
     BOOST_CHECK_EQUAL(quad_bounds.start_x, 16u);
     BOOST_CHECK_EQUAL(quad_bounds.end_x, 20u);
-    BOOST_CHECK_EQUAL(quad_bounds.start_y, 20u);
-    BOOST_CHECK_EQUAL(quad_bounds.end_y, 30u);
+    BOOST_CHECK_EQUAL(quad_bounds.start_y, 34u);
+    BOOST_CHECK_EQUAL(quad_bounds.end_y, 44u);
 }
 
 BOOST_AUTO_TEST_CASE(bounded_checked_iteration_preserves_emitted_quads)
@@ -681,8 +675,7 @@ BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
       ctx.states,
-      info,
-      false);
+      info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
     BOOST_REQUIRE(mode == rast::tile_info::rasterization_mode::thin_y_major);
 
@@ -814,8 +807,7 @@ BOOST_AUTO_TEST_CASE(sparse_triangle_payload_interpolation_matches_regular_inter
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
       ctx.states,
-      info,
-      false);
+      info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
     BOOST_REQUIRE(mode == rast::tile_info::rasterization_mode::thin_y_major);
 
@@ -869,7 +861,6 @@ BOOST_AUTO_TEST_CASE(coarse_block_rejects_edge_empty_regions)
       info,
       v0.varyings,
       0.0f,
-      false,
       [&](int block_x,
           int block_y,
           const geom::barycentric_coordinate_block&,

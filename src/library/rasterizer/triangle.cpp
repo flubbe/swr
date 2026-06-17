@@ -91,7 +91,6 @@ void process_precomputed_fragment_block_early_z(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const bool is_default_framebuffer = (states.draw_target == framebuffer);
     const int framebuffer_height = states.draw_target->properties.height;
     if constexpr(collect_early_depth_stats)
     {
@@ -116,12 +115,9 @@ void process_precomputed_fragment_block_early_z(
         int y_min{states.scissor_box.y_min};
         int y_max{states.scissor_box.y_max};
 
-        if(is_default_framebuffer)
-        {
-            const int y_temp = y_min;
-            y_min = framebuffer_height - y_max;
-            y_max = framebuffer_height - y_temp;
-        }
+        const int y_temp = y_min;
+        y_min = framebuffer_height - y_max;
+        y_max = framebuffer_height - y_temp;
 
         const std::uint8_t scissor_mask =
           (((x0 >= x_min && x0 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 3)
@@ -313,10 +309,7 @@ void process_precomputed_fragment_block_early_z(
             break;
         }
 
-        if(is_default_framebuffer)
-        {
-            fy = framebuffer_height - fy;
-        }
+        fy = framebuffer_height - fy;
 
         return {fx, fy, depth_value[fragment_index], z[fragment_index]};
     };
@@ -1320,8 +1313,6 @@ void sweep_rasterizer::draw_filled_triangle(
         polygon_offset = setup_polygon_offset(states, v0, v1, v2, info.inv_area);
     }
 
-    const bool y_needs_flip = states.draw_target == framebuffer;
-
 #ifdef SWR_ENABLE_MULTI_THREADING
     const bool single_thread_direct_block_path =
       thread_pool->get_thread_count() <= 1;
@@ -1335,8 +1326,7 @@ void sweep_rasterizer::draw_filled_triangle(
 
     const bounding_box bounds = compute_triangle_bounds(
       states,
-      info,
-      y_needs_flip);
+      info);
     const triangle_rasterization_classification rasterization =
       classify_triangle_rasterization(bounds, info);
 

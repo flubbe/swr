@@ -233,7 +233,7 @@ public:
 
         // cube normal map.
         const auto cube_normal_map_filename = "../textures/stone/32/ft_stone01_n.png";
-        ret = utils::load_uniform(cube_normal_map_filename);
+        ret = utils::load_normal_map_uniform(cube_normal_map_filename);
         if(!ret.has_value())
         {
             platform::logf("[!!] Unable to load texture: {}", cube_normal_map_filename);
@@ -284,14 +284,19 @@ public:
           ml::vec4{0, height, 1, 1},
           ml::vec4{width, height, 1, 1},
         });
-        blur_tc_id = swr::CreateAttributeBuffer({
-          ml::vec4{0, 0, 0, 0},
-          ml::vec4{width / 1024.f, height / 1024.f, 0, 0},
-          ml::vec4{width / 1024.f, 0, 0, 0},
 
-          ml::vec4{0, 0, 0, 0},
-          ml::vec4{0, height / 1024.f, 0, 0},
-          ml::vec4{width / 1024.f, height / 1024.f, 0, 0},
+        const float u_max = static_cast<float>(width) / static_cast<float>(w);
+        const float v_min = 1.0f - static_cast<float>(height) / static_cast<float>(h);
+        const float v_max = 1.0f;
+
+        blur_tc_id = swr::CreateAttributeBuffer({
+          ml::vec4{0, v_max, 0, 0},
+          ml::vec4{u_max, v_min, 0, 0},
+          ml::vec4{u_max, v_max, 0, 0},
+
+          ml::vec4{0, v_max, 0, 0},
+          ml::vec4{0, v_min, 0, 0},
+          ml::vec4{u_max, v_min, 0, 0},
         });
 
         // create particles.

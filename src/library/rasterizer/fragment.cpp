@@ -86,7 +86,6 @@ void sweep_rasterizer::process_fragment(
   fragment_info& frag_info,
   swr::impl::fragment_output& out)
 {
-    const bool is_default_framebuffer = (states.draw_target == framebuffer);
     const int framebuffer_height = states.draw_target->properties.height;
 
     /*
@@ -99,13 +98,9 @@ void sweep_rasterizer::process_fragment(
         int y_min{states.scissor_box.y_min};
         int y_max{states.scissor_box.y_max};
 
-        // the default framebuffer needs a flip.
-        if(is_default_framebuffer)
-        {
-            int y_temp = y_min;
-            y_min = framebuffer_height - y_max;
-            y_max = framebuffer_height - y_temp;
-        }
+        const int y_temp = y_min;
+        y_min = framebuffer_height - y_max;
+        y_max = framebuffer_height - y_temp;
 
         if(x < x_min || x >= x_max
            || y < y_min || y >= y_max)
@@ -192,22 +187,11 @@ void sweep_rasterizer::process_fragment(
      * note that we need to reverse the y-axis for the default framebuffer.
      */
     ml::vec4 frag_coord;
-    if(is_default_framebuffer)
-    {
-        frag_coord = {
-          static_cast<float>(x) - pixel_center.x,
-          framebuffer_height - (static_cast<float>(y) - pixel_center.y),
-          depth_value,
-          z};
-    }
-    else
-    {
-        frag_coord = {
-          static_cast<float>(x) - pixel_center.x,
-          static_cast<float>(y) - pixel_center.y,
-          depth_value,
-          z};
-    }
+    frag_coord = {
+      static_cast<float>(x) - pixel_center.x,
+      framebuffer_height - (static_cast<float>(y) - pixel_center.y),
+      depth_value,
+      z};
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_fragment_shader = 0;
@@ -287,7 +271,6 @@ void process_fragment_block(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const bool is_default_framebuffer = (states.draw_target == framebuffer);
     const int framebuffer_height = states.draw_target->properties.height;
     if constexpr(collect_early_depth_stats)
     {
@@ -319,13 +302,9 @@ void process_fragment_block(
         int y_min{states.scissor_box.y_min};
         int y_max{states.scissor_box.y_max};
 
-        // the default framebuffer needs a flip.
-        if(is_default_framebuffer)
-        {
-            int y_temp = y_min;
-            y_min = framebuffer_height - y_max;
-            y_max = framebuffer_height - y_temp;
-        }
+        const int y_temp = y_min;
+        y_min = framebuffer_height - y_max;
+        y_max = framebuffer_height - y_temp;
 
         const std::uint8_t scissor_mask =
           (((x0 >= x_min && x0 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 3)
@@ -504,13 +483,10 @@ void process_fragment_block(
       ml::vec4{fx0, fy1, depth_value[2], z[2]},
       ml::vec4{fx1, fy1, depth_value[3], z[3]}};
 
-    if(is_default_framebuffer)
-    {
-        frag_coord[0].y = framebuffer_height - frag_coord[0].y;
-        frag_coord[1].y = framebuffer_height - frag_coord[1].y;
-        frag_coord[2].y = framebuffer_height - frag_coord[2].y;
-        frag_coord[3].y = framebuffer_height - frag_coord[3].y;
-    }
+    frag_coord[0].y = framebuffer_height - frag_coord[0].y;
+    frag_coord[1].y = framebuffer_height - frag_coord[1].y;
+    frag_coord[2].y = framebuffer_height - frag_coord[2].y;
+    frag_coord[3].y = framebuffer_height - frag_coord[3].y;
 
     std::uint8_t accept_mask = 0;
 
@@ -623,7 +599,6 @@ void process_fragment_block(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const bool is_default_framebuffer = (states.draw_target == framebuffer);
     const int framebuffer_height = states.draw_target->properties.height;
     if constexpr(collect_early_depth_stats)
     {
@@ -656,13 +631,9 @@ void process_fragment_block(
         int y_min{states.scissor_box.y_min};
         int y_max{states.scissor_box.y_max};
 
-        // the default framebuffer needs a flip.
-        if(is_default_framebuffer)
-        {
-            int y_temp = y_min;
-            y_min = framebuffer_height - y_max;
-            y_max = framebuffer_height - y_temp;
-        }
+        const int y_temp = y_min;
+        y_min = framebuffer_height - y_max;
+        y_max = framebuffer_height - y_temp;
 
         const std::uint8_t scissor_mask =
           (((x0 >= x_min && x0 < x_max && y0 >= y_min && y0 < y_max) ? 1 : 0) << 3)
@@ -872,10 +843,7 @@ void process_fragment_block(
             break;
         }
 
-        if(is_default_framebuffer)
-        {
-            fy = framebuffer_height - fy;
-        }
+        fy = framebuffer_height - fy;
 
         return {fx, fy, depth_value[fragment_index], z[fragment_index]};
     };

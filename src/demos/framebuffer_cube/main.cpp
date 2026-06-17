@@ -185,10 +185,10 @@ public:
         });
 
         quad_uvs = swr::CreateAttributeBuffer({
-          ml::vec4{0.0f, 1.0f, 0.0f, 0.0f},
-          ml::vec4{1.0f, 1.0f, 0.0f, 0.0f},
-          ml::vec4{1.0f, 0.0f, 0.0f, 0.0f},
           ml::vec4{0.0f, 0.0f, 0.0f, 0.0f},
+          ml::vec4{1.0f, 0.0f, 0.0f, 0.0f},
+          ml::vec4{1.0f, 1.0f, 0.0f, 0.0f},
+          ml::vec4{0.0f, 1.0f, 0.0f, 0.0f},
         });
         quad_indices = {0, 1, 2, 0, 2, 3};
 

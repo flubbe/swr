@@ -17,7 +17,7 @@
 #define BOOST_TEST_MODULE texture tests
 #include <boost/test/unit_test.hpp>
 
-#include "swr/swr.h"
+#include "swr_internal.h"
 
 namespace
 {
@@ -53,6 +53,18 @@ std::vector<std::uint8_t> make_rgba_data(std::size_t texel_count)
     }
 
     return data;
+}
+
+swr::impl::texture_2d* get_texture_ptr(
+  swr::context_handle context,
+  std::uint32_t texture_id)
+{
+    BOOST_REQUIRE(context != nullptr);
+    auto* render_context = static_cast<swr::impl::render_context*>(context);
+    BOOST_REQUIRE_LT(texture_id, render_context->texture_2d_storage.capacity());
+    BOOST_REQUIRE(texture_id < render_context->texture_2d_storage.size());
+    BOOST_REQUIRE(render_context->texture_2d_storage[texture_id]);
+    return render_context->texture_2d_storage[texture_id].get();
 }
 
 } /* namespace */
@@ -97,6 +109,44 @@ BOOST_AUTO_TEST_CASE(set_sub_image_accepts_zero_sized_regions_as_noop)
 
     swr::SetSubImage(texture_id, 0, 1, 1, 0, 0, swr::pixel_format::rgba8888, {});
     BOOST_CHECK(swr::GetLastError() == swr::error::none);
+}
+
+BOOST_AUTO_TEST_CASE(texture_v_coordinate_follows_opengl_bottom_to_top_convention)
+{
+    const auto texture_id = swr::CreateTexture();
+    BOOST_REQUIRE(texture_id != 0);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    const std::vector<std::uint8_t> image_data = {
+      0xff, 0x00, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
+      0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    swr::SetImage(texture_id, 0, 2, 2, swr::pixel_format::rgba8888, image_data);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    auto* texture = get_texture_ptr(context, texture_id);
+    BOOST_REQUIRE(texture != nullptr);
+    texture->set_filter_mag(swr::texture_filter::nearest);
+    texture->set_filter_min(swr::texture_filter::nearest);
+
+    const swr::varying uv_bottom_left{
+      {0.25f, 0.25f, 0.0f, 0.0f},
+      {},
+      {}};
+    const swr::varying uv_top_left{
+      {0.25f, 0.75f, 0.0f, 0.0f},
+      {},
+      {}};
+
+    const ml::vec4 bottom_left = texture->sampler->sample_at(uv_bottom_left);
+    const ml::vec4 top_left = texture->sampler->sample_at(uv_top_left);
+
+    BOOST_CHECK_EQUAL(bottom_left.x, 0.0f);
+    BOOST_CHECK_EQUAL(bottom_left.y, 0.0f);
+    BOOST_CHECK_EQUAL(bottom_left.z, 1.0f);
+
+    BOOST_CHECK_EQUAL(top_left.x, 1.0f);
+    BOOST_CHECK_EQUAL(top_left.y, 0.0f);
+    BOOST_CHECK_EQUAL(top_left.z, 0.0f);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

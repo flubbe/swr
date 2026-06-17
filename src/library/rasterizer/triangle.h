@@ -269,14 +269,12 @@ inline int upper_align_on_quad_size(int v)
  *
  * @param states Render state supplying draw target dimensions and optional scissor box.
  * @param info Triangle setup data. The triangle is expected to be non-degenerate.
- * @param y_needs_flip Whether scissor bounds must be converted to the flipped framebuffer y-axis.
  * @return A bounding_box whose tight fields are half-open pixel bounds and whose non-tight fields
  *         are expanded outward to rasterizer-block alignment. Bounds may be empty if clipped away.
  */
 bounding_box compute_triangle_bounds(
   const swr::impl::render_states& states,
-  const triangle_info& info,
-  bool y_needs_flip)
+  const triangle_info& info)
 {
     // take scissor box into account.
     int x_min = 0;
@@ -292,12 +290,10 @@ bounding_box compute_triangle_bounds(
         y_min = std::max(states.scissor_box.y_min, 0);
         y_max = std::min(states.scissor_box.y_max, states.draw_target->properties.height);
 
-        if(y_needs_flip)
-        {
-            const int y_temp = y_min;
-            y_min = states.draw_target->properties.height - y_max;
-            y_max = states.draw_target->properties.height - y_temp;
-        }
+        // Convert scissor box to flipped framebuffer y-axis (OpenGL convention)
+        const int y_temp = y_min;
+        y_min = states.draw_target->properties.height - y_max;
+        y_max = states.draw_target->properties.height - y_temp;
     }
 
     auto v0x = ml::truncate_unchecked(info.v0_xy.x);
@@ -1706,7 +1702,6 @@ inline void for_each_thin_triangle_block_with_bounds(
  * @param info Triangle setup data.
  * @param provoking_vertex_varyings Provoking-vertex varyings used for flat interpolation.
  * @param polygon_offset Depth offset to apply during interpolation.
- * @param y_needs_flip Whether scissor bounds must be converted to the flipped framebuffer y-axis.
  * @param f Callback invoked for emitted blocks.
  */
 template<typename F>
@@ -1715,13 +1710,11 @@ inline void for_each_covered_triangle_block(
   const triangle_info& info,
   std::span<const ml::vec4> provoking_vertex_varyings,
   float polygon_offset,
-  bool y_needs_flip,
   F&& f)
 {
     const bounding_box bounds = compute_triangle_bounds(
       states,
-      info,
-      y_needs_flip);
+      info);
     for_each_covered_triangle_block_with_bounds(
       states,
       bounds,

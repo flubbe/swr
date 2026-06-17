@@ -487,7 +487,10 @@ inline ml::vec4 sampler_2d_impl::sample_at_nearest(int mipmap_level, const swr::
     ml::tvec2<int> texel_coords = {
       static_cast<int>(std::floor(uv.value.x * w)),
       static_cast<int>(std::floor(uv.value.y * h))};
-    texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
+    texel_coords = {
+      wrap(wrap_s, texel_coords.x, w),
+      wrap(wrap_t, texel_coords.y, h)};
+    texel_coords.y = h - 1 - texel_coords.y;
 
     return (associated_texture->data.data_ptrs[mipmap_level])[libmorton::morton2D_32_encode(texel_coords.x, texel_coords.y)];
 #else
@@ -497,7 +500,10 @@ inline ml::vec4 sampler_2d_impl::sample_at_nearest(int mipmap_level, const swr::
     ml::tvec2<int> texel_coords = {
       static_cast<int>(std::floor(uv.value.x * w)),
       static_cast<int>(std::floor(uv.value.y * h))};
-    texel_coords = {wrap(wrap_s, texel_coords.x, w), wrap(wrap_t, texel_coords.y, h)};
+    texel_coords = {
+      wrap(wrap_s, texel_coords.x, w),
+      wrap(wrap_t, texel_coords.y, h)};
+    texel_coords.y = h - 1 - texel_coords.y;
 
     return (associated_texture->data.data_ptrs[mipmap_level])[texel_coords.y * pitch + texel_coords.x];
 #endif
@@ -517,13 +523,17 @@ inline ml::vec4 sampler_2d_impl::sample_at_linear(int mipmap_level, const swr::v
       static_cast<int>(std::floor(texel_coords.y))};
     ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
 
-    // calculate nearest four texel coordinates while respect the texture wrap mode.
+    // calculate nearest four texel coordinates while respecting the texture wrap mode.
     std::array<ml::tvec2<int>, 4> texel_coords_dec_wrap = {
       {{wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
        {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
        {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
        {wrap(wrap_s, texel_coords_dec.x + 1, w),
         wrap(wrap_t, texel_coords_dec.y + 1, h)}}};
+    for(auto& texel_coord : texel_coords_dec_wrap)
+    {
+        texel_coord.y = h - 1 - texel_coord.y;
+    }
 
     // get color values.
     std::array<ml::vec4, 4> texels = {
@@ -547,13 +557,17 @@ inline ml::vec4 sampler_2d_impl::sample_at_linear(int mipmap_level, const swr::v
       static_cast<int>(std::floor(texel_coords.y))};
     ml::vec2 texel_coords_frac = {texel_coords.x - texel_coords_dec.x, texel_coords.y - texel_coords_dec.y};
 
-    // calculate nearest four texel coordinates while respect the texture wrap mode.
+    // calculate nearest four texel coordinates while respecting the texture wrap mode.
     std::array<ml::tvec2<int>, 4> texel_coords_dec_wrap = {
       {{wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y, h)},
        {wrap(wrap_s, texel_coords_dec.x + 1, w), wrap(wrap_t, texel_coords_dec.y, h)},
        {wrap(wrap_s, texel_coords_dec.x, w), wrap(wrap_t, texel_coords_dec.y + 1, h)},
        {wrap(wrap_s, texel_coords_dec.x + 1, w),
         wrap(wrap_t, texel_coords_dec.y + 1, h)}}};
+    for(auto& texel_coord : texel_coords_dec_wrap)
+    {
+        texel_coord.y = h - 1 - texel_coord.y;
+    }
 
     // get color values.
     std::array<ml::vec4, 4> texels = {

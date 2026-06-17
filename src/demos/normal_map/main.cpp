@@ -180,7 +180,7 @@ public:
 
         // cube normal map.
         const auto cube_normal_map_filename = "../textures/stone/256/ft_stone01_n.png";
-        ret = utils::load_uniform(cube_normal_map_filename);
+        ret = utils::load_normal_map_uniform(cube_normal_map_filename);
         if(!ret.has_value())
         {
             platform::logf("[!!] Unable to load texture: {}", cube_normal_map_filename);

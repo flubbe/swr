@@ -130,10 +130,15 @@ void renderer::draw_string_at(const std::string& s, std::uint32_t x, std::uint32
                                       static_cast<float>(cur_glyph.get_height())}
                                     * inv;
 
-        tc.emplace_back(tex_coords.x, tex_coords.y, 0, 0);
-        tc.emplace_back(tex_coords.x, tex_coords.y + tex_coords.w, 0, 0);
-        tc.emplace_back(tex_coords.x + tex_coords.z, tex_coords.y + tex_coords.w, 0, 0);
-        tc.emplace_back(tex_coords.x + tex_coords.z, tex_coords.y, 0, 0);
+        const float u0 = tex_coords.x;
+        const float u1 = tex_coords.x + tex_coords.z;
+        const float v0 = 1.0f - (tex_coords.y + tex_coords.w);
+        const float v1 = 1.0f - tex_coords.y;
+
+        tc.emplace_back(u0, v1, 0, 0);
+        tc.emplace_back(u0, v0, 0, 0);
+        tc.emplace_back(u1, v0, 0, 0);
+        tc.emplace_back(u1, v1, 0, 0);
 
         vb.emplace_back(ml::vec4{static_cast<float>(cur_x), static_cast<float>(y), 1.f, 1.f});
         vb.emplace_back(ml::vec4{static_cast<float>(cur_x), static_cast<float>(y + cur_glyph.get_height()), 1.f, 1.f});

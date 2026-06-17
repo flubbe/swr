@@ -88,6 +88,65 @@ inline std::optional<std::uint32_t> load_uniform(
 }
 
 /**
+ * Load a normal map texture from a file, applying OpenGL-style Y-flip by inverting
+ * the green channel. This ensures correct tangent-space orientation after the global
+ * texture V-flip.
+ *
+ * @param filename The normal map filename.
+ * @returns Returns the texture id on success. Returns `std::nullopt` on failure.
+ *          Call `swr::GetLastError` for further error information.
+ */
+inline std::optional<std::uint32_t> load_normal_map_uniform(
+  std::string_view filename)
+{
+    std::string filename_str{filename};    // copy to get c-string.
+
+    int w = 0, h = 0, comp = 0;
+    unsigned char* image_data =
+      stbi_load(
+        filename_str.c_str(),
+        &w, &h, &comp,
+        STBI_rgb_alpha);
+    if(!image_data)
+    {
+        return std::nullopt;
+    }
+
+    // Flip green channel (Y in tangent space) for OpenGL-style normal maps.
+    std::size_t image_size = static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * sizeof(std::uint32_t);
+    for(std::size_t i = 1; i < image_size; i += 4)    // i=1 is the green channel in RGBA
+    {
+        image_data[i] = 255 - image_data[i];
+    }
+
+    std::vector<std::uint8_t> image_vec{image_data, image_data + image_size};
+
+    stbi_image_free(image_data);
+    image_data = nullptr;
+
+    auto texture_id = swr::CreateTexture();
+    if(texture_id == 0)
+    {
+        return std::nullopt;
+    }
+
+    swr::SetImage(
+      texture_id,
+      0,
+      w,
+      h,
+      swr::pixel_format::rgba8888,
+      image_vec);
+    if(swr::GetLastError() != swr::error::none)
+    {
+        swr::ReleaseTexture(texture_id);
+        return std::nullopt;
+    }
+
+    return std::make_optional(texture_id);
+}
+
+/**
  * Load an image into a texture from a file. Sets the wrap mode to `repeat`.
  *
  * The image is loaded into a texture with power-of-two dimensions. These
