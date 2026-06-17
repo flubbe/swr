@@ -107,6 +107,20 @@ target_link_libraries(demo_emitter
     swr_demo_common
 )
 
+add_executable(demo_framebuffer_cube
+    $<TARGET_OBJECTS:swr_demo_common>
+    framebuffer_cube/main.cpp
+)
+target_include_directories(demo_framebuffer_cube
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_framebuffer_cube
+    PRIVATE
+    stb
+    swr_demo_common
+)
+
 add_executable(demo_fill_test
     $<TARGET_OBJECTS:swr_demo_common>
     common/mesh.cpp

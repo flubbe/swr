@@ -108,7 +108,9 @@ void check_vec4_close(
     BOOST_CHECK_SMALL(actual.w - expected.w, epsilon);
 }
 
-std::uint32_t create_fbo_with_texture_attachment()
+std::uint32_t create_fbo_with_texture_attachment(
+  std::uint32_t width = target_size,
+  std::uint32_t height = target_size)
 {
     const std::uint32_t texture_id = swr::CreateTexture();
     BOOST_REQUIRE(texture_id != 0);
@@ -117,8 +119,8 @@ std::uint32_t create_fbo_with_texture_attachment()
     swr::SetImage(
       texture_id,
       0,
-      target_size,
-      target_size,
+      width,
+      height,
       swr::pixel_format::rgba8888,
       {});
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
@@ -135,6 +137,9 @@ std::uint32_t create_fbo_with_texture_attachment()
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::SetViewport(0, 0, width, height);
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
     return texture_id;
@@ -203,13 +208,15 @@ const ml::vec4& read_texture_pixel(
 void check_representative_pixels(
   swr::context_handle context,
   std::uint32_t texture_id,
+  std::uint32_t width,
+  std::uint32_t height,
   ml::vec4 expected)
 {
     const std::array<std::pair<std::uint32_t, std::uint32_t>, 4> samples{
       std::pair{1u, 1u},
-      std::pair{target_size / 2, target_size / 2},
-      std::pair{target_size - 2, 1u},
-      std::pair{1u, target_size - 2}};
+      std::pair{width / 2, height / 2},
+      std::pair{width - 2, 1u},
+      std::pair{1u, height - 2}};
 
     for(const auto& [x, y]: samples)
     {
@@ -234,14 +241,14 @@ BOOST_AUTO_TEST_CASE(fbo_blend_one_zero_overwrites_texture_attachment)
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
-    check_representative_pixels(context, texture_id, dest);
+    check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
       src,
       swr::blend_func::one,
       swr::blend_func::zero);
 
-    check_representative_pixels(context, texture_id, src);
+    check_representative_pixels(context, texture_id, target_size, target_size, src);
 }
 
 BOOST_AUTO_TEST_CASE(fbo_blend_zero_one_preserves_texture_attachment)
@@ -254,14 +261,14 @@ BOOST_AUTO_TEST_CASE(fbo_blend_zero_one_preserves_texture_attachment)
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
-    check_representative_pixels(context, texture_id, dest);
+    check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
       src,
       swr::blend_func::zero,
       swr::blend_func::one);
 
-    check_representative_pixels(context, texture_id, dest);
+    check_representative_pixels(context, texture_id, target_size, target_size, dest);
 }
 
 BOOST_AUTO_TEST_CASE(fbo_blend_source_alpha_combines_source_and_destination)
@@ -274,7 +281,7 @@ BOOST_AUTO_TEST_CASE(fbo_blend_source_alpha_combines_source_and_destination)
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
-    check_representative_pixels(context, texture_id, dest);
+    check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
       src,
@@ -284,7 +291,43 @@ BOOST_AUTO_TEST_CASE(fbo_blend_source_alpha_combines_source_and_destination)
     check_representative_pixels(
       context,
       texture_id,
+      target_size,
+      target_size,
       ml::lerp(src.a, dest, src));
+}
+
+BOOST_AUTO_TEST_CASE(fbo_larger_than_default_draw_target_rasterizes_without_missing_tiles)
+{
+    constexpr std::uint32_t fbo_width = 128;
+    constexpr std::uint32_t fbo_height = 128;
+
+    const std::uint32_t texture_id =
+      create_fbo_with_texture_attachment(fbo_width, fbo_height);
+
+    const ml::vec4 clear{0.20f, 0.15f, 0.10f, 1.0f};
+    const ml::vec4 src{0.85f, 0.35f, 0.25f, 1.0f};
+
+    swr::SetClearColor(clear.r, clear.g, clear.b, clear.a);
+    swr::ClearColorBuffer();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    check_representative_pixels(
+      context,
+      texture_id,
+      fbo_width,
+      fbo_height,
+      clear);
+
+    draw_fullscreen_triangle(
+      src,
+      swr::blend_func::one,
+      swr::blend_func::zero);
+
+    check_representative_pixels(
+      context,
+      texture_id,
+      fbo_width,
+      fbo_height,
+      src);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

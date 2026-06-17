@@ -1438,12 +1438,18 @@ void sweep_rasterizer::draw_filled_triangle(
             swr::impl::profile_raster_direct_blocks.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-            const std::size_t tile_index =
-              (static_cast<unsigned int>(y) >> swr::impl::rasterizer_block_shift) * tiles.pitch
-              + (static_cast<unsigned int>(x) >> swr::impl::rasterizer_block_shift);
-            assert(tile_index < tiles.entries.size());
+            std::size_t tile_index = 0;
+            tile* tile_ptr = nullptr;
+            if(!tiles.try_get_tile(
+                 static_cast<unsigned int>(x),
+                 static_cast<unsigned int>(y),
+                 tile_index,
+                 tile_ptr))
+            {
+                return;
+            }
 
-            auto& tile = tiles.entries[tile_index];
+            auto& tile = *tile_ptr;
             const std::size_t shader_index = tile.get_fragment_shader_index(&states);
             const bool use_precomputed_payload =
               (prefer_small_payload

@@ -1829,6 +1829,76 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_interpolation_matches_regular_i
     BOOST_CHECK(saw_payload);
 }
 
+BOOST_AUTO_TEST_CASE(small_quad_triangle_fast_payload_callback_matches_regular_interpolator)
+{
+    triangle_test_context ctx{16, 16};
+    ctx.program_info.varying_count = 3;
+    ctx.program_info.iqs.clear();
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::smooth);
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::no_perspective);
+    ctx.program_info.iqs.emplace_back(swr::interpolation_qualifier::flat);
+    ctx.program_info.flags |= swr::impl::program_flags::has_flat_varyings;
+
+    auto make_v = [](float x,
+                     float y,
+                     float z,
+                     float w,
+                     float smooth_value,
+                     float no_perspective_value,
+                     float flat_value) -> geom::vertex
+    {
+        geom::vertex v{};
+        v.coords = {x, y, z, w};
+        v.varyings.emplace_back(ml::vec4{smooth_value, smooth_value + 1.0f, 0.0f, 0.0f});
+        v.varyings.emplace_back(ml::vec4{no_perspective_value, no_perspective_value + 1.0f, 0.0f, 0.0f});
+        v.varyings.emplace_back(ml::vec4{flat_value, flat_value + 1.0f, 0.0f, 0.0f});
+        return v;
+    };
+
+    const auto v0 = make_v(8.5f, 8.5f, 0.10f, 0.50f, 10.0f, 100.0f, 1000.0f);
+    const auto v1 = make_v(11.5f, 8.5f, 0.40f, 2.00f, 20.0f, 200.0f, 2000.0f);
+    const auto v2 = make_v(8.5f, 11.5f, 0.70f, 1.25f, 30.0f, 300.0f, 3000.0f);
+
+    const auto info = rast::setup_triangle(v0, v1, v2);
+    BOOST_REQUIRE(!info.is_degenerate);
+
+    const auto bounds = rast::compute_triangle_bounds(ctx.states, info, false);
+    BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
+
+    bool saw_payload = false;
+    rast::for_each_small_quad_triangle_payload(
+      ctx.states,
+      bounds,
+      info,
+      v0.varyings,
+      0.0f,
+      [&](int block_x,
+          int block_y,
+          const geom::barycentric_coordinate_block&,
+          rast::tile_info::rasterization_mode mode,
+          const rast::quad_bounds* quad_bounds,
+          const rast::small_triangle_payload* precomputed_payload)
+      {
+          BOOST_CHECK_EQUAL(mode, rast::tile_info::rasterization_mode::checked);
+          BOOST_REQUIRE(quad_bounds);
+          BOOST_REQUIRE(precomputed_payload);
+
+          saw_payload = true;
+          check_precomputed_payload_interpolation_matches_regular(
+            ctx.states,
+            info,
+            v0.varyings,
+            block_x,
+            block_y,
+            precomputed_payload->attributes,
+            std::span{
+              precomputed_payload->quads.data(),
+              precomputed_payload->quad_count});
+      });
+
+    BOOST_CHECK(saw_payload);
+}
+
 BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
 {
     static_assert(rast::rasterizer_quad_size == 2);

@@ -139,6 +139,11 @@ early_depth_policy_state& early_depth_policy_store::current_state()
 
 void sweep_rasterizer::draw_primitives()
 {
+    if(!draw_list.empty())
+    {
+        ensure_tile_cache_for_target(draw_list.front().states->draw_target);
+    }
+
     tiles.clear_shader_instances();
 
 #ifdef SWR_ENABLE_MULTI_THREADING
@@ -159,6 +164,8 @@ void sweep_rasterizer::draw_primitives_sequential()
 {
     for(auto& it: draw_list)
     {
+        ensure_tile_cache_for_target(it.states->draw_target);
+
         // draw the primitive.
         if(it.type == primitive::primitive_type::point)
         {
@@ -200,8 +207,21 @@ void sweep_rasterizer::draw_primitives_parallel()
     }
 
     std::size_t triangles_in_tile_cache = 0;
+    const swr::impl::framebuffer_draw_target* cached_draw_target = nullptr;
     for(auto& it: draw_list)
     {
+        if(cached_draw_target != it.states->draw_target)
+        {
+            if(triangles_in_tile_cache > 0)
+            {
+                process_tile_cache();
+                triangles_in_tile_cache = 0;
+            }
+
+            ensure_tile_cache_for_target(it.states->draw_target);
+            cached_draw_target = it.states->draw_target;
+        }
+
         // if needed, process triangles to keep draw order.
         if(it.type != primitive::primitive_type::triangle
            && triangles_in_tile_cache > 0)

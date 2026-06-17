@@ -101,6 +101,39 @@ struct block_raster_context
 /** Sweep rasterizer. */
 class sweep_rasterizer : public rasterizer
 {
+    [[nodiscard]]
+    static unsigned int tile_count_for_extent(
+      int extent)
+    {
+        if(extent <= 0)
+        {
+            return 0;
+        }
+
+        return static_cast<unsigned int>(
+          (extent + static_cast<int>(swr::impl::rasterizer_block_size) - 1)
+          >> swr::impl::rasterizer_block_shift);
+    }
+
+    void ensure_tile_cache_for_target(
+      const swr::impl::framebuffer_draw_target* draw_target)
+    {
+        assert(draw_target != nullptr);
+
+        const unsigned int tiles_x =
+          tile_count_for_extent(draw_target->properties.width);
+        const unsigned int tiles_y =
+          tile_count_for_extent(draw_target->properties.height);
+        const std::size_t expected_tile_count =
+          static_cast<std::size_t>(tiles_x) * static_cast<std::size_t>(tiles_y);
+
+        if(static_cast<unsigned int>(tiles.pitch) != tiles_x
+           || tiles.entries.size() != expected_tile_count)
+        {
+            tiles.reset(tiles_x, tiles_y);
+        }
+    }
+
     /** a geometric primitive understood by sweep_rasterizer */
     struct primitive
     {
@@ -691,10 +724,7 @@ public:
          * set up tile cache.
          */
 
-        unsigned int tiles_x = (framebuffer->properties.width >> swr::impl::rasterizer_block_shift) + 1;
-        unsigned int tiles_y = (framebuffer->properties.height >> swr::impl::rasterizer_block_shift) + 1;
-
-        tiles.reset(tiles_x, tiles_y);
+        ensure_tile_cache_for_target(framebuffer);
     }
 
     /*
