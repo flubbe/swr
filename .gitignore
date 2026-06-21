@@ -1,6 +1,7 @@
 /.vscode
 /bin
 /build
+/out
 
 .VSCodeCounter
 .DS_Store
