@@ -4,10 +4,13 @@
  * fragment processing helpers.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
+#include <cstdint>
 #include <span>
 
 namespace rast
@@ -44,6 +47,39 @@ struct fragment_info
     , front_facing{in_front_facing}
     , varyings{in_varyings}
     {
+    }
+};
+
+/** Early depth test telemetry used by adaptive rasterizer decisions. */
+struct early_depth_sample
+{
+    /** Number of fragments tested by the early depth path. */
+    std::uint64_t tested_fragments{0};
+
+    /** Number of fragments rejected by the early depth path. */
+    std::uint64_t rejected_fragments{0};
+
+    /** Clear the sample. */
+    void reset()
+    {
+        tested_fragments = 0;
+        rejected_fragments = 0;
+    }
+
+    /** Store one sample. */
+    void set(
+      std::uint64_t tested,
+      std::uint64_t rejected)
+    {
+        tested_fragments = tested;
+        rejected_fragments = rejected;
+    }
+
+    /** Accumulate another sample. */
+    void add(const early_depth_sample& sample)
+    {
+        tested_fragments += sample.tested_fragments;
+        rejected_fragments += sample.rejected_fragments;
     }
 };
 

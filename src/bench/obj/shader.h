@@ -28,10 +28,17 @@ namespace shader
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class color_flat : public swr::program<color_flat>
+class color_flat final : public swr::program<color_flat>
 {
 public:
     color_flat() = default;
+
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
@@ -89,12 +96,19 @@ public:
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class wireframe : public swr::program<wireframe>
+class wireframe final : public swr::program<wireframe>
 {
     const ml::vec4 diffuse_color{0, 0, 0.4f, 1.0f};
 
 public:
     wireframe() = default;
+
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {

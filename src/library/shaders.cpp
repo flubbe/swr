@@ -34,9 +34,16 @@ static bool has_flat_varyings(
 }
 
 /** Default (empty) program. */
-class default_program : public program<default_program>
+class default_program final : public program<default_program>
 {
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     void pre_link(
       boost::container::static_vector<
         swr::interpolation_qualifier,

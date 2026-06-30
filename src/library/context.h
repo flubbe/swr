@@ -4,7 +4,7 @@
  * general render context and SDL render context.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -78,6 +78,9 @@ struct program_info
     /** flags. */
     program_flags flags{program_flags::none};
 
+    /** Shader behavior metadata. */
+    swr::program_metadata metadata{};
+
     /** (pointer to) the graphics program/shader. */
     const program_base* shader{nullptr};
 
@@ -97,7 +100,8 @@ struct program_info
 
     /** constructor. */
     program_info(const program_base* in_shader)
-    : shader{in_shader}
+    : metadata{in_shader->get_metadata()}
+    , shader{in_shader}
     , program_size{in_shader->size()}
     , program_alignment{in_shader->alignment()}
 #ifndef SWR_ENABLE_MULTI_THREADING
@@ -148,7 +152,8 @@ public:
     vertex_shader_instance_container(
       std::byte* storage,
       impl::program_info* shader_info,
-      const swr::uniform_bindings& uniforms)
+      const swr::uniform_bindings& uniforms,
+      const swr::sampler_bindings& samplers_2d = {})
     {
         assert(shader_info);
         assert(shader_info->shader);
@@ -160,7 +165,7 @@ public:
         varying_count = shader_info->varying_count;
         shader = shader_info->shader->create_instance(
           storage,
-          swr::program_instance_bindings{uniforms});
+          swr::program_instance_bindings{uniforms, samplers_2d});
     }
 
     vertex_shader_instance_container(const vertex_shader_instance_container&) = delete;
@@ -203,7 +208,7 @@ public:
     fragment_shader_instance_container(
       const impl::program_info* shader_info,
       const swr::uniform_bindings& uniforms,
-      const swr::sampler_2d_bindings& samplers_2d)
+      const swr::sampler_bindings& samplers_2d)
     {
         assert(shader_info);
         assert(shader_info->shader);
@@ -443,6 +448,30 @@ struct render_context
       vertex_buffer_mode mode,
       vertex_buffer& vb);
 
+    /**
+     * Assemble primitives from an indexed viewport-space vertex buffer.
+     *
+     * This is used by the no-clipping fast path, where vertices can stay compact
+     * and primitives are described by render_object::indices.
+     */
+    void assemble_indexed_primitives(
+      const render_states* states,
+      vertex_buffer_mode mode,
+      vertex_buffer& vb,
+      std::span<const std::uint32_t> indices);
+
+    /**
+     * Assemble primitives from original post-shader vertex storage.
+     *
+     * This is used by the no-clipping fast path. Coordinates have already been
+     * transformed in-place in render_object::coords; vertices are materialized
+     * only when stable rasterizer pointers are needed.
+     */
+    void assemble_original_indexed_primitives(
+      const render_states* states,
+      vertex_buffer_mode mode,
+      render_object& obj);
+
     /*
      * render_device_context interface.
      */
@@ -468,7 +497,7 @@ struct render_context
 };
 
 /** a render context for an SDL window. */
-class sdl_render_context : public render_context
+class sdl_render_context final : public render_context
 {
 protected:
     /** context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
@@ -526,7 +555,7 @@ public:
 };
 
 /** a offscreen render context. */
-class offscreen_render_context : public render_context
+class offscreen_render_context final : public render_context
 {
     int width = 0;
     int height = 0;

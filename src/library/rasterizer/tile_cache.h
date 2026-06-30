@@ -332,6 +332,40 @@ struct tile_cache
       entries;
     std::vector<std::uint32_t> active_tile_indices;
 
+    [[nodiscard]]
+    bool try_get_tile(
+      unsigned int in_x,
+      unsigned int in_y,
+      std::size_t& out_tile_index,
+      tile*& out_tile)
+    {
+        out_tile_index = 0;
+        out_tile = nullptr;
+
+        if(pitch <= 0
+           || entries.empty())
+        {
+            return false;
+        }
+
+        const unsigned int tile_x =
+          in_x >> swr::impl::rasterizer_block_shift;
+        const unsigned int tile_y =
+          in_y >> swr::impl::rasterizer_block_shift;
+
+        const std::size_t tile_index =
+          static_cast<std::size_t>(tile_y) * static_cast<std::size_t>(pitch)
+          + static_cast<std::size_t>(tile_x);
+        if(tile_index >= entries.size())
+        {
+            return false;
+        }
+
+        out_tile_index = tile_index;
+        out_tile = &entries[tile_index];
+        return true;
+    }
+
     /** constructors. */
     tile_cache() = default;
     tile_cache(const tile_cache&) = delete;
@@ -409,12 +443,14 @@ struct tile_cache
         assert(uses_checked_lambdas(in_mode));
 
         // find the tile's coordinates.
-        unsigned int tile_index =
-          (in_y >> swr::impl::rasterizer_block_shift) * pitch
-          + (in_x >> swr::impl::rasterizer_block_shift);
-        assert(tile_index < entries.size());
+        std::size_t tile_index = 0;
+        tile* tile_ptr = nullptr;
+        if(!try_get_tile(in_x, in_y, tile_index, tile_ptr))
+        {
+            return false;
+        }
 
-        auto& tile = entries[tile_index];
+        auto& tile = *tile_ptr;
         if(tile.primitives.size() == tile.primitives.max_size())
         {
             // the cache was full.
@@ -591,23 +627,40 @@ struct tile_cache
         assert(in_mode == tile_info::rasterization_mode::small_checked);
         out_emitted = false;
 
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_store = 0;
+        utils::clock(stage_store);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
         if(payload.quad_count == 0)
         {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+            utils::unclock(stage_store);
+            swr::impl::profile_raster_small_quad_store_cycles.fetch_add(
+              stage_store,
+              std::memory_order_relaxed);
             swr::impl::profile_raster_small_quad_empty_primitives.fetch_add(1, std::memory_order_relaxed);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
             return false;
         }
 
-        unsigned int tile_index =
-          (in_y >> swr::impl::rasterizer_block_shift) * pitch
-          + (in_x >> swr::impl::rasterizer_block_shift);
-        assert(tile_index < entries.size());
+        std::size_t tile_index = 0;
+        tile* tile_ptr = nullptr;
+        if(!try_get_tile(in_x, in_y, tile_index, tile_ptr))
+        {
+            return false;
+        }
 
-        auto& tile = entries[tile_index];
+        auto& tile = *tile_ptr;
         if(tile.primitives.size() == tile.primitives.max_size())
         {
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+            utils::unclock(stage_store);
+            swr::impl::profile_raster_small_quad_store_cycles.fetch_add(
+              stage_store,
+              std::memory_order_relaxed);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
             return true;
         }
         if(tile.primitives.empty())
@@ -631,6 +684,10 @@ struct tile_cache
         out_emitted = true;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_store);
+        swr::impl::profile_raster_small_quad_store_cycles.fetch_add(
+          stage_store,
+          std::memory_order_relaxed);
         constexpr std::uint64_t tile_info_bytes = sizeof(tile_info);
         constexpr std::uint64_t small_payload_bytes = sizeof(small_triangle_payload);
         const std::uint64_t checked_payload_bytes =
@@ -688,12 +745,14 @@ struct tile_cache
             return false;
         }
 
-        unsigned int tile_index =
-          (in_y >> swr::impl::rasterizer_block_shift) * pitch
-          + (in_x >> swr::impl::rasterizer_block_shift);
-        assert(tile_index < entries.size());
+        std::size_t tile_index = 0;
+        tile* tile_ptr = nullptr;
+        if(!try_get_tile(in_x, in_y, tile_index, tile_ptr))
+        {
+            return false;
+        }
 
-        auto& tile = entries[tile_index];
+        auto& tile = *tile_ptr;
         if(tile.primitives.size() == tile.primitives.max_size())
         {
             return true;
@@ -778,12 +837,14 @@ struct tile_cache
         assert(in_mode == tile_info::rasterization_mode::block);
 
         // find the tile's coordinates.
-        unsigned int tile_index =
-          (in_y >> swr::impl::rasterizer_block_shift) * pitch
-          + (in_x >> swr::impl::rasterizer_block_shift);
-        assert(tile_index < entries.size());
+        std::size_t tile_index = 0;
+        tile* tile_ptr = nullptr;
+        if(!try_get_tile(in_x, in_y, tile_index, tile_ptr))
+        {
+            return false;
+        }
 
-        auto& tile = entries[tile_index];
+        auto& tile = *tile_ptr;
         if(tile.primitives.size() == tile.primitives.max_size())
         {
             // the cache was full.

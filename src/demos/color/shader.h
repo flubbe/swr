@@ -4,7 +4,7 @@
  * A shader that applies coloring.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -26,9 +26,16 @@ namespace shader
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class color : public swr::program<color>
+class color final : public swr::program<color>
 {
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.

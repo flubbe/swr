@@ -136,7 +136,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -233,7 +233,7 @@ public:
 
         // cube normal map.
         const auto cube_normal_map_filename = "../textures/stone/32/ft_stone01_n.png";
-        ret = utils::load_uniform(cube_normal_map_filename);
+        ret = utils::load_normal_map_uniform(cube_normal_map_filename);
         if(!ret.has_value())
         {
             platform::logf("[!!] Unable to load texture: {}", cube_normal_map_filename);
@@ -284,14 +284,19 @@ public:
           ml::vec4{0, height, 1, 1},
           ml::vec4{width, height, 1, 1},
         });
-        blur_tc_id = swr::CreateAttributeBuffer({
-          ml::vec4{0, 0, 0, 0},
-          ml::vec4{width / 1024.f, height / 1024.f, 0, 0},
-          ml::vec4{width / 1024.f, 0, 0, 0},
 
-          ml::vec4{0, 0, 0, 0},
-          ml::vec4{0, height / 1024.f, 0, 0},
-          ml::vec4{width / 1024.f, height / 1024.f, 0, 0},
+        const float u_max = static_cast<float>(width) / static_cast<float>(w);
+        const float v_min = 1.0f - static_cast<float>(height) / static_cast<float>(h);
+        const float v_max = 1.0f;
+
+        blur_tc_id = swr::CreateAttributeBuffer({
+          ml::vec4{0, v_max, 0, 0},
+          ml::vec4{u_max, v_min, 0, 0},
+          ml::vec4{u_max, v_max, 0, 0},
+
+          ml::vec4{0, v_max, 0, 0},
+          ml::vec4{0, v_min, 0, 0},
+          ml::vec4{u_max, v_min, 0, 0},
         });
 
         // create particles.
@@ -302,41 +307,39 @@ public:
 
     void destroy()
     {
-        swr::DeleteAttributeBuffer(blur_tc_id);
-        swr::DeleteAttributeBuffer(blur_vb_id);
-
-        swr::ReleaseFramebufferObject(blur_fbo);
-        swr::ReleaseTexture(blur_texture);
-        swr::ReleaseDepthRenderbuffer(blur_depth_id);
-
-        swr::ReleaseTexture(cube_normal_map);
-        swr::ReleaseTexture(cube_tex);
-        swr::DeleteAttributeBuffer(cube_bitangents);
-        swr::DeleteAttributeBuffer(cube_tangents);
-        swr::DeleteAttributeBuffer(cube_normals);
-        swr::DeleteAttributeBuffer(cube_uvs);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_normal_map = 0;
-        cube_tex = 0;
-        cube_bitangents = 0;
-        cube_tangents = 0;
-        cube_normals = 0;
-        cube_uvs = 0;
-        cube_verts = 0;
-        cube_indices.clear();
-
-        if(shader_id)
+        if(context != nullptr)
         {
-            if(context)
+
+            swr::DeleteAttributeBuffer(blur_tc_id);
+            swr::DeleteAttributeBuffer(blur_vb_id);
+
+            swr::ReleaseFramebufferObject(blur_fbo);
+            swr::ReleaseTexture(blur_texture);
+            swr::ReleaseDepthRenderbuffer(blur_depth_id);
+
+            swr::ReleaseTexture(cube_normal_map);
+            swr::ReleaseTexture(cube_tex);
+            swr::DeleteAttributeBuffer(cube_bitangents);
+            swr::DeleteAttributeBuffer(cube_tangents);
+            swr::DeleteAttributeBuffer(cube_normals);
+            swr::DeleteAttributeBuffer(cube_uvs);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_normal_map = 0;
+            cube_tex = 0;
+            cube_bitangents = 0;
+            cube_tangents = 0;
+            cube_normals = 0;
+            cube_uvs = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(shader_id)
             {
                 swr::UnregisterShader(shader_id);
+                shader_id = 0;
             }
-            shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }
@@ -540,7 +543,7 @@ protected:
 };
 
 /** demo application class. */
-class demo_app : public swr_app::application
+class demo_app final : public swr_app::application
 {
     log_std log;
 

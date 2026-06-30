@@ -4,7 +4,7 @@
  * software renderer demonstration (normal mapping).
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -89,7 +89,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -180,7 +180,7 @@ public:
 
         // cube normal map.
         const auto cube_normal_map_filename = "../textures/stone/256/ft_stone01_n.png";
-        ret = utils::load_uniform(cube_normal_map_filename);
+        ret = utils::load_normal_map_uniform(cube_normal_map_filename);
         if(!ret.has_value())
         {
             platform::logf("[!!] Unable to load texture: {}", cube_normal_map_filename);
@@ -195,34 +195,32 @@ public:
 
     void destroy()
     {
-        swr::ReleaseTexture(cube_normal_map);
-        swr::ReleaseTexture(cube_tex);
-        swr::DeleteAttributeBuffer(cube_bitangents);
-        swr::DeleteAttributeBuffer(cube_tangents);
-        swr::DeleteAttributeBuffer(cube_normals);
-        swr::DeleteAttributeBuffer(cube_uvs);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_normal_map = 0;
-        cube_tex = 0;
-        cube_bitangents = 0;
-        cube_tangents = 0;
-        cube_normals = 0;
-        cube_uvs = 0;
-        cube_verts = 0;
-        cube_indices.clear();
-
-        if(shader_id)
+        if(context != nullptr)
         {
-            if(context)
+
+            swr::ReleaseTexture(cube_normal_map);
+            swr::ReleaseTexture(cube_tex);
+            swr::DeleteAttributeBuffer(cube_bitangents);
+            swr::DeleteAttributeBuffer(cube_tangents);
+            swr::DeleteAttributeBuffer(cube_normals);
+            swr::DeleteAttributeBuffer(cube_uvs);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_normal_map = 0;
+            cube_tex = 0;
+            cube_bitangents = 0;
+            cube_tangents = 0;
+            cube_normals = 0;
+            cube_uvs = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(shader_id)
             {
                 swr::UnregisterShader(shader_id);
+                shader_id = 0;
             }
-            shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }
@@ -327,7 +325,7 @@ protected:
 };
 
 /** demo application class. */
-class demo_app : public swr_app::application
+class demo_app final : public swr_app::application
 {
     log_std log;
 

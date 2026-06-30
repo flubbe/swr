@@ -4,7 +4,7 @@
  * public interface for shader support.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -90,9 +90,19 @@ using uniform_bindings = boost::container::static_vector<
 
 /* sampler_2d is already defined by the assumed inclusion of swr.h */
 
-/** 2D sampler bindings type. */
+/** Sampler bindings type. */
+using sampler_bindings = boost::container::static_vector<
+  swr::sampler_base*,
+  swr::limits::max::texture_units>;
+
+/** Cached color sampler bindings type. */
 using sampler_2d_bindings = boost::container::static_vector<
-  swr::sampler_2d*,
+  const swr::sampler_2d*,
+  swr::limits::max::texture_units>;
+
+/** Cached shadow sampler bindings type. */
+using sampler_shadow_2d_bindings = boost::container::static_vector<
+  const swr::sampler_shadow_2d*,
   swr::limits::max::texture_units>;
 
 /** Bindings for a program. */
@@ -102,7 +112,7 @@ struct program_instance_bindings
     std::span<const uniform> uniforms{};
 
     /** 2D samplers. */
-    std::span<sampler_2d* const> samplers_2d{};
+    std::span<sampler_base* const> samplers_2d{};
 
     /** Default constructor. */
     program_instance_bindings() = default;
@@ -126,7 +136,7 @@ struct program_instance_bindings
      */
     program_instance_bindings(
       const uniform_bindings& uniforms,
-      const sampler_2d_bindings& samplers_2d)
+      const sampler_bindings& samplers_2d)
     : uniforms{uniforms.data(), uniforms.size()}
     , samplers_2d{samplers_2d.data(), samplers_2d.size()}
     {
@@ -176,13 +186,6 @@ struct varying
     {
     }
 
-    /** assignment to vectors. does not reset the other values. */
-    varying& operator=(ml::vec4 v)
-    {
-        value = v;
-        return *this;
-    }
-
     /** assign the varying's value to a vec4. */
     operator ml::vec4() const
     {
@@ -190,22 +193,286 @@ struct varying
     }
 };
 
-/** convenience function to return x-derivative of a varying. */
+/**
+ * GLSL-style convenience function to return the x-derivative of a varying.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/dFdx.xhtml
+ */
 inline ml::vec4 dFdx(const varying& v)
 {
     return v.dFdx;
 }
 
-/** convenience function to return y-derivative of a varying. */
+/**
+ * GLSL-style convenience function to return the y-derivative of a varying.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/dFdx.xhtml
+ */
 inline ml::vec4 dFdy(const varying& v)
 {
     return v.dFdy;
 }
 
-/** return the sum of the absolute value of derivatives in x and y. */
+/**
+ * GLSL-style sum of the absolute value of derivatives in x and y.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/fwidth.xhtml
+ */
 inline float fwidth(const varying& v)
 {
     return v.dFdx.length() + v.dFdy.length();
+}
+
+/**
+ * GLSL-style texture helper for coordinates `(u, v)`.
+ *
+ * This overload preserves interpolated derivatives and is the closest match to
+ * implicit-LOD fragment-stage sampling in GLSL.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/texture.xhtml
+ */
+inline ml::vec4 texture(
+  const sampler_2d& sampler,
+  const varying& tex_coords)
+{
+    return sampler.sample_at(tex_coords);
+}
+
+/**
+ * GLSL-style texture helper for coordinates `(u, v)`.
+ *
+ * This convenience overload does not have access to implicit derivatives, so
+ * it samples with zero gradients.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/texture.xhtml
+ */
+inline ml::vec4 texture(
+  const sampler_2d& sampler,
+  const ml::vec2& tex_coords)
+{
+    return sampler.sample_at(
+      {{tex_coords.x, tex_coords.y, 0.f, 0.f},
+       ml::vec4::zero(),
+       ml::vec4::zero()});
+}
+
+/**
+ * GLSL-style texture helper for shadow-style coordinates `(u, v, reference)`.
+ *
+ * When the texture compare mode is `ref_to_texture`, this performs a depth
+ * comparison sample. Otherwise it returns the raw sampled depth value.
+ *
+ * This overload does not have access to implicit derivatives, so
+ * it samples with zero gradients.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/texture.xhtml
+ */
+inline float texture(
+  const sampler_shadow_2d& sampler,
+  const ml::vec3& tex_coords)
+{
+    return sampler.sample_compare_at(
+      {{tex_coords.x, tex_coords.y, tex_coords.z, 0.f},
+       ml::vec4::zero(),
+       ml::vec4::zero()});
+}
+
+/**
+ * GLSL-style shadow sample that preserves interpolated uv derivatives while
+ * supplying the compare reference separately.
+ *
+ * This overload is the closest match to implicit-LOD fragment-stage shadow
+ * sampling in GLSL.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/texture.xhtml
+ */
+inline float texture(
+  const sampler_shadow_2d& sampler,
+  const varying& tex_coords,
+  float reference)
+{
+    return sampler.sample_compare_at(
+      {{tex_coords.value.x, tex_coords.value.y, reference, 0.f},
+       {tex_coords.dFdx.x, tex_coords.dFdx.y, 0.f, 0.f},
+       {tex_coords.dFdy.x, tex_coords.dFdy.y, 0.f, 0.f}});
+}
+
+/**
+ * GLSL-style depth texture lookup helper for a prepared varying.
+ *
+ * This overload preserves interpolated derivatives and is the closest match to
+ * implicit-LOD fragment-stage sampling in GLSL.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/texture.xhtml
+ */
+inline float texture(
+  const sampler_depth_2d& sampler,
+  const varying& tex_coords)
+{
+    return sampler.sample_depth_at(tex_coords);
+}
+
+/**
+ * GLSL-style depth texture lookup helper for plain uv coordinates.
+ *
+ * This overload does not have access to implicit derivatives, so
+ * it projects the coordinates and then samples with zero gradients.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/texture.xhtml
+ */
+inline float texture(
+  const sampler_depth_2d& sampler,
+  const ml::vec2& tex_coords)
+{
+    return sampler.sample_depth_at(
+      {{tex_coords.x, tex_coords.y, 0.f, 0.f},
+       ml::vec4::zero(),
+       ml::vec4::zero()});
+}
+
+namespace detail
+{
+
+/** Project homogeneous texture coordinates and propagate derivatives. */
+inline varying project_texture_coords(
+  const varying& tex_coords)
+{
+    assert(std::abs(tex_coords.value.w) > 1.0e-6f);
+
+    const float inv_w = 1.0f / tex_coords.value.w;
+    const float inv_w_squared = inv_w * inv_w;
+
+    const auto project_derivative =
+      [&tex_coords, inv_w_squared](const ml::vec4& derivative) -> ml::vec4
+    {
+        return {
+          (derivative.x * tex_coords.value.w - tex_coords.value.x * derivative.w)
+            * inv_w_squared,
+          (derivative.y * tex_coords.value.w - tex_coords.value.y * derivative.w)
+            * inv_w_squared,
+          (derivative.z * tex_coords.value.w - tex_coords.value.z * derivative.w)
+            * inv_w_squared,
+          0.0f};
+    };
+
+    return {
+      {tex_coords.value.x * inv_w,
+       tex_coords.value.y * inv_w,
+       tex_coords.value.z * inv_w,
+       0.0f},
+      project_derivative(tex_coords.dFdx),
+      project_derivative(tex_coords.dFdy)};
+}
+
+} /* namespace detail */
+
+/**
+ * GLSL-style shadow compare sample with integer texel offset.
+ *
+ * Does not have access to implicit derivatives and therefore
+ * uses zero gradients.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/textureOffset.xhtml
+ */
+inline float textureOffset(
+  const sampler_shadow_2d& sampler,
+  const ml::vec3& tex_coords,
+  const ml::tvec2<int>& offset)
+{
+    const auto inv_size = sampler.size_reciprocal(0);
+    assert(inv_size.x > 0.0f);
+    assert(inv_size.y > 0.0f);
+
+    const ml::vec3 shifted_coords{
+      tex_coords.x + static_cast<float>(offset.x) * inv_size.x,
+      tex_coords.y + static_cast<float>(offset.y) * inv_size.y,
+      tex_coords.z};
+    return texture(sampler, shifted_coords);
+}
+
+/**
+ * GLSL-style projected shadow compare sample (`vec4` projected to `vec3`).
+ *
+ * This overload does not have access to implicit derivatives, so
+ * it projects the coordinates and then samples with zero gradients.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/textureProj.xhtml
+ */
+inline float textureProj(
+  const sampler_shadow_2d& sampler,
+  const ml::vec4& tex_coords)
+{
+    assert(std::abs(tex_coords.w) > 1.0e-6f);
+
+    const float inv_w = 1.0f / tex_coords.w;
+    const ml::vec3 projected_coords{
+      tex_coords.x * inv_w,
+      tex_coords.y * inv_w,
+      tex_coords.z * inv_w};
+    return texture(sampler, projected_coords);
+}
+
+/**
+ * GLSL-style projected shadow compare sample for a prepared varying.
+ *
+ * This overload projects the coordinates and propagates derivatives, making it
+ * the closest match to implicit-LOD fragment-stage projected sampling in GLSL.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/textureProj.xhtml
+ */
+inline float textureProj(
+  const sampler_shadow_2d& sampler,
+  const varying& tex_coords)
+{
+    const varying projected_coords = detail::project_texture_coords(tex_coords);
+    return texture(sampler, projected_coords, projected_coords.value.z);
+}
+
+/**
+ * GLSL-style projected shadow compare sample with integer texel offset.
+ *
+ * This overload does not have access to implicit derivatives, so
+ * it projects the coordinates and then samples with zero gradients.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/textureProjOffset.xhtml
+ */
+inline float textureProjOffset(
+  const sampler_shadow_2d& sampler,
+  const ml::vec4& tex_coords,
+  const ml::tvec2<int>& offset)
+{
+    assert(std::abs(tex_coords.w) > 1.0e-6f);
+
+    const float inv_w = 1.0f / tex_coords.w;
+    const ml::vec3 projected_coords{
+      tex_coords.x * inv_w,
+      tex_coords.y * inv_w,
+      tex_coords.z * inv_w};
+    return textureOffset(sampler, projected_coords, offset);
+}
+
+/**
+ * GLSL-style projected shadow compare sample with offset for a varying.
+ *
+ * This overload projects the coordinates and propagates derivatives before
+ * applying the integer texel offset.
+ *
+ * See https://registry.khronos.org/OpenGL-Refpages/gl4/html/textureProjOffset.xhtml
+ */
+inline float textureProjOffset(
+  const sampler_shadow_2d& sampler,
+  const varying& tex_coords,
+  const ml::tvec2<int>& offset)
+{
+    const varying projected_coords = detail::project_texture_coords(tex_coords);
+    const auto inv_size = sampler.size_reciprocal(0);
+    assert(inv_size.x > 0.0f);
+    assert(inv_size.y > 0.0f);
+
+    varying shifted_coords = projected_coords;
+    shifted_coords.value.x += static_cast<float>(offset.x) * inv_size.x;
+    shifted_coords.value.y += static_cast<float>(offset.y) * inv_size.y;
+    return texture(sampler, shifted_coords, shifted_coords.value.z);
 }
 
 /** fragment shader results */
@@ -215,15 +482,35 @@ enum fragment_shader_result
     accept
 };
 
+/** Shader behavior metadata. */
+struct program_metadata
+{
+    /** True if the fragment shader may return `fragment_shader_result::discard`. */
+    bool fragment_shader_may_discard{true};
+
+    /** True if the fragment shader may modify `gl_FragDepth`. */
+    bool fragment_shader_may_write_depth{true};
+};
+
 /** A complete graphics program, consisting of vertex- and fragment shader. */
 class program_base
 {
-    template<typename T>
-    friend class program;
-
 protected:
     std::span<const uniform> uniforms{};
-    std::span<sampler_2d* const> samplers{};
+    sampler_2d_bindings sampler_2d_views{};
+    sampler_shadow_2d_bindings sampler_shadow_2d_views{};
+
+    const sampler_2d& sampler2D(std::size_t index) const
+    {
+        assert(index < sampler_2d_views.size());
+        return *sampler_2d_views[index];
+    }
+
+    const sampler_shadow_2d& sampler2DShadow(std::size_t index) const
+    {
+        assert(index < sampler_shadow_2d_views.size());
+        return *sampler_shadow_2d_views[index];
+    }
 
 public:
     program_base() = default;
@@ -252,6 +539,13 @@ public:
       void* mem,
       const program_instance_bindings& bindings) const = 0;
 
+    /** return shader behavior metadata. */
+    [[nodiscard]]
+    virtual program_metadata get_metadata() const
+    {
+        return {};
+    }
+
     /**
      * pre-link the program.
      *
@@ -272,9 +566,7 @@ public:
         swr::limits::max::varyings>&
         iqs) const = 0;
 
-    /**
-     * Vertex shader entry point.
-     */
+    /** Vertex shader entry point. */
     virtual void vertex_shader(
       [[maybe_unused]] int gl_VertexID,
       [[maybe_unused]] int gl_InstanceID,
@@ -284,9 +576,7 @@ public:
       [[maybe_unused]] std::span<float> gl_ClipDistance,
       [[maybe_unused]] std::span<ml::vec4> varyings) const = 0;
 
-    /**
-     * Fragment shader entry point.
-     */
+    /** Fragment shader entry point. */
     virtual fragment_shader_result fragment_shader(
       [[maybe_unused]] const ml::vec4& gl_FragCoord,
       [[maybe_unused]] bool gl_FrontFacing,
@@ -346,8 +636,23 @@ program_base* program<T>::create_instance(
 {
     assert(reinterpret_cast<std::uintptr_t>(mem) % alignof(T) == 0);
     auto* new_program = new(mem) T{static_cast<const T&>(*this)};
+
     new_program->uniforms = bindings.uniforms;
-    new_program->samplers = bindings.samplers_2d;
+
+    new_program->sampler_2d_views.clear();
+    new_program->sampler_shadow_2d_views.clear();
+
+    new_program->sampler_2d_views.reserve(bindings.samplers_2d.size());
+    new_program->sampler_shadow_2d_views.reserve(bindings.samplers_2d.size());
+
+    for(auto* sampler: bindings.samplers_2d)
+    {
+        new_program->sampler_2d_views.push_back(
+          sampler != nullptr ? sampler->as_sampler_2d() : nullptr);
+        new_program->sampler_shadow_2d_views.push_back(
+          sampler != nullptr ? sampler->as_sampler_shadow_2d() : nullptr);
+    }
+
     return static_cast<program_base*>(new_program);
 }
 

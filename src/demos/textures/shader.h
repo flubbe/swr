@@ -18,7 +18,7 @@
  *   location 0: diffuse texture
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -26,9 +26,16 @@ namespace shader
 {
 
 /** A shader that applies the diffuse texture. */
-class texture : public swr::program<texture>
+class texture final : public swr::program<texture>
 {
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
@@ -67,7 +74,7 @@ public:
         const swr::varying& tex_coords = varyings[0];
 
         // sample texture.
-        ml::vec4 color = samplers[0]->sample_at(tex_coords);
+        ml::vec4 color = sampler2D(0).sample_at(tex_coords);
 
         // write fragment color.
         gl_FragColor = color;

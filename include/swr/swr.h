@@ -40,7 +40,7 @@ enum class error
     unimplemented = 3      /** the operation is not implemented */
 };
 
-/** return last error and clear error flag. */
+/** Return last error and clear error flag. */
 error GetLastError();
 
 /** Texturing modes. */
@@ -57,6 +57,7 @@ enum class wrap_mode
 
 /**
  * Create an index buffer from a std::vector of indices.
+ *
  * @param ib Contains all indices that should make up the index buffer.
  * @return Returns the unique ID of the newly created index buffer.
  */
@@ -156,6 +157,35 @@ void BindUniform(std::uint32_t UniformId, ml::vec4 Value);
 /** a handle to a render context. */
 typedef void* context_handle;
 
+/** Rasterizer implementation features that can be controlled e.g. for benchmarking/tests. */
+enum class rasterizer_feature
+{
+    block_early_depth_reject, /** Conservative block-level early depth rejection. */
+    early_fragment_depth_test /** Quad/fragment-level depth testing before fragment shading. */
+};
+
+/** Rasterizer feature mode. */
+enum class rasterizer_feature_mode
+{
+    automatic, /** Let the rasterizer adaptively decide whether the feature is worthwhile. */
+    on,        /** Turn the feature on. */
+    off        /** Turn the feature off. */
+};
+
+/**
+ * Set a rasterizer implementation feature mode.
+ *
+ * @param feature The feature to change.
+ * @param mode The new feature mode.
+ */
+void SetRasterizerFeature(
+  rasterizer_feature feature,
+  rasterizer_feature_mode mode);
+
+/** Return the current rasterizer implementation feature mode. */
+rasterizer_feature_mode GetRasterizerFeature(
+  rasterizer_feature feature);
+
 /**
  * This function sythesizes the image from the contents of the (internal) drawing lists.
  */
@@ -180,18 +210,21 @@ enum class comparison_func
 
 /**
  * Specify a new depth test.
+ *
  * @param func The new depth test.
  */
 void SetDepthTest(comparison_func func);
 
 /**
  * Return the current depth test.
+ *
  * @return The current depth test.
  */
 comparison_func GetDepthTest();
 
 /**
  * Specify the clear value for the depth buffer. The value is clamped to [0,1].
+ *
  * @param z The clear value.
  */
 void SetClearDepth(float z);
@@ -301,6 +334,7 @@ enum class pixel_format
     rgba8888,    /** 32-bit with 8 bits per channel in the order red, green, blue, alpha. */
     argb8888,    /** 32-bit with 8 bits per channel in the order alpha, red, green, blue. */
     bgra8888,    /** 32-bit with 8 bits per channel in the order blue, green, red, alpha. */
+    depth32f,    /** 32-bit floating-point depth values in the range [0,1]. */
 };
 
 /*
@@ -309,12 +343,14 @@ enum class pixel_format
 
 /**
  * Allocate a texture and return its id.
+ *
  * @return If successful, a positive texture id of the newly created texture. Zero if an error occured.
  */
 std::uint32_t CreateTexture();
 
 /**
  * Free texture memory. If the texture is currently bound, it is unbound and then freed.
+ *
  * @param TextureId The id of the texture to be freed.
  */
 void ReleaseTexture(std::uint32_t TextureId);
@@ -348,12 +384,14 @@ enum texture_unit
 
 /**
  * Select active texture unit.
+ *
  * @param unit specifies which texture unit to activate.
  */
 void ActiveTexture(std::uint32_t unit);
 
 /**
  * Make the specified texture the active one. This also makes the texture parameters available for request.
+ *
  * @param target The texture target to bind the texture to.
  * @param id The id of the texture that should be bound to the texture unit.
  */
@@ -361,6 +399,7 @@ void BindTexture(texture_target target, std::uint32_t id);
 
 /**
  * Allocate texture storage and, if data is non-empty, set the image data of a texture.
+ *
  * @param texture_id id of the texture
  * @param level the mipmap level of data
  * @param width the width of the texture
@@ -372,6 +411,7 @@ void SetImage(std::uint32_t texture_id, std::uint32_t level, std::size_t width, 
 
 /**
  * Update part of a texture.
+ *
  * @param texture_id id of the texture to be updated.
  * @param level mipmap level.
  * @param offset_x x-offset
@@ -390,7 +430,7 @@ void SetSubImage(std::uint32_t texture_id, std::uint32_t level, std::size_t offs
  * @param s Wrapping mode in s direction
  * @param t Wrapping mode in t direction
  *
- * \note Currently only 2d textures are handled. If debugging and if an error occures while binding the texture, an assertion is raised.
+ * @note Currently only 2d textures are handled. If debugging and if an error occures while binding the texture, an assertion is raised.
  */
 void SetTextureWrapMode(std::uint32_t id, wrap_mode s, wrap_mode t);
 
@@ -406,12 +446,22 @@ void GetTextureWrapMode(std::uint32_t id, wrap_mode* s, wrap_mode* t);
 /** Texture Filter. */
 enum class texture_filter
 {
-    nearest, /** Get the nearest texel in the nearest mipmap. */
-    linear   /** Filter linearly between the nearest four texels in the mipmap. */
+    nearest,                /** Get the nearest texel. */
+    linear,                 /** Filter linearly between the nearest four texels. */
+    nearest_mipmap_nearest, /** Get nearest texel in nearest mipmap. */
+    linear_mipmap_nearest   /** Filter linearly between the nearest four texels in nearest mipmap. */
+};
+
+/** Depth texture comparison mode. */
+enum class texture_compare_mode
+{
+    none,           /** Sample raw texture values. */
+    ref_to_texture, /** Compare the reference value against the sampled depth. */
 };
 
 /**
  * Set the filter for the currently active texture which is used for minification.
+ *
  * @param Filter nearest or linear.
  */
 void SetTextureMinificationFilter(texture_filter Filter);
@@ -428,25 +478,169 @@ void SetTextureMagnificationFilter(texture_filter Filter);
 /** Return the magnification filter for the currently active texture. */
 texture_filter GetTextureMagnificationFilter();
 
+/**
+ * Set the depth comparison mode for a texture.
+ *
+ * @param id The unique texture id, as returned by CreateTexture.
+ * @param mode The comparison mode to use for shadow-style sampling.
+ */
+void SetTextureCompareMode(std::uint32_t id, texture_compare_mode mode);
+
+/**
+ * Return the depth comparison mode for a texture.
+ *
+ * @param id The unique texture id, as returned by CreateTexture.
+ */
+texture_compare_mode GetTextureCompareMode(std::uint32_t id);
+
+/**
+ * Set the comparison function used for depth comparison sampling.
+ *
+ * @param id The unique texture id, as returned by CreateTexture.
+ * @param func The comparison function to use for shadow-style sampling.
+ */
+void SetTextureCompareFunc(std::uint32_t id, comparison_func func);
+
+/**
+ * Return the comparison function used for depth comparison sampling.
+ *
+ * @param id The unique texture id, as returned by CreateTexture.
+ */
+comparison_func GetTextureCompareFunc(std::uint32_t id);
+
 /*
  * Texture sampling.
  */
 
+struct sampler_2d;
+struct sampler_depth_2d;
+struct sampler_shadow_2d;
+
+/** Base sampler interface shared by all sampler types. */
+struct sampler_base
+{
+    /** virtual destructor. */
+    virtual ~sampler_base() = default;
+
+    /** Return this sampler as a color sampler, if supported. */
+    virtual sampler_2d* as_sampler_2d()
+    {
+        return nullptr;
+    }
+
+    /** Return this sampler as a color sampler, if supported. */
+    virtual const sampler_2d* as_sampler_2d() const
+    {
+        return nullptr;
+    }
+
+    /** Return this sampler as a depth sampler, if supported. */
+    virtual sampler_depth_2d* as_sampler_depth_2d()
+    {
+        return nullptr;
+    }
+
+    /** Return this sampler as a depth sampler, if supported. */
+    virtual const sampler_depth_2d* as_sampler_depth_2d() const
+    {
+        return nullptr;
+    }
+
+    /** Return this sampler as a shadow sampler, if supported. */
+    virtual sampler_shadow_2d* as_sampler_shadow_2d()
+    {
+        return nullptr;
+    }
+
+    /** Return this sampler as a shadow sampler, if supported. */
+    virtual const sampler_shadow_2d* as_sampler_shadow_2d() const
+    {
+        return nullptr;
+    }
+
+    /** Return the texture size. */
+    virtual ml::tvec2<int> size(std::uint32_t mip_level) const = 0;
+
+    /** Return the reciprocal texture size. */
+    virtual ml::vec2 size_reciprocal(std::uint32_t mip_level) const = 0;
+};
+
 /** (floating-point) texture sampler. */
 struct sampler_2d
+: virtual public sampler_base
 {
     /** virtual destructor. */
     virtual ~sampler_2d() = default;
 
+    sampler_2d* as_sampler_2d() override
+    {
+        return this;
+    }
+
+    const sampler_2d* as_sampler_2d() const override
+    {
+        return this;
+    }
+
     /** Return a texel (as a 4-vector) while respecting the active texture filters. */
     virtual ml::vec4 sample_at(const struct varying& tex_coords) const = 0;
+};
+
+/** Depth sampler interface for depth/compare sampling. */
+struct sampler_depth_2d : virtual public sampler_base
+{
+    /** virtual destructor. */
+    virtual ~sampler_depth_2d() = default;
+
+    sampler_depth_2d* as_sampler_depth_2d() override
+    {
+        return this;
+    }
+
+    const sampler_depth_2d* as_sampler_depth_2d() const override
+    {
+        return this;
+    }
+
+    /** Return a texture value interpreted as depth. */
+    virtual float sample_depth_at(const struct varying& tex_coords) const = 0;
+};
+
+struct sampler_shadow_2d : virtual public sampler_base
+{
+    /** virtual destructor. */
+    virtual ~sampler_shadow_2d() = default;
+
+    sampler_shadow_2d* as_sampler_shadow_2d() override
+    {
+        return this;
+    }
+
+    const sampler_shadow_2d* as_sampler_shadow_2d() const override
+    {
+        return this;
+    }
+
+    /**
+     * Return the result of a depth comparison sample.
+     *
+     * The texture coordinates are read from `tex_coords.value.xy`, while
+     * `tex_coords.value.z` is used as the comparison reference.
+     */
+    virtual float sample_compare_at(const struct varying& tex_coords) const = 0;
+
+    /** Return the active depth comparison mode. */
+    virtual texture_compare_mode compare_mode() const = 0;
+
+    /** Return the active depth comparison function. */
+    virtual comparison_func compare_func() const = 0;
 };
 
 /*
  * Alpha blending.
  */
 
-/** blending operation. */
+/** Blending operation. */
 enum class blend_func
 {
     zero,               /** return zero. */
@@ -458,6 +652,7 @@ enum class blend_func
 
 /**
  * Specify pixel arithmetic.
+ *
  * @param SourceFactor Can be one of the EBlendFunc values. The initial value is Blend_One.
  * @param DestinationFactor Can be one of the EBlendFunc values. The initial value is Blend_Zero.
  */
@@ -478,7 +673,7 @@ blend_func GetDestinationBlendFunc();
  * See also https://www.opengl.org/sdk/docs/man2/xhtml/glScissor.xml
  *
  * @param x X coordinate of the scissor box.
- * @param y Y coordinate of the scissor box.
+ * @param y Y coordinate of the scissor box's lower-left corner.
  * @param width Width of the scissor box.
  * @param height Height of the scissor box.
  */
@@ -502,14 +697,16 @@ enum class state
 
 /**
  * Enable or disable a specific state.
- * @param State The state to modify.
- * @param bNewState _true_ enables the state, _false_ disables it.
+ *
+ * @param s The state to modify.
+ * @param new_state `true` enables the state, `false` disables it.
  */
 void SetState(state s, bool new_state);
 
 /**
  * Return the value of a given state.
- * @param State A state.
+ *
+ * @param s A state.
  */
 bool GetState(state s);
 
@@ -519,8 +716,11 @@ bool GetState(state s);
 
 /**
  * Set the current viewport's dimensions.
- * @param x x coordinate of top-left corner of viewport rectangle.
- * @param y y coordinate of top-left corner of viewport rectangle.
+ * Coordinates follow OpenGL conventions, i.e. `(x, y)` is the lower-left
+ * corner of the viewport rectangle.
+ *
+ * @param x x coordinate of lower-left corner of viewport rectangle.
+ * @param y y coordinate of lower-left corner of viewport rectangle.
  * @param width Width of viewport rectangle.
  * @param height Height of viewport rectangle.
  */
@@ -541,12 +741,14 @@ void DepthRange(float zNear, float zFar);
 
 /**
  * Create a framebuffer object.
+ *
  * @return If successful, returns a positive id of the newly created framebuffer object. Returns zero if an error occured.
  */
 std::uint32_t CreateFramebufferObject();
 
 /**
  * Release a framebuffer object.
+ *
  * @param id The id of the framebuffer object to be freed.
  */
 void ReleaseFramebufferObject(std::uint32_t id);
@@ -561,6 +763,7 @@ enum class framebuffer_target
 
 /**
  * Bind a framebuffer object to a target.
+ *
  * @param target The target of the binding operation. Zero is reserved for the default framebuffer.
  * @param id The id of the framebuffer to be bound.
  */
@@ -569,14 +772,14 @@ void BindFramebufferObject(framebuffer_target target, std::uint32_t id);
 /** framebuffer attachment names. */
 enum class framebuffer_attachment
 {
-    color_attachment_0 = 0, /** color attachment 0 */
-    color_attachment_1 = 1, /** color attachment 1 */
-    color_attachment_2 = 2, /** color attachment 2 */
-    color_attachment_3 = 3, /** color attachment 3 */
-    color_attachment_4 = 4, /** color attachment 4 */
-    color_attachment_5 = 5, /** color attachment 5 */
-    color_attachment_6 = 6, /** color attachment 6 */
-    color_attachment_7 = 7, /** color attachment 7 */
+    color_attachment_0 = 0,                           /** color attachment 0 */
+    color_attachment_1 = 1,                           /** color attachment 1 */
+    color_attachment_2 = 2,                           /** color attachment 2 */
+    color_attachment_3 = 3,                           /** color attachment 3 */
+    color_attachment_4 = 4,                           /** color attachment 4 */
+    color_attachment_5 = 5,                           /** color attachment 5 */
+    color_attachment_6 = 6,                           /** color attachment 6 */
+    color_attachment_7 = 7,                           /** color attachment 7 */
     depth_attachment = limits::max::color_attachments /** depth attachment */
 };
 
@@ -587,6 +790,7 @@ static_assert(
 
 /**
  * Attach a texture or a depth buffer to a framebuffer object.
+ *
  * @param id The id of the framebuffer object.
  * @param attachment The attachment name in the framebuffer object.
  * @param attachment_id The id of the attached texture.
@@ -596,6 +800,7 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
 
 /**
  * Generate a depth render buffer of (at least) the requested size.
+ *
  * @param width the width of the depth buffer.
  * @param height the height of the depth buffer.
  * @return Returns the id of the created depth buffer, and 0 on failure.
@@ -604,12 +809,14 @@ std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
 
 /**
  * Release a depth renderbuffer.
+ *
  * @param id the id of the depth renderbuffer to be released.
  */
 void ReleaseDepthRenderbuffer(std::uint32_t id);
 
 /**
  * Attach a texture or a depth buffer to a framebuffer object.
+ *
  * @param id The id of the framebuffer object.
  * @param attachment The attachment name in the framebuffer object. Currently only accepts framebuffer_attachment::depth_attachment.
  * @param attachment_id The id of the attached texture.
@@ -661,6 +868,7 @@ void DestroyContext(context_handle Context);
 
 /**
  * Make the supplied context active.
+ *
  * @param Context The context to be made active.
  * @return _true_ on success, and _false_ on failure.
  */
@@ -668,6 +876,7 @@ bool MakeContextCurrent(context_handle Context);
 
 /**
  * Copies the contents of the default color buffer of the context into the active window.
+ *
  * @param Context The context to use for color buffer copying.
  */
 void CopyDefaultColorBuffer(context_handle Context);

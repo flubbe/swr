@@ -911,11 +911,12 @@ BOOST_AUTO_TEST_CASE(varying_interpolation_no_perspective_and_invalid_qualifier)
     iqs[0] = static_cast<swr::interpolation_qualifier>(999);
 
     BOOST_CHECK_THROW((rast::line_interpolator{
-      v1,
-      v2,
-      provoking_vertex,
-      iqs,
-      1.0f / 4.0f}), std::runtime_error);
+                        v1,
+                        v2,
+                        provoking_vertex,
+                        iqs,
+                        1.0f / 4.0f}),
+                      std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END();

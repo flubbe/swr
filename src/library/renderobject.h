@@ -4,7 +4,7 @@
  * render objects for draw lists.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <ranges>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace swr
@@ -20,6 +21,14 @@ namespace swr
 
 namespace impl
 {
+
+/** Describes where post-clipping primitives should read their vertices from. */
+enum class clipped_vertex_source
+{
+    none,
+    expanded_vertices,
+    original_indexed_vertices
+};
 
 /**
  * A render object is the representation of an object (consisting of vertices)
@@ -71,8 +80,14 @@ public:
     /** Active render states for this object. */
     render_states states;
 
-    /** Ordered vertices after clipping. */
+    /** Materialized vertices after clipping, or after assembly of original indexed vertices. */
     vertex_buffer clipped_vertices;
+
+    /** Source selected by clipping/pre-assembly. */
+    clipped_vertex_source clipped_vertices_source{clipped_vertex_source::none};
+
+    /** Whether any vertex was marked outside the clip volume by the vertex stage. */
+    bool has_clip_discard{false};
 
     /** Constructors */
     render_object() = default;
@@ -102,6 +117,56 @@ public:
     {
         allocate_coords(in_indices.size());
         vertex_flags.resize(in_indices.size());
+    }
+
+    /** Initialize the object with remapped indices and compact vertex storage. */
+    render_object(
+      std::vector<std::uint32_t> in_indices,
+      std::size_t vertex_count,
+      vertex_buffer_mode in_mode,
+      const render_states& in_states)
+    : indices{std::move(in_indices)}
+    , mode{in_mode}
+    , states{in_states}
+    {
+        allocate_coords(vertex_count);
+        vertex_flags.resize(vertex_count);
+    }
+
+    /** Clear any previous clipping output. */
+    void clear_clipped_output()
+    {
+        clipped_vertices.clear();
+        clipped_vertices_source = clipped_vertex_source::none;
+    }
+
+    /** Mark the current clipped_vertices buffer as expanded primitive output. */
+    void use_expanded_clipped_vertices()
+    {
+        clipped_vertices_source = clipped_vertices.empty()
+                                    ? clipped_vertex_source::none
+                                    : clipped_vertex_source::expanded_vertices;
+    }
+
+    /** Use the original post-shader vertex/index storage as clipping output. */
+    void use_original_indexed_vertices()
+    {
+        clipped_vertices.clear();
+        clipped_vertices_source = indices.empty()
+                                    ? clipped_vertex_source::none
+                                    : clipped_vertex_source::original_indexed_vertices;
+    }
+
+    /** Return whether clipping/pre-assembly produced anything to assemble. */
+    [[nodiscard]]
+    bool has_clipped_output() const
+    {
+        if(clipped_vertices_source == clipped_vertex_source::original_indexed_vertices)
+        {
+            return !indices.empty();
+        }
+
+        return !clipped_vertices.empty();
     }
 
     /**

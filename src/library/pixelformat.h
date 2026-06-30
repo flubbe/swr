@@ -4,20 +4,34 @@
  * support for different pixel formats.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 #pragma once
 
+#include <limits>
+
 namespace swr
 {
+
+/** High-level pixel format category. */
+enum class pixel_format_kind
+{
+    color,
+    depth,
+    depth_stencil,
+    unsupported
+};
 
 /** Pixel format descriptor. */
 struct pixel_format_descriptor
 {
     /** pixel format name. */
     pixel_format name{pixel_format::unsupported};
+
+    /** high-level pixel format kind. */
+    pixel_format_kind kind{pixel_format_kind::unsupported};
 
     /** red color bits. */
     std::uint32_t red_bits{0};
@@ -49,6 +63,7 @@ struct pixel_format_descriptor
     /** initializing constructor. */
     pixel_format_descriptor(
       pixel_format name,
+      pixel_format_kind kind,
       std::uint32_t in_red_bits,
       std::uint32_t in_red_shift,
       std::uint32_t in_green_bits,
@@ -58,6 +73,7 @@ struct pixel_format_descriptor
       std::uint32_t in_alpha_bits,
       std::uint32_t in_alpha_shift)
     : name{name}
+    , kind{kind}
     , red_bits{in_red_bits}
     , red_shift{in_red_shift}
     , green_bits{in_green_bits}
@@ -74,18 +90,22 @@ struct pixel_format_descriptor
     {
         if(name == pixel_format::argb8888)
         {
-            /* {name, red, green, blue, alpha */
-            return {name, 8, 16, 8, 8, 8, 0, 8, 24};
+            /* {name, kind, red, green, blue, alpha */
+            return {name, pixel_format_kind::color, 8, 16, 8, 8, 8, 0, 8, 24};
         }
         else if(name == pixel_format::bgra8888)
         {
-            /* {name, red, green, blue, alpha */
-            return {name, 8, 8, 8, 16, 8, 24, 8, 0};
+            /* {name, kind, red, green, blue, alpha */
+            return {name, pixel_format_kind::color, 8, 8, 8, 16, 8, 24, 8, 0};
         }
         else if(name == pixel_format::rgba8888)
         {
-            /* {name, red, green, blue, alpha */
-            return {name, 8, 24, 8, 16, 8, 8, 8, 0};
+            /* {name, kind, red, green, blue, alpha */
+            return {name, pixel_format_kind::color, 8, 24, 8, 16, 8, 8, 8, 0};
+        }
+        else if(name == pixel_format::depth32f)
+        {
+            return {name, pixel_format_kind::depth, 0, 0, 0, 0, 0, 0, 0, 0};
         }
 
         // return empty pixel_format_descriptor for unknown formats.

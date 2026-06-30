@@ -4,7 +4,7 @@
  * general render context and SDL render context implementation.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -581,7 +581,7 @@ bool ResizeOffscreenContext(
 
 void DestroyContext(context_handle context)
 {
-    if(context)
+    if(context != nullptr)
     {
         auto ctx = static_cast<impl::render_context*>(context);
 

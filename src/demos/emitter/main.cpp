@@ -206,7 +206,7 @@ public:
 
         // cube normal map.
         const auto cube_normal_map_filename = "../textures/stone/32/ft_stone01_n.png";
-        ret = utils::load_uniform(cube_normal_map_filename);
+        ret = utils::load_normal_map_uniform(cube_normal_map_filename);
         if(!ret.has_value())
         {
             platform::logf("[!!] Unable to load texture: {}", cube_normal_map_filename);
@@ -224,40 +224,38 @@ public:
 
     void destroy()
     {
-        if(cube_normal_map)
+        if(context != nullptr)
         {
-            swr::ReleaseTexture(cube_normal_map);
-        }
-        if(cube_tex)
-        {
-            swr::ReleaseTexture(cube_tex);
-        }
-        swr::DeleteAttributeBuffer(cube_bitangents);
-        swr::DeleteAttributeBuffer(cube_tangents);
-        swr::DeleteAttributeBuffer(cube_normals);
-        swr::DeleteAttributeBuffer(cube_uvs);
-        swr::DeleteAttributeBuffer(cube_verts);
 
-        cube_normal_map = 0;
-        cube_tex = 0;
-        cube_bitangents = 0;
-        cube_tangents = 0;
-        cube_normals = 0;
-        cube_uvs = 0;
-        cube_verts = 0;
-        cube_indices.clear();
+            if(cube_normal_map)
+            {
+                swr::ReleaseTexture(cube_normal_map);
+            }
+            if(cube_tex)
+            {
+                swr::ReleaseTexture(cube_tex);
+            }
+            swr::DeleteAttributeBuffer(cube_bitangents);
+            swr::DeleteAttributeBuffer(cube_tangents);
+            swr::DeleteAttributeBuffer(cube_normals);
+            swr::DeleteAttributeBuffer(cube_uvs);
+            swr::DeleteAttributeBuffer(cube_verts);
 
-        if(shader_id)
-        {
-            if(context)
+            cube_normal_map = 0;
+            cube_tex = 0;
+            cube_bitangents = 0;
+            cube_tangents = 0;
+            cube_normals = 0;
+            cube_uvs = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(shader_id)
             {
                 swr::UnregisterShader(shader_id);
+                shader_id = 0;
             }
-            shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }
@@ -416,7 +414,7 @@ protected:
 };
 
 /** demo application class. */
-class demo_app : public swr_app::application
+class demo_app final : public swr_app::application
 {
     log_std log;
 

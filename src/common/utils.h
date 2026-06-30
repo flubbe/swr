@@ -4,7 +4,7 @@
  * utility functions.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -267,7 +267,7 @@ public:
 
     aligned_byte_storage(
       std::size_t size,
-      std::size_t alignment)
+      std::size_t alignment = aligned_byte_storage::default_alignment)
     {
         allocate(size, alignment);
     }

@@ -4,7 +4,7 @@
  * Shaders for the motion blur demo.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -39,7 +39,7 @@ namespace shader
  *   location 0: diffuse texture
  *   location 1: normal map
  */
-class normal_mapping : public swr::program<normal_mapping>
+class normal_mapping final : public swr::program<normal_mapping>
 {
     const ml::vec4 light_color{0.7, 1, 1, 1};
     const ml::vec4 light_specular_color{0.25, 0.5, 0.75, 1};
@@ -49,6 +49,13 @@ class normal_mapping : public swr::program<normal_mapping>
     const float ambient_diffuse_factor{0.5f};
 
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
@@ -127,7 +134,7 @@ public:
         float falloff = light_power / distance_squared;
 
         // sample normal map.
-        const ml::vec3 material_normal = (samplers[1]->sample_at(tex_coords) * 2 - 1).xyz();
+        const ml::vec3 material_normal = (sampler2D(1).sample_at(tex_coords) * 2 - 1).xyz();
 
         // normal of the computed fragment, in camera space.
         auto tbn = ml::mat4x4{tangent, bitangent, normal, ml::vec4::zero()}.transposed();
@@ -138,7 +145,7 @@ public:
         float lambertian = std::clamp(ml::dot(n, l), 0.f, 1.f);
 
         // sample diffuse texture.
-        auto material_diffuse_color = samplers[0]->sample_at(tex_coords);
+        auto material_diffuse_color = sampler2D(0).sample_at(tex_coords);
 
         // calculate diffuse color.
         ml::vec4 diffuse_color = light_color * material_diffuse_color * lambertian;
@@ -180,9 +187,16 @@ public:
  * samplers:
  *   location 0: diffuse texture
  */
-class blend : public swr::program<blend>
+class blend final : public swr::program<blend>
 {
 public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
@@ -220,7 +234,7 @@ public:
         const swr::varying& tex_coords = varyings[0];
 
         // sample texture.
-        ml::vec4 color = samplers[0]->sample_at(tex_coords);
+        ml::vec4 color = sampler2D(0).sample_at(tex_coords);
 
         // write fragment color.
         gl_FragColor = {color.xyz(), 0.16f};

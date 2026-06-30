@@ -80,6 +80,45 @@ target_link_libraries(test_rasterizer_sparse_triangle
 )
 add_test(NAME rasterizer_sparse_triangle COMMAND test_rasterizer_sparse_triangle --color_output=no)
 
+add_executable(test_rasterizer_early_z library/rasterizer/early_z.cpp)
+target_include_directories(test_rasterizer_early_z
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_rasterizer_early_z PRIVATE BOOST_TEST_DYN_LINK)
+target_link_libraries(test_rasterizer_early_z
+    PRIVATE
+    swrast
+    Boost::unit_test_framework
+    libmorton
+    concurrency_utils
+    swr_internal_config
+    swr_project_options
+    swr_project_warnings
+)
+add_test(NAME rasterizer_early_z COMMAND test_rasterizer_early_z --color_output=no)
+
+add_executable(test_pipeline library/pipeline.cpp)
+target_include_directories(test_pipeline
+    PRIVATE
+    ${SWR_SOURCE_DIR}/include
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_pipeline PRIVATE BOOST_TEST_DYN_LINK)
+target_link_libraries(test_pipeline
+    PRIVATE
+    swrast
+    Boost::unit_test_framework
+    libmorton
+    concurrency_utils
+    swr_internal_config
+    swr_project_options
+    swr_project_warnings
+)
+add_test(NAME pipeline COMMAND test_pipeline --color_output=no)
+
 add_executable(test_clipping library/clipping.cpp)
 target_include_directories(test_clipping
     PRIVATE

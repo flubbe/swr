@@ -37,6 +37,8 @@ struct bench_config
     float gear0_width{50.0f};
     float gear1_width{2.0f};
     float gear2_width{0.5f};
+    swr::rasterizer_feature_mode block_early_depth_reject{swr::rasterizer_feature_mode::automatic};
+    swr::rasterizer_feature_mode early_fragment_depth_test{swr::rasterizer_feature_mode::automatic};
 };
 
 class drawable_object
@@ -386,6 +388,52 @@ std::string arg_value(const std::string& arg, const std::string& name)
     return {};
 }
 
+bool parse_bool(const std::string& value, bool default_value)
+{
+    if(value == "1" || value == "true" || value == "on")
+    {
+        return true;
+    }
+    if(value == "0" || value == "false" || value == "off")
+    {
+        return false;
+    }
+    return default_value;
+}
+
+swr::rasterizer_feature_mode parse_rasterizer_feature_mode(
+  const std::string& value,
+  swr::rasterizer_feature_mode default_value)
+{
+    if(value == "auto" || value == "automatic")
+    {
+        return swr::rasterizer_feature_mode::automatic;
+    }
+    if(value == "1" || value == "true" || value == "on" || value == "enabled")
+    {
+        return swr::rasterizer_feature_mode::on;
+    }
+    if(value == "0" || value == "false" || value == "off" || value == "disabled")
+    {
+        return swr::rasterizer_feature_mode::off;
+    }
+    return default_value;
+}
+
+const char* rasterizer_feature_mode_name(swr::rasterizer_feature_mode mode)
+{
+    switch(mode)
+    {
+    case swr::rasterizer_feature_mode::automatic:
+        return "auto";
+    case swr::rasterizer_feature_mode::on:
+        return "on";
+    case swr::rasterizer_feature_mode::off:
+        return "off";
+    }
+    return "unknown";
+}
+
 bench_config parse_args(int argc, char** argv)
 {
     bench_config cfg;
@@ -431,6 +479,16 @@ bench_config parse_args(int argc, char** argv)
         else if(auto v = arg_value(arg, "--gear2_width"); !v.empty())
         {
             cfg.gear2_width = std::stof(v);
+        }
+        else if(auto v = arg_value(arg, "--block_early_depth_reject"); !v.empty())
+        {
+            cfg.block_early_depth_reject =
+              parse_rasterizer_feature_mode(v, cfg.block_early_depth_reject);
+        }
+        else if(auto v = arg_value(arg, "--early_fragment_depth_test"); !v.empty())
+        {
+            cfg.early_fragment_depth_test =
+              parse_rasterizer_feature_mode(v, cfg.early_fragment_depth_test);
         }
     }
 
@@ -501,6 +559,12 @@ int main(int argc, char** argv)
     swr::SetViewport(0, 0, static_cast<int>(cfg.width), static_cast<int>(cfg.height));
     swr::SetState(swr::state::cull_face, true);
     swr::SetState(swr::state::depth_test, true);
+    swr::SetRasterizerFeature(
+      swr::rasterizer_feature::block_early_depth_reject,
+      cfg.block_early_depth_reject);
+    swr::SetRasterizerFeature(
+      swr::rasterizer_feature::early_fragment_depth_test,
+      cfg.early_fragment_depth_test);
 
     gear_object gears[3];
     try
@@ -552,7 +616,7 @@ int main(int argc, char** argv)
     const double ms = 1000.0 / fps;
 
     std::cout << std::format(
-      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} size: {}x{} threads: {} benchmark: bench_gears_clip view_z: {:.2f} clip_orbit_amplitude: {:.2f} gear_widths: [{:.2f}, {:.2f}, {:.2f}]\n",
+      "frames: {} runtime: {:.2f}s fps: {:.2f} msec: {:.2f} size: {}x{} threads: {} block_early_depth_reject: {} early_fragment_depth_test: {} benchmark: bench_gears_clip view_z: {:.2f} clip_orbit_amplitude: {:.2f} gear_widths: [{:.2f}, {:.2f}, {:.2f}]\n",
       cfg.frames,
       seconds,
       fps,
@@ -560,6 +624,8 @@ int main(int argc, char** argv)
       cfg.width,
       cfg.height,
       cfg.threads,
+      rasterizer_feature_mode_name(cfg.block_early_depth_reject),
+      rasterizer_feature_mode_name(cfg.early_fragment_depth_test),
       cfg.view_z,
       cfg.clip_orbit_amplitude,
       cfg.gear0_width,

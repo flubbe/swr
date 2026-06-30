@@ -4,7 +4,7 @@
  * software renderer demonstration (timings/bitmap font).
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -100,7 +100,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -201,36 +201,30 @@ public:
     {
         font_rend.shutdown();
 
-        swr::DeleteAttributeBuffer(cube_colors);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_colors = 0;
-        cube_verts = 0;
-        cube_indices.clear();
-
-        if(cube_shader_id)
+        if(context != nullptr)
         {
-            if(context)
+            swr::DeleteAttributeBuffer(cube_colors);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_colors = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(cube_shader_id)
             {
                 swr::UnregisterShader(cube_shader_id);
+                cube_shader_id = 0;
             }
-            cube_shader_id = 0;
-        }
 
-        swr::ReleaseTexture(font_tex_id);
-        font_tex_id = 0;
+            swr::ReleaseTexture(font_tex_id);
+            font_tex_id = 0;
 
-        if(font_shader_id)
-        {
-            if(context)
+            if(font_shader_id)
             {
                 swr::UnregisterShader(font_shader_id);
+                font_shader_id = 0;
             }
-            font_shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }
@@ -368,7 +362,7 @@ protected:
 };
 
 /** demo application class. */
-class demo_app : public swr_app::application
+class demo_app final : public swr_app::application
 {
     log_std log;
 

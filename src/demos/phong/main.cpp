@@ -4,7 +4,7 @@
  * software renderer demonstration (phong lighting).
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -80,7 +80,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -160,27 +160,24 @@ public:
 
     void destroy()
     {
-        swr::ReleaseTexture(cube_tex);
-        swr::DeleteAttributeBuffer(cube_normals);
-        swr::DeleteAttributeBuffer(cube_uvs);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_tex = 0;
-        cube_uvs = 0;
-        cube_verts = 0;
-        cube_indices.clear();
-
-        if(shader_id)
+        if(context != nullptr)
         {
-            if(context)
+            swr::ReleaseTexture(cube_tex);
+            swr::DeleteAttributeBuffer(cube_normals);
+            swr::DeleteAttributeBuffer(cube_uvs);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_tex = 0;
+            cube_uvs = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(shader_id)
             {
                 swr::UnregisterShader(shader_id);
+                shader_id = 0;
             }
-            shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }
@@ -277,7 +274,7 @@ protected:
 };
 
 /** demo application class. */
-class demo_app : public swr_app::application
+class demo_app final : public swr_app::application
 {
     log_std log;
 

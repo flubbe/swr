@@ -4,7 +4,7 @@
  * frame buffer buffer implementation.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -28,10 +28,10 @@ static auto to_uint32_mask = [](bool b) -> std::uint32_t
 };
 
 /*
- * attachment_texture.
+ * texture_attachment_binding.
  */
 
-bool attachment_texture::is_valid() const
+bool texture_attachment_binding::is_valid() const
 {
     if(tex_id == default_tex_id
        || tex == nullptr
@@ -40,7 +40,9 @@ bool attachment_texture::is_valid() const
         return false;
     }
 
-    if(level >= tex->data.data_ptrs.size())
+    const auto* color_texture = tex->as_texture_color_2d();
+    if(color_texture == nullptr
+       || level >= color_texture->data.data_ptrs.size())
     {
         return false;
     }
@@ -57,7 +59,63 @@ bool attachment_texture::is_valid() const
 
     return global_context->texture_2d_storage[tex_id].get() == tex
            && tex_id == tex->id
-           && info.data_ptr == tex->data.data_ptrs[level];
+           && info.data_ptr == color_texture->data.data_ptrs[level];
+}
+
+bool depth_texture_attachment_binding::is_valid() const
+{
+    if(tex_id == default_tex_id
+       || tex == nullptr
+       || info.data_ptr == nullptr)
+    {
+        return false;
+    }
+
+    const auto* depth_texture = tex->as_texture_depth_2d();
+    if(depth_texture == nullptr
+       || level >= depth_texture->data.data_ptrs.size())
+    {
+        return false;
+    }
+
+    if(tex_id >= global_context->texture_2d_storage.size())
+    {
+        return false;
+    }
+
+    if(!global_context->texture_2d_storage[tex_id])
+    {
+        return false;
+    }
+
+    return global_context->texture_2d_storage[tex_id].get() == tex
+           && tex_id == tex->id
+           && info.data_ptr == depth_texture->data.data_ptrs[level];
+}
+
+bool depth_renderbuffer_attachment_binding::is_valid() const
+{
+    if(attachment == nullptr
+       || info.data_ptr == nullptr)
+    {
+        return false;
+    }
+
+    if(attachment_id >= global_context->depth_attachments.size())
+    {
+        return false;
+    }
+
+    if(global_context->depth_attachments.is_free(attachment_id))
+    {
+        return false;
+    }
+
+    return &global_context->depth_attachments[attachment_id] == attachment
+           && info.data_ptr == attachment->info.data_ptr
+           && info.width == attachment->info.width
+           && info.height == attachment->info.height
+           && info.pitch == attachment->info.pitch;
 }
 
 /*
@@ -351,7 +409,7 @@ void default_framebuffer::depth_compare_write(
         return;
     }
 
-    write_mask = write_depth;
+    write_mask = true;
 
     // if no depth buffer was created, accept.
     if(!depth_buffer.info.data_ptr)
@@ -397,7 +455,7 @@ void default_framebuffer::depth_compare_write(
 void default_framebuffer::depth_compare_write_block(
   int x,
   int y,
-  std::array<float, 4>& depth_value,
+  const std::array<float, 4>& depth_value,
   comparison_func depth_func,
   bool write_depth,
   std::uint8_t& write_mask)
@@ -532,22 +590,47 @@ void default_framebuffer::depth_compare_write_block(
       to_uint32_mask((write_mask & 0x2) != 0 && write_depth),
       to_uint32_mask((write_mask & 0x1) != 0 && write_depth)};
 
-    *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
-    *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));
-    *(depth_buffer_ptr[2]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[2])) & ~depth_write_mask[2]) | (ml::unwrap(new_depth_value[2]) & depth_write_mask[2]));
-    *(depth_buffer_ptr[3]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[3])) & ~depth_write_mask[3]) | (ml::unwrap(new_depth_value[3]) & depth_write_mask[3]));
+    if(block_in_bounds)
+    {
+        *(depth_buffer_ptr[0]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[0])) & ~depth_write_mask[0]) | (ml::unwrap(new_depth_value[0]) & depth_write_mask[0]));
+        *(depth_buffer_ptr[1]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[1])) & ~depth_write_mask[1]) | (ml::unwrap(new_depth_value[1]) & depth_write_mask[1]));
+        *(depth_buffer_ptr[2]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[2])) & ~depth_write_mask[2]) | (ml::unwrap(new_depth_value[2]) & depth_write_mask[2]));
+        *(depth_buffer_ptr[3]) = ml::wrap((ml::unwrap(*(depth_buffer_ptr[3])) & ~depth_write_mask[3]) | (ml::unwrap(new_depth_value[3]) & depth_write_mask[3]));
+    }
+    else
+    {
+        if(depth_write_mask[0])
+        {
+            *(depth_buffer_ptr[0]) = new_depth_value[0];
+        }
+        if(depth_write_mask[1])
+        {
+            *(depth_buffer_ptr[1]) = new_depth_value[1];
+        }
+        if(depth_write_mask[2])
+        {
+            *(depth_buffer_ptr[2]) = new_depth_value[2];
+        }
+        if(depth_write_mask[3])
+        {
+            *(depth_buffer_ptr[3]) = new_depth_value[3];
+        }
+    }
 }
 
 /*
  * framebuffer_object
  */
 
-void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_color)
+void framebuffer_object::clear_color(
+  std::uint32_t attachment,
+  ml::vec4 clear_color)
 {
-    if(attachment < color_attachments.size() && color_attachments[attachment])
+    if(attachment < color_bindings.size()
+       && color_bindings[attachment])
     {
         // this also clears mipmaps, if present
-        auto& info = color_attachments[attachment]->info;
+        auto& info = color_bindings[attachment]->info;
 #ifdef SWR_USE_SIMD
         utils::memset128(info.data_ptr, *reinterpret_cast<__m128i*>(&clear_color.data), info.pitch * info.height * sizeof(__m128));
 #else  /* SWR_USE_SIMD */
@@ -556,17 +639,21 @@ void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_co
     }
 }
 
-void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_color, const utils::rect& rect)
+void framebuffer_object::clear_color(
+  std::uint32_t attachment,
+  ml::vec4 clear_color,
+  const utils::rect& rect)
 {
-    if(attachment < color_attachments.size() && color_attachments[attachment])
+    if(attachment < color_bindings.size()
+       && color_bindings[attachment])
     {
 #ifdef SWR_USE_MORTON_CODES
-        auto& info = color_attachments[attachment]->info;
+        auto& info = color_bindings[attachment]->info;
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
+        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
 
         for(int x = x_min; x < x_max; ++x)
         {
@@ -576,12 +663,12 @@ void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_co
             }
         }
 #else
-        auto& info = color_attachments[attachment]->info;
+        auto& info = color_bindings[attachment]->info;
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
+        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
 
         const auto row_size = x_max - x_min;
 
@@ -609,57 +696,68 @@ void framebuffer_object::clear_color(std::uint32_t attachment, ml::vec4 clear_co
     }
 }
 
-void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth)
+void framebuffer_object::clear_depth(
+  ml::fixed_32_t clear_depth)
 {
-    if(depth_attachment)
+    if(const auto* info = get_depth_attachment_info();
+       info && info->data_ptr)
     {
-        auto& info = depth_attachment->info;
-        utils::memset32(reinterpret_cast<std::uint32_t*>(info.data_ptr), ml::unwrap(clear_depth), info.pitch * info.height);
+        utils::memset32(
+          reinterpret_cast<std::uint32_t*>(info->data_ptr),
+          ml::unwrap(clear_depth),
+          info->pitch * info->height);
     }
 }
 
-void framebuffer_object::clear_depth(ml::fixed_32_t clear_depth, const utils::rect& rect)
+void framebuffer_object::clear_depth(
+  ml::fixed_32_t clear_depth,
+  const utils::rect& rect)
 {
-    if(depth_attachment)
+    if(const auto* info = get_depth_attachment_info();
+       info && info->data_ptr)
     {
 #ifdef SWR_USE_MORTON_CODES
-        auto& info = depth_attachment->info;
-
-        int x_min = std::min(std::max(0, rect.x_min), info.width);
-        int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int x_min = std::min(std::max(0, rect.x_min), info->width);
+        int x_max = std::max(0, std::min(rect.x_max, info->width));
+        int y_min = std::min(std::max(info->height - rect.y_max, 0), info->height);
+        int y_max = std::max(0, std::min(info->height - rect.y_min, info->height));
 
         for(int x = x_min; x < x_max; ++x)
         {
             for(int y = y_min; y < y_max; ++y)
             {
-                *(info.data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_depth;
+                *(info->data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_depth;
             }
         }
 #else
-        auto& info = depth_attachment->info;
-
-        int x_min = std::min(std::max(0, rect.x_min), info.width);
-        int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(0, rect.y_min), info.height);
-        int y_max = std::max(0, std::min(rect.y_max, info.height));
+        int x_min = std::min(std::max(0, rect.x_min), info->width);
+        int x_max = std::max(0, std::min(rect.x_max, info->width));
+        int y_min = std::min(std::max(info->height - rect.y_max, 0), info->height);
+        int y_max = std::max(0, std::min(info->height - rect.y_min, info->height));
 
         const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
 
-        auto ptr = reinterpret_cast<std::uint8_t*>(info.data_ptr) + y_min * info.pitch + x_min * sizeof(ml::fixed_32_t);
+        auto ptr = reinterpret_cast<std::uint8_t*>(info->data_ptr) + y_min * info->pitch + x_min * sizeof(ml::fixed_32_t);
         for(int y = y_min; y < y_max; ++y)
         {
             utils::memset32(ptr, *reinterpret_cast<std::uint32_t*>(&clear_depth), row_size);
-            ptr += info.pitch;
+            ptr += info->pitch;
         }
 #endif /* SWR_USE_MORTON_CODES */
     }
 }
 
-void framebuffer_object::merge_color(std::uint32_t attachment, int x, int y, const fragment_output& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void framebuffer_object::merge_color(
+  std::uint32_t attachment,
+  int x,
+  int y,
+  const fragment_output& frag,
+  bool do_blend,
+  blend_func blend_src,
+  blend_func blend_dst)
 {
-    if(attachment > color_attachments.size() || !color_attachments[attachment])
+    if(attachment > color_bindings.size()
+       || !color_bindings[attachment])
     {
         return;
     }
@@ -668,13 +766,13 @@ void framebuffer_object::merge_color(std::uint32_t attachment, int x, int y, con
     {
         ml::vec4 write_color{ml::clamp_to_unit_interval(frag.color)};
 
-        ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
+        ml::vec4* data_ptr = color_bindings[attachment]->info.data_ptr;
 
         // alpha blending.
 #ifdef SWR_USE_MORTON_CODES
         ml::vec4* color_buffer_ptr = data_ptr + libmorton::morton2D_32_encode(x, y);
 #else
-        int pitch = color_attachments[attachment]->info.pitch;
+        int pitch = color_bindings[attachment]->info.pitch;
         ml::vec4* color_buffer_ptr = data_ptr + y * pitch + x;
 #endif
         if(do_blend)
@@ -687,13 +785,20 @@ void framebuffer_object::merge_color(std::uint32_t attachment, int x, int y, con
     }
 }
 
-void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int y, const fragment_output_block& frag, bool do_blend, blend_func blend_src, blend_func blend_dst)
+void framebuffer_object::merge_color_block(
+  std::uint32_t attachment,
+  int x,
+  int y,
+  const fragment_output_block& frag,
+  bool do_blend,
+  blend_func blend_src,
+  blend_func blend_dst)
 {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_merge = 0;
     utils::clock(stage_merge);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-    if(attachment > color_attachments.size() || !color_attachments[attachment])
+    if(attachment > color_bindings.size() || !color_bindings[attachment])
     {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_merge);
@@ -711,7 +816,7 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
           ml::clamp_to_unit_interval(frag.color[2]),
           ml::clamp_to_unit_interval(frag.color[3])};
 
-        ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
+        ml::vec4* data_ptr = color_bindings[attachment]->info.data_ptr;
 
         // block coordinates
         const std::array<ml::tvec2<int>, 4> coords =
@@ -728,7 +833,7 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
           data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
           data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
 #else
-        int pitch = color_attachments[attachment]->info.pitch;
+        int pitch = color_bindings[attachment]->info.pitch;
         std::array<ml::vec4*, 4> color_buffer_ptrs = {
           data_ptr + coords[0].y * pitch + coords[0].x,
           data_ptr + coords[1].y * pitch + coords[1].x,
@@ -736,36 +841,107 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
           data_ptr + coords[3].y * pitch + coords[3].x};
 #endif
 
-        const std::array<ml::vec4, 4> color_buffer_values = {
-          *color_buffer_ptrs[0],
-          *color_buffer_ptrs[1],
-          *color_buffer_ptrs[2],
-          *color_buffer_ptrs[3]};
+        // check bounds for partial blocks
+        const int width = color_bindings[attachment]->info.width;
+        const int height = color_bindings[attachment]->info.height;
+        const bool block_in_bounds = (x + 1 < width) && (y + 1 < height);
 
-        if(do_blend)
+        if(block_in_bounds)
         {
-            swr::output_merger::blend_block(
-              blend_src,
-              blend_dst,
-              write_color,
-              color_buffer_values,
-              write_color);
-        }
+            const std::array<ml::vec4, 4> color_buffer_values = {
+              *color_buffer_ptrs[0],
+              *color_buffer_ptrs[1],
+              *color_buffer_ptrs[2],
+              *color_buffer_ptrs[3]};
 
-        // write color.
+            if(do_blend)
+            {
+                swr::output_merger::blend_block(
+                  blend_src,
+                  blend_dst,
+                  write_color,
+                  color_buffer_values,
+                  write_color);
+            }
+
+            // write color for fully in-bounds block
 #define CONDITIONAL_WRITE(condition, write_target, write_source) \
     if(condition)                                                \
     {                                                            \
         write_target = write_source;                             \
     }
 
-        CONDITIONAL_WRITE(((frag.write_color & 0x8) >> 3), *(color_buffer_ptrs[0]), write_color[0]);
-        CONDITIONAL_WRITE(((frag.write_color & 0x4) >> 2), *(color_buffer_ptrs[1]), write_color[1]);
-        CONDITIONAL_WRITE(((frag.write_color & 0x2) >> 1), *(color_buffer_ptrs[2]), write_color[2]);
-        CONDITIONAL_WRITE((frag.write_color & 0x1), *(color_buffer_ptrs[3]), write_color[3]);
+            CONDITIONAL_WRITE(((frag.write_color & 0x8) >> 3), *(color_buffer_ptrs[0]), write_color[0]);
+            CONDITIONAL_WRITE(((frag.write_color & 0x4) >> 2), *(color_buffer_ptrs[1]), write_color[1]);
+            CONDITIONAL_WRITE(((frag.write_color & 0x2) >> 1), *(color_buffer_ptrs[2]), write_color[2]);
+            CONDITIONAL_WRITE((frag.write_color & 0x1), *(color_buffer_ptrs[3]), write_color[3]);
 
 #undef CONDITIONAL_WRITE
+        }
+        else
+        {
+            const bool x0_valid = x < width;
+            const bool x1_valid = (x + 1) < width;
+            const bool y0_valid = y < height;
+            const bool y1_valid = (y + 1) < height;
+            const std::uint8_t valid_mask = static_cast<std::uint8_t>(
+              (static_cast<std::uint8_t>(x0_valid && y0_valid) << 3)
+              | (static_cast<std::uint8_t>(x1_valid && y0_valid) << 2)
+              | (static_cast<std::uint8_t>(x0_valid && y1_valid) << 1)
+              | static_cast<std::uint8_t>(x1_valid && y1_valid));
+
+            std::uint8_t write_mask = static_cast<std::uint8_t>(frag.write_color) & valid_mask;
+            if(write_mask)
+            {
+                std::array<ml::vec4, 4> color_buffer_values;    // default-init
+
+                if(write_mask & 0x8)
+                {
+                    color_buffer_values[0] = *color_buffer_ptrs[0];
+                }
+                if(write_mask & 0x4)
+                {
+                    color_buffer_values[1] = *color_buffer_ptrs[1];
+                }
+                if(write_mask & 0x2)
+                {
+                    color_buffer_values[2] = *color_buffer_ptrs[2];
+                }
+                if(write_mask & 0x1)
+                {
+                    color_buffer_values[3] = *color_buffer_ptrs[3];
+                }
+
+                if(do_blend)
+                {
+                    swr::output_merger::blend_block(
+                      blend_src,
+                      blend_dst,
+                      write_color,
+                      color_buffer_values,
+                      write_color);
+                }
+
+                if(write_mask & 0x8)
+                {
+                    *(color_buffer_ptrs[0]) = write_color[0];
+                }
+                if(write_mask & 0x4)
+                {
+                    *(color_buffer_ptrs[1]) = write_color[1];
+                }
+                if(write_mask & 0x2)
+                {
+                    *(color_buffer_ptrs[2]) = write_color[2];
+                }
+                if(write_mask & 0x1)
+                {
+                    *(color_buffer_ptrs[3]) = write_color[3];
+                }
+            }
+        }
     }
+
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_merge);
     swr::impl::profile_merge_cycles.fetch_add(stage_merge, std::memory_order_relaxed);
@@ -773,7 +949,13 @@ void framebuffer_object::merge_color_block(std::uint32_t attachment, int x, int 
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write.
-void framebuffer_object::depth_compare_write(int x, int y, float depth_value, comparison_func depth_func, bool write_depth, bool& write_mask)
+void framebuffer_object::depth_compare_write(
+  int x,
+  int y,
+  float depth_value,
+  comparison_func depth_func,
+  bool write_depth,
+  bool& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -785,17 +967,18 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
     write_mask = true;
 
     // if no depth buffer was created, accept.
-    if(!depth_attachment || !depth_attachment->info.data_ptr)
+    const auto* depth_info = get_depth_attachment_info();
+    if(!depth_info || !depth_info->data_ptr)
     {
         return;
     }
 
     // read and compare depth buffer.
 #ifdef SWR_USE_MORTON_CODES
-    ml::fixed_32_t* depth_buffer_ptr = depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(x, y);
+    ml::fixed_32_t* depth_buffer_ptr = depth_info->data_ptr + libmorton::morton2D_32_encode(x, y);
 #else
-    const int row_stride = depth_attachment->info.pitch / static_cast<int>(sizeof(attachment_depth::value_type));
-    ml::fixed_32_t* depth_buffer_ptr = depth_attachment->info.data_ptr + y * row_stride + x;
+    const int row_stride = depth_info->pitch / static_cast<int>(sizeof(attachment_depth::value_type));
+    ml::fixed_32_t* depth_buffer_ptr = depth_info->data_ptr + y * row_stride + x;
 #endif
     ml::fixed_32_t old_depth_value = *depth_buffer_ptr;
     ml::fixed_32_t new_depth_value{depth_value};
@@ -833,7 +1016,13 @@ void framebuffer_object::depth_compare_write(int x, int y, float depth_value, co
 }
 
 // FIXME this is almost exactly the same as default_framebuffer::depth_compare_write_block.
-void framebuffer_object::depth_compare_write_block(int x, int y, std::array<float, 4>& depth_value, comparison_func depth_func, bool write_depth, std::uint8_t& write_mask)
+void framebuffer_object::depth_compare_write_block(
+  int x,
+  int y,
+  const std::array<float, 4>& depth_value,
+  comparison_func depth_func,
+  bool write_depth,
+  std::uint8_t& write_mask)
 {
     // discard fragment if depth testing is always failing.
     if(depth_func == swr::comparison_func::fail)
@@ -843,7 +1032,8 @@ void framebuffer_object::depth_compare_write_block(int x, int y, std::array<floa
     }
 
     // if no depth buffer was created, accept.
-    if(!depth_attachment || !depth_attachment->info.data_ptr)
+    const auto* depth_info = get_depth_attachment_info();
+    if(!depth_info || !depth_info->data_ptr)
     {
         // the write mask is initialized with "accept all".
         return;
@@ -859,24 +1049,70 @@ void framebuffer_object::depth_compare_write_block(int x, int y, std::array<floa
     // read and compare depth buffer.
 #ifdef SWR_USE_MORTON_CODES
     std::array<ml::fixed_32_t*, 4> depth_buffer_ptr = {
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
 #else
-    const int row_stride = depth_attachment->info.pitch / static_cast<int>(sizeof(attachment_depth::value_type));
+    const int row_stride = depth_info->pitch / static_cast<int>(sizeof(attachment_depth::value_type));
     std::array<ml::fixed_32_t*, 4> depth_buffer_ptr = {
-      depth_attachment->info.data_ptr + coords[0].y * row_stride + coords[0].x,
-      depth_attachment->info.data_ptr + coords[1].y * row_stride + coords[1].x,
-      depth_attachment->info.data_ptr + coords[2].y * row_stride + coords[2].x,
-      depth_attachment->info.data_ptr + coords[3].y * row_stride + coords[3].x};
+      depth_info->data_ptr + coords[0].y * row_stride + coords[0].x,
+      depth_info->data_ptr + coords[1].y * row_stride + coords[1].x,
+      depth_info->data_ptr + coords[2].y * row_stride + coords[2].x,
+      depth_info->data_ptr + coords[3].y * row_stride + coords[3].x};
 #endif
 
-    const std::array<ml::fixed_32_t, 4> old_depth_value = {
-      *depth_buffer_ptr[0],
-      *depth_buffer_ptr[1],
-      *depth_buffer_ptr[2],
-      *depth_buffer_ptr[3]};
+    const int width = depth_info->width;
+    const int height = depth_info->height;
+    const bool block_in_bounds = (x + 1 < width) && (y + 1 < height);
+
+    std::array<ml::fixed_32_t, 4> old_depth_value = {};
+    if(block_in_bounds)
+    {
+        old_depth_value[0] = *depth_buffer_ptr[0];
+        old_depth_value[1] = *depth_buffer_ptr[1];
+        old_depth_value[2] = *depth_buffer_ptr[2];
+        old_depth_value[3] = *depth_buffer_ptr[3];
+    }
+    else
+    {
+        const bool x0_valid = x < width;
+        const bool x1_valid = (x + 1) < width;
+        const bool y0_valid = y < height;
+        const bool y1_valid = (y + 1) < height;
+        const std::uint8_t valid_mask = static_cast<std::uint8_t>(
+          (static_cast<std::uint8_t>(x0_valid && y0_valid) << 3)
+          | (static_cast<std::uint8_t>(x1_valid && y0_valid) << 2)
+          | (static_cast<std::uint8_t>(x0_valid && y1_valid) << 1)
+          | static_cast<std::uint8_t>(x1_valid && y1_valid));
+
+        std::uint8_t active_mask = write_mask & valid_mask;
+        if(!active_mask)
+        {
+            write_mask = 0;
+            return;
+        }
+
+        if(active_mask & 0x8)
+        {
+            old_depth_value[0] = *depth_buffer_ptr[0];
+        }
+        if(active_mask & 0x4)
+        {
+            old_depth_value[1] = *depth_buffer_ptr[1];
+        }
+        if(active_mask & 0x2)
+        {
+            old_depth_value[2] = *depth_buffer_ptr[2];
+        }
+        if(active_mask & 0x1)
+        {
+            old_depth_value[3] = *depth_buffer_ptr[3];
+        }
+        // ensure write_mask reflects only active pixels
+        write_mask &= active_mask;
+    }
+
     const std::array<ml::fixed_32_t, 4> new_depth_value = {
       depth_value[0],
       depth_value[1],
@@ -962,7 +1198,8 @@ std::uint32_t CreateFramebufferObject()
     return slot_to_id(slot);
 }
 
-void ReleaseFramebufferObject(std::uint32_t id)
+void ReleaseFramebufferObject(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -974,7 +1211,8 @@ void ReleaseFramebufferObject(std::uint32_t id)
     }
 
     auto slot = id_to_slot(id);
-    if(slot < context->framebuffer_objects.size() && !context->framebuffer_objects.is_free(slot))
+    if(slot < context->framebuffer_objects.size()
+       && !context->framebuffer_objects.is_free(slot))
     {
         // check if we are bound to a target and reset the target if necessary.
         if(context->states.draw_target == &context->framebuffer_objects[slot])
@@ -988,7 +1226,9 @@ void ReleaseFramebufferObject(std::uint32_t id)
     }
 }
 
-void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
+void BindFramebufferObject(
+  framebuffer_target target,
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -996,12 +1236,14 @@ void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
     if(id == default_framebuffer_id)
     {
         // bind the default framebuffer.
-        if(target == framebuffer_target::draw || target == framebuffer_target::draw_read)
+        if(target == framebuffer_target::draw
+           || target == framebuffer_target::draw_read)
         {
             context->states.draw_target = &context->framebuffer;
         }
 
-        if(target == framebuffer_target::read || target == framebuffer_target::draw_read)
+        if(target == framebuffer_target::read
+           || target == framebuffer_target::draw_read)
         {
             /* unimplemented. */
         }
@@ -1011,24 +1253,33 @@ void BindFramebufferObject(framebuffer_target target, std::uint32_t id)
 
     // check that the id is valid.
     auto slot = id_to_slot(id);
-    if(slot >= context->framebuffer_objects.size() || context->framebuffer_objects.is_free(slot))
+    if(slot >= context->framebuffer_objects.size()
+       || context->framebuffer_objects.is_free(slot))
     {
         context->last_error = error::invalid_operation;
         return;
     }
 
-    if(target == framebuffer_target::draw || target == framebuffer_target::draw_read)
+    if(target == framebuffer_target::draw
+       || target == framebuffer_target::draw_read)
     {
         context->states.draw_target = &context->framebuffer_objects[slot];
     }
 
-    if(target == framebuffer_target::read || target == framebuffer_target::draw_read)
+    if(target == framebuffer_target::read
+       || target == framebuffer_target::draw_read)
     {
         /* unimplemented. */
+
+        assert(0);    // TODO
     }
 }
 
-void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id, std::uint32_t level)
+void FramebufferTexture(
+  std::uint32_t id,
+  framebuffer_attachment attachment,
+  std::uint32_t attachment_id,
+  std::uint32_t level)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -1041,13 +1292,15 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
     }
 
     int numeric_attachment = static_cast<int>(attachment);
-    if(numeric_attachment >= static_cast<int>(framebuffer_attachment::color_attachment_0) && numeric_attachment <= static_cast<int>(framebuffer_attachment::color_attachment_7))
+    if(numeric_attachment >= static_cast<int>(framebuffer_attachment::color_attachment_0)
+       && numeric_attachment <= static_cast<int>(framebuffer_attachment::color_attachment_7))
     {
         // use texture as color buffer.
 
         // get framebuffer object.
         auto slot = id_to_slot(id);
-        if(slot >= context->framebuffer_objects.size() || context->framebuffer_objects.is_free(slot))
+        if(slot >= context->framebuffer_objects.size()
+           || context->framebuffer_objects.is_free(slot))
         {
             context->last_error = error::invalid_value;
             return;
@@ -1056,14 +1309,51 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
 
         // get texture.
         auto tex_id = attachment_id;
-        if(tex_id >= context->texture_2d_storage.size() || context->texture_2d_storage.is_free(tex_id))
+        if(tex_id >= context->texture_2d_storage.size()
+           || context->texture_2d_storage.is_free(tex_id))
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+        if(context->texture_2d_storage[tex_id]->as_texture_color_2d() == nullptr)
         {
             context->last_error = error::invalid_value;
             return;
         }
 
         // associate texture to fbo.
-        fbo->attach_texture(attachment, context->texture_2d_storage[tex_id].get(), level);
+        fbo->attach_texture(
+          attachment,
+          context->texture_2d_storage[tex_id].get(),
+          level);
+    }
+    else if(attachment == framebuffer_attachment::depth_attachment)
+    {
+        auto slot = id_to_slot(id);
+        if(slot >= context->framebuffer_objects.size()
+           || context->framebuffer_objects.is_free(slot))
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+        auto fbo = &context->framebuffer_objects[slot];
+
+        auto tex_id = attachment_id;
+        if(tex_id >= context->texture_2d_storage.size()
+           || context->texture_2d_storage.is_free(tex_id))
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+        if(context->texture_2d_storage[tex_id]->as_texture_depth_2d() == nullptr)
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+
+        fbo->attach_depth_texture(
+          context->texture_2d_storage[tex_id].get(),
+          level);
     }
     else
     {
@@ -1072,7 +1362,9 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
     }
 }
 
-std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
+std::uint32_t CreateDepthRenderbuffer(
+  std::uint32_t width,
+  std::uint32_t height)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -1083,18 +1375,23 @@ std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height)
     return slot;
 }
 
-void ReleaseDepthRenderbuffer(std::uint32_t id)
+void ReleaseDepthRenderbuffer(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id < context->depth_attachments.size() && !context->depth_attachments.is_free(id))
+    if(id < context->depth_attachments.size()
+       && !context->depth_attachments.is_free(id))
     {
         context->depth_attachments.free(id);
     }
 }
 
-void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id)
+void FramebufferRenderbuffer(
+  std::uint32_t id,
+  framebuffer_attachment attachment,
+  std::uint32_t attachment_id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -1113,21 +1410,25 @@ void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment
         return;
     }
 
-    if(attachment_id >= context->depth_attachments.size() || context->depth_attachments.is_free(attachment_id))
+    if(attachment_id >= context->depth_attachments.size()
+       || context->depth_attachments.is_free(attachment_id))
     {
         context->last_error = error::invalid_value;
         return;
     }
 
     auto slot = id_to_slot(id);
-    if(slot >= context->framebuffer_objects.size() || context->framebuffer_objects.is_free(slot))
+    if(slot >= context->framebuffer_objects.size()
+       || context->framebuffer_objects.is_free(slot))
     {
         context->last_error = error::invalid_value;
         return;
     }
 
     auto& fbo = context->framebuffer_objects[slot];
-    fbo.attach_depth(&context->depth_attachments[attachment_id]);
+    fbo.attach_depth_renderbuffer(
+      attachment_id,
+      &context->depth_attachments[attachment_id]);
 }
 
 } /* namespace swr */

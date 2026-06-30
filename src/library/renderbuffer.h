@@ -4,11 +4,14 @@
  * output buffers for rendering.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 #pragma once
+
+#include <optional>
+#include <variant>
 
 namespace swr
 {
@@ -196,8 +199,8 @@ struct attachment_color_buffer
     }
 };
 
-/** texture attachment. */
-struct attachment_texture
+/** Non-owning color texture binding. */
+struct texture_attachment_binding
 {
     using value_type = ml::vec4;
 
@@ -213,14 +216,14 @@ struct attachment_texture
     /** the mipmap level we are writing to. */
     std::uint32_t level{0};
 
-    /** free resources. */
+    /** release binding state. */
     void reset()
     {
         detach();
         info.reset();
     }
 
-    /** attach texture. */
+    /** bind texture. */
     void attach(
       texture_2d* in_tex,
       std::uint32_t in_level = 0)
@@ -231,21 +234,83 @@ struct attachment_texture
 
         info.reset();
 
-        if(in_tex
-           && in_level < in_tex->data.data_ptrs.size())
+        auto* color_texture = in_tex ? in_tex->as_texture_color_2d() : nullptr;
+        if(color_texture
+           && in_level < color_texture->data.data_ptrs.size())
         {
             tex_id = in_tex->id;
             tex = in_tex;
             level = in_level;
 
-            // if we have mipmaps for this texture, the pitch is 1.5*in_tex->width.
-            auto pitch = in_tex->width;
-            if(in_tex->data.data_ptrs.size() > 1)
-            {
-                pitch += in_tex->width >> 1;
-            }
+            const auto pitch = in_tex->mip_pitch(in_level);
+            info.setup(
+              in_tex->width >> in_level,
+              in_tex->height >> in_level,
+              static_cast<int>(pitch),
+              color_texture->data.data_ptrs[in_level]);
+        }
+    }
 
-            info.setup(in_tex->width >> in_level, in_tex->height >> in_level, pitch, in_tex->data.data_ptrs[in_level]);
+    /** detach texture. same as `attach(nullptr)`. */
+    void detach()
+    {
+        attach(nullptr);
+    }
+
+    /** check if a non-default texture was bound, and if it is still valid. */
+    bool is_valid() const;
+};
+
+/** Non-owning depth texture binding. */
+struct depth_texture_attachment_binding
+{
+    using value_type = ml::fixed_32_t;
+
+    /** attachment info. */
+    attachment_info<value_type> info;
+
+    /** attached texture id. */
+    std::uint32_t tex_id{default_tex_id};
+
+    /** attached texture pointer. */
+    texture_2d* tex{nullptr};
+
+    /** the mipmap level we are writing to. */
+    std::uint32_t level{0};
+
+    /** release binding state. */
+    void reset()
+    {
+        detach();
+        info.reset();
+    }
+
+    /** bind texture. */
+    void attach(
+      texture_2d* in_tex,
+      std::uint32_t in_level = 0)
+    {
+        tex_id = default_tex_id;
+        tex = nullptr;
+        level = 0;
+
+        info.reset();
+
+        auto* depth_texture = in_tex ? in_tex->as_texture_depth_2d() : nullptr;
+        if(depth_texture
+           && in_level < depth_texture->data.data_ptrs.size())
+        {
+            tex_id = in_tex->id;
+            tex = in_tex;
+            level = in_level;
+
+            const auto pitch = in_tex->mip_pitch(in_level);
+
+            info.setup(
+              in_tex->width >> in_level,
+              in_tex->height >> in_level,
+              static_cast<int>(pitch * sizeof(value_type)),
+              depth_texture->data.data_ptrs[in_level]);
         }
     }
 
@@ -255,7 +320,56 @@ struct attachment_texture
         attach(nullptr);
     }
 
-    /** check if a non-default texture was attached, and if it is still valid. */
+    /** check if a non-default texture was bound, and if it is still valid. */
+    bool is_valid() const;
+};
+
+/** Non-owning depth renderbuffer binding. */
+struct depth_renderbuffer_attachment_binding
+{
+    using value_type = ml::fixed_32_t;
+
+    /** attachment info. */
+    attachment_info<value_type> info;
+
+    /** attached depth renderbuffer id. */
+    std::uint32_t attachment_id{0};
+
+    /** attached depth renderbuffer pointer. */
+    attachment_depth* attachment{nullptr};
+
+    /** release binding state. */
+    void reset()
+    {
+        detach();
+        info.reset();
+    }
+
+    /** bind renderbuffer. */
+    void attach(
+      std::uint32_t in_attachment_id,
+      attachment_depth* in_attachment)
+    {
+        attachment_id = 0;
+        attachment = nullptr;
+
+        info.reset();
+
+        if(in_attachment != nullptr)
+        {
+            attachment_id = in_attachment_id;
+            attachment = in_attachment;
+            info = in_attachment->info;
+        }
+    }
+
+    /** detach renderbuffer. same as attach(0, nullptr) */
+    void detach()
+    {
+        attach(0, nullptr);
+    }
+
+    /** check if a depth renderbuffer was bound, and if it is still valid. */
     bool is_valid() const;
 };
 
@@ -345,14 +459,14 @@ struct framebuffer_draw_target
     virtual void depth_compare_write_block(
       int x,
       int y,
-      std::array<float, 4>& depth_value,
+      const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
       std::uint8_t& write_mask) = 0;
 };
 
 /** default framebuffer. */
-struct default_framebuffer : public framebuffer_draw_target
+struct default_framebuffer final : public framebuffer_draw_target
 {
     /** default color buffer. */
     attachment_color_buffer color_buffer;
@@ -410,7 +524,7 @@ struct default_framebuffer : public framebuffer_draw_target
     virtual void depth_compare_write_block(
       int x,
       int y,
-      std::array<float, 4>& depth_value,
+      const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
       std::uint8_t& write_mask) override;
@@ -466,22 +580,82 @@ struct default_framebuffer : public framebuffer_draw_target
 };
 
 /** framebuffer objects. */
-class framebuffer_object : public framebuffer_draw_target
+class framebuffer_object final : public framebuffer_draw_target
 {
+    using depth_binding_variant = std::variant<
+      std::monostate,
+      depth_renderbuffer_attachment_binding,
+      depth_texture_attachment_binding>;
+
     /** id of this object. */
     std::uint32_t id{0};
 
     /** color attachments. */
     std::array<
-      std::unique_ptr<attachment_texture>,
+      std::optional<texture_attachment_binding>,
       swr::limits::max::color_attachments>
-      color_attachments;
+      color_bindings;
 
     /** current color attachment count. */
     std::uint32_t color_attachment_count{0};
 
-    /** depth attachment. */
-    attachment_depth* depth_attachment{nullptr};
+    /** depth attachment binding. */
+    depth_binding_variant depth_binding;
+
+    /** Cached active depth attachment info for hot paths. */
+    const attachment_info<ml::fixed_32_t>* active_depth_attachment_info{nullptr};
+
+    /** check whether a depth attachment is currently bound. */
+    bool has_depth_binding() const
+    {
+        return !std::holds_alternative<std::monostate>(depth_binding);
+    }
+
+    /** refresh cached pointers that hot paths rely on. */
+    void refresh_attachment_caches()
+    {
+        active_depth_attachment_info = std::visit(
+          [](const auto& binding) -> const attachment_info<ml::fixed_32_t>*
+          {
+              using binding_type = std::decay_t<decltype(binding)>;
+              if constexpr(std::is_same_v<binding_type, std::monostate>)
+              {
+                  return nullptr;
+              }
+              else
+              {
+                  return &binding.info;
+              }
+          },
+          depth_binding);
+    }
+
+    /** return the active depth attachment info. */
+    const attachment_info<ml::fixed_32_t>* get_depth_attachment_info() const
+    {
+        return active_depth_attachment_info;
+    }
+
+    /** check if the active depth binding is valid. */
+    bool has_valid_depth_binding() const
+    {
+        return std::visit(
+          [](const auto& binding) -> bool
+          {
+              using binding_type = std::decay_t<decltype(binding)>;
+              if constexpr(std::is_same_v<binding_type, std::monostate>)
+              {
+                  return false;
+              }
+              else
+              {
+                  return binding.info.width != 0
+                         && binding.info.height != 0
+                         && binding.is_valid();
+              }
+          },
+          depth_binding);
+    }
 
     // TODO add stencil attachment.
 
@@ -493,7 +667,7 @@ class framebuffer_object : public framebuffer_draw_target
 
         if(color_attachment_count)
         {
-            for(const auto& it: color_attachments)
+            for(const auto& it: color_bindings)
             {
                 if(it)
                 {
@@ -507,12 +681,13 @@ class framebuffer_object : public framebuffer_draw_target
             }
         }
 
-        int depth_width = (depth_attachment == nullptr)
+        const auto* depth_info = get_depth_attachment_info();
+        int depth_width = (depth_info == nullptr)
                             ? -1
-                            : depth_attachment->info.width;
-        int depth_height = (depth_attachment == nullptr)
+                            : depth_info->width;
+        int depth_height = (depth_info == nullptr)
                              ? -1
-                             : depth_attachment->info.height;
+                             : depth_info->height;
 
         // set the effective width and height. we handle all cases except both widths/heights from above being negative.
         width = (width > 0 && depth_width > 0)
@@ -535,8 +710,15 @@ public:
     /** disallow copying. */
     framebuffer_object(const framebuffer_object&) = delete;
 
-    /** default move constructor. */
-    framebuffer_object(framebuffer_object&&) = default;
+    /** move constructor. */
+    framebuffer_object(framebuffer_object&& other)
+    : id{other.id}
+    , color_bindings{std::move(other.color_bindings)}
+    , color_attachment_count{other.color_attachment_count}
+    , depth_binding{std::move(other.depth_binding)}
+    {
+        refresh_attachment_caches();
+    }
 
     /** virtual destructor. */
     virtual ~framebuffer_object() = default;
@@ -545,7 +727,18 @@ public:
     framebuffer_object& operator=(const framebuffer_object&) = delete;
 
     /** move object. */
-    framebuffer_object& operator=(framebuffer_object&& other) = default;
+    framebuffer_object& operator=(framebuffer_object&& other)
+    {
+        if(this != &other)
+        {
+            id = other.id;
+            color_bindings = std::move(other.color_bindings);
+            color_attachment_count = other.color_attachment_count;
+            depth_binding = std::move(other.depth_binding);
+            refresh_attachment_caches();
+        }
+        return *this;
+    }
 
     /*
      * framebuffer_draw_target interface.
@@ -588,7 +781,7 @@ public:
     virtual void depth_compare_write_block(
       int x,
       int y,
-      std::array<float, 4>& depth_value,
+      const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
       std::uint8_t& write_mask) override;
@@ -600,15 +793,14 @@ public:
     /** reset. */
     void reset(int in_id = 0)
     {
-        for(auto& it: color_attachments)
+        for(auto& it: color_bindings)
         {
-            // note: this deletes the object managed by the unique_ptr.
             it.reset();
         }
         color_attachment_count = 0;
 
-        // the depth attachment is not managed by framebuffer_object.
-        depth_attachment = nullptr;
+        depth_binding.emplace<std::monostate>();
+        refresh_attachment_caches();
 
         // set/reset id.
         id = in_id;
@@ -623,47 +815,19 @@ public:
         if(index >= 0
            && index < swr::limits::max::color_attachments)
         {
-            if(!color_attachments[index])
+            if(!color_bindings[index])
             {
-                color_attachments[index] = std::make_unique<attachment_texture>();
-                color_attachments[index]->attach(tex, level);
+                color_bindings[index].emplace();
+                color_bindings[index]->attach(tex, level);
 
                 ++color_attachment_count;
-
-                if(!depth_attachment)
-                {
-                    // if this is the first attachment, we need to set the effective width and height.
-                    properties.reset(
-                      color_attachments[index]->info.width,
-                      color_attachments[index]->info.height);
-                }
-                else
-                {
-                    // update effective dimensions.
-                    properties.reset(
-                      std::min(
-                        depth_attachment->info.width,
-                        color_attachments[index]->info.width),
-                      std::min(
-                        depth_attachment->info.height,
-                        color_attachments[index]->info.height));
-                }
             }
             else
             {
-                color_attachments[index]->attach(tex, level);
-
-                // update effective dimensions.
-                int old_width = properties.width;
-                int old_height = properties.height;
-                properties.reset(
-                  std::min(
-                    old_width,
-                    color_attachments[index]->info.width),
-                  std::min(
-                    old_height,
-                    color_attachments[index]->info.height));
+                color_bindings[index]->attach(tex, level);
             }
+
+            calculate_effective_dimensions();
         }
     }
 
@@ -672,64 +836,66 @@ public:
     {
         auto index = static_cast<std::size_t>(attachment);
         if(index < swr::limits::max::color_attachments
-           && color_attachments[index])
+           && color_bindings[index])
         {
-            color_attachments[index]->detach();
-            color_attachments[index].reset();
+            color_bindings[index]->detach();
+            color_bindings[index].reset();
             --color_attachment_count;
 
             calculate_effective_dimensions();
         }
     }
 
-    /** attach a depth buffer. */
-    void attach_depth(attachment_depth* attachment)
+    /** bind a depth renderbuffer. */
+    void attach_depth_renderbuffer(
+      std::uint32_t attachment_id,
+      attachment_depth* attachment)
     {
-        depth_attachment = attachment;
+        depth_binding.emplace<depth_renderbuffer_attachment_binding>();
+        std::get<depth_renderbuffer_attachment_binding>(depth_binding)
+          .attach(attachment_id, attachment);
 
-        // if there were no color attachments, set effective width and height. otherwise, update it.
-        if(!std::count_if(
-             color_attachments.begin(),
-             color_attachments.end(),
-             [](const auto& c) -> bool
-             { return static_cast<bool>(c); }))
-        {
-            properties.reset(
-              depth_attachment->info.width,
-              depth_attachment->info.height);
-        }
-        else
-        {
-            // update effective dimensions.
-            properties.reset(
-              std::min(
-                properties.width,
-                depth_attachment->info.width),
-              std::min(
-                properties.height,
-                depth_attachment->info.height));
-        }
+        refresh_attachment_caches();
+        calculate_effective_dimensions();
     }
 
-    /** detach a depth buffer. */
+    /** bind a depth texture. */
+    void attach_depth_texture(
+      texture_2d* texture,
+      int level)
+    {
+        depth_binding.emplace<depth_texture_attachment_binding>();
+        std::get<depth_texture_attachment_binding>(depth_binding)
+          .attach(texture, level);
+
+        refresh_attachment_caches();
+        calculate_effective_dimensions();
+    }
+
+    /** detach the current depth binding. */
     void detach_depth()
     {
-        attach_depth(nullptr);
+        depth_binding.emplace<std::monostate>();
+
+        refresh_attachment_caches();
         calculate_effective_dimensions();
     }
 
     /** check completeness. */
     bool is_complete() const
     {
-        if(color_attachment_count == 0)
+        const bool has_color_attachment = color_attachment_count != 0;
+        const bool has_depth_attachment = has_depth_binding();
+        if(!has_color_attachment
+           && !has_depth_attachment)
         {
             return false;
         }
 
         // attachment completeness.
-        for(auto& it: color_attachments)
+        for(auto& it: color_bindings)
         {
-            if(it != nullptr
+            if(it
                && (it->info.width == 0
                    || it->info.height == 0
                    || !it->is_valid()))
@@ -738,9 +904,8 @@ public:
             }
         }
 
-        if(depth_attachment != nullptr
-           && (depth_attachment->info.width == 0
-               || depth_attachment->info.height == 0))
+        if(has_depth_attachment
+           && !has_valid_depth_binding())
         {
             return false;
         }

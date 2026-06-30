@@ -4,7 +4,7 @@
  * flat color shader and wireframe shader.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2022
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -28,10 +28,20 @@ namespace shader
  * samplers:
  *   location 0: diffuse texture
  */
-class texture : public swr::program<texture>
+class texture final : public swr::program<texture>
 {
 public:
-    virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
+    void pre_link(
+      boost::container::static_vector<
+        swr::interpolation_qualifier,
+        swr::limits::max::varyings>& iqs) const override
     {
         // set interpolation qualifiers for all varyings.
         iqs = {
@@ -69,7 +79,7 @@ public:
         const swr::varying& tex_coords = varyings[0];
 
         // sample texture.
-        ml::vec4 color = samplers[0]->sample_at(tex_coords);
+        ml::vec4 color = sampler2D(0).sample_at(tex_coords);
 
         // write fragment color.
         gl_FragColor = color;
@@ -96,10 +106,17 @@ public:
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class color_flat : public swr::program<color_flat>
+class color_flat final : public swr::program<color_flat>
 {
 public:
     color_flat() = default;
+
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
@@ -157,12 +174,19 @@ public:
  *   location 1: view matrix                    [mat4x4]
  *
  */
-class wireframe : public swr::program<wireframe>
+class wireframe final : public swr::program<wireframe>
 {
     const ml::vec4 diffuse_color{0, 0, 0.4f, 1.0f};
 
 public:
     wireframe() = default;
+
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
 
     virtual void pre_link(boost::container::static_vector<swr::interpolation_qualifier, swr::limits::max::varyings>& iqs) const override
     {
