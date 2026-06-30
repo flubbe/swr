@@ -71,7 +71,6 @@ static std::uint64_t count_fragment_masked(
 
 template<bool collect_early_depth_stats>
 void process_precomputed_fragment_block_early_z(
-  swr::impl::default_framebuffer* framebuffer,
   int x,
   int y,
   std::uint8_t mask,
@@ -982,7 +981,6 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
         {
             early_depth_sample early_depth;
             process_precomputed_fragment_block_early_z<true>(
-              framebuffer,
               static_cast<int>(quad.x),
               static_cast<int>(quad.y),
               quad.mask,
@@ -1005,7 +1003,6 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
             if constexpr(fragment_depth_path == early_depth_test_path::early)
             {
                 process_precomputed_fragment_block_early_z<false>(
-                  framebuffer,
                   static_cast<int>(quad.x),
                   static_cast<int>(quad.y),
                   quad.mask,
@@ -1758,7 +1755,7 @@ void sweep_rasterizer::draw_filled_triangle(
       [&](int x,
           int y,
           const geom::barycentric_coordinate_block&,
-          tile_info::rasterization_mode mode,
+          [[maybe_unused]] tile_info::rasterization_mode mode,
           const quad_bounds* override_checked_quad_bounds,
           const small_triangle_payload* precomputed_small_payload)
     {
