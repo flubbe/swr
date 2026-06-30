@@ -640,13 +640,19 @@ program_base* program<T>::create_instance(
     auto* new_program = new(mem) T{static_cast<const T&>(*this)};
 
     new_program->uniforms = bindings.uniforms;
+
     new_program->sampler_2d_views.clear();
     new_program->sampler_shadow_2d_views.clear();
+
+    new_program->sampler_2d_views.reserve(bindings.samplers_2d.size());
+    new_program->sampler_shadow_2d_views.reserve(bindings.samplers_2d.size());
+
     for(auto* sampler: bindings.samplers_2d)
     {
-        new_program->sampler_2d_views.push_back(sampler->as_sampler_2d());
+        new_program->sampler_2d_views.push_back(
+          sampler != nullptr ? sampler->as_sampler_2d() : nullptr);
         new_program->sampler_shadow_2d_views.push_back(
-          sampler->as_sampler_shadow_2d());
+          sampler != nullptr ? sampler->as_sampler_shadow_2d() : nullptr);
     }
 
     return static_cast<program_base*>(new_program);
