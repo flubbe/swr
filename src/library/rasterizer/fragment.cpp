@@ -261,7 +261,6 @@ template<
   bool early_fragment_depth_test,
   bool collect_early_depth_stats>
 void process_fragment_block(
-  swr::impl::default_framebuffer* framebuffer,
   int x,
   int y,
   const swr::impl::render_states& states,
@@ -588,7 +587,6 @@ template<
   bool early_fragment_depth_test,
   bool collect_early_depth_stats>
 void process_fragment_block(
-  swr::impl::default_framebuffer* framebuffer,
   int x,
   int y,
   std::uint8_t mask,
@@ -950,7 +948,6 @@ void sweep_rasterizer::process_fragment_block(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<false, false>(
-      framebuffer,
       x,
       y,
       states,
@@ -970,7 +967,6 @@ void sweep_rasterizer::process_fragment_block_early_z(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<true, false>(
-      framebuffer,
       x,
       y,
       states,
@@ -991,7 +987,6 @@ void sweep_rasterizer::process_fragment_block_early_z_collect_stats(
   early_depth_sample& early_depth)
 {
     rast::process_fragment_block<true, true>(
-      framebuffer,
       x,
       y,
       states,
@@ -1013,7 +1008,6 @@ void sweep_rasterizer::process_fragment_block(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<false, false>(
-      framebuffer,
       x,
       y,
       mask,
@@ -1035,7 +1029,6 @@ void sweep_rasterizer::process_fragment_block_early_z(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<true, false>(
-      framebuffer,
       x,
       y,
       mask,
@@ -1058,7 +1051,6 @@ void sweep_rasterizer::process_fragment_block_early_z_collect_stats(
   early_depth_sample& early_depth)
 {
     rast::process_fragment_block<true, true>(
-      framebuffer,
       x,
       y,
       mask,
