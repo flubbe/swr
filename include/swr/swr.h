@@ -560,6 +560,9 @@ struct sampler_base
 
     /** Return the texture size. */
     virtual ml::tvec2<int> size(std::uint32_t mip_level) const = 0;
+
+    /** Return the reciprocal texture size. */
+    virtual ml::vec2 size_reciprocal(std::uint32_t mip_level) const = 0;
 };
 
 /** (floating-point) texture sampler. */

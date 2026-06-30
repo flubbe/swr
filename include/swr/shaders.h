@@ -379,13 +379,13 @@ inline float textureOffset(
   const ml::vec3& tex_coords,
   const ml::tvec2<int>& offset)
 {
-    const auto size = sampler.size(0);
-    assert(size.x > 0);
-    assert(size.y > 0);
+    const auto inv_size = sampler.size_reciprocal(0);
+    assert(inv_size.x > 0.0f);
+    assert(inv_size.y > 0.0f);
 
     const ml::vec3 shifted_coords{
-      tex_coords.x + static_cast<float>(offset.x) / static_cast<float>(size.x),
-      tex_coords.y + static_cast<float>(offset.y) / static_cast<float>(size.y),
+      tex_coords.x + static_cast<float>(offset.x) * inv_size.x,
+      tex_coords.y + static_cast<float>(offset.y) * inv_size.y,
       tex_coords.z};
     return texture(sampler, shifted_coords);
 }
@@ -465,15 +465,13 @@ inline float textureProjOffset(
   const ml::tvec2<int>& offset)
 {
     const varying projected_coords = detail::project_texture_coords(tex_coords);
-    const auto size = sampler.size(0);
-    assert(size.x > 0);
-    assert(size.y > 0);
+    const auto inv_size = sampler.size_reciprocal(0);
+    assert(inv_size.x > 0.0f);
+    assert(inv_size.y > 0.0f);
 
     varying shifted_coords = projected_coords;
-    shifted_coords.value.x +=
-      static_cast<float>(offset.x) / static_cast<float>(size.x);
-    shifted_coords.value.y +=
-      static_cast<float>(offset.y) / static_cast<float>(size.y);
+    shifted_coords.value.x += static_cast<float>(offset.x) * inv_size.x;
+    shifted_coords.value.y += static_cast<float>(offset.y) * inv_size.y;
     return texture(sampler, shifted_coords, shifted_coords.value.z);
 }
 

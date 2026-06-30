@@ -171,6 +171,12 @@ class sampler_2d_impl final
     /** edge value sampling. */
     wrap_mode wrap_t{wrap_mode::repeat};
 
+    /** cached base-level texture size. */
+    ml::tvec2<int> cached_base_size{0, 0};
+
+    /** cached reciprocal base-level texture size. */
+    ml::vec2 cached_base_size_reciprocal{0.0f, 0.0f};
+
     /**
      * given dFdx and dFdy, calculate the corresponding mipmap level,
      * see section 8.14 on p. 216 of https://www.khronos.org/registry/OpenGL/specs/gl/glspec43.core.pdf.
@@ -241,6 +247,7 @@ public:
     void set_associated_texture(struct texture_2d* tex) noexcept
     {
         associated_texture = tex;
+        refresh_texture_state();
     }
 
     /** set texture minification filter. */
@@ -291,6 +298,9 @@ public:
         return wrap_t;
     }
 
+    /** refresh cached texture metadata after texture state changes. */
+    void refresh_texture_state() noexcept;
+
     ml::vec4 sample_at(const swr::varying& uv) const override;
     float sample_depth_at(const swr::varying& uv) const override;
     float sample_compare_at(const swr::varying& uv) const override;
@@ -299,6 +309,7 @@ public:
     comparison_func compare_func() const override;
 
     ml::tvec2<int> size(std::uint32_t mipmap_level) const override;
+    ml::vec2 size_reciprocal(std::uint32_t mipmap_level) const override;
 };
 
 /*
@@ -826,6 +837,18 @@ inline float sampler_2d_impl::sample_compare_at(
         return sample_depth_at(uv);
     }
 
+    if(associated_texture->mip_level_count() <= 1)
+    {
+        if(filter_mag == texture_filter::nearest)
+        {
+            return sample_compare_at_nearest(0, uv);
+        }
+        else if(filter_mag == texture_filter::linear)
+        {
+            return sample_compare_at_linear(0, uv);
+        }
+    }
+
     const ml::vec4 uv_dFdx{uv.dFdx.x, uv.dFdx.y, 0.0f, 0.0f};
     const ml::vec4 uv_dFdy{uv.dFdy.x, uv.dFdy.y, 0.0f, 0.0f};
     float lambda = calculate_mipmap_level(uv_dFdx, uv_dFdy);
@@ -884,10 +907,53 @@ inline comparison_func sampler_2d_impl::compare_func() const
 inline ml::tvec2<int> sampler_2d_impl::size(
   std::uint32_t mipmap_level) const
 {
+    if(mipmap_level == 0)
+    {
+        return cached_base_size;
+    }
+
     int w{0}, h{0};
     int level = static_cast<int>(mipmap_level);
     get_mipmap_params(level, w, h);
     return {w, h};
+}
+
+inline ml::vec2 sampler_2d_impl::size_reciprocal(
+  std::uint32_t mipmap_level) const
+{
+    if(mipmap_level == 0)
+    {
+        return cached_base_size_reciprocal;
+    }
+
+    const auto mip_size = size(mipmap_level);
+    if(mip_size.x <= 0 || mip_size.y <= 0)
+    {
+        return {0.0f, 0.0f};
+    }
+
+    return {
+      1.0f / static_cast<float>(mip_size.x),
+      1.0f / static_cast<float>(mip_size.y)};
+}
+
+inline void sampler_2d_impl::refresh_texture_state() noexcept
+{
+    if(associated_texture == nullptr
+       || associated_texture->width == 0
+       || associated_texture->height == 0)
+    {
+        cached_base_size = {0, 0};
+        cached_base_size_reciprocal = {0.0f, 0.0f};
+        return;
+    }
+
+    cached_base_size = {
+      static_cast<int>(associated_texture->width),
+      static_cast<int>(associated_texture->height)};
+    cached_base_size_reciprocal = {
+      1.0f / static_cast<float>(associated_texture->width),
+      1.0f / static_cast<float>(associated_texture->height)};
 }
 
 inline ml::vec4 sampler_2d_impl::sample_at_nearest(

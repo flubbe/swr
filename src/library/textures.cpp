@@ -58,6 +58,8 @@ void texture_2d::initialize_sampler()
     {
         sampler = std::make_unique<sampler_2d_impl>(this);
     }
+
+    sampler->refresh_texture_state();
 }
 
 error texture_2d::set_wrap_s(
@@ -95,6 +97,7 @@ void texture_2d::clear()
     width = height = 0;
     id = impl::default_tex_id;
     format = pixel_format::unsupported;
+    sampler->refresh_texture_state();
 }
 
 /*
@@ -119,6 +122,7 @@ error texture_color_2d::allocate(
         height = in_height;
         format = in_format;
         data.clear();
+        sampler->refresh_texture_state();
         return error::none;
     }
 
@@ -139,6 +143,7 @@ error texture_color_2d::allocate(
             width = in_width;
             height = in_height;
             format = in_format;
+            sampler->refresh_texture_state();
         }
     }
     else
@@ -330,6 +335,7 @@ error texture_depth_2d::allocate(
         height = in_height;
         format = in_format;
         data.clear();
+        sampler->refresh_texture_state();
         return error::none;
     }
 
@@ -350,6 +356,7 @@ error texture_depth_2d::allocate(
             width = in_width;
             height = in_height;
             format = in_format;
+            sampler->refresh_texture_state();
         }
     }
     else
