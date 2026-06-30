@@ -1,7 +1,11 @@
 /**
  * swr - a software rasterizer
  *
- * test conservative early depth rejection behavior via fully occluded draws.
+ * test conservative early depth rejection.
+ *
+ * \author Felix Lubbe
+ * \copyright Copyright (c) 2026
+ * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 #include <array>

@@ -4,7 +4,7 @@
  * internal header. mostly includes commonly needed headers.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 

@@ -13,7 +13,7 @@
  *  [6] Mesa 3D: https://github.com/anholt/mesa/blob/master/src/gallium/drivers/llvmpipe/lp_setup_line.c
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 

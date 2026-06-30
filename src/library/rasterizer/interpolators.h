@@ -4,7 +4,7 @@
  * interpolators for quantities on lines and triangles.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -632,9 +632,8 @@ struct small_triangle_interpolator
                 const ml::vec4 step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
                 const ml::vec4 step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
 
-                varyings.push_back({
-                  varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2,
-                  {step_x, step_y}});
+                varyings.push_back({varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2,
+                                    {step_x, step_y}});
             }
             else if(iqs[i] == swr::interpolation_qualifier::no_perspective)
             {
@@ -648,15 +647,13 @@ struct small_triangle_interpolator
                 const ml::vec4 step_x = diff_v0v1 * normalized_diff_v0v2.y - diff_v0v2 * normalized_diff_v0v1.y;
                 const ml::vec4 step_y = -diff_v0v1 * normalized_diff_v0v2.x + diff_v0v2 * normalized_diff_v0v1.x;
 
-                varyings.push_back({
-                  varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2,
-                  {step_x, step_y}});
+                varyings.push_back({varying_v0 + diff_v0v1 * lambda0 + diff_v0v2 * lambda2,
+                                    {step_x, step_y}});
             }
             else if(iqs[i] == swr::interpolation_qualifier::flat)
             {
-                varyings.push_back({
-                  provoking_vertex_varyings[i],
-                  {ml::vec4::zero(), ml::vec4::zero()}});
+                varyings.push_back({provoking_vertex_varyings[i],
+                                    {ml::vec4::zero(), ml::vec4::zero()}});
             }
             else
             {

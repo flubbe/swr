@@ -2,6 +2,10 @@
  * swr - a software rasterizer
  *
  * framebuffer object completeness tests.
+ *
+ * \author Felix Lubbe
+ * \copyright Copyright (c) 2026
+ * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
 #include <cstdint>

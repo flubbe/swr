@@ -4,7 +4,7 @@
  * Implements Direct3D point rasterization.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2026-Present.
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
