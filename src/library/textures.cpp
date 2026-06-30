@@ -720,20 +720,26 @@ void ReleaseTexture(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id < context->texture_2d_storage.size())
+    if(id < context->texture_2d_storage.size()
+       && !context->texture_2d_storage.is_free(id))
     {
-        auto texture_2d = &context->states.texture_2d_units[context->states.texture_2d_active_unit];
-        auto sampler_2d = &context->states.texture_2d_samplers[context->states.texture_2d_active_unit];
+        const auto active_unit = context->states.texture_2d_active_unit;
 
-        // see if this was the last texture used.
-        if((*texture_2d)
-           && (*texture_2d)->id == context->texture_2d_storage[id]->id)
+        // see if this was the last texture used on the active unit, and if so reset to the default texture.
+        if(active_unit < context->states.texture_2d_units.size())
         {
-            // reset to the default texture.
-            *texture_2d = context->default_texture_2d;
-            if(*texture_2d)
+            auto texture_2d = &context->states.texture_2d_units[active_unit];
+            auto sampler_2d = &context->states.texture_2d_samplers[active_unit];
+
+            if((*texture_2d)
+               && (*texture_2d)->id == context->texture_2d_storage[id]->id)
             {
-                *sampler_2d = static_cast<swr::sampler_2d*>((*texture_2d)->sampler.get());
+                // reset to the default texture.
+                *texture_2d = context->default_texture_2d;
+                if(*texture_2d)
+                {
+                    *sampler_2d = static_cast<swr::sampler_2d*>((*texture_2d)->sampler.get());
+                }
             }
         }
 

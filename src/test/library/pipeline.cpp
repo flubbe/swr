@@ -251,6 +251,15 @@ struct offscreen_context_fixture
         BOOST_REQUIRE(context != nullptr);
         BOOST_REQUIRE(swr::MakeContextCurrent(context));
     }
+
+    ~offscreen_context_fixture()
+    {
+        if(context != nullptr)
+        {
+            swr::DestroyContext(context);
+            context = nullptr;
+        }
+    }
 };
 
 /**
