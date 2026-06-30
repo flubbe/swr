@@ -89,7 +89,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -195,34 +195,32 @@ public:
 
     void destroy()
     {
-        swr::ReleaseTexture(cube_normal_map);
-        swr::ReleaseTexture(cube_tex);
-        swr::DeleteAttributeBuffer(cube_bitangents);
-        swr::DeleteAttributeBuffer(cube_tangents);
-        swr::DeleteAttributeBuffer(cube_normals);
-        swr::DeleteAttributeBuffer(cube_uvs);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_normal_map = 0;
-        cube_tex = 0;
-        cube_bitangents = 0;
-        cube_tangents = 0;
-        cube_normals = 0;
-        cube_uvs = 0;
-        cube_verts = 0;
-        cube_indices.clear();
-
-        if(shader_id)
+        if(context != nullptr)
         {
-            if(context)
+
+            swr::ReleaseTexture(cube_normal_map);
+            swr::ReleaseTexture(cube_tex);
+            swr::DeleteAttributeBuffer(cube_bitangents);
+            swr::DeleteAttributeBuffer(cube_tangents);
+            swr::DeleteAttributeBuffer(cube_normals);
+            swr::DeleteAttributeBuffer(cube_uvs);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_normal_map = 0;
+            cube_tex = 0;
+            cube_bitangents = 0;
+            cube_tangents = 0;
+            cube_normals = 0;
+            cube_uvs = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(shader_id)
             {
                 swr::UnregisterShader(shader_id);
+                shader_id = 0;
             }
-            shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }

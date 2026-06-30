@@ -1,10 +1,10 @@
 /**
  * swr - a software rasterizer
  *
- * software renderer demonstration (glxgears port).
+ * software renderer demonstration rendering gears into a depth texture and displaying it.
  *
  * \author Felix Lubbe
- * \copyright Copyright (c) 2021
+ * \copyright Copyright (c) 2026
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
@@ -24,29 +24,23 @@
 #include "common/platform/platform.h"
 
 /** demo title. */
-const auto demo_title = "Gears";
+const auto demo_title = "Gears Depth Texture";
 
 /** collect a set of geometric data into a single object. */
 class drawable_object
 {
-    /** index buffer. */
     std::vector<std::uint32_t> index_buffer;
-
-    /** vertex buffer id. */
     std::uint32_t vertex_buffer_id{0};
-
-    /** normal buffer id. */
     std::uint32_t normal_buffer_id{0};
-
-    /** remember if we still store data. */
     bool has_data{false};
 
 public:
-    /** default constructor. */
     drawable_object() = default;
 
-    /** initialize the object at least with an index buffer id. */
-    drawable_object(std::vector<std::uint32_t> in_ib, std::uint32_t in_vb, std::uint32_t in_nb)
+    drawable_object(
+      std::vector<std::uint32_t> in_ib,
+      std::uint32_t in_vb,
+      std::uint32_t in_nb)
     : index_buffer{std::move(in_ib)}
     , vertex_buffer_id{in_vb}
     , normal_buffer_id{in_nb}
@@ -54,7 +48,6 @@ public:
     {
     }
 
-    /** move data. */
     drawable_object(drawable_object&& other)
     : index_buffer{std::move(other.index_buffer)}
     , vertex_buffer_id{other.vertex_buffer_id}
@@ -67,7 +60,6 @@ public:
     drawable_object(const drawable_object&) = default;
     drawable_object& operator=(const drawable_object&) = default;
 
-    /** release all data. */
     void release()
     {
         if(has_data)
@@ -75,12 +67,10 @@ public:
             swr::DeleteAttributeBuffer(normal_buffer_id);
             swr::DeleteAttributeBuffer(vertex_buffer_id);
             index_buffer.clear();
-
             has_data = false;
         }
     }
 
-    /** draw the object. */
     void draw() const
     {
         if(has_data)
@@ -94,50 +84,25 @@ public:
     }
 };
 
-/** the gear's inner cylinder has smooth shading enabled, so we divide the meshes (and also the shaders) accordingly. */
 struct gear_object
 {
-    /** outside of the gear. */
     drawable_object outside;
-
-    /** inner cylinder of the gear. */
     drawable_object cylinder;
-
-    /** flat shader for the outside. */
     shader::color_flat flat_shader;
-
-    /** smooth shader for the cylinder. */
     shader::color_smooth smooth_shader;
-
-    /** flat shader id. */
     std::uint32_t flat_shader_id{0};
-
-    /** smooth shader id. */
     std::uint32_t smooth_shader_id{0};
 
-    /** default constructor. */
-    gear_object() = default;
-
-    /** disable copying. */
-    gear_object(const gear_object&) = delete;
-    gear_object(gear_object&&) = delete;
-
-    gear_object& operator=(const gear_object& other) = delete;
-
-    /** release all data and unregister shaders. */
     void release()
     {
         outside.release();
         cylinder.release();
-
         swr::UnregisterShader(flat_shader_id);
         swr::UnregisterShader(smooth_shader_id);
-
         flat_shader_id = 0;
         smooth_shader_id = 0;
     }
 
-    /** draw the gear. */
     void draw() const
     {
         swr::BindShader(flat_shader_id);
@@ -147,8 +112,13 @@ struct gear_object
         cylinder.draw();
     }
 
-    /** create a gear and upload it to the graphics driver. the code here is adapted from glxgears.c. */
-    void make_gear(float inner_radius, float outer_radius, float width, int teeth, float tooth_depth, ml::vec4 color)
+    void make_gear(
+      float inner_radius,
+      float outer_radius,
+      float width,
+      int teeth,
+      float tooth_depth,
+      ml::vec4 color)
     {
         release();
 
@@ -162,7 +132,6 @@ struct gear_object
         std::vector<ml::vec4> nb;
         std::vector<std::uint32_t> ib;
 
-        /* draw front face */
         for(int i = 0; i <= teeth; ++i)
         {
             float angle = i * 2.f * static_cast<float>(M_PI) / static_cast<float>(teeth);
@@ -203,7 +172,6 @@ struct gear_object
             }
         }
 
-        /* draw front sides of teeth */
         da = 2.f * static_cast<float>(M_PI) / static_cast<float>(teeth) / 4.f;
         for(int i = 0; i < teeth; ++i)
         {
@@ -229,7 +197,6 @@ struct gear_object
             ib.emplace_back(cur_idx);
         }
 
-        /* draw back face */
         for(int i = 0; i <= teeth; ++i)
         {
             float angle = i * 2.f * static_cast<float>(M_PI) / static_cast<float>(teeth);
@@ -261,11 +228,11 @@ struct gear_object
 
                 auto cur_idx = vb.size() - 1;
                 ib.emplace_back(cur_idx - 3);
-                ib.emplace_back(cur_idx - 2);
                 ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(cur_idx - 2);
 
-                ib.emplace_back(cur_idx - 1);
                 ib.emplace_back(cur_idx - 2);
+                ib.emplace_back(cur_idx - 1);
                 ib.emplace_back(cur_idx);
             }
         }
@@ -388,10 +355,11 @@ struct gear_object
         ib.emplace_back(cur_idx);
         ib.emplace_back(cur_idx - 1);
 
-        /* create outside of the gear. */
-        outside = {std::move(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+        outside = drawable_object{
+          std::move(ib),
+          swr::CreateAttributeBuffer(vb),
+          swr::CreateAttributeBuffer(nb)};
 
-        /* clear buffers for the inner cylinder. */
         vb.clear();
         nb.clear();
         ib.clear();
@@ -408,64 +376,57 @@ struct gear_object
 
             if(i != 0)
             {
-                auto cur_idx = vb.size() - 1;
-                ib.emplace_back(cur_idx - 2);
-                ib.emplace_back(cur_idx - 1);
-                ib.emplace_back(cur_idx - 3);
+                auto inner_idx = vb.size() - 1;
+                ib.emplace_back(inner_idx - 2);
+                ib.emplace_back(inner_idx - 1);
+                ib.emplace_back(inner_idx - 3);
 
-                ib.emplace_back(cur_idx - 2);
-                ib.emplace_back(cur_idx);
-                ib.emplace_back(cur_idx - 1);
+                ib.emplace_back(inner_idx - 2);
+                ib.emplace_back(inner_idx);
+                ib.emplace_back(inner_idx - 1);
             }
         }
 
-        /* create inner cylinder. */
-        cylinder = {std::move(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+        cylinder = drawable_object{
+          std::move(ib),
+          swr::CreateAttributeBuffer(vb),
+          swr::CreateAttributeBuffer(nb)};
 
-        /* create shaders. */
-        smooth_shader = {color};
-        flat_shader = {color};
-
+        flat_shader = shader::color_flat{color};
+        smooth_shader = shader::color_smooth{color};
         flat_shader_id = swr::RegisterShader(&flat_shader);
         smooth_shader_id = swr::RegisterShader(&smooth_shader);
-
-        if(!flat_shader_id || !smooth_shader_id)
-        {
-            throw std::runtime_error("gear_object: shader registration failed.");
-        }
     }
 };
 
-/** demo window. */
-class demo_gears : public swr_app::renderwindow
+class demo_gears_depth_texture : public swr_app::renderwindow
 {
-    /** light position. */
     ml::vec4 light_pos{5.0f, 5.0f, 10.0f, 0.0f};
-
-    /** projection matrix. */
-    ml::mat4x4 proj;
-
-    /** the gears. */
+    ml::mat4x4 scene_proj;
     gear_object gears[3];
-
-    /** view rotation. */
     ml::vec3 view_rotation = {20.f, 30.f, 0.f};
-
-    /** a rotation offset for the gears. */
-    float gear_rotation{0};
-
-    /** frame counter. */
+    float gear_rotation{0.0f};
     std::uint32_t frame_count{0};
 
-    /** viewport width. */
-    static const int width = 640;
+    shader::depth_texture_display display_shader;
+    std::uint32_t display_shader_id{0};
+    std::uint32_t quad_vertices{0};
+    std::uint32_t quad_uvs{0};
+    std::vector<std::uint32_t> quad_indices{0, 1, 2, 0, 2, 3};
 
-    /** viewport height. */
-    static const int height = 480;
+    std::uint32_t scene_fbo{0};
+    std::uint32_t scene_color_texture{0};
+    std::uint32_t scene_depth_texture{0};
+
+    static constexpr int width = 800;
+    static constexpr int height = 400;
+    static constexpr int depth_texture_width = 512;
+    static constexpr int depth_texture_height = 512;
+    static constexpr float near_plane = 5.0f;
+    static constexpr float far_plane = 60.0f;
 
 public:
-    /** constructor. */
-    demo_gears()
+    demo_gears_depth_texture()
     : swr_app::renderwindow{demo_title, width, height}
     {
     }
@@ -477,16 +438,13 @@ public:
             return false;
         }
 
-        if(context != nullptr)
-        {
-            // something went wrong here. the context should not exist.
-            return false;
-        }
-
         int thread_hint = swr_app::application::get_instance().get_argument("--threads", 0);
         if(thread_hint > 0)
         {
-            platform::logf("suggesting rasterizer to use {} thread{}", thread_hint, ((thread_hint > 1) ? "s" : ""));
+            platform::logf(
+              "suggesting rasterizer to use {} thread{}",
+              thread_hint,
+              ((thread_hint > 1) ? "s" : ""));
         }
 
         context = swr::CreateSDLContext(sdl_window, sdl_renderer, thread_hint);
@@ -495,22 +453,81 @@ public:
             throw std::runtime_error("MakeContextCurrent failed");
         }
 
-        swr::SetClearColor(0, 0, 0, 1);
+        swr::SetClearColor(0.03f, 0.03f, 0.05f, 1.0f);
         swr::SetClearDepth(1.0f);
         swr::SetViewport(0, 0, width, height);
-
         swr::SetState(swr::state::cull_face, true);
         swr::SetState(swr::state::depth_test, true);
 
-        // set projection matrix.
-        proj = ml::matrices::perspective_projection(static_cast<float>(width) / static_cast<float>(height), static_cast<float>(M_PI) / 8, 5.f, 60.f);
+        scene_proj = ml::matrices::perspective_projection(
+          static_cast<float>(depth_texture_width) / static_cast<float>(depth_texture_height),
+          static_cast<float>(M_PI) / 8,
+          near_plane,
+          far_plane);
 
-        // create gears.
         gears[0].make_gear(1.0, 4.0, 1.0, 20, 0.7, {0.8f, 0.1f, 0.0f, 1.0f});
         gears[1].make_gear(0.5, 2.0, 2.0, 10, 0.7, {0.0f, 0.8f, 0.2f, 1.0f});
         gears[2].make_gear(1.3, 2.0, 0.5, 10, 0.7, {0.2f, 0.2f, 1.0f, 1.0f});
 
-        return true;
+        display_shader_id = swr::RegisterShader(&display_shader);
+
+        quad_vertices = swr::CreateAttributeBuffer({
+          ml::vec4{-1.0f, -1.0f, 0.0f, 1.0f},
+          ml::vec4{1.0f, -1.0f, 0.0f, 1.0f},
+          ml::vec4{1.0f, 1.0f, 0.0f, 1.0f},
+          ml::vec4{-1.0f, 1.0f, 0.0f, 1.0f},
+        });
+        quad_uvs = swr::CreateAttributeBuffer({
+          ml::vec4{0.0f, 0.0f, 0.0f, 0.0f},
+          ml::vec4{1.0f, 0.0f, 0.0f, 0.0f},
+          ml::vec4{1.0f, 1.0f, 0.0f, 0.0f},
+          ml::vec4{0.0f, 1.0f, 0.0f, 0.0f},
+        });
+
+        scene_color_texture = swr::CreateTexture();
+        scene_depth_texture = swr::CreateTexture();
+
+        swr::SetImage(
+          scene_color_texture,
+          0,
+          depth_texture_width,
+          depth_texture_height,
+          swr::pixel_format::rgba8888,
+          {});
+        swr::SetImage(
+          scene_depth_texture,
+          0,
+          depth_texture_width,
+          depth_texture_height,
+          swr::pixel_format::depth32f,
+          {});
+        swr::SetTextureWrapMode(
+          scene_color_texture,
+          swr::wrap_mode::clamp_to_edge,
+          swr::wrap_mode::clamp_to_edge);
+        swr::SetTextureWrapMode(
+          scene_depth_texture,
+          swr::wrap_mode::clamp_to_edge,
+          swr::wrap_mode::clamp_to_edge);
+
+        swr::BindTexture(swr::texture_target::texture_2d, scene_depth_texture);
+        swr::SetTextureMagnificationFilter(swr::texture_filter::linear);
+        swr::SetTextureMinificationFilter(swr::texture_filter::linear);
+        swr::BindTexture(swr::texture_target::texture_2d, 0);
+
+        scene_fbo = swr::CreateFramebufferObject();
+        swr::FramebufferTexture(
+          scene_fbo,
+          swr::framebuffer_attachment::color_attachment_0,
+          scene_color_texture,
+          0);
+        swr::FramebufferTexture(
+          scene_fbo,
+          swr::framebuffer_attachment::depth_attachment,
+          scene_depth_texture,
+          0);
+
+        return swr::GetLastError() == swr::error::none;
     }
 
     void destroy()
@@ -521,6 +538,12 @@ public:
 
         if(context != nullptr)
         {
+            swr::ReleaseFramebufferObject(scene_fbo);
+            swr::ReleaseTexture(scene_depth_texture);
+            swr::ReleaseTexture(scene_color_texture);
+            swr::DeleteAttributeBuffer(quad_uvs);
+            swr::DeleteAttributeBuffer(quad_vertices);
+            swr::UnregisterShader(display_shader_id);
             swr::DestroyContext(context);
             context = nullptr;
         }
@@ -530,7 +553,6 @@ public:
 
     void update(float delta_time)
     {
-        // gracefully exit when asked.
         SDL_Event e;
         if(SDL_PollEvent(&e))
         {
@@ -541,75 +563,93 @@ public:
             }
         }
 
-        /*
-         * update animation.
-         */
         gear_rotation += delta_time;
         if(gear_rotation >= 2 * static_cast<float>(M_PI))
         {
             gear_rotation -= 2 * static_cast<float>(M_PI);
         }
 
-        begin_render();
-        draw_gears();
-        end_render();
+        render_depth_scene();
+        display_depth_texture();
 
         ++frame_count;
     }
 
-    void begin_render()
+    void render_depth_scene()
     {
+        swr::BindFramebufferObject(swr::framebuffer_target::draw, scene_fbo);
+        swr::SetViewport(0, 0, depth_texture_width, depth_texture_height);
+        swr::SetState(swr::state::cull_face, true);
+        swr::SetState(swr::state::depth_test, true);
+        swr::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        swr::SetClearDepth(1.0f);
         swr::ClearColorBuffer();
         swr::ClearDepthBuffer();
+        draw_gears(scene_proj);
     }
 
-    void end_render()
+    void display_depth_texture()
     {
+        swr::BindFramebufferObject(swr::framebuffer_target::draw, 0);
+        swr::SetViewport(0, 0, width, height);
+        swr::SetState(swr::state::cull_face, false);
+        swr::SetState(swr::state::depth_test, false);
+        swr::SetClearColor(0.03f, 0.03f, 0.05f, 1.0f);
+        swr::ClearColorBuffer();
+        swr::ClearDepthBuffer();
+
+        swr::ActiveTexture(swr::texture_0);
+        swr::BindTexture(swr::texture_target::texture_2d, scene_color_texture);
+        swr::ActiveTexture(swr::texture_1);
+        swr::BindTexture(swr::texture_target::texture_2d, scene_depth_texture);
+
+        swr::BindShader(display_shader_id);
+        swr::BindUniform(0, ml::vec4{near_plane, far_plane, 0.0f, 0.0f});
+        swr::EnableAttributeBuffer(quad_vertices, 0);
+        swr::EnableAttributeBuffer(quad_uvs, 1);
+        swr::DrawIndexedElements(
+          swr::vertex_buffer_mode::triangles,
+          quad_indices.size(),
+          quad_indices);
+        swr::DisableAttributeBuffer(quad_uvs);
+        swr::DisableAttributeBuffer(quad_vertices);
+        swr::BindShader(0);
+        swr::ActiveTexture(swr::texture_1);
+        swr::BindTexture(swr::texture_target::texture_2d, 0);
+        swr::ActiveTexture(swr::texture_0);
+        swr::BindTexture(swr::texture_target::texture_2d, 0);
+
         swr::Present();
         swr::CopyDefaultColorBuffer(context);
     }
 
-    void draw_gears()
+    void draw_gears(const ml::mat4x4& proj)
     {
-        // set projection matrix.
         swr::BindUniform(0, proj);
 
         ml::mat4x4 view = ml::mat4x4::identity();
         view *= ml::matrices::translation(0.f, 0.f, -40.f);
-
         swr::BindUniform(2, view * light_pos);
 
         view *= ml::matrices::rotation_x(ml::to_radians(view_rotation.x));
         view *= ml::matrices::rotation_y(ml::to_radians(view_rotation.y));
         view *= ml::matrices::rotation_z(ml::to_radians(view_rotation.z));
 
-        /*
-         * gear 1
-         */
         ml::mat4x4 temp = view;
         temp *= ml::matrices::translation(-3.f, -2.f, 0.f);
         temp *= ml::matrices::rotation_z(gear_rotation);
-
         swr::BindUniform(1, temp);
         gears[0].draw();
 
-        /*
-         * gear 2
-         */
         temp = view;
         temp *= ml::matrices::translation(3.1f, -2.f, 0.f);
         temp *= ml::matrices::rotation_z(-2.f * gear_rotation - 9.f);
-
         swr::BindUniform(1, temp);
         gears[1].draw();
 
-        /*
-         * gear 3
-         */
         temp = view;
         temp *= ml::matrices::translation(-3.1f, 4.2f, 0.f);
         temp *= ml::matrices::rotation_z(-2.f * gear_rotation - 25.f);
-
         swr::BindUniform(1, temp);
         gears[2].draw();
 
@@ -622,7 +662,6 @@ public:
     }
 };
 
-/** Logging to stdout using std::print. */
 class log_std : public platform::log_device
 {
 protected:
@@ -632,30 +671,32 @@ protected:
     }
 };
 
-/** demo application class. */
 class demo_app final : public swr_app::application
 {
     log_std log;
 
 public:
-    /** create a window. */
     void initialize()
     {
         application::initialize();
         platform::set_log(&log);
 
-        window = std::make_unique<demo_gears>();
+        window = std::make_unique<demo_gears_depth_texture>();
         window->create();
     }
 
-    /** destroy the window. */
     void shutdown()
     {
         if(window)
         {
-            auto* w = static_cast<demo_gears*>(window.get());
+            auto* w = static_cast<demo_gears_depth_texture*>(window.get());
             float fps = static_cast<float>(w->get_frame_count()) / get_run_time();
-            platform::logf("frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}", w->get_frame_count(), get_run_time(), fps, 1000.f / fps);
+            platform::logf(
+              "frames: {}     runtime: {:.2f}s     fps: {:.2f}     msec: {:.2f}",
+              w->get_frame_count(),
+              get_run_time(),
+              fps,
+              1000.f / fps);
 
             window->destroy();
             window.reset();
@@ -665,5 +706,4 @@ public:
     }
 };
 
-/** application instance. */
 demo_app the_app;

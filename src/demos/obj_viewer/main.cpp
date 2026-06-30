@@ -807,7 +807,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -881,7 +881,7 @@ public:
 
     void destroy() override
     {
-        if(context)
+        if(context != nullptr)
         {
             for(auto& it: objects)
             {

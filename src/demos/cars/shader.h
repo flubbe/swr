@@ -79,7 +79,7 @@ public:
         const swr::varying& tex_coords = varyings[0];
 
         // sample texture.
-        ml::vec4 color = samplers[0]->sample_at(tex_coords);
+        ml::vec4 color = sampler2D(0).sample_at(tex_coords);
 
         // write fragment color.
         gl_FragColor = color;

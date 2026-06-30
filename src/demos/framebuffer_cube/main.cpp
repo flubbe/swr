@@ -117,7 +117,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             return false;
         }
@@ -227,44 +227,39 @@ public:
 
     void destroy()
     {
-        swr::ReleaseDepthRenderbuffer(cube_depth);
-        swr::ReleaseFramebufferObject(cube_fbo);
-        swr::ReleaseTexture(cube_texture);
-        swr::DeleteAttributeBuffer(quad_uvs);
-        swr::DeleteAttributeBuffer(quad_verts);
-        swr::DeleteAttributeBuffer(cube_colors);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_depth = 0;
-        cube_fbo = 0;
-        cube_texture = 0;
-        quad_uvs = 0;
-        quad_verts = 0;
-        cube_colors = 0;
-        cube_verts = 0;
-        quad_indices.clear();
-        cube_indices.clear();
-
-        if(texture_shader_id)
+        if(context != nullptr)
         {
-            if(context)
+
+            swr::ReleaseDepthRenderbuffer(cube_depth);
+            swr::ReleaseFramebufferObject(cube_fbo);
+            swr::ReleaseTexture(cube_texture);
+            swr::DeleteAttributeBuffer(quad_uvs);
+            swr::DeleteAttributeBuffer(quad_verts);
+            swr::DeleteAttributeBuffer(cube_colors);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_depth = 0;
+            cube_fbo = 0;
+            cube_texture = 0;
+            quad_uvs = 0;
+            quad_verts = 0;
+            cube_colors = 0;
+            cube_verts = 0;
+            quad_indices.clear();
+            cube_indices.clear();
+
+            if(texture_shader_id)
             {
                 swr::UnregisterShader(texture_shader_id);
+                texture_shader_id = 0;
             }
-            texture_shader_id = 0;
-        }
 
-        if(color_shader_id)
-        {
-            if(context)
+            if(color_shader_id)
             {
                 swr::UnregisterShader(color_shader_id);
+                color_shader_id = 0;
             }
-            color_shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }

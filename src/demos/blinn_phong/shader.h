@@ -110,7 +110,7 @@ public:
         ml::vec4 light_position = uniforms[2].v4;
 
         // sample diffuse texture.
-        ml::vec4 material_diffuse_color = samplers[0]->sample_at(tex_coords);
+        ml::vec4 material_diffuse_color = sampler2D(0).sample_at(tex_coords);
 
         // distance to light.
         float distance_squared = (light_position - position).xyz().length_squared();

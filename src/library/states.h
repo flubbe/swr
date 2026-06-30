@@ -67,7 +67,7 @@ struct render_states
     /* texture units. */
     texture_2d_bindings texture_2d_units; /* the context owns the textures. */
     std::uint32_t texture_2d_active_unit{0};
-    sampler_2d_bindings texture_2d_samplers; /* the textures own their samplers. */
+    sampler_bindings texture_2d_samplers; /* the textures own their samplers. */
 
     /* shaders */
     struct program_info* shader_info{nullptr}; /* the context owns the shader info */

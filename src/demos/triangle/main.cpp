@@ -67,7 +67,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -114,23 +114,20 @@ public:
 
     void destroy()
     {
-        swr::DeleteAttributeBuffer(triangle_colors);
-        swr::DeleteAttributeBuffer(triangle_verts);
-
-        triangle_colors = 0;
-        triangle_verts = 0;
-
-        if(shader_id)
+        if(context != nullptr)
         {
-            if(context)
+            swr::DeleteAttributeBuffer(triangle_colors);
+            swr::DeleteAttributeBuffer(triangle_verts);
+
+            triangle_colors = 0;
+            triangle_verts = 0;
+
+            if(shader_id)
             {
                 swr::UnregisterShader(shader_id);
+                shader_id = 0;
             }
-            shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }

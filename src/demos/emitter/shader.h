@@ -134,7 +134,7 @@ public:
         float falloff = light_power / distance_squared;
 
         // sample normal map.
-        const ml::vec3 material_normal = (samplers[1]->sample_at(tex_coords) * 2 - 1).xyz();
+        const ml::vec3 material_normal = (sampler2D(1).sample_at(tex_coords) * 2 - 1).xyz();
 
         // normal of the computed fragment, in camera space.
         auto tbn = ml::mat4x4{tangent, bitangent, normal, ml::vec4::zero()}.transposed();
@@ -145,7 +145,7 @@ public:
         float lambertian = std::clamp(ml::dot(n, l), 0.f, 1.f);
 
         // sample diffuse texture.
-        auto material_diffuse_color = samplers[0]->sample_at(tex_coords);
+        auto material_diffuse_color = sampler2D(0).sample_at(tex_coords);
 
         // calculate diffuse color.
         ml::vec4 diffuse_color = light_color * material_diffuse_color * lambertian;

@@ -125,7 +125,7 @@ public:
       [[maybe_unused]] float& gl_FragDepth,
       ml::vec4& gl_FragColor) const override
     {
-        gl_FragColor = samplers[0]->sample_at(varyings[0]);
+        gl_FragColor = sampler2D(0).sample_at(varyings[0]);
         return swr::accept;
     }
 };

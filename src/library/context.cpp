@@ -581,7 +581,7 @@ bool ResizeOffscreenContext(
 
 void DestroyContext(context_handle context)
 {
-    if(context)
+    if(context != nullptr)
     {
         auto ctx = static_cast<impl::render_context*>(context);
 

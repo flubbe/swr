@@ -190,18 +190,19 @@ const ml::vec4& read_texture_pixel(
     const auto* texture_ptr = render_context->texture_2d_storage[texture_id].get();
     BOOST_REQUIRE(texture_ptr != nullptr);
 
-    const auto& texture = *texture_ptr;
-    BOOST_REQUIRE(!texture.data.data_ptrs.empty());
-    BOOST_REQUIRE(texture.data.data_ptrs[0] != nullptr);
+    const auto* texture = texture_ptr->as_texture_color_2d();
+    BOOST_REQUIRE(texture != nullptr);
+    BOOST_REQUIRE(!texture->data.data_ptrs.empty());
+    BOOST_REQUIRE(texture->data.data_ptrs[0] != nullptr);
 
 #ifdef SWR_USE_MORTON_CODES
-    return texture.data.data_ptrs[0][libmorton::morton2D_32_encode(x, y)];
+    return texture->data.data_ptrs[0][libmorton::morton2D_32_encode(x, y)];
 #else
     const std::uint32_t pitch =
-      texture.data.data_ptrs.size() > 1
-        ? texture.width + (texture.width >> 1)
-        : texture.width;
-    return texture.data.data_ptrs[0][y * pitch + x];
+      texture->data.data_ptrs.size() > 1
+        ? texture->width + (texture->width >> 1)
+        : texture->width;
+    return texture->data.data_ptrs[0][y * pitch + x];
 #endif
 }
 

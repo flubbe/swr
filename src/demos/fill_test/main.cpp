@@ -73,7 +73,7 @@ public:
             return false;
         }
 
-        if(context)
+        if(context != nullptr)
         {
             // something went wrong here. the context should not exist.
             return false;
@@ -118,17 +118,15 @@ public:
     {
         example_mesh.unload();
 
-        if(mesh_shader_id)
+        if(context != nullptr)
         {
-            if(context)
+
+            if(mesh_shader_id)
             {
                 swr::UnregisterShader(mesh_shader_id);
+                mesh_shader_id = 0;
             }
-            mesh_shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }

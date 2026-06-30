@@ -152,7 +152,8 @@ public:
     vertex_shader_instance_container(
       std::byte* storage,
       impl::program_info* shader_info,
-      const swr::uniform_bindings& uniforms)
+      const swr::uniform_bindings& uniforms,
+      const swr::sampler_bindings& samplers_2d = {})
     {
         assert(shader_info);
         assert(shader_info->shader);
@@ -164,7 +165,7 @@ public:
         varying_count = shader_info->varying_count;
         shader = shader_info->shader->create_instance(
           storage,
-          swr::program_instance_bindings{uniforms});
+          swr::program_instance_bindings{uniforms, samplers_2d});
     }
 
     vertex_shader_instance_container(const vertex_shader_instance_container&) = delete;
@@ -207,7 +208,7 @@ public:
     fragment_shader_instance_container(
       const impl::program_info* shader_info,
       const swr::uniform_bindings& uniforms,
-      const swr::sampler_2d_bindings& samplers_2d)
+      const swr::sampler_bindings& samplers_2d)
     {
         assert(shader_info);
         assert(shader_info->shader);

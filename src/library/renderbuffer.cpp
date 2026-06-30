@@ -28,10 +28,10 @@ static auto to_uint32_mask = [](bool b) -> std::uint32_t
 };
 
 /*
- * attachment_texture.
+ * texture_attachment_binding.
  */
 
-bool attachment_texture::is_valid() const
+bool texture_attachment_binding::is_valid() const
 {
     if(tex_id == default_tex_id
        || tex == nullptr
@@ -40,7 +40,9 @@ bool attachment_texture::is_valid() const
         return false;
     }
 
-    if(level >= tex->data.data_ptrs.size())
+    const auto* color_texture = tex->as_texture_color_2d();
+    if(color_texture == nullptr
+       || level >= color_texture->data.data_ptrs.size())
     {
         return false;
     }
@@ -57,7 +59,63 @@ bool attachment_texture::is_valid() const
 
     return global_context->texture_2d_storage[tex_id].get() == tex
            && tex_id == tex->id
-           && info.data_ptr == tex->data.data_ptrs[level];
+           && info.data_ptr == color_texture->data.data_ptrs[level];
+}
+
+bool depth_texture_attachment_binding::is_valid() const
+{
+    if(tex_id == default_tex_id
+       || tex == nullptr
+       || info.data_ptr == nullptr)
+    {
+        return false;
+    }
+
+    const auto* depth_texture = tex->as_texture_depth_2d();
+    if(depth_texture == nullptr
+       || level >= depth_texture->data.data_ptrs.size())
+    {
+        return false;
+    }
+
+    if(tex_id >= global_context->texture_2d_storage.size())
+    {
+        return false;
+    }
+
+    if(!global_context->texture_2d_storage[tex_id])
+    {
+        return false;
+    }
+
+    return global_context->texture_2d_storage[tex_id].get() == tex
+           && tex_id == tex->id
+           && info.data_ptr == depth_texture->data.data_ptrs[level];
+}
+
+bool depth_renderbuffer_attachment_binding::is_valid() const
+{
+    if(attachment == nullptr
+       || info.data_ptr == nullptr)
+    {
+        return false;
+    }
+
+    if(attachment_id >= global_context->depth_attachments.size())
+    {
+        return false;
+    }
+
+    if(global_context->depth_attachments.is_free(attachment_id))
+    {
+        return false;
+    }
+
+    return &global_context->depth_attachments[attachment_id] == attachment
+           && info.data_ptr == attachment->info.data_ptr
+           && info.width == attachment->info.width
+           && info.height == attachment->info.height
+           && info.pitch == attachment->info.pitch;
 }
 
 /*
@@ -568,11 +626,11 @@ void framebuffer_object::clear_color(
   std::uint32_t attachment,
   ml::vec4 clear_color)
 {
-    if(attachment < color_attachments.size()
-       && color_attachments[attachment])
+    if(attachment < color_bindings.size()
+       && color_bindings[attachment])
     {
         // this also clears mipmaps, if present
-        auto& info = color_attachments[attachment]->info;
+        auto& info = color_bindings[attachment]->info;
 #ifdef SWR_USE_SIMD
         utils::memset128(info.data_ptr, *reinterpret_cast<__m128i*>(&clear_color.data), info.pitch * info.height * sizeof(__m128));
 #else  /* SWR_USE_SIMD */
@@ -586,11 +644,11 @@ void framebuffer_object::clear_color(
   ml::vec4 clear_color,
   const utils::rect& rect)
 {
-    if(attachment < color_attachments.size()
-       && color_attachments[attachment])
+    if(attachment < color_bindings.size()
+       && color_bindings[attachment])
     {
 #ifdef SWR_USE_MORTON_CODES
-        auto& info = color_attachments[attachment]->info;
+        auto& info = color_bindings[attachment]->info;
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
@@ -605,7 +663,7 @@ void framebuffer_object::clear_color(
             }
         }
 #else
-        auto& info = color_attachments[attachment]->info;
+        auto& info = color_bindings[attachment]->info;
 
         int x_min = std::min(std::max(0, rect.x_min), info.width);
         int x_max = std::max(0, std::min(rect.x_max, info.width));
@@ -641,13 +699,13 @@ void framebuffer_object::clear_color(
 void framebuffer_object::clear_depth(
   ml::fixed_32_t clear_depth)
 {
-    if(depth_attachment)
+    if(const auto* info = get_depth_attachment_info();
+       info && info->data_ptr)
     {
-        auto& info = depth_attachment->info;
         utils::memset32(
-          reinterpret_cast<std::uint32_t*>(info.data_ptr),
+          reinterpret_cast<std::uint32_t*>(info->data_ptr),
           ml::unwrap(clear_depth),
-          info.pitch * info.height);
+          info->pitch * info->height);
     }
 }
 
@@ -655,38 +713,35 @@ void framebuffer_object::clear_depth(
   ml::fixed_32_t clear_depth,
   const utils::rect& rect)
 {
-    if(depth_attachment)
+    if(const auto* info = get_depth_attachment_info();
+       info && info->data_ptr)
     {
 #ifdef SWR_USE_MORTON_CODES
-        auto& info = depth_attachment->info;
-
-        int x_min = std::min(std::max(0, rect.x_min), info.width);
-        int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
-        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
+        int x_min = std::min(std::max(0, rect.x_min), info->width);
+        int x_max = std::max(0, std::min(rect.x_max, info->width));
+        int y_min = std::min(std::max(info->height - rect.y_max, 0), info->height);
+        int y_max = std::max(0, std::min(info->height - rect.y_min, info->height));
 
         for(int x = x_min; x < x_max; ++x)
         {
             for(int y = y_min; y < y_max; ++y)
             {
-                *(info.data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_depth;
+                *(info->data_ptr + libmorton::morton2D_32_encode(x, y)) = clear_depth;
             }
         }
 #else
-        auto& info = depth_attachment->info;
-
-        int x_min = std::min(std::max(0, rect.x_min), info.width);
-        int x_max = std::max(0, std::min(rect.x_max, info.width));
-        int y_min = std::min(std::max(info.height - rect.y_max, 0), info.height);
-        int y_max = std::max(0, std::min(info.height - rect.y_min, info.height));
+        int x_min = std::min(std::max(0, rect.x_min), info->width);
+        int x_max = std::max(0, std::min(rect.x_max, info->width));
+        int y_min = std::min(std::max(info->height - rect.y_max, 0), info->height);
+        int y_max = std::max(0, std::min(info->height - rect.y_min, info->height));
 
         const auto row_size = (x_max - x_min) * sizeof(ml::fixed_32_t);
 
-        auto ptr = reinterpret_cast<std::uint8_t*>(info.data_ptr) + y_min * info.pitch + x_min * sizeof(ml::fixed_32_t);
+        auto ptr = reinterpret_cast<std::uint8_t*>(info->data_ptr) + y_min * info->pitch + x_min * sizeof(ml::fixed_32_t);
         for(int y = y_min; y < y_max; ++y)
         {
             utils::memset32(ptr, *reinterpret_cast<std::uint32_t*>(&clear_depth), row_size);
-            ptr += info.pitch;
+            ptr += info->pitch;
         }
 #endif /* SWR_USE_MORTON_CODES */
     }
@@ -701,8 +756,8 @@ void framebuffer_object::merge_color(
   blend_func blend_src,
   blend_func blend_dst)
 {
-    if(attachment > color_attachments.size()
-       || !color_attachments[attachment])
+    if(attachment > color_bindings.size()
+       || !color_bindings[attachment])
     {
         return;
     }
@@ -711,13 +766,13 @@ void framebuffer_object::merge_color(
     {
         ml::vec4 write_color{ml::clamp_to_unit_interval(frag.color)};
 
-        ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
+        ml::vec4* data_ptr = color_bindings[attachment]->info.data_ptr;
 
         // alpha blending.
 #ifdef SWR_USE_MORTON_CODES
         ml::vec4* color_buffer_ptr = data_ptr + libmorton::morton2D_32_encode(x, y);
 #else
-        int pitch = color_attachments[attachment]->info.pitch;
+        int pitch = color_bindings[attachment]->info.pitch;
         ml::vec4* color_buffer_ptr = data_ptr + y * pitch + x;
 #endif
         if(do_blend)
@@ -743,7 +798,7 @@ void framebuffer_object::merge_color_block(
     std::uint64_t stage_merge = 0;
     utils::clock(stage_merge);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
-    if(attachment > color_attachments.size() || !color_attachments[attachment])
+    if(attachment > color_bindings.size() || !color_bindings[attachment])
     {
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
         utils::unclock(stage_merge);
@@ -761,7 +816,7 @@ void framebuffer_object::merge_color_block(
           ml::clamp_to_unit_interval(frag.color[2]),
           ml::clamp_to_unit_interval(frag.color[3])};
 
-        ml::vec4* data_ptr = color_attachments[attachment]->info.data_ptr;
+        ml::vec4* data_ptr = color_bindings[attachment]->info.data_ptr;
 
         // block coordinates
         const std::array<ml::tvec2<int>, 4> coords =
@@ -778,7 +833,7 @@ void framebuffer_object::merge_color_block(
           data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
           data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
 #else
-        int pitch = color_attachments[attachment]->info.pitch;
+        int pitch = color_bindings[attachment]->info.pitch;
         std::array<ml::vec4*, 4> color_buffer_ptrs = {
           data_ptr + coords[0].y * pitch + coords[0].x,
           data_ptr + coords[1].y * pitch + coords[1].x,
@@ -787,8 +842,8 @@ void framebuffer_object::merge_color_block(
 #endif
 
         // check bounds for partial blocks
-        const int width = color_attachments[attachment]->info.width;
-        const int height = color_attachments[attachment]->info.height;
+        const int width = color_bindings[attachment]->info.width;
+        const int height = color_bindings[attachment]->info.height;
         const bool block_in_bounds = (x + 1 < width) && (y + 1 < height);
 
         if(block_in_bounds)
@@ -912,17 +967,18 @@ void framebuffer_object::depth_compare_write(
     write_mask = true;
 
     // if no depth buffer was created, accept.
-    if(!depth_attachment || !depth_attachment->info.data_ptr)
+    const auto* depth_info = get_depth_attachment_info();
+    if(!depth_info || !depth_info->data_ptr)
     {
         return;
     }
 
     // read and compare depth buffer.
 #ifdef SWR_USE_MORTON_CODES
-    ml::fixed_32_t* depth_buffer_ptr = depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(x, y);
+    ml::fixed_32_t* depth_buffer_ptr = depth_info->data_ptr + libmorton::morton2D_32_encode(x, y);
 #else
-    const int row_stride = depth_attachment->info.pitch / static_cast<int>(sizeof(attachment_depth::value_type));
-    ml::fixed_32_t* depth_buffer_ptr = depth_attachment->info.data_ptr + y * row_stride + x;
+    const int row_stride = depth_info->pitch / static_cast<int>(sizeof(attachment_depth::value_type));
+    ml::fixed_32_t* depth_buffer_ptr = depth_info->data_ptr + y * row_stride + x;
 #endif
     ml::fixed_32_t old_depth_value = *depth_buffer_ptr;
     ml::fixed_32_t new_depth_value{depth_value};
@@ -976,7 +1032,8 @@ void framebuffer_object::depth_compare_write_block(
     }
 
     // if no depth buffer was created, accept.
-    if(!depth_attachment || !depth_attachment->info.data_ptr)
+    const auto* depth_info = get_depth_attachment_info();
+    if(!depth_info || !depth_info->data_ptr)
     {
         // the write mask is initialized with "accept all".
         return;
@@ -992,21 +1049,21 @@ void framebuffer_object::depth_compare_write_block(
     // read and compare depth buffer.
 #ifdef SWR_USE_MORTON_CODES
     std::array<ml::fixed_32_t*, 4> depth_buffer_ptr = {
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
-      depth_attachment->info.data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[0].x, coords[0].y),
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[1].x, coords[1].y),
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[2].x, coords[2].y),
+      depth_info->data_ptr + libmorton::morton2D_32_encode(coords[3].x, coords[3].y)};
 #else
-    const int row_stride = depth_attachment->info.pitch / static_cast<int>(sizeof(attachment_depth::value_type));
+    const int row_stride = depth_info->pitch / static_cast<int>(sizeof(attachment_depth::value_type));
     std::array<ml::fixed_32_t*, 4> depth_buffer_ptr = {
-      depth_attachment->info.data_ptr + coords[0].y * row_stride + coords[0].x,
-      depth_attachment->info.data_ptr + coords[1].y * row_stride + coords[1].x,
-      depth_attachment->info.data_ptr + coords[2].y * row_stride + coords[2].x,
-      depth_attachment->info.data_ptr + coords[3].y * row_stride + coords[3].x};
+      depth_info->data_ptr + coords[0].y * row_stride + coords[0].x,
+      depth_info->data_ptr + coords[1].y * row_stride + coords[1].x,
+      depth_info->data_ptr + coords[2].y * row_stride + coords[2].x,
+      depth_info->data_ptr + coords[3].y * row_stride + coords[3].x};
 #endif
 
-    const int width = depth_attachment->info.width;
-    const int height = depth_attachment->info.height;
+    const int width = depth_info->width;
+    const int height = depth_info->height;
     const bool block_in_bounds = (x + 1 < width) && (y + 1 < height);
 
     std::array<ml::fixed_32_t, 4> old_depth_value = {};
@@ -1258,10 +1315,43 @@ void FramebufferTexture(
             context->last_error = error::invalid_value;
             return;
         }
+        if(context->texture_2d_storage[tex_id]->as_texture_color_2d() == nullptr)
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
 
         // associate texture to fbo.
         fbo->attach_texture(
           attachment,
+          context->texture_2d_storage[tex_id].get(),
+          level);
+    }
+    else if(attachment == framebuffer_attachment::depth_attachment)
+    {
+        auto slot = id_to_slot(id);
+        if(slot >= context->framebuffer_objects.size()
+           || context->framebuffer_objects.is_free(slot))
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+        auto fbo = &context->framebuffer_objects[slot];
+
+        auto tex_id = attachment_id;
+        if(tex_id >= context->texture_2d_storage.size()
+           || context->texture_2d_storage.is_free(tex_id))
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+        if(context->texture_2d_storage[tex_id]->as_texture_depth_2d() == nullptr)
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+
+        fbo->attach_depth_texture(
           context->texture_2d_storage[tex_id].get(),
           level);
     }
@@ -1336,7 +1426,9 @@ void FramebufferRenderbuffer(
     }
 
     auto& fbo = context->framebuffer_objects[slot];
-    fbo.attach_depth(&context->depth_attachments[attachment_id]);
+    fbo.attach_depth_renderbuffer(
+      attachment_id,
+      &context->depth_attachments[attachment_id]);
 }
 
 } /* namespace swr */

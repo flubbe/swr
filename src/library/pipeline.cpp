@@ -941,7 +941,8 @@ static void process_vertices(swr::impl::render_object& obj)
     impl::vertex_shader_instance_container shader_instance{
       obj.states.shader_info->storage.data(),
       obj.states.shader_info,
-      obj.states.uniforms};
+      obj.states.uniforms,
+      obj.states.texture_2d_samplers};
 
     /*
      * Invoke the vertex shaders and preprocess vertices with respect to clipping.
@@ -1828,7 +1829,8 @@ static void process_vertices(
             impl::vertex_shader_instance_container{
               storage,
               shader_info,
-              obj.states.uniforms}));
+              obj.states.uniforms,
+              obj.states.texture_2d_samplers}));
 
         storage += shader_info->program_size;
     }
@@ -2154,7 +2156,16 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height)
     ASSERT_INTERNAL_CONTEXT;
     auto context = impl::global_context;
 
-    context->states.set_viewport(x, y, width, height);
+    // Public API follows OpenGL semantics (viewport origin at lower-left),
+    // while the internal rasterizer uses a top-down viewport y-axis.
+    int internal_y = y;
+    if(context->states.draw_target != nullptr)
+    {
+        const int framebuffer_height = context->states.draw_target->properties.height;
+        internal_y = framebuffer_height - (y + static_cast<int>(height));
+    }
+
+    context->states.set_viewport(x, internal_y, width, height);
 }
 
 void DepthRange(float zNear, float zFar)

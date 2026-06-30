@@ -188,38 +188,32 @@ public:
 
     void destroy()
     {
-        font_rend.shutdown();
-
-        swr::DeleteAttributeBuffer(cube_colors);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_colors = 0;
-        cube_verts = 0;
-        cube_indices.clear();
-
-        if(cube_shader_id)
+        if(context != nullptr)
         {
-            if(context)
+            font_rend.shutdown();
+
+            swr::DeleteAttributeBuffer(cube_colors);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_colors = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(cube_shader_id)
             {
                 swr::UnregisterShader(cube_shader_id);
+                cube_shader_id = 0;
             }
-            cube_shader_id = 0;
-        }
 
-        swr::ReleaseTexture(font_tex_id);
-        font_tex_id = 0;
+            swr::ReleaseTexture(font_tex_id);
+            font_tex_id = 0;
 
-        if(font_shader_id)
-        {
-            if(context)
+            if(font_shader_id)
             {
                 swr::UnregisterShader(font_shader_id);
+                font_shader_id = 0;
             }
-            font_shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }

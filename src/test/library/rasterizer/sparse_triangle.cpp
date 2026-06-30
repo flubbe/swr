@@ -547,8 +547,9 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_are_quad_aligned_and_block_clamped)
 BOOST_AUTO_TEST_CASE(checked_quad_bounds_respect_scissor)
 {
     constexpr int bs = static_cast<int>(swr::impl::rasterizer_block_size);
+    constexpr int height = 2 * bs;
 
-    triangle_test_context ctx{2 * bs, 2 * bs};
+    triangle_test_context ctx{2 * bs, height};
     ctx.states.scissor_test_enabled = true;
     ctx.states.set_scissor_box(16, 20, 20, 30);
 
@@ -569,13 +570,13 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_respect_scissor)
 
     BOOST_CHECK_EQUAL(bounds.tight_start_x, 17);
     BOOST_CHECK_EQUAL(bounds.tight_end_x, 19);
-    BOOST_CHECK_EQUAL(bounds.tight_start_y, 34);
-    BOOST_CHECK_EQUAL(bounds.tight_end_y, 44);
+    BOOST_CHECK_EQUAL(bounds.tight_start_y, height - 30);
+    BOOST_CHECK_EQUAL(bounds.tight_end_y, height - 20);
 
     BOOST_CHECK_EQUAL(quad_bounds.start_x, 16u);
     BOOST_CHECK_EQUAL(quad_bounds.end_x, 20u);
-    BOOST_CHECK_EQUAL(quad_bounds.start_y, 34u);
-    BOOST_CHECK_EQUAL(quad_bounds.end_y, 44u);
+    BOOST_CHECK_EQUAL(quad_bounds.start_y, static_cast<unsigned int>(height - 30));
+    BOOST_CHECK_EQUAL(quad_bounds.end_y, static_cast<unsigned int>(height - 20));
 }
 
 BOOST_AUTO_TEST_CASE(bounded_checked_iteration_preserves_emitted_quads)

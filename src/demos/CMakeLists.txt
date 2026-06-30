@@ -148,6 +148,19 @@ target_link_libraries(demo_gears
     swr_demo_common
 )
 
+add_executable(demo_gears_depth
+    $<TARGET_OBJECTS:swr_demo_common>
+    gears_depth/main.cpp
+)
+target_include_directories(demo_gears_depth
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_gears_depth
+    PRIVATE
+    swr_demo_common
+)
+
 add_executable(demo_motion_blur
     $<TARGET_OBJECTS:swr_demo_common>
     common/mesh.cpp
@@ -269,5 +282,19 @@ target_link_libraries(demo_triangle
     swr_demo_common
 )
 
+add_executable(demo_shadow_cube
+    $<TARGET_OBJECTS:swr_demo_common>
+    common/stb.cpp
+    shadow_cube/main.cpp
+)
+target_include_directories(demo_shadow_cube
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+)
+target_link_libraries(demo_shadow_cube
+    PRIVATE
+    stb
+    swr_demo_common
+)
 
 add_subdirectory(cars)

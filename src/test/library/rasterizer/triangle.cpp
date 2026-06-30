@@ -591,7 +591,7 @@ BOOST_AUTO_TEST_CASE(over_aligned_shader_storage)
       == 0);
 
     boost::container::static_vector<
-      swr::sampler_2d*,
+      swr::sampler_base*,
       swr::limits::max::texture_units>
       samplers_2d;
     swr::impl::fragment_shader_instance_container fragment_instance{

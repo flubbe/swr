@@ -49,6 +49,18 @@ swr::impl::texture_2d* get_texture_ptr(
     return render_context->texture_2d_storage[texture_id].get();
 }
 
+swr::impl::attachment_depth* get_depth_attachment_ptr(
+  swr::context_handle context,
+  std::uint32_t attachment_id)
+{
+    BOOST_REQUIRE(context != nullptr);
+    auto* render_context = static_cast<swr::impl::render_context*>(context);
+    BOOST_REQUIRE(attachment_id < render_context->depth_attachments.capacity());
+    BOOST_REQUIRE(attachment_id < render_context->depth_attachments.size());
+    BOOST_REQUIRE(!render_context->depth_attachments.is_free(attachment_id));
+    return &render_context->depth_attachments[attachment_id];
+}
+
 }    // namespace
 
 BOOST_FIXTURE_TEST_SUITE(framebuffer_tests, offscreen_context_fixture)
@@ -124,17 +136,21 @@ BOOST_AUTO_TEST_CASE(framebuffer_object_with_valid_color_and_depth_is_complete)
     swr::SetImage(texture_id, 0, 8, 8, swr::pixel_format::rgba8888, {});
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
-    swr::impl::attachment_depth depth;
-    depth.allocate(8, 8);
+    const std::uint32_t depth_id = swr::CreateDepthRenderbuffer(8, 8);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
     swr::impl::framebuffer_object fbo;
     fbo.attach_texture(
       swr::framebuffer_attachment::color_attachment_0,
       get_texture_ptr(context, texture_id),
       0);
-    fbo.attach_depth(&depth);
+    fbo.attach_depth_renderbuffer(
+      depth_id,
+      get_depth_attachment_ptr(context, depth_id));
 
     BOOST_CHECK(fbo.is_complete());
+
+    swr::ReleaseDepthRenderbuffer(depth_id);
 }
 
 BOOST_AUTO_TEST_CASE(framebuffer_object_with_valid_color_and_invalid_depth_is_incomplete)
@@ -146,16 +162,66 @@ BOOST_AUTO_TEST_CASE(framebuffer_object_with_valid_color_and_invalid_depth_is_in
     swr::SetImage(texture_id, 0, 8, 8, swr::pixel_format::rgba8888, {});
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
-    swr::impl::attachment_depth invalid_depth;
+    const std::uint32_t depth_id = swr::CreateDepthRenderbuffer(8, 8);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
     swr::impl::framebuffer_object fbo;
     fbo.attach_texture(
       swr::framebuffer_attachment::color_attachment_0,
       get_texture_ptr(context, texture_id),
       0);
-    fbo.attach_depth(&invalid_depth);
+    fbo.attach_depth_renderbuffer(
+      std::numeric_limits<std::uint32_t>::max(),
+      get_depth_attachment_ptr(context, depth_id));
 
     BOOST_CHECK(!fbo.is_complete());
+
+    swr::ReleaseDepthRenderbuffer(depth_id);
+}
+
+BOOST_AUTO_TEST_CASE(framebuffer_object_with_valid_depth_attachment_is_complete)
+{
+    const std::uint32_t depth_id = swr::CreateDepthRenderbuffer(8, 8);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::impl::framebuffer_object fbo;
+    fbo.attach_depth_renderbuffer(
+      depth_id,
+      get_depth_attachment_ptr(context, depth_id));
+
+    BOOST_CHECK(fbo.is_complete());
+
+    swr::ReleaseDepthRenderbuffer(depth_id);
+}
+
+BOOST_AUTO_TEST_CASE(released_depth_renderbuffer_makes_framebuffer_incomplete)
+{
+    const std::uint32_t depth_id = swr::CreateDepthRenderbuffer(8, 8);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::impl::framebuffer_object fbo;
+    fbo.attach_depth_renderbuffer(
+      depth_id,
+      get_depth_attachment_ptr(context, depth_id));
+    BOOST_REQUIRE(fbo.is_complete());
+
+    swr::ReleaseDepthRenderbuffer(depth_id);
+    BOOST_CHECK(!fbo.is_complete());
+}
+
+BOOST_AUTO_TEST_CASE(framebuffer_object_with_valid_depth_texture_is_complete)
+{
+    const std::uint32_t texture_id = swr::CreateTexture();
+    BOOST_REQUIRE(texture_id != 0);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::SetImage(texture_id, 0, 8, 8, swr::pixel_format::depth32f, {});
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::impl::framebuffer_object fbo;
+    fbo.attach_depth_texture(get_texture_ptr(context, texture_id), 0);
+
+    BOOST_CHECK(fbo.is_complete());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

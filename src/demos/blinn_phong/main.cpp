@@ -160,27 +160,24 @@ public:
 
     void destroy()
     {
-        swr::ReleaseTexture(cube_tex);
-        swr::DeleteAttributeBuffer(cube_normals);
-        swr::DeleteAttributeBuffer(cube_uvs);
-        swr::DeleteAttributeBuffer(cube_verts);
-
-        cube_tex = 0;
-        cube_uvs = 0;
-        cube_verts = 0;
-        cube_indices.clear();
-
-        if(shader_id)
+        if(context != nullptr)
         {
-            if(context)
+            swr::ReleaseTexture(cube_tex);
+            swr::DeleteAttributeBuffer(cube_normals);
+            swr::DeleteAttributeBuffer(cube_uvs);
+            swr::DeleteAttributeBuffer(cube_verts);
+
+            cube_tex = 0;
+            cube_uvs = 0;
+            cube_verts = 0;
+            cube_indices.clear();
+
+            if(shader_id)
             {
                 swr::UnregisterShader(shader_id);
+                shader_id = 0;
             }
-            shader_id = 0;
-        }
 
-        if(context)
-        {
             swr::DestroyContext(context);
             context = nullptr;
         }
