@@ -158,7 +158,9 @@ public:
 
 geom::vertex make_vertex(float x, float y)
 {
-    return geom::vertex{.coords = {x, y, 0.0f, 0.0f}};
+    return geom::vertex{
+      .coords = {x, y, 0.0f, 0.0f},
+      .varyings = {}};
 }
 
 struct triangle_test_context
