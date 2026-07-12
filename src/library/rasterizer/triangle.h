@@ -691,7 +691,7 @@ inline thin_span compute_thin_triangle_minor_span_in_major_range(
         }
     }
 
-    for(auto i = std::size_t{0}; i < vertices.size(); ++i)
+    for(std::size_t i = 0; i < vertices.size(); ++i)
     {
         const auto& p0 = vertices[i];
         const auto& p1 = vertices[(i + 1) % vertices.size()];

@@ -61,8 +61,8 @@ static void bench_fill_n_32(benchmark::State& state)
     std::vector<std::byte> mem;
     mem.resize(mem_size);
 
-    std::size_t aligned_fill_size = mem_size & ~static_cast<std::size_t>(0x1f);
-    std::size_t tail_size = mem_size & static_cast<std::size_t>(0x1f);
+    std::size_t aligned_fill_size = mem_size & ~0x1fuz;
+    std::size_t tail_size = mem_size & 0x1fuz;
 
     for(auto _: state)
     {

@@ -503,10 +503,12 @@ void assemble_fill_original_indexed_triangles_range(
   Profile& profile,
   EmitTriangle emit_triangle)
 {
+    assert(begin_triangle <= end_triangle);
+    assert(end_triangle <= obj->indices.size() / 3);
+
     for(std::size_t tri = begin_triangle; tri < end_triangle; ++tri)
     {
         const std::size_t index_offset = tri * 3;
-        assert(index_offset + 2 < obj->indices.size());
 
         const std::uint32_t i1 = obj->indices[index_offset];
         const std::uint32_t i2 = obj->indices[index_offset + 1];
@@ -1108,7 +1110,7 @@ void render_context::assemble_indexed_primitives(
     }
     else if(mode == vertex_buffer_mode::lines)
     {
-        const std::size_t size = indices.size() & ~std::size_t{1};
+        const std::size_t size = indices.size() & ~1uz;
         for(std::size_t i = 0; i < size; i += 2)
         {
             assert(indices[i] < vb.size());
@@ -1290,7 +1292,7 @@ void render_context::assemble_original_indexed_primitives(
     }
     else if(mode == vertex_buffer_mode::lines)
     {
-        const std::size_t size = obj.indices.size() & ~std::size_t{1};
+        const std::size_t size = obj.indices.size() & ~1uz;
         for(std::size_t i = 0; i < size; i += 2)
         {
             assert(obj.indices[i] < obj.coord_count);

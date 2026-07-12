@@ -235,7 +235,7 @@ class aligned_byte_storage
     static std::size_t normalize_alignment(
       std::size_t alignment)
     {
-        alignment = std::max<std::size_t>(
+        alignment = std::max(
           alignment,
           default_alignment);
 
