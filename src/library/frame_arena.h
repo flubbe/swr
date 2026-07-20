@@ -23,10 +23,21 @@ namespace impl
 {
 
 /**
- * A per-frame bump arena that reuses object storage across frames.
+ * A per-frame arena that reuses object storage between frames.
  *
- * Objects at indices `[0, size())` are live; the rest are dormant but retain their
- * allocated memory.
+ * The arena owns a contiguous array of objects. The first `size()` elements are
+ * considered live for the current frame. Calling `reset()` marks all objects as
+ * dormant without destroying them, allowing subsequent frames to reuse the same
+ * storage without reallocating or reconstructing objects.
+ *
+ * Newly allocated slots reuse existing objects whenever possible. Therefore,
+ * previously stored state is preserved until overwritten by the caller.
+ *
+ * This container is intended for high-frequency frame allocation where object
+ * lifetime is naturally bounded by a frame.
+ *
+ * @tparam T A default-initializable type.
+ * @tparam Allocator An allocator. Defaults to `std::allocator`.
  */
 template<
   std::default_initializable T,
@@ -37,7 +48,11 @@ class frame_arena
     /** Object storage. */
     std::vector<T, Allocator> storage;
 
-    /** Live objects. */
+    /**
+     * Live objects.
+     *
+     * @note `used <= storage.size()` always holds.
+     * */
     std::size_t used{0};
 
 public:
@@ -63,7 +78,7 @@ public:
         }
         else
         {
-            storage[used] = std::move(T{std::forward<Args>(args)...});
+            storage[used] = T{std::forward<Args>(args)...};
         }
         return storage[used++];
     }
@@ -97,10 +112,11 @@ public:
     }
 
     /**
-     * Allocate a value and return its reference.
+     * Returns a reference to an existing object.
      *
-     * @note The returned object might contain previous state and
-     *       needs to be initialized by the caller.
+     * If storage is reused, the object's previous contents are preserved.
+     * The caller is responsible for assigning or reinitializing every field
+     * before use.
      */
     T& allocate()
     {
@@ -115,7 +131,7 @@ public:
      * Bump-allocate `n` contiguous slots and return a span over them.
      *
      * @note The returned objects might contain previous state and
-     *       need to be initialized by the caller.
+     *     need to be initialized by the caller.
      *
      * @warning The returned span is only stable as long as no subsequent
      *     allocation causes the internal storage to reallocate. Pre-reserve the
@@ -149,6 +165,24 @@ public:
     std::span<const T> span() const
     {
         return std::span{storage}.first(used);
+    }
+
+    /** View over a subspan of the live slots for the current frame. */
+    [[nodiscard]]
+    std::span<T> subspan(
+      std::size_t offset,
+      std::size_t count = std::dynamic_extent)
+    {
+        return span().subspan(offset, count);
+    }
+
+    /** View over a subspan of the live slots for the current frame. */
+    [[nodiscard]]
+    std::span<const T> subspan(
+      std::size_t offset,
+      std::size_t count = std::dynamic_extent) const
+    {
+        return span().subspan(offset, count);
     }
 
     /** Return the storage data. */
@@ -232,13 +266,23 @@ public:
         return storage.capacity();
     }
 
-    /** Reset size. Retains storage capacity, objects, and inner buffers. */
+    /**
+     * Marks all objects as dormant.
+     *
+     * No destructors are run. Existing object state and any memory owned by those
+     * objects are retained for reuse by subsequent frames.
+     */
     void reset() noexcept
     {
         used = 0;
     }
 
-    /** Ensure storage can hold at least `n` elements without reallocation. */
+    /**
+     * Ensures at least `n` objects can become live without reallocating.
+     *
+     * Calling `reserve()` once per frame with the previous peak size avoids pointer
+     * and span invalidation during allocation.
+     */
     void reserve(std::size_t n)
     {
         storage.reserve(n);
