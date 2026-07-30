@@ -2,7 +2,7 @@
 # author: Felix Lubbe
 #
 
-cmake_minimum_required(VERSION 3.22.0)
+cmake_minimum_required(VERSION 3.25)
 
 project(swr LANGUAGES CXX)
 set(SWR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -110,6 +110,7 @@ FetchContent_Declare(
     cpu_features_src
     GIT_REPOSITORY https://github.com/google/cpu_features.git
     GIT_TAG v0.10.1
+    SYSTEM
 )
 FetchContent_MakeAvailable(cpu_features_src)
 
@@ -131,6 +132,7 @@ if(SWR_BUILD_DEMOS)
         simdjson_src
         GIT_REPOSITORY https://github.com/simdjson/simdjson.git
         GIT_TAG v4.6.1
+        SYSTEM
     )
     FetchContent_MakeAvailable(simdjson_src)
 
@@ -165,6 +167,7 @@ FetchContent_Declare(
     ml_src
     GIT_REPOSITORY https://github.com/flubbe/ml.git
     GIT_TAG e13a8b9
+    SYSTEM
 )
 FetchContent_MakeAvailable(ml_src)
 
@@ -172,6 +175,7 @@ FetchContent_Declare(
     concurrency_utils_src
     GIT_REPOSITORY https://github.com/flubbe/concurrency_utils.git
     GIT_TAG 825ba86
+    SYSTEM
 )
 FetchContent_MakeAvailable(concurrency_utils_src)
 
@@ -197,6 +201,7 @@ function(swr_provide_sdl3)
             SDL3_src
             GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
             GIT_TAG release-3.4.4
+            SYSTEM
         )
         FetchContent_MakeAvailable(SDL3_src)
         if(NOT TARGET SDL3::SDL3)
@@ -220,6 +225,7 @@ function(swr_provide_sdl3)
         SDL3_src
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-3.4.4
+        SYSTEM
     )
     FetchContent_MakeAvailable(SDL3_src)
 
