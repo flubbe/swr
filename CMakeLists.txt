@@ -166,18 +166,10 @@ endif()
 FetchContent_Declare(
     ml_src
     GIT_REPOSITORY https://github.com/flubbe/ml.git
-    GIT_TAG a3cda1c
+    GIT_TAG 8058f95
     SYSTEM
 )
 FetchContent_MakeAvailable(ml_src)
-
-get_target_property(sys ml SYSTEM)
-get_target_property(incs ml INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
-get_target_property(norm ml INTERFACE_INCLUDE_DIRECTORIES)
-
-message(STATUS "ml SYSTEM = ${sys}")
-message(STATUS "ml SYSTEM includes = ${incs}")
-message(STATUS "ml normal includes = ${norm}")
 
 FetchContent_Declare(
     concurrency_utils_src
