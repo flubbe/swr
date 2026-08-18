@@ -254,6 +254,21 @@ target_link_libraries(test_utils
 )
 add_test(NAME utils COMMAND test_utils --color_output=no)
 
+add_executable(test_frame_arena library/frame_arena.cpp)
+target_include_directories(test_frame_arena
+    PRIVATE
+    ${SWR_SOURCE_DIR}/src
+    ${SWR_SOURCE_DIR}/src/library
+)
+target_compile_definitions(test_frame_arena PRIVATE BOOST_TEST_DYN_LINK)
+target_link_libraries(test_frame_arena
+    PRIVATE
+    Boost::unit_test_framework
+    swr_project_options
+    swr_project_warnings
+)
+add_test(NAME frame_arena COMMAND test_frame_arena --color_output=no)
+
 add_executable(test_slot_map slot_map.cpp)
 target_compile_definitions(test_slot_map PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(test_slot_map
