@@ -28,14 +28,14 @@ BOOST_AUTO_TEST_CASE(slot_map_basic_push)
 
     // Initially empty
     BOOST_CHECK_EQUAL(sm.size(), 0);
-    BOOST_CHECK_EQUAL(sm.capacity(), 0);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 0);
     BOOST_CHECK(sm.empty());
 
     // Push first element
     std::size_t idx1 = sm.push(42);
     BOOST_CHECK_EQUAL(idx1, 0);
     BOOST_CHECK_EQUAL(sm.size(), 1);
-    BOOST_CHECK_EQUAL(sm.capacity(), 1);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 1);
     BOOST_CHECK(!sm.empty());
     BOOST_CHECK_EQUAL(sm[idx1], 42);
 
@@ -43,14 +43,14 @@ BOOST_AUTO_TEST_CASE(slot_map_basic_push)
     std::size_t idx2 = sm.push(24);
     BOOST_CHECK_EQUAL(idx2, 1);
     BOOST_CHECK_EQUAL(sm.size(), 2);
-    BOOST_CHECK_EQUAL(sm.capacity(), 2);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 2);
     BOOST_CHECK_EQUAL(sm[idx2], 24);
 
     // Push third element
     std::size_t idx3 = sm.push(12);
     BOOST_CHECK_EQUAL(idx3, 2);
     BOOST_CHECK_EQUAL(sm.size(), 3);
-    BOOST_CHECK_EQUAL(sm.capacity(), 3);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 3);
     BOOST_CHECK_EQUAL(sm[idx3], 12);
 }
 
@@ -80,35 +80,35 @@ BOOST_AUTO_TEST_CASE(slot_map_free_and_reuse)
     std::size_t idx3 = sm.push(3);
 
     BOOST_CHECK_EQUAL(sm.size(), 3);
-    BOOST_CHECK_EQUAL(sm.capacity(), 3);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 3);
 
     // Free middle element
-    sm.free(idx2);
+    sm.erase(idx2);
     BOOST_CHECK_EQUAL(sm.size(), 2);
-    BOOST_CHECK_EQUAL(sm.capacity(), 3);
-    BOOST_CHECK(sm.is_free(idx2));
-    BOOST_CHECK(!sm.is_free(idx1));
-    BOOST_CHECK(!sm.is_free(idx3));
+    BOOST_CHECK_EQUAL(sm.slot_count(), 3);
+    BOOST_CHECK(!sm.contains(idx2));
+    BOOST_CHECK(sm.contains(idx1));
+    BOOST_CHECK(sm.contains(idx3));
 
     // Push new element - should reuse freed slot
     std::size_t idx4 = sm.push(4);
     BOOST_CHECK_EQUAL(idx4, idx2);    // Should reuse idx2
     BOOST_CHECK_EQUAL(sm.size(), 3);
-    BOOST_CHECK_EQUAL(sm.capacity(), 3);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 3);
     BOOST_CHECK_EQUAL(sm[idx4], 4);
-    BOOST_CHECK(!sm.is_free(idx4));
+    BOOST_CHECK(sm.contains(idx4));
 
     // Free first element
-    sm.free(idx1);
+    sm.erase(idx1);
     BOOST_CHECK_EQUAL(sm.size(), 2);
-    BOOST_CHECK(sm.is_free(idx1));
+    BOOST_CHECK(!sm.contains(idx1));
 
     // Push another element - should reuse idx1 (LIFO)
     std::size_t idx5 = sm.push(5);
     BOOST_CHECK_EQUAL(idx5, idx1);
     BOOST_CHECK_EQUAL(sm.size(), 3);
     BOOST_CHECK_EQUAL(sm[idx5], 5);
-    BOOST_CHECK(!sm.is_free(idx5));
+    BOOST_CHECK(sm.contains(idx5));
 }
 
 BOOST_AUTO_TEST_CASE(slot_map_lifo_free_slots)
@@ -122,9 +122,9 @@ BOOST_AUTO_TEST_CASE(slot_map_lifo_free_slots)
     std::size_t idx4 = sm.push(4);
 
     // Free in order: idx2, idx4, idx1
-    sm.free(idx2);
-    sm.free(idx4);
-    sm.free(idx1);
+    sm.erase(idx2);
+    sm.erase(idx4);
+    sm.erase(idx1);
 
     // Push should reuse in LIFO order: idx1, idx4, idx2
     std::size_t idx5 = sm.push(5);
@@ -150,12 +150,12 @@ BOOST_AUTO_TEST_CASE(slot_map_clear)
     sm.push(3);
 
     BOOST_CHECK_EQUAL(sm.size(), 3);
-    BOOST_CHECK_EQUAL(sm.capacity(), 3);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 3);
 
     sm.clear();
 
     BOOST_CHECK_EQUAL(sm.size(), 0);
-    BOOST_CHECK_EQUAL(sm.capacity(), 0);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 0);
     BOOST_CHECK(sm.empty());
 }
 
@@ -167,11 +167,11 @@ BOOST_AUTO_TEST_CASE(slot_map_shrink_to_fit)
     sm.push(2);
     sm.push(3);
 
-    BOOST_CHECK_EQUAL(sm.capacity(), 3);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 3);
 
-    sm.free(1);    // Free middle element
+    sm.erase(1);    // Free middle element
     BOOST_CHECK_EQUAL(sm.size(), 2);
-    BOOST_CHECK_EQUAL(sm.capacity(), 3);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 3);
 
     sm.shrink_to_fit();
     // Note: shrink_to_fit doesn't actually reduce capacity in this implementation
@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE(slot_map_edge_cases)
     BOOST_CHECK_EQUAL(sm.size(), 1);
     BOOST_CHECK(!sm.empty());
 
-    sm.free(idx);
+    sm.erase(idx);
     BOOST_CHECK_EQUAL(sm.size(), 0);
     BOOST_CHECK(sm.empty());
 
@@ -231,13 +231,13 @@ BOOST_AUTO_TEST_CASE(slot_map_custom_container)
     std::size_t idx2 = sm.push(2);
 
     BOOST_CHECK_EQUAL(sm.size(), 2);
-    BOOST_CHECK_EQUAL(sm.capacity(), 2);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 2);
     BOOST_CHECK_EQUAL(sm[idx1], 1);
     BOOST_CHECK_EQUAL(sm[idx2], 2);
 
-    sm.free(idx1);
+    sm.erase(idx1);
     BOOST_CHECK_EQUAL(sm.size(), 1);
-    BOOST_CHECK(sm.is_free(idx1));
+    BOOST_CHECK(!sm.contains(idx1));
 
     std::size_t idx3 = sm.push(3);
     BOOST_CHECK_EQUAL(idx3, idx1);    // Should reuse
@@ -256,12 +256,12 @@ BOOST_AUTO_TEST_CASE(slot_map_multiple_free_reuse)
     }
 
     BOOST_CHECK_EQUAL(sm.size(), 10);
-    BOOST_CHECK_EQUAL(sm.capacity(), 10);
+    BOOST_CHECK_EQUAL(sm.slot_count(), 10);
 
     // Free every other element
     for(std::size_t i = 0; i < indices.size(); i += 2)
     {
-        sm.free(indices[i]);
+        sm.erase(indices[i]);
     }
 
     BOOST_CHECK_EQUAL(sm.size(), 5);
@@ -290,18 +290,18 @@ BOOST_AUTO_TEST_CASE(slot_map_size_capacity_consistency)
 {
     utils::slot_map<int> sm;
 
-    // Test that size + free_slots.size() == capacity
-    BOOST_CHECK_EQUAL(sm.size() + sm.free_slots.size(), sm.capacity());
+    // Test that size + free_slot_count() == capacity
+    BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
     sm.push(1);
-    BOOST_CHECK_EQUAL(sm.size() + sm.free_slots.size(), sm.capacity());
+    BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
     sm.push(2);
-    BOOST_CHECK_EQUAL(sm.size() + sm.free_slots.size(), sm.capacity());
+    BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
-    sm.free(0);
-    BOOST_CHECK_EQUAL(sm.size() + sm.free_slots.size(), sm.capacity());
+    sm.erase(0);
+    BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
     sm.push(3);
-    BOOST_CHECK_EQUAL(sm.size() + sm.free_slots.size(), sm.capacity());
+    BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 }

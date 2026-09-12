@@ -164,7 +164,7 @@ void UnregisterShader(std::uint32_t id)
 
     if(id < impl::global_context->programs.size())
     {
-        impl::global_context->programs.free(id);
+        impl::global_context->programs.erase(id);
     }
 }
 

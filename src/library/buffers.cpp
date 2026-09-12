@@ -60,7 +60,7 @@ static void delete_buffer(std::uint32_t id, utils::slot_map<T>& buffers, error& 
     if(id < buffers.size())
     {
         buffers[id].clear();
-        buffers.free(id);
+        buffers.erase(id);
     }
     else
     {
@@ -81,7 +81,7 @@ void DeleteAttributeBuffer(std::uint32_t id)
     if(id < impl::global_context->vertex_attribute_buffers.size())
     {
         impl::global_context->vertex_attribute_buffers[id].data.clear(); /* FIXME the .data member access here prevents more unification with the delete_buffer function above? */
-        impl::global_context->vertex_attribute_buffers.free(id);
+        impl::global_context->vertex_attribute_buffers.erase(id);
     }
     else
     {

@@ -727,8 +727,7 @@ void ReleaseTexture(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id < context->texture_2d_storage.size()
-       && !context->texture_2d_storage.is_free(id))
+    if(context->texture_2d_storage.contains(id))
     {
         const auto active_unit = context->states.texture_2d_active_unit;
 
@@ -752,7 +751,7 @@ void ReleaseTexture(
 
         // free texture memory.
         context->texture_2d_storage[id].reset();
-        context->texture_2d_storage.free(id);
+        context->texture_2d_storage.erase(id);
     }
 }
 
