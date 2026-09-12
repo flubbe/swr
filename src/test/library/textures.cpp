@@ -73,8 +73,8 @@ swr::impl::texture_2d* get_texture_ptr(
 {
     BOOST_REQUIRE(context != nullptr);
     auto* render_context = static_cast<swr::impl::render_context*>(context);
-    BOOST_REQUIRE_LT(texture_id, render_context->texture_2d_storage.capacity());
-    BOOST_REQUIRE(texture_id < render_context->texture_2d_storage.size());
+    BOOST_REQUIRE_LT(texture_id, render_context->texture_2d_storage.slot_count());
+    BOOST_REQUIRE(render_context->texture_2d_storage.contains(texture_id));
     BOOST_REQUIRE(render_context->texture_2d_storage[texture_id]);
     return render_context->texture_2d_storage[texture_id].get();
 }

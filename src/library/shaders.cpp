@@ -99,7 +99,7 @@ void create_default_shader(render_context* context)
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // the default shader needs to be at position 0.
-    if(context->programs.size() > default_shader_index)
+    if(!context->programs.empty())
     {
         throw std::runtime_error("unable to create default shader: memory already allocated.");
     }
@@ -162,9 +162,9 @@ void UnregisterShader(std::uint32_t id)
         return;
     }
 
-    if(id < impl::global_context->programs.size())
+    if(impl::global_context->programs.contains(id))
     {
-        impl::global_context->programs.free(id);
+        impl::global_context->programs.erase(id);
     }
 }
 
@@ -172,7 +172,7 @@ bool BindShader(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
 
-    if(id < impl::global_context->programs.size())
+    if(impl::global_context->programs.contains(id))
     {
         // Bind the shader.
         impl::global_context->states.shader_info = &impl::global_context->programs[id];

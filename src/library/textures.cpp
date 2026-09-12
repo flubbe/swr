@@ -612,7 +612,7 @@ bool bind_texture_pointer(
     if(*texture_2d == nullptr
        || (*texture_2d)->id != id)
     {
-        if(id < global_context->texture_2d_storage.size())
+        if(global_context->texture_2d_storage.contains(id))
         {
             *texture_2d = global_context->texture_2d_storage[id].get();
         }
@@ -727,8 +727,7 @@ void ReleaseTexture(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id < context->texture_2d_storage.size()
-       && !context->texture_2d_storage.is_free(id))
+    if(context->texture_2d_storage.contains(id))
     {
         const auto active_unit = context->states.texture_2d_active_unit;
 
@@ -752,7 +751,7 @@ void ReleaseTexture(
 
         // free texture memory.
         context->texture_2d_storage[id].reset();
-        context->texture_2d_storage.free(id);
+        context->texture_2d_storage.erase(id);
     }
 }
 
@@ -816,7 +815,7 @@ void SetImage(
         return;
     }
 
-    if(texture_id >= context->texture_2d_storage.size())
+    if(!context->texture_2d_storage.contains(texture_id))
     {
         context->last_error = error::invalid_value;
         return;
@@ -894,7 +893,7 @@ void SetSubImage(
         return;
     }
 
-    if(texture_id >= context->texture_2d_storage.size())
+    if(!context->texture_2d_storage.contains(texture_id))
     {
         context->last_error = error::invalid_value;
         return;
