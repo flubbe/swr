@@ -458,7 +458,7 @@ ml::vec4 sample_texture_uv(
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
     BOOST_REQUIRE(render_context != nullptr);
-    BOOST_REQUIRE(texture_id < render_context->texture_2d_storage.size());
+    BOOST_REQUIRE(render_context->texture_2d_storage.contains(texture_id));
 
     const auto* texture_ptr = render_context->texture_2d_storage[texture_id].get();
     BOOST_REQUIRE(texture_ptr != nullptr);
@@ -512,7 +512,7 @@ float min_depth_texture_value(
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
     BOOST_REQUIRE(render_context != nullptr);
-    BOOST_REQUIRE(texture_id < render_context->texture_2d_storage.size());
+    BOOST_REQUIRE(render_context->texture_2d_storage.contains(texture_id));
 
     const auto* texture_ptr = render_context->texture_2d_storage[texture_id].get();
     BOOST_REQUIRE(texture_ptr != nullptr);

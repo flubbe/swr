@@ -33,7 +33,7 @@ std::uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
 void UpdateIndexBuffer(std::uint32_t id, const std::vector<std::uint32_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
-    if(id >= impl::global_context->index_buffers.size())
+    if(!impl::global_context->index_buffers.contains(id))
     {
         impl::global_context->last_error = swr::error::invalid_value;
         return;
@@ -57,7 +57,7 @@ void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data)
 template<typename T>
 static void delete_buffer(std::uint32_t id, utils::slot_map<T>& buffers, error& last_error)
 {
-    if(id < buffers.size())
+    if(buffers.contains(id))
     {
         buffers[id].clear();
         buffers.erase(id);

@@ -612,7 +612,7 @@ bool bind_texture_pointer(
     if(*texture_2d == nullptr
        || (*texture_2d)->id != id)
     {
-        if(id < global_context->texture_2d_storage.size())
+        if(global_context->texture_2d_storage.contains(id))
         {
             *texture_2d = global_context->texture_2d_storage[id].get();
         }
@@ -815,7 +815,7 @@ void SetImage(
         return;
     }
 
-    if(texture_id >= context->texture_2d_storage.size())
+    if(!context->texture_2d_storage.contains(texture_id))
     {
         context->last_error = error::invalid_value;
         return;
@@ -893,7 +893,7 @@ void SetSubImage(
         return;
     }
 
-    if(texture_id >= context->texture_2d_storage.size())
+    if(!context->texture_2d_storage.contains(texture_id))
     {
         context->last_error = error::invalid_value;
         return;

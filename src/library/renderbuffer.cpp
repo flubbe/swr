@@ -47,7 +47,7 @@ bool texture_attachment_binding::is_valid() const
         return false;
     }
 
-    if(tex_id >= global_context->texture_2d_storage.size())
+    if(!global_context->texture_2d_storage.contains(tex_id))
     {
         return false;
     }
@@ -78,7 +78,7 @@ bool depth_texture_attachment_binding::is_valid() const
         return false;
     }
 
-    if(tex_id >= global_context->texture_2d_storage.size())
+    if(!global_context->texture_2d_storage.contains(tex_id))
     {
         return false;
     }
@@ -97,11 +97,6 @@ bool depth_renderbuffer_attachment_binding::is_valid() const
 {
     if(attachment == nullptr
        || info.data_ptr == nullptr)
-    {
-        return false;
-    }
-
-    if(attachment_id >= global_context->depth_attachments.size())
     {
         return false;
     }
