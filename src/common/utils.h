@@ -415,7 +415,6 @@ template<class C, class T>
 concept slot_map_container =
   requires(C c, const C cc, std::size_t i, const T& value, T&& rvalue) {
       typename C::value_type;
-
       requires std::same_as<typename C::value_type, T>;
 
       { cc.size() } -> std::convertible_to<std::size_t>;
@@ -445,16 +444,27 @@ concept shrinkable_container =
 template<
   typename T,
   slot_map_container<T> Container = std::vector<T>>
-struct slot_map
+class slot_map
 {
+public:
+    using value_type = T;
+    using size_type = std::size_t;
+    using reference = T&;
+    using const_reference = const T&;
+
+private:
     /** data. */
     Container data;
 
-    /** list of free object slots. */
-    std::list<std::size_t> free_slots;
+    /** occupancy. */
+    std::vector<bool> occupied;
 
+    /** free object slot list. */
+    std::vector<size_type> free_slots;
+
+public:
     /** insert a new item. */
-    std::size_t push(const T& item)
+    size_type push(const T& item)
     {
         if(!free_slots.empty())
         {
@@ -462,15 +472,17 @@ struct slot_map
             free_slots.pop_back();
 
             data[i] = item;
+            occupied[i] = true;
             return i;
         }
 
         data.emplace_back(item);
+        occupied.push_back(true);
         return data.size() - 1;
     }
 
     /** insert a new item. */
-    std::size_t push(T&& item)
+    size_type push(T&& item)
     {
         if(!free_slots.empty())
         {
@@ -478,30 +490,33 @@ struct slot_map
             free_slots.pop_back();
 
             data[i] = std::move(item);
+            occupied[i] = true;
             return i;
         }
 
         data.emplace_back(std::move(item));
+        occupied.push_back(true);
         return data.size() - 1;
     }
 
-    /** mark a slot as free. */
-    void free(std::size_t i)
+    /**
+     * Removes the element from the slot map.
+     *
+     * The underlying object remains constructed and its slot may be
+     * reused by a subsequent insertion.
+     */
+    void erase(size_type i)
     {
-        assert(i < data.size());
+        assert(contains(i));
+        occupied[i] = false;
         free_slots.emplace_back(i);
-    }
-
-    /** check if an index is in the list of free slots. */
-    bool is_free(std::size_t i) const
-    {
-        return std::ranges::find(free_slots, i) != free_slots.end();
     }
 
     /** clear data and list of free slots. */
     void clear()
     {
         data.clear();
+        occupied.clear();
         free_slots.clear();
     }
 
@@ -512,48 +527,99 @@ struct slot_map
         {
             data.shrink_to_fit();
         }
+        occupied.shrink_to_fit();
+        free_slots.shrink_to_fit();
     }
 
     /** query size. */
-    std::size_t size() const
+    [[nodiscard]]
+    size_type size() const noexcept
     {
         assert(data.size() >= free_slots.size());
         return data.size() - free_slots.size();
     }
 
     /** check whether the slot map is empty. */
-    bool empty() const
+    [[nodiscard]]
+    bool empty() const noexcept
     {
         return size() == 0;
     }
 
-    /** query the current capacity. */
-    std::size_t capacity() const
+    /** query the current slot count. */
+    [[nodiscard]]
+    size_type slot_count() const noexcept
     {
         return data.size();
+    }
+
+    /** query the free slot count. */
+    [[nodiscard]]
+    size_type free_slot_count() const noexcept
+    {
+        return free_slots.size();
     }
 
     /*
      * element access.
      */
 
-    /**
-     * element access. the caller has to take care of the validity of the index.
-     * that is, we do not check if the supplied index not in the free_slots list.
-     */
-    const T& operator[](std::size_t i) const
+    /** check whether a specific index is contained in the map. */
+    [[nodiscard]]
+    bool contains(size_type i) const noexcept
     {
-        assert(i < data.size());
+        return i < occupied.size() && occupied[i];
+    }
+
+    /**
+     * Unchecked element access.
+     *
+     * Asserts that the supplied index refers to an occupied slot.
+     */
+    const_reference operator[](size_type i) const
+    {
+        assert(contains(i));
         return data[i];
     }
 
     /**
-     * element access. the caller has to take care of the validity of the index.
-     * that is, we do not check if the supplied index not in the free_slots list.
+     * Unchecked element access.
+     *
+     * Asserts that the supplied index refers to an occupied slot.
      */
-    T& operator[](std::size_t i)
+    reference operator[](size_type i)
     {
-        assert(i < data.size());
+        assert(contains(i));
+        return data[i];
+    }
+
+    /**
+     * checked element access.
+     *
+     * @throws Throws `std::out_of_range` if the index is not contained in the map.
+     */
+    reference at(size_type i)
+    {
+        if(!contains(i))
+        {
+            throw std::out_of_range("slot_map::at");
+        }
+
+        return data[i];
+    }
+
+    /**
+     * checked element access.
+     *
+     * @throws Throws `std::out_of_range` if the index is not contained in the map.
+     */
+    const_reference at(size_type i) const
+    {
+        if(!contains(i))
+        {
+            throw std::out_of_range("slot_map::at");
+        }
+
         return data[i];
     }
 };

@@ -47,7 +47,7 @@ bool texture_attachment_binding::is_valid() const
         return false;
     }
 
-    if(tex_id >= global_context->texture_2d_storage.size())
+    if(!global_context->texture_2d_storage.contains(tex_id))
     {
         return false;
     }
@@ -78,7 +78,7 @@ bool depth_texture_attachment_binding::is_valid() const
         return false;
     }
 
-    if(tex_id >= global_context->texture_2d_storage.size())
+    if(!global_context->texture_2d_storage.contains(tex_id))
     {
         return false;
     }
@@ -101,12 +101,7 @@ bool depth_renderbuffer_attachment_binding::is_valid() const
         return false;
     }
 
-    if(attachment_id >= global_context->depth_attachments.size())
-    {
-        return false;
-    }
-
-    if(global_context->depth_attachments.is_free(attachment_id))
+    if(!global_context->depth_attachments.contains(attachment_id))
     {
         return false;
     }
@@ -1211,8 +1206,7 @@ void ReleaseFramebufferObject(
     }
 
     auto slot = id_to_slot(id);
-    if(slot < context->framebuffer_objects.size()
-       && !context->framebuffer_objects.is_free(slot))
+    if(context->framebuffer_objects.contains(slot))
     {
         // check if we are bound to a target and reset the target if necessary.
         if(context->states.draw_target == &context->framebuffer_objects[slot])
@@ -1222,7 +1216,7 @@ void ReleaseFramebufferObject(
 
         // release framebuffer object.
         context->framebuffer_objects[slot].reset();
-        context->framebuffer_objects.free(slot);
+        context->framebuffer_objects.erase(slot);
     }
 }
 
@@ -1253,8 +1247,7 @@ void BindFramebufferObject(
 
     // check that the id is valid.
     auto slot = id_to_slot(id);
-    if(slot >= context->framebuffer_objects.size()
-       || context->framebuffer_objects.is_free(slot))
+    if(!context->framebuffer_objects.contains(slot))
     {
         context->last_error = error::invalid_operation;
         return;
@@ -1299,8 +1292,7 @@ void FramebufferTexture(
 
         // get framebuffer object.
         auto slot = id_to_slot(id);
-        if(slot >= context->framebuffer_objects.size()
-           || context->framebuffer_objects.is_free(slot))
+        if(!context->framebuffer_objects.contains(slot))
         {
             context->last_error = error::invalid_value;
             return;
@@ -1309,8 +1301,7 @@ void FramebufferTexture(
 
         // get texture.
         auto tex_id = attachment_id;
-        if(tex_id >= context->texture_2d_storage.size()
-           || context->texture_2d_storage.is_free(tex_id))
+        if(!context->texture_2d_storage.contains(tex_id))
         {
             context->last_error = error::invalid_value;
             return;
@@ -1330,8 +1321,7 @@ void FramebufferTexture(
     else if(attachment == framebuffer_attachment::depth_attachment)
     {
         auto slot = id_to_slot(id);
-        if(slot >= context->framebuffer_objects.size()
-           || context->framebuffer_objects.is_free(slot))
+        if(!context->framebuffer_objects.contains(slot))
         {
             context->last_error = error::invalid_value;
             return;
@@ -1339,8 +1329,7 @@ void FramebufferTexture(
         auto fbo = &context->framebuffer_objects[slot];
 
         auto tex_id = attachment_id;
-        if(tex_id >= context->texture_2d_storage.size()
-           || context->texture_2d_storage.is_free(tex_id))
+        if(!context->texture_2d_storage.contains(tex_id))
         {
             context->last_error = error::invalid_value;
             return;
@@ -1381,10 +1370,9 @@ void ReleaseDepthRenderbuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id < context->depth_attachments.size()
-       && !context->depth_attachments.is_free(id))
+    if(context->depth_attachments.contains(id))
     {
-        context->depth_attachments.free(id);
+        context->depth_attachments.erase(id);
     }
 }
 
@@ -1410,16 +1398,14 @@ void FramebufferRenderbuffer(
         return;
     }
 
-    if(attachment_id >= context->depth_attachments.size()
-       || context->depth_attachments.is_free(attachment_id))
+    if(!context->depth_attachments.contains(attachment_id))
     {
         context->last_error = error::invalid_value;
         return;
     }
 
     auto slot = id_to_slot(id);
-    if(slot >= context->framebuffer_objects.size()
-       || context->framebuffer_objects.is_free(slot))
+    if(!context->framebuffer_objects.contains(slot))
     {
         context->last_error = error::invalid_value;
         return;

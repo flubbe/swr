@@ -185,7 +185,7 @@ const ml::vec4& read_texture_pixel(
 
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE_LT(texture_id, render_context->texture_2d_storage.capacity());
+    BOOST_REQUIRE_LT(texture_id, render_context->texture_2d_storage.slot_count());
 
     const auto* texture_ptr = render_context->texture_2d_storage[texture_id].get();
     BOOST_REQUIRE(texture_ptr != nullptr);

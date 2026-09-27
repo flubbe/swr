@@ -388,19 +388,6 @@ std::string arg_value(const std::string& arg, const std::string& name)
     return {};
 }
 
-bool parse_bool(const std::string& value, bool default_value)
-{
-    if(value == "1" || value == "true" || value == "on")
-    {
-        return true;
-    }
-    if(value == "0" || value == "false" || value == "off")
-    {
-        return false;
-    }
-    return default_value;
-}
-
 swr::rasterizer_feature_mode parse_rasterizer_feature_mode(
   const std::string& value,
   swr::rasterizer_feature_mode default_value)
