@@ -554,6 +554,8 @@ BOOST_AUTO_TEST_CASE(depth_texture_can_be_used_as_framebuffer_depth_attachment)
     swr::SetClearDepth(0.25f);
     swr::ClearDepthBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
     auto* depth_texture = get_texture_ptr(context, depth_texture_id);
     BOOST_REQUIRE(depth_texture != nullptr);

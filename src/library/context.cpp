@@ -64,8 +64,14 @@ void render_context::create_rasterizer()
 
 void render_context::shutdown()
 {
-    // empty command list.
-    render_object_list.clear();
+    // release command list, render objects, state snapshots, and vertex data.
+    command_list.release();
+    render_objects.release();
+    index_buffer_pool.release();
+    resolved_draws.release();
+    state_snapshots.release();
+    attribute_snapshot_pool.release();
+    vertex_data_pool.release();
 
     /*
      * Clean up all slot maps.
@@ -107,34 +113,14 @@ void render_context::shutdown()
     framebuffer.reset();
 }
 
-void render_context::clear_color_buffer()
+void render_context::create_clear_command(
+  clear_kind kind)
 {
-    // buffer clearing respects scissoring.
-    if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
-    {
-        states.draw_target->clear_color(0, states.clear_color, states.scissor_box);
-    }
-    else
-    {
-        states.draw_target->clear_color(0, states.clear_color);
-    }
-}
-
-void render_context::clear_depth_buffer()
-{
-    // buffer clearing respects scissoring.
-    if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
-    {
-        states.draw_target->clear_depth(states.clear_depth, states.scissor_box);
-    }
-    else
-    {
-        states.draw_target->clear_depth(states.clear_depth);
-    }
+    const std::size_t snapshot_idx = capture_state();
+    command_list.emplace_back(
+      clear_command{
+        .kind = kind,
+        .state_snapshot_index = snapshot_idx});
 }
 
 /*

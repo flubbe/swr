@@ -11,6 +11,7 @@
 #include <limits>
 #include <ranges>
 #include <unordered_map>
+#include <algorithm>
 
 /* user headers. */
 #include "swr_internal.h"
@@ -101,6 +102,12 @@ index_compaction_result compact_indices(
  * render object management.
  */
 
+std::size_t render_context::capture_state()
+{
+    state_snapshots.push_back(states);
+    return state_snapshots.size() - 1;
+}
+
 template<typename TransformFn>
 void copy_attributes(
   render_object& obj,
@@ -140,35 +147,38 @@ void copy_attributes(
     }
 }
 
-/*
- * create a new render object and initialize it with its vertices, the vertex buffer mode, the render states
- * and the active attributes.
- */
-render_object* render_context::create_render_object(
+void render_context::create_draw_command(
   vertex_buffer_mode mode,
   std::size_t count)
 {
     if(count == 0)
     {
         last_error = swr::error::invalid_value;
-        return nullptr;
+        return;
     }
 
-    // create and initialize new object.
-    auto& new_object = render_object_list.emplace_back(count, mode, states);
-    copy_attributes(
-      new_object,
-      active_vabs,
-      vertex_attribute_buffers,
-      [](std::uint32_t i) -> std::uint32_t
-      {
-          return i;
-      });
+    const std::uint32_t snapshot_idx = capture_state();
+    const std::uint32_t index_begin = index_buffer_pool.size();
 
-    return &new_object;
+    auto indices = index_buffer_pool.allocate_range(count);
+    std::ranges::iota(indices, 0);
+    auto attribute_range = capture_attribute_buffers(
+      count,
+      [](std::uint32_t i) -> std::uint32_t
+      { return i; });
+
+    command_list.emplace_back(impl::draw_command{
+      .mode = mode,
+      .state_snapshot_index = snapshot_idx,
+      .indices = {
+        .begin = index_begin,
+        .count = count},
+      .attribute_indices = {.begin = index_begin, .count = count},
+      .attribute_index_range = attribute_range,
+      .attribute_count = active_vabs.size()});
 }
 
-render_object* render_context::create_indexed_render_object(
+void render_context::create_indexed_draw_command(
   vertex_buffer_mode mode,
   std::size_t count,
   const std::vector<std::uint32_t>& index_buffer)
@@ -176,37 +186,53 @@ render_object* render_context::create_indexed_render_object(
     if(index_buffer.empty())
     {
         last_error = swr::error::invalid_value;
-        return nullptr;
+        return;
     }
 
     if(count > index_buffer.size())
     {
         last_error = swr::error::invalid_value;
-        return nullptr;
+        return;
     }
+
+    const std::size_t snapshot_idx = capture_state();
+    const std::size_t attribute_index_begin = index_buffer_pool.size();
 
     index_compaction_result compacted =
       compact_indices(
         std::span{index_buffer}.first(count));
 
-    // create and initialize new object.
-    render_object_list.emplace_back(
-      std::move(compacted.remapped_indices),
-      compacted.source_indices.size(),
-      mode,
-      states);
-    auto& new_object = render_object_list.back();
+    auto attribute_indices = index_buffer_pool.allocate_range(
+      compacted.source_indices.size());
+    std::copy(
+      compacted.source_indices.begin(),
+      compacted.source_indices.end(),
+      attribute_indices.begin());
 
-    copy_attributes(
-      new_object,
-      active_vabs,
-      vertex_attribute_buffers,
+    const std::size_t index_begin = index_buffer_pool.size();
+    auto indices = index_buffer_pool.allocate_range(
+      compacted.remapped_indices.size());
+    std::copy(
+      compacted.remapped_indices.begin(),
+      compacted.remapped_indices.end(),
+      indices.begin());
+    auto attribute_range = capture_attribute_buffers(
+      compacted.source_indices.size(),
       [&compacted](std::uint32_t i) -> std::uint32_t
       {
           return compacted.source_indices[i];
       });
 
-    return &new_object;
+    // Queue draw command.
+    command_list.emplace_back(impl::draw_command{
+      .mode = mode,
+      .state_snapshot_index = snapshot_idx,
+      .indices = {
+        .begin = index_begin,
+        .count = indices.size()},
+      .attribute_indices = {.begin = attribute_index_begin, .count = attribute_indices.size()},
+      .attribute_index_range = attribute_range,
+      .attribute_count = active_vabs.size()});
 }
 
 } /* namespace impl */

@@ -25,7 +25,7 @@ void DrawElements(
     ASSERT_INTERNAL_CONTEXT;
 
     // add draw command to command list.
-    impl::global_context->create_render_object(
+    impl::global_context->create_draw_command(
       mode,
       vertex_count);
 }
@@ -38,7 +38,7 @@ void DrawIndexedElements(
     ASSERT_INTERNAL_CONTEXT;
 
     // add draw command to the command list.
-    impl::global_context->create_indexed_render_object(
+    impl::global_context->create_indexed_draw_command(
       mode,
       count,
       index_buffer);

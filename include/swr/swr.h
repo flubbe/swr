@@ -430,7 +430,8 @@ void SetSubImage(std::uint32_t texture_id, std::uint32_t level, std::size_t offs
  * @param s Wrapping mode in s direction
  * @param t Wrapping mode in t direction
  *
- * @note Currently only 2d textures are handled. If debugging and if an error occures while binding the texture, an assertion is raised.
+ * @note Currently only 2d textures are handled. If debugging and if an
+ *     error occures while binding the texture, an assertion is raised.
  */
 void SetTextureWrapMode(std::uint32_t id, wrap_mode s, wrap_mode t);
 

@@ -10,7 +10,13 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <variant>
+#include <vector>
+
 #include "concurrency_utils/thread_pool.h"
+#include "frame_arena.h"
+#include "renderobject.h"
 
 namespace swr
 {
@@ -261,6 +267,84 @@ enum class context_type
     offscreen /** offscreen context. */
 };
 
+/*
+ * render commands.
+ */
+
+/**
+ * Payload descriptor for update buffer contents stored in a raw pool.
+ *
+ * @note We store `begin` and `count` (instead of e.g. `std::span`) here,
+ *     since the referenced buffer might re-allocate.
+ */
+struct index_range
+{
+    /** Beginning index into a buffer pool. */
+    std::size_t begin{0};
+
+    /** Buffer element count. */
+    std::size_t count{0};
+};
+
+/** Draw command for a render object. */
+struct draw_command
+{
+    /** Vertex buffer mode. */
+    vertex_buffer_mode mode;
+
+    /** State snapshot. */
+    std::size_t state_snapshot_index;
+
+    /** Index buffer, as indices into the index buffer pool. */
+    index_range indices;
+
+    /** Attribute source indices, as indices into the index buffer pool. */
+    index_range attribute_indices;
+
+    /** Attribute snapshot range captured when the draw was submitted. */
+    index_range attribute_index_range;
+
+    /** Attribute count per submitted vertex in the snapshot range. */
+    std::size_t attribute_count{0};
+};
+
+/** Resolved execution context for a draw command. */
+struct draw_execution
+{
+    render_object* object{nullptr};
+    std::size_t vertex_count;
+    index_range attribute_index_range;
+    index_range clipped_vertex_range;
+    const render_states* states{nullptr};
+    bool discard{false};
+};
+
+/** Clear command type. */
+enum class clear_kind
+{
+    color,
+    depth
+};
+
+/** Clear command. */
+struct clear_command
+{
+    clear_kind kind;
+    std::size_t state_snapshot_index;
+};
+
+/** Buffer update type. */
+enum class buffer_update_kind
+{
+    index,
+    attribute
+};
+
+/** Render command type, including command data. */
+using render_command = std::variant<
+  clear_command,
+  draw_command>;
+
 /** a general render context (not associated to any output device/window). */
 struct render_context
 {
@@ -295,11 +379,105 @@ struct render_context
     error last_error{error::none};
 
     /*
-     * buffers and lists.
+     * command stream and per-frame storage.
      */
 
-    /** list of render commands to be processed. points into objects. */
-    std::list<render_object> render_object_list;
+    /**
+     * Per-frame command stream containing ordered render commands.
+     * Storage is retained between frames; only the live slots [0, command_list.size()) are valid during a frame.
+     * Each entry contains all the data needed to execute that command.
+     */
+    frame_arena<render_command> command_list;
+
+    /**
+     * Per-frame arena of render objects.  Storage is retained between frames.
+     * Indexed by draw_command::render_object_index when processing draw commands.
+     * On reset() inner vector buffers (coords, varyings, etc.) keep their capacity.
+     */
+    frame_arena<render_object> render_objects;
+
+    /**
+     * Per-frame pool of index-buffer payload elements referenced by draw commands.
+     * Storage is retained between frames so payload elements can be reused without per-frame heap churn.
+     */
+    frame_arena<std::uint32_t> index_buffer_pool;
+
+    /**
+     * Per-frame resolved draw execution contexts, one per draw command.
+     * These are built at the start of Present() and consumed by the ST/MT pipeline.
+     */
+    frame_arena<draw_execution> resolved_draws;
+
+    /**
+     * Per-frame render state snapshots, one per draw call.
+     *
+     * Indexed by `draw_command::state_snapshot_index` when resolving draw
+     * commands; the corresponding snapshot is referenced by
+     * `render_object::states` during execution.
+     *
+     * Capacity is pre-reserved at the end of `Present()` to avoid mid-frame
+     * reallocation.
+     */
+    frame_arena<render_states> state_snapshots;
+
+    frame_arena<
+      ml::vec4,
+      utils::aligned_default_init_allocator<
+        ml::vec4,
+        utils::alignment::sse>>
+      attribute_snapshot_pool;
+
+    /**
+     * Per-frame vertex data pool backing coords, attribs, and varyings for all
+     * render objects. SSE-aligned; storage is retained between frames so capacity
+     * converges to the scene high-water mark after a few frames.
+     * Must be reset() after render_objects.reset() at the end of Present().
+     */
+    frame_arena<
+      ml::vec4,
+      utils::aligned_default_init_allocator<
+        ml::vec4,
+        utils::alignment::sse>>
+      vertex_data_pool;
+
+    /**
+     * Capture the current render states as a frame snapshot and return its index.
+     * Reuses an existing slot if available (capacity retained from previous frame).
+     */
+    std::size_t capture_state();
+
+    /**
+     * Capture the current attribute buffers.
+     */
+    template<typename TransformFn>
+    index_range capture_attribute_buffers(
+      std::size_t count,
+      TransformFn&& transform_fn)
+    {
+        const auto attrib_count = active_vabs.size();
+
+        const std::uint32_t attrib_range_start = attribute_snapshot_pool.size();
+        const std::uint32_t attrib_range_size = count * attrib_count;
+
+        auto attribs = attribute_snapshot_pool.allocate_range(attrib_range_size);
+        for(std::size_t i = 0; i < count; ++i)
+        {
+            auto vertex_attribs = attribs.subspan(i * attrib_count);
+            for(std::size_t slot = 0; slot < attrib_count; ++slot)
+            {
+                const int& id = active_vabs[slot];
+
+                if(id == static_cast<int>(impl::vertex_attribute_index::invalid))
+                {
+                    continue;
+                }
+
+                vertex_attribs[slot] = vertex_attribute_buffers[id].data[transform_fn(i)];
+            }
+        }
+
+        return {attrib_range_start, attrib_range_size};
+    }
 
     /** index buffers. */
     utils::slot_map<
@@ -327,10 +505,10 @@ struct render_context
     /** storage for the shader instances. */
     shader_storage_buffer program_storage;
 
-    /** render object with their associated program instances, to avoid reallocations. */
+    /** resolved draw with their associated program instances, to avoid reallocations. */
     std::vector<
       std::pair<
-        swr::impl::render_object*,
+        swr::impl::draw_execution*,
         impl::vertex_shader_instance_container>>
       program_instances;
 #endif /* SWR_ENDABLE_MULTI_THREADING */
@@ -397,28 +575,31 @@ struct render_context
      */
 
     /**
-     * Create render object for vertex_count vertices.
-     * Needs render context to copy the active render states (and buffers) over.
+     * Create and queue a non-indexed draw command.
      *
-     * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
-     * @param count Number of elements to use from `index_buffer`.
-     * @param index_buffer The index buffer to use.
-     * @returns Returns a pointer to the render object on success and `nullptr` on failure.
+     * Allocates a per-frame render object, captures the current render state,
+     * and copies the active vertex attribute data at submission time. The queued
+     * command references this render object during `Present()`.
+     *
+     * @param mode Specifies how the submitted vertices are assembled into primitives.
+     * @param count Number of sequential vertices to submit.
      */
-    render_object* create_render_object(
+    void create_draw_command(
       vertex_buffer_mode mode,
       std::size_t count);
 
     /**
-     * Create render object from (indexed) vertex buffer.
-     * Needs render context to copy the active render states (and buffers) over.
+     * Insert a draw command for an indexed render object.
+     *
+     * Allocates a per-frame render object, captures the current render state,
+     * and copies the active vertex attribute data at submission time. The queued
+     * command references this render object during `Present()`.
      *
      * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
      * @param count Number of elements to use from `index_buffer`.
      * @param index_buffer The index buffer to use.
-     * @returns Returns a pointer to the render object on success and `nullptr` on failure.
      */
-    render_object* create_indexed_render_object(
+    void create_indexed_draw_command(
       vertex_buffer_mode mode,
       std::size_t count,
       const std::vector<std::uint32_t>& index_buffer);
@@ -427,11 +608,12 @@ struct render_context
      * buffer management.
      */
 
-    /** clear the color buffer while respecting active render states. */
-    void clear_color_buffer();
-
-    /** clear the depth buffer while respecting active render states. */
-    void clear_depth_buffer();
+    /**
+     * Create a clear command for a buffer.
+     *
+     * @param kind The clear operation kind.
+     */
+    void create_clear_command(clear_kind kind);
 
     /*
      * primitive assembly.
