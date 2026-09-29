@@ -76,14 +76,14 @@ struct tile_info
         sparse_checked = 5, /** a checked primitive with precomputed sparse covered quad masks. */
     };
 
-    /** render states. points to an entry in the context's draw list. */
-    const swr::impl::render_states* states{nullptr};
-
     /**
      * Draw target.
      * FIXME tiles should not mix draw targets.
      */
     swr::impl::framebuffer_draw_target* draw_target{nullptr};
+
+    /** render states. points to an entry in the context's draw list. */
+    const swr::impl::render_states* states{nullptr};
 
     union
     {
