@@ -885,29 +885,6 @@ void submit_assembled_fill_nonindexed_triangles_chunk(
     }
 }
 
-/** Submit assembled indexed fill triangles from a worker chunk to the rasterizer. */
-void submit_assembled_fill_indexed_triangles_chunk(
-  framebuffer_draw_target& draw_target,
-  rast::rasterizer* rasterizer,
-  const render_states* states,
-  vertex_buffer& vb,
-  const indexed_assembled_triangle_chunk& chunk)
-{
-    for(const auto& tri: chunk.triangles)
-    {
-        auto& v1 = vb[tri.i1];
-        auto& v2 = vb[tri.i2];
-        auto& v3 = vb[tri.i3];
-        rasterizer->add_triangle(
-          draw_target,
-          states,
-          tri.is_front_facing,
-          &v1,
-          &v2,
-          &v3);
-    }
-}
-
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
 } /* namespace */

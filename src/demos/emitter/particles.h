@@ -132,14 +132,14 @@ public:
         {
             p.is_active = false;
             p.respawn_time = respawn_time;
-            respawn_time -= 0.1;
+            respawn_time -= 0.1f;
         }
     }
 
     /** update all particles. */
     void update(float delta_time)
     {
-        float respawn_time = -0.1;
+        float respawn_time = -0.1f;
 
         for(auto& it: particles)
         {
