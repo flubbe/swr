@@ -2196,8 +2196,6 @@ void Present()
                 continue;
             }
 
-            // TODO pass draw target forward explicitly
-
             assemble_render_object(
               context,
               *draw.object,
