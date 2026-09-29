@@ -11,6 +11,8 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <set>
+#include <span>
 #include <utility>
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -780,21 +782,50 @@ void transform_clip_coord_to_viewport(
 
 void assemble_render_object(
   impl::render_context* context,
-  impl::render_object& obj)
+  impl::render_object& obj,
+  impl::framebuffer_draw_target& draw_target)
 {
     if(obj.clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices)
     {
         context->assemble_original_indexed_primitives(
-          &obj.states,
+          draw_target,
+          obj.states,
           obj.mode,
           obj);
         return;
     }
 
     context->assemble_primitives(
-      &obj.states,
+      draw_target,
+      obj.states,
       obj.mode,
       obj.clipped_vertices);
+}
+
+void copy_visible_points_to_clipped_vertices(
+  impl::render_object& obj)
+{
+    const auto varying_count = obj.states->shader_info->varying_count;
+    obj.clipped_vertices.reserve(obj.indices.size());
+
+    geom::vertex v;
+    v.varyings.resize(varying_count);
+
+    // copy the correct points.
+    for(const auto& i: obj.indices)
+    {
+        if(!(obj.vertex_flags[i] & geom::vf_clip_discard))
+        {
+            v.coords = obj.coords[i];
+            v.flags = obj.vertex_flags[i];
+            const auto vertex_varyings = obj.varyings_for_vertex(i);
+            v.varyings.assign(
+              std::begin(vertex_varyings),
+              std::end(vertex_varyings));
+
+            obj.clipped_vertices.emplace_back(v);
+        }
+    }
 }
 
 } /* namespace */
@@ -810,22 +841,26 @@ namespace st
 /** Call vertex shaders and set clipping markers. */
 static void invoke_vertex_shader_and_clip_preprocess(
   impl::vertex_shader_instance_container& shader_instance,
-  impl::render_object& obj)
+  impl::render_object& obj,
+  impl::draw_execution& draw,
+  impl::render_context& ctx)
 {
     // check if the whole buffer should be discarded.
     obj.has_clip_discard = false;
 
-    // allocate varyings.
-    obj.allocate_varyings(shader_instance.get_varying_count());
+    // allocate varyings from the per-frame pool.
+    const std::size_t varying_count = shader_instance.get_varying_count();
+    obj.allocate_varyings(
+      varying_count,
+      ctx.vertex_data_pool.allocate_range(obj.coord_count * varying_count));
 
     for(std::size_t i = 0; i < obj.coord_count; ++i)
     {
         float gl_PointSize{0}; /* currently unused */
-        const auto vertex_attribs = obj.attribs_for_vertex(i);
         shader_instance.get()->vertex_shader(
           0 /* gl_VertexID */,
           0 /* gl_InstanceID */,
-          vertex_attribs,
+          obj.attribs_for_vertex(i),
           obj.coords[i],
           gl_PointSize,
           {} /* gl_ClipDistance */,
@@ -922,143 +957,142 @@ static void transform_to_viewport_coords(
     }
 }
 
-static void process_vertices(swr::impl::render_object& obj)
+static void process_vertices(
+  impl::render_context* context)
 {
-    obj.clear_clipped_output();
-
-    if(obj.coord_count == 0 || obj.indices.empty())
+    for(auto& draw: context->resolved_draws.span())
     {
-        return;
-    }
-
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    std::uint64_t stage_vertex = 0;
-    std::uint64_t stage_clipping = 0;
-    std::uint64_t stage_viewport = 0;
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    // create shader instance.
-    impl::vertex_shader_instance_container shader_instance{
-      obj.states.shader_info->storage.data(),
-      obj.states.shader_info,
-      obj.states.uniforms,
-      obj.states.texture_2d_samplers};
-
-    /*
-     * Invoke the vertex shaders and preprocess vertices with respect to clipping.
-     * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
-     * The clip preprecessing sets a marker for each vertex outside the view frustum.
-     */
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    utils::clock(stage_vertex);
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    invoke_vertex_shader_and_clip_preprocess(shader_instance, obj);
-
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    utils::unclock(stage_vertex);
-    g_pipeline_cycles.vertex += stage_vertex;
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    // check we have valid drawing and polygon modes.
-    assert(obj.mode == vertex_buffer_mode::points
-           || obj.mode == vertex_buffer_mode::lines
-           || obj.mode == vertex_buffer_mode::triangles);
-    assert(obj.states.poly_mode == polygon_mode::point
-           || obj.states.poly_mode == polygon_mode::line
-           || obj.states.poly_mode == polygon_mode::fill);
-
-    /*
-     * clip the vertex buffer.
-     *
-     * if we only want to draw a list of points, we already have enough clipping
-     * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
-     *
-     * Clipping pre-assembles the primitives, i.e. it creates triangles.
-     */
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    utils::clock(stage_clipping);
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    if(!obj.has_clip_discard)
-    {
-        obj.use_original_indexed_vertices();
-    }
-    else if(obj.mode == vertex_buffer_mode::points
-            || obj.states.poly_mode == polygon_mode::point)
-    {
-        const auto varying_count = obj.states.shader_info->varying_count;
-        obj.clipped_vertices.reserve(obj.indices.size());
-
-        geom::vertex v;
-        v.varyings.resize(varying_count);
-
-        // copy the correct points.
-        for(const auto& i: obj.indices)
+        if(draw.attribute_index_range.count == 0)
         {
-            if(!(obj.vertex_flags[i] & geom::vf_clip_discard))
+            continue;
+        }
+
+        impl::render_object& obj = *draw.object;
+        obj.states = draw.states;
+        obj.clear_clipped_output();
+
+        if(obj.coord_count == 0 || obj.indices.empty())
+        {
+            return;
+        }
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_vertex = 0;
+        std::uint64_t stage_clipping = 0;
+        std::uint64_t stage_viewport = 0;
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        // create shader instance.
+        impl::vertex_shader_instance_container shader_instance{
+          obj.states->shader_info->storage.data(),
+          obj.states->shader_info,
+          obj.states->uniforms,
+          obj.states->texture_2d_samplers};
+
+        /*
+         * Invoke the vertex shaders and preprocess vertices with respect to clipping.
+         * The shaders take the view coordinates as inputs and output the homogeneous clip coordinates.
+         * The clip preprecessing sets a marker for each vertex outside the view frustum.
+         */
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::clock(stage_vertex);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        invoke_vertex_shader_and_clip_preprocess(
+          shader_instance,
+          obj,
+          draw,
+          *context);
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_vertex);
+        g_pipeline_cycles.vertex += stage_vertex;
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        // check we have valid drawing and polygon modes.
+        assert(obj.mode == vertex_buffer_mode::points
+               || obj.mode == vertex_buffer_mode::lines
+               || obj.mode == vertex_buffer_mode::triangles);
+        assert(obj.states->poly_mode == polygon_mode::point
+               || obj.states->poly_mode == polygon_mode::line
+               || obj.states->poly_mode == polygon_mode::fill);
+
+        /*
+         * clip the vertex buffer.
+         *
+         * if we only want to draw a list of points, we already have enough clipping
+         * information from the previous call to invoke_vertex_shader_and_clip_preprocess.
+         *
+         * Clipping pre-assembles the primitives, i.e. it creates triangles.
+         */
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::clock(stage_clipping);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        if(!obj.has_clip_discard)
+        {
+            obj.use_original_indexed_vertices();
+        }
+        else if(obj.mode == vertex_buffer_mode::points
+                || obj.states->poly_mode == polygon_mode::point)
+        {
+            copy_visible_points_to_clipped_vertices(obj);
+        }
+        else if(obj.mode == vertex_buffer_mode::lines)
+        {
+            clip_line_buffer(obj, impl::line_list);
+        }
+        else if(obj.mode == vertex_buffer_mode::triangles
+                && obj.states->poly_mode == polygon_mode::line)
+        {
+            clip_triangle_buffer(obj, impl::line_list);
+        }
+        else if(obj.states->poly_mode == polygon_mode::fill)
+        {
+            /* here we necessarily have list_it.Mode == triangles */
+            clip_triangle_buffer(obj, impl::triangle_list);
+        }
+
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_clipping);
+        g_pipeline_cycles.clipping += stage_clipping;
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        // skip the rest of the pipeline if no clipped vertices were produced.
+        if(obj.has_clipped_output())
+        {
+#    ifdef SWR_ENABLE_PIPELINE_PROFILING
+            utils::clock(stage_viewport);
+#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+            if(obj.clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices)
             {
-                v.coords = obj.coords[i];
-                v.flags = obj.vertex_flags[i];
-                const auto vertex_varyings = obj.varyings_for_vertex(i);
-                v.varyings.assign(
-                  std::begin(vertex_varyings),
-                  std::end(vertex_varyings));
+                draw.clipped_vertex_range.count = obj.indices.size();
 
-                obj.clipped_vertices.emplace_back(v);
+                // perspective divide and viewport transformation.
+                transform_to_viewport_coords(
+                  obj.coord_span(),
+                  obj.states->x, obj.states->y,
+                  obj.states->width, obj.states->height,
+                  obj.states->z_near, obj.states->z_far);
             }
-        }
-    }
-    else if(obj.mode == vertex_buffer_mode::lines)
-    {
-        clip_line_buffer(obj, impl::line_list);
-    }
-    else if(obj.mode == vertex_buffer_mode::triangles
-            && obj.states.poly_mode == polygon_mode::line)
-    {
-        clip_triangle_buffer(obj, impl::line_list);
-    }
-    else if(obj.states.poly_mode == polygon_mode::fill)
-    {
-        /* here we necessarily have list_it.Mode == triangles */
-        clip_triangle_buffer(obj, impl::triangle_list);
-    }
+            else
+            {
+                draw.clipped_vertex_range.count = obj.clipped_vertices.size();
+
+                // perspective divide and viewport transformation.
+                transform_to_viewport_coords(
+                  obj.clipped_vertices,
+                  obj.states->x, obj.states->y,
+                  obj.states->width, obj.states->height,
+                  obj.states->z_near, obj.states->z_far);
+            }
 
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    utils::unclock(stage_clipping);
-    g_pipeline_cycles.clipping += stage_clipping;
+            utils::unclock(stage_viewport);
+            g_pipeline_cycles.viewport += stage_viewport;
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    // skip the rest of the pipeline if no clipped vertices were produced.
-    if(obj.has_clipped_output())
-    {
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-        utils::clock(stage_viewport);
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-        if(obj.clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices)
-        {
-            // perspective divide and viewport transformation.
-            transform_to_viewport_coords(
-              obj.coord_span(),
-              obj.states.x, obj.states.y,
-              obj.states.width, obj.states.height,
-              obj.states.z_near, obj.states.z_far);
         }
-        else
-        {
-            // perspective divide and viewport transformation.
-            transform_to_viewport_coords(
-              obj.clipped_vertices,
-              obj.states.x, obj.states.y,
-              obj.states.width, obj.states.height,
-              obj.states.z_near, obj.states.z_far);
-        }
-
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-        utils::unclock(stage_viewport);
-        g_pipeline_cycles.viewport += stage_viewport;
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 }
 
@@ -1104,7 +1138,7 @@ static std::size_t clip_primitive_count(
   const swr::impl::render_object* obj)
 {
     if(obj->mode == vertex_buffer_mode::points
-       || obj->states.poly_mode == polygon_mode::point)
+       || obj->states->poly_mode == polygon_mode::point)
     {
         return obj->indices.size();
     }
@@ -1121,7 +1155,7 @@ static std::size_t clip_primitive_count(
 static bool should_parallelize_clipping_across_objects(
   impl::sdl_render_context::thread_pool_type& thread_pool,
   const std::vector<std::pair<
-    swr::impl::render_object*,
+    swr::impl::draw_execution*,
     impl::vertex_shader_instance_container>>& program_instances)
 {
     const std::size_t thread_count = thread_pool.get_thread_count();
@@ -1132,8 +1166,11 @@ static bool should_parallelize_clipping_across_objects(
 
     std::size_t clip_object_count = 0;
     std::size_t total_clip_primitives = 0;
-    for(const auto& [obj, shader]: program_instances)
+    for(const auto& [draw, shader]: program_instances)
     {
+        assert(draw != nullptr);
+        const auto* obj = draw->object;
+        assert(obj != nullptr);
         if(!obj->has_clip_discard)
         {
             continue;
@@ -1204,8 +1241,8 @@ static void clip_indexed_primitives_parallel(
     const std::size_t primitive_count = obj->indices.size() / indices_per_primitive;
     const std::size_t thread_count = thread_pool.get_thread_count();
     const std::size_t max_task_count =
-      std::max<std::size_t>(
-        1,
+      std::max(
+        1uz,
         (primitive_count + min_clip_primitives_per_task - 1) / min_clip_primitives_per_task);
     const std::size_t task_count = std::min(thread_count, max_task_count);
 
@@ -1265,23 +1302,22 @@ static void clip_indexed_primitives_parallel(
     {
         output_size += chunk.size();
     }
-    if(chunk_outputs.empty())
+    if(output_size == 0)
     {
         return;
     }
 
-    // Reuse the first chunk buffer directly, then append remaining chunks.
-    obj->clipped_vertices = std::move(chunk_outputs.front());
     obj->clipped_vertices.reserve(output_size);
 
-    for(std::size_t i = 1; i < chunk_outputs.size(); ++i)
+    for(auto& chunk: chunk_outputs)
     {
-        auto& chunk = chunk_outputs[i];
         obj->clipped_vertices.insert(
           std::end(obj->clipped_vertices),
           std::make_move_iterator(std::begin(chunk)),
           std::make_move_iterator(std::end(chunk)));
     }
+
+    obj->use_expanded_clipped_vertices();
 }
 
 static bool should_parallelize_clipping(
@@ -1348,9 +1384,9 @@ static void clip_vertex_buffer_serial(
     assert(obj->mode == vertex_buffer_mode::points
            || obj->mode == vertex_buffer_mode::lines
            || obj->mode == vertex_buffer_mode::triangles);
-    assert(obj->states.poly_mode == polygon_mode::point
-           || obj->states.poly_mode == polygon_mode::line
-           || obj->states.poly_mode == polygon_mode::fill);
+    assert(obj->states->poly_mode == polygon_mode::point
+           || obj->states->poly_mode == polygon_mode::line
+           || obj->states->poly_mode == polygon_mode::fill);
 
     /*
      * clip the vertex buffer.
@@ -1365,42 +1401,22 @@ static void clip_vertex_buffer_serial(
         obj->use_original_indexed_vertices();
     }
     else if(obj->mode == vertex_buffer_mode::points
-            || obj->states.poly_mode == polygon_mode::point)
+            || obj->states->poly_mode == polygon_mode::point)
     {
-        const auto varying_count = obj->states.shader_info->varying_count;
-        obj->clipped_vertices.reserve(obj->indices.size());
-
-        geom::vertex v;
-        v.varyings.resize(varying_count);
-
-        // copy the correct points.
-        for(const auto& i: obj->indices)
-        {
-            if(!(obj->vertex_flags[i] & geom::vf_clip_discard))
-            {
-                v.coords = obj->coords[i];
-                v.flags = obj->vertex_flags[i];
-                const auto vertex_varyings = obj->varyings_for_vertex(i);
-                v.varyings.assign(
-                  std::begin(vertex_varyings),
-                  std::end(vertex_varyings));
-
-                obj->clipped_vertices.emplace_back(v);
-            }
-        }
+        copy_visible_points_to_clipped_vertices(*obj);
     }
     else if(obj->mode == vertex_buffer_mode::lines)
     {
         clip_line_buffer(*obj, impl::line_list);
     }
     else if(obj->mode == vertex_buffer_mode::triangles
-            && obj->states.poly_mode == polygon_mode::line)
+            && obj->states->poly_mode == polygon_mode::line)
     {
         clip_triangle_buffer(
           *obj,
           impl::line_list);
     }
-    else if(obj->states.poly_mode == polygon_mode::fill)
+    else if(obj->states->poly_mode == polygon_mode::fill)
     {
         /* here we necessarily have list_it.Mode == triangles */
         clip_triangle_buffer(
@@ -1416,22 +1432,24 @@ static void clip_vertex_buffer_serial_task(
 }
 
 static void vertex_shader_task(
-  impl::render_object* obj,
+  impl::draw_execution* draw,
   std::size_t offset,
   std::size_t end,
   impl::vertex_shader_instance_container* shader_instance)
 {
+    assert(draw != nullptr);
+    assert(draw->object != nullptr);
+    impl::render_object* obj = draw->object;
     const auto* shader = shader_instance->get();
 
     for(std::size_t i = offset; i < end; ++i)
     {
         float gl_PointSize{0}; /* currently unused */
-        const auto vertex_attribs = obj->attribs_for_vertex(i);
 
         shader->vertex_shader(
           0 /* gl_VertexID */,
           0 /* gl_InstanceID */,
-          vertex_attribs,
+          obj->attribs_for_vertex(i),
           obj->coords[i],
           gl_PointSize,
           {} /* gl_ClipDistance */,
@@ -1476,38 +1494,59 @@ static void vertex_shader_task(
     }
 }
 
+/**
+ * Invoke the vertex shader for a resolved draw execution context.
+ *
+ * @note The function needs to be called from sequential code, since
+ *     the vertex pool might reallocate.
+ *
+ * @param thread_pool The thread pool to use.
+ * @param shader_instance Shader instance for this draw call.
+ * @param draw The resolved draw execution context.
+ * @param ctx The render context.
+ */
 static void invoke_vertex_shader_and_clip_preprocess(
   impl::sdl_render_context::thread_pool_type& thread_pool,
   impl::vertex_shader_instance_container& shader_instance,
-  impl::render_object& obj)
+  impl::draw_execution& draw,
+  impl::render_context& ctx)
 {
+    assert(draw.object != nullptr);
+    impl::render_object& obj = *draw.object;
     const auto thread_count = thread_pool.get_thread_count();
     const std::size_t thread_vertex_count = std::max(
       min_tasks_per_thread,
-      obj.coord_count / thread_count);
+      draw.vertex_count / thread_count);
 
-    // allocate varyings.
-    obj.allocate_varyings(shader_instance.get_varying_count());
+    // allocate varyings from the per-frame pool.
+    // NOTE since the function is called from sequential code, pool reallocation is allowed (no data race).
+    const std::size_t varying_count = shader_instance.get_varying_count();
+    obj.allocate_varyings(
+      varying_count,
+      ctx.vertex_data_pool.allocate_range(draw.vertex_count * varying_count));
+    draw.clipped_vertex_range = {
+      .begin = ctx.vertex_data_pool.size(),
+      .count = 0};
 
     // push shader tasks to thread pool.
     std::size_t offset = 0;
-    for(; offset + thread_vertex_count < obj.coord_count; offset += thread_vertex_count)
+    for(; offset + thread_vertex_count < draw.vertex_count; offset += thread_vertex_count)
     {
         thread_pool.push_immediate_task(
           vertex_shader_task,
-          &obj,
+          &draw,
           offset,
           offset + thread_vertex_count,
           &shader_instance);
     }
 
-    if(offset < obj.coord_count)
+    if(offset < draw.vertex_count)
     {
         thread_pool.push_immediate_task(
           vertex_shader_task,
-          &obj,
+          &draw,
           offset,
-          obj.coord_count,
+          draw.vertex_count,
           &shader_instance);
     }
 }
@@ -1713,7 +1752,7 @@ static void clip_vertex_buffer(
         }
     }
     else if(obj->mode == vertex_buffer_mode::triangles
-            && obj->states.poly_mode == polygon_mode::line)
+            && obj->states->poly_mode == polygon_mode::line)
     {
         if(should_parallelize_clipping(
              thread_pool,
@@ -1737,7 +1776,7 @@ static void clip_vertex_buffer(
               impl::line_list);
         }
     }
-    else if(obj->states.poly_mode == polygon_mode::fill)
+    else if(obj->states->poly_mode == polygon_mode::fill)
     {
         /* here we necessarily have list_it.Mode == triangles */
         if(should_parallelize_clipping(
@@ -1783,14 +1822,14 @@ static void process_vertices(
 
     std::size_t total_shader_size = 0;
     std::size_t shader_storage_alignment = utils::alignment::sse;
-    for(const auto& obj: context->render_object_list)
+    for(const auto& draw: context->resolved_draws.span())
     {
-        if(obj.coord_count == 0 || obj.indices.empty())
+        if(draw.attribute_index_range.count == 0)
         {
             continue;
         }
 
-        const auto* shader_info = obj.states.shader_info;
+        const auto* shader_info = draw.states->shader_info;
         shader_storage_alignment = std::max(
           shader_storage_alignment,
           shader_info->program_alignment);
@@ -1810,27 +1849,27 @@ static void process_vertices(
     assert(
       total_shader_size == 0
       || reinterpret_cast<std::uintptr_t>(storage) % shader_storage_alignment == 0);
-    context->program_instances.reserve(context->render_object_list.size());
+    context->program_instances.reserve(context->resolved_draws.size());
 
-    for(auto& obj: context->render_object_list)
+    for(auto& draw: context->resolved_draws.span())
     {
-        if(obj.coord_count == 0 || obj.indices.empty())
+        if(draw.attribute_index_range.count == 0)
         {
             continue;
         }
 
-        auto* shader_info = obj.states.shader_info;
+        auto* shader_info = draw.states->shader_info;
         storage = utils::align(
           shader_info->program_alignment,
           storage);
         context->program_instances.emplace_back(
           std::make_pair(
-            &obj,
+            &draw,
             impl::vertex_shader_instance_container{
               storage,
               shader_info,
-              obj.states.uniforms,
-              obj.states.texture_2d_samplers}));
+              draw.states->uniforms,
+              draw.states->texture_2d_samplers}));
 
         storage += shader_info->program_size;
     }
@@ -1844,17 +1883,21 @@ static void process_vertices(
     utils::clock(stage_vertex);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    for(auto& [obj, shader]: context->program_instances)
+    for(auto& [draw, shader]: context->program_instances)
     {
         invoke_vertex_shader_and_clip_preprocess(
           context->thread_pool,
           shader,
-          *obj);
+          *draw,
+          *context);
     }
     context->thread_pool.run_tasks_and_wait();
 
-    for(auto& [obj, shader]: context->program_instances)
+    for(auto& [draw, shader]: context->program_instances)
     {
+        auto* obj = draw->object;
+        assert(obj != nullptr);
+
         obj->has_clip_discard = false;
         for(const std::uint32_t flags: obj->vertex_flags)
         {
@@ -1897,8 +1940,11 @@ static void process_vertices(
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         std::size_t enqueued_clip_tasks = 0;
-        for(auto& [obj, shader]: context->program_instances)
+        for(auto& [draw, shader]: context->program_instances)
         {
+            auto* obj = draw->object;
+            assert(obj != nullptr);
+
             if(!obj->has_clip_discard)
             {
                 obj->use_original_indexed_vertices();
@@ -1923,8 +1969,10 @@ static void process_vertices(
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
         // Single/few-object path can parallelize internally by primitive chunk.
-        for(auto& [obj, shader]: context->program_instances)
+        for(auto& [draw, shader]: context->program_instances)
         {
+            auto* obj = draw->object;
+            assert(obj != nullptr);
             clip_vertex_buffer(context->thread_pool, obj);
         }
     }
@@ -1943,8 +1991,11 @@ static void process_vertices(
     utils::clock(stage_viewport);
 #    endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    for(auto& [obj, shader]: context->program_instances)
+    for(auto& [draw, shader]: context->program_instances)
     {
+        auto* obj = draw->object;
+        assert(obj != nullptr);
+
         // skip the rest of the pipeline if no clipped vertices were produced.
         if(!obj->has_clipped_output())
         {
@@ -1957,9 +2008,9 @@ static void process_vertices(
             transform_to_viewport_coords(
               context->thread_pool,
               obj->coord_span(),
-              obj->states.x, obj->states.y,
-              obj->states.width, obj->states.height,
-              obj->states.z_near, obj->states.z_far);
+              obj->states->x, obj->states->y,
+              obj->states->width, obj->states->height,
+              obj->states->z_near, obj->states->z_far);
         }
         else
         {
@@ -1967,12 +2018,25 @@ static void process_vertices(
             transform_to_viewport_coords(
               context->thread_pool,
               obj->clipped_vertices,
-              obj->states.x, obj->states.y,
-              obj->states.width, obj->states.height,
-              obj->states.z_near, obj->states.z_far);
+              obj->states->x, obj->states->y,
+              obj->states->width, obj->states->height,
+              obj->states->z_near, obj->states->z_far);
         }
     }
     context->thread_pool.run_tasks_and_wait();
+
+    for(auto& [draw, shader]: context->program_instances)
+    {
+        const auto* obj = draw->object;
+        assert(obj != nullptr);
+        draw->clipped_vertex_range = {
+          .begin = 0,
+          .count = obj->has_clipped_output()
+                     ? (obj->clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices
+                          ? obj->indices.size()
+                          : obj->clipped_vertices.size())
+                     : 0};
+    }
 
 #    ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_viewport);
@@ -1988,12 +2052,62 @@ static void process_vertices(
 
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
+namespace
+{
+
+/** Execute a clear color command. */
+inline void execute_clear_command(
+  impl::render_context* context,
+  const impl::clear_command& cmd)
+{
+    const impl::render_states& states = context->state_snapshots[cmd.state_snapshot_index];
+
+    if(cmd.kind == impl::clear_kind::color)
+    {
+        // buffer clearing respects scissoring.
+        if(states.scissor_test_enabled
+           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != context->framebuffer.color_buffer.info.width
+               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != context->framebuffer.color_buffer.info.height))
+        {
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_color(0, states.clear_color, states.scissor_box);
+        }
+        else
+        {
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_color(0, states.clear_color);
+        }
+    }
+    else
+    {
+        // buffer clearing respects scissoring.
+        if(states.scissor_test_enabled
+           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != context->framebuffer.color_buffer.info.width
+               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != context->framebuffer.color_buffer.info.height))
+        {
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_depth(states.clear_depth, states.scissor_box);
+        }
+        else
+        {
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_depth(states.clear_depth);
+        }
+    }
+}
+
+} /* anonymous namespace */
+
 /*
  * Execute the graphics pipeline and output an image into the frame buffer. The function operates on
- * the draw list produced by the drawing functions. For each draw list entry, execute:
+ * the command list produced by the drawing and state modification functions. For each command entry, execute:
  *
- *  1) the vertex shader
- *  2) clipping
+ *  1) the vertex shader (for render commands)
+ *  2) clipping (for render commands)
  *  3) the viewport transformation (including perspective divide)
  *  4) primitive assembly
  *
@@ -2006,88 +2120,172 @@ void Present()
     auto context = impl::global_context;
 
     // immediately return if there is nothing to do.
-    if(context->render_object_list.empty())
+    if(context->command_list.empty())
     {
+        context->process_pending_deletions();
         return;
     }
+
+    // Pre-reserve vertex data storage for all draw commands. This must happen
+    // before allocate_range() is called because reallocating the pool would
+    // invalidate previously allocated spans.
+
+    std::size_t vertex_data_total = 0;
+    std::size_t draw_count = 0;
+
+    for(const auto& cmd: context->command_list.span())
+    {
+        if(auto* draw = std::get_if<impl::draw_command>(&cmd))
+        {
+            if(draw->indices.count == 0)
+            {
+                continue;
+            }
+
+            ++draw_count;
+
+            vertex_data_total += draw->attribute_indices.count;
+            const impl::render_states& states =
+              context->state_snapshots[draw->state_snapshot_index];
+
+            if(states.shader_info)
+            {
+                vertex_data_total += draw->attribute_indices.count * states.shader_info->varying_count;
+            }
+        }
+    }
+
+    context->resolved_draws.reset();
+    context->resolved_draws.reserve(draw_count);
+    context->render_objects.reserve(draw_count);
+    context->vertex_data_pool.reserve(vertex_data_total);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_present_total = 0;
     utils::clock(stage_present_total);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-#ifdef SWR_ENABLE_MULTI_THREADING
-    mt::process_vertices(context);
+    // Record draw commands into the current execution batch. Commands which
+    // require ordering with respect to rendering act as barriers: all pending
+    // draws are fully executed before the command is processed. This preserves
+    // command-list ordering while allowing consecutive draws to be processed
+    // together.
 
-    // primitive assembly.
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    std::uint64_t stage_assembly = 0;
-    utils::clock(stage_assembly);
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    for(auto& it: context->render_object_list)
+    auto flush_batch = [&]
     {
-        if(!it.has_clipped_output())
+        if(context->resolved_draws.empty())
         {
-            continue;
+            return;
         }
 
-        // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
-        assemble_render_object(
-          context,
-          it);
-    }
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    utils::unclock(stage_assembly);
-    g_pipeline_cycles.assembly += stage_assembly;
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+#ifdef SWR_ENABLE_MULTI_THREADING
+        mt::process_vertices(context);
+#else
+        st::process_vertices(context);
+#endif
 
-#else /* SWR_ENABLE_MULTI_THREADING */
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_assembly = 0;
+        utils::clock(stage_assembly);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    // process render commands.
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-    std::uint64_t stage_assembly = 0;
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    for(auto& it: context->render_object_list)
-    {
-        st::process_vertices(it);
-
-        if(it.has_clipped_output())
+        for(auto& draw: context->resolved_draws.span())
         {
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-            utils::clock(stage_assembly);
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+            if(draw.clipped_vertex_range.count == 0)
+            {
+                continue;
+            }
 
-            // Assemble primitives from drawing lists. The primitives are passed on to the triangle rasterizer.
             assemble_render_object(
               context,
-              it);
+              *draw.object,
+              *draw.draw_target);
+        }
 
-#    ifdef SWR_ENABLE_PIPELINE_PROFILING
-            utils::unclock(stage_assembly);
-            g_pipeline_cycles.assembly += stage_assembly;
-            stage_assembly = 0;
-#    endif /* SWR_ENABLE_PIPELINE_PROFILING */
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_assembly);
+        g_pipeline_cycles.assembly += stage_assembly;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        // invoke triangle rasterizer.
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        std::uint64_t stage_rasterizer = 0;
+        utils::clock(stage_rasterizer);
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        context->rasterizer->draw_primitives();
+
+#ifdef SWR_ENABLE_PIPELINE_PROFILING
+        utils::unclock(stage_rasterizer);
+        g_pipeline_cycles.rasterizer += stage_rasterizer;
+#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+
+        context->resolved_draws.reset();
+    };
+
+    for(const auto& cmd: context->command_list.span())
+    {
+        if(auto* clear = std::get_if<impl::clear_command>(&cmd))
+        {
+            flush_batch();
+            execute_clear_command(context, *clear);
+        }
+        else if(auto* draw = std::get_if<impl::draw_command>(&cmd))
+        {
+            if(draw->indices.count == 0)
+            {
+                continue;
+            }
+
+            const auto command_indices =
+              context->index_buffer_pool.subspan(
+                draw->indices.begin,
+                draw->indices.count);
+            const auto attribute_count =
+              draw->attribute_indices.count;
+            const auto buffer_range = draw->attribute_index_range;
+
+            auto& obj = context->render_objects.allocate();
+            obj.setup(
+              attribute_count,
+              draw->mode,
+              draw->state_snapshot_index);
+            obj.states = &context->state_snapshots[draw->state_snapshot_index];
+            obj.indices = command_indices;
+            obj.allocate_attribs(draw->attribute_count);
+            std::copy(
+              context->attribute_snapshot_pool.data() + buffer_range.begin,
+              context->attribute_snapshot_pool.data() + buffer_range.begin + buffer_range.count,
+              obj.attribs.begin());
+            obj.allocate_coords(
+              context->vertex_data_pool.allocate_range(obj.coord_count));
+
+            context->resolved_draws.emplace_back(
+              impl::draw_execution{
+                .object = &obj,
+                .vertex_count = obj.coord_count,
+                .attribute_index_range = buffer_range,
+                .clipped_vertex_range = {},
+                .states = obj.states,
+                .draw_target = context->resolve_draw_target(
+                  obj.states->draw_target),
+                .discard = false});
         }
     }
-#endif     /* SWR_ENABLE_MULTI_THREADING */
 
-    // invoke triangle rasterizer.
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    std::uint64_t stage_rasterizer = 0;
-    utils::clock(stage_rasterizer);
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
+    flush_batch();
 
-    context->rasterizer->draw_primitives();
+    // Process pending resource deletions.
+    context->process_pending_deletions();
 
-#ifdef SWR_ENABLE_PIPELINE_PROFILING
-    utils::unclock(stage_rasterizer);
-    g_pipeline_cycles.rasterizer += stage_rasterizer;
-#endif /* SWR_ENABLE_PIPELINE_PROFILING */
-
-    // flush all lists.
-    context->render_object_list.clear();
+    // Reset arenas; storage capacity and inner buffers are retained for next frame.
+    context->state_snapshots.reset();
+    context->resolved_draws.reset();
+    context->render_objects.reset();
+    context->command_list.reset();
+    context->index_buffer_pool.reset();
+    context->attribute_snapshot_pool.reset();
+    context->vertex_data_pool.reset();
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_present_total);
@@ -2103,8 +2301,9 @@ void Present()
 void ClearDepthBuffer()
 {
     ASSERT_INTERNAL_CONTEXT;
-
-    impl::global_context->clear_depth_buffer();
+    impl::render_context* context = impl::global_context;
+    context->create_clear_command(
+      impl::clear_kind::depth);
 }
 
 void SetClearDepth(float z)
@@ -2120,7 +2319,9 @@ void SetClearDepth(float z)
 void ClearColorBuffer()
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::global_context->clear_color_buffer();
+    impl::render_context* context = impl::global_context;
+    context->create_clear_command(
+      impl::clear_kind::color);
 }
 
 void SetClearColor(float r, float g, float b, float a)
@@ -2158,12 +2359,10 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height)
 
     // Public API follows OpenGL semantics (viewport origin at lower-left),
     // while the internal rasterizer uses a top-down viewport y-axis.
-    int internal_y = y;
-    if(context->states.draw_target != nullptr)
-    {
-        const int framebuffer_height = context->states.draw_target->properties.height;
-        internal_y = framebuffer_height - (y + static_cast<int>(height));
-    }
+    const int internal_y = context->resolve_draw_target(
+                                    context->states.draw_target)
+                             ->properties.height
+                           - (y + static_cast<int>(height));
 
     context->states.set_viewport(x, internal_y, width, height);
 }

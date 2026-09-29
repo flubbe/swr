@@ -279,6 +279,10 @@ public:
 
             if(e.type == SDL_EVENT_KEY_DOWN)
             {
+                if(e.key.key == SDLK_C)
+                {
+                    particle_system.clear();
+                }
                 if(e.key.key == SDLK_P)
                 {
                     update_particles = !update_particles;

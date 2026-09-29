@@ -466,7 +466,8 @@ struct framebuffer_draw_target
 };
 
 /** default framebuffer. */
-struct default_framebuffer final : public framebuffer_draw_target
+struct default_framebuffer final
+: public framebuffer_draw_target
 {
     /** default color buffer. */
     attachment_color_buffer color_buffer;
@@ -580,8 +581,11 @@ struct default_framebuffer final : public framebuffer_draw_target
 };
 
 /** framebuffer objects. */
-class framebuffer_object final : public framebuffer_draw_target
+class framebuffer_object final
+: public framebuffer_draw_target
 {
+    friend class render_context;
+
     using depth_binding_variant = std::variant<
       std::monostate,
       depth_renderbuffer_attachment_binding,
@@ -704,8 +708,16 @@ class framebuffer_object final : public framebuffer_draw_target
     }
 
 public:
-    /** default constructor. */
-    framebuffer_object() = default;
+    /**
+     * Constructor.
+     *
+     * @param id The id for this framebuffer object. Defaults to 0 for the default framebuffer.
+     */
+    framebuffer_object(
+      std::uint32_t id = default_framebuffer_id)
+    : id{id}
+    {
+    }
 
     /** disallow copying. */
     framebuffer_object(const framebuffer_object&) = delete;
@@ -790,8 +802,15 @@ public:
      * framebuffer_object interface.
      */
 
+    /** id getter. */
+    std::uint32_t get_id() const
+    {
+        return id;
+    }
+
     /** reset. */
-    void reset(int in_id = 0)
+    void reset(
+      std::uint32_t in_id = impl::default_framebuffer_id)
     {
         for(auto& it: color_bindings)
         {
@@ -809,7 +828,8 @@ public:
     /** attach at texture. */
     void attach_texture(
       framebuffer_attachment attachment,
-      texture_2d* tex, int level)
+      texture_2d* tex,
+      int level)
     {
         auto index = static_cast<int>(attachment);
         if(index >= 0
@@ -879,38 +899,6 @@ public:
 
         refresh_attachment_caches();
         calculate_effective_dimensions();
-    }
-
-    /** check completeness. */
-    bool is_complete() const
-    {
-        const bool has_color_attachment = color_attachment_count != 0;
-        const bool has_depth_attachment = has_depth_binding();
-        if(!has_color_attachment
-           && !has_depth_attachment)
-        {
-            return false;
-        }
-
-        // attachment completeness.
-        for(auto& it: color_bindings)
-        {
-            if(it
-               && (it->info.width == 0
-                   || it->info.height == 0
-                   || !it->is_valid()))
-            {
-                return false;
-            }
-        }
-
-        if(has_depth_attachment
-           && !has_valid_depth_binding())
-        {
-            return false;
-        }
-
-        return true;
     }
 };
 

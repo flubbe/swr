@@ -31,6 +31,100 @@ thread_local render_context* global_context = nullptr;
  * render context implementation.
  */
 
+bool render_context::is_framebuffer_complete(
+  std::uint32_t id)
+{
+    const auto slot = framebuffer_id_to_slot(id);
+    if(!framebuffer_objects.contains(slot))
+    {
+        last_error = error::invalid_value;
+        return false;
+    }
+
+    auto& fbo = framebuffer_objects[slot];
+
+    const bool has_color_attachment = fbo.color_attachment_count != 0;
+    const bool has_depth_attachment = fbo.has_depth_binding();
+    if(!has_color_attachment
+       && !has_depth_attachment)
+    {
+        return false;
+    }
+
+    // attachment completeness.
+    for(auto& it: fbo.color_bindings)
+    {
+        if(it
+           && (it->info.width == 0
+               || it->info.height == 0
+               || !it->is_valid()))    // FIXME validates storage, but should likely be done here.
+        {
+            return false;
+        }
+    }
+
+    if(has_depth_attachment
+       && !fbo.has_valid_depth_binding())    // FIXME validates storage, but should likely be done here.
+    {
+        return false;
+    }
+
+    return true;
+}
+
+framebuffer_draw_target* render_context::resolve_draw_target(
+  std::uint32_t id)
+{
+    if(id == default_framebuffer_id)
+    {
+        return &framebuffer;
+    }
+
+    const auto slot = framebuffer_id_to_slot(id);
+    if(!framebuffer_objects.contains(slot))
+    {
+        throw std::invalid_argument{"resolve_draw_target"};
+    }
+
+    return &framebuffer_objects[slot];
+}
+
+void render_context::process_pending_deletions()
+{
+    for(auto& key: pending_resource_deletions)
+    {
+        switch(key.type)
+        {
+        case resource_type::none:
+            // `none` is only used to default-initialize the resource key.
+            assert(0);
+            break;
+        case resource_type::depth_attachment:
+        {
+            if(depth_attachments.contains(key.id))
+            {
+                depth_attachments.erase(key.id);
+            }
+
+            break;
+        }
+        case resource_type::framebuffer_object:
+        {
+            auto slot = framebuffer_id_to_slot(key.id);
+            if(framebuffer_objects.contains(slot))
+            {
+                framebuffer_objects[key.id].reset();
+                framebuffer_objects.erase(key.id);
+            }
+
+            break;
+        }
+        }
+    }
+
+    pending_resource_deletions.reset();
+}
+
 void render_context::create_rasterizer()
 {
 #ifdef SWR_ENABLE_MULTI_THREADING
@@ -64,8 +158,14 @@ void render_context::create_rasterizer()
 
 void render_context::shutdown()
 {
-    // empty command list.
-    render_object_list.clear();
+    // release command list, render objects, state snapshots, and vertex data.
+    command_list.release();
+    render_objects.release();
+    index_buffer_pool.release();
+    resolved_draws.release();
+    state_snapshots.release();
+    attribute_snapshot_pool.release();
+    vertex_data_pool.release();
 
     /*
      * Clean up all slot maps.
@@ -107,34 +207,14 @@ void render_context::shutdown()
     framebuffer.reset();
 }
 
-void render_context::clear_color_buffer()
+void render_context::create_clear_command(
+  clear_kind kind)
 {
-    // buffer clearing respects scissoring.
-    if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
-    {
-        states.draw_target->clear_color(0, states.clear_color, states.scissor_box);
-    }
-    else
-    {
-        states.draw_target->clear_color(0, states.clear_color);
-    }
-}
-
-void render_context::clear_depth_buffer()
-{
-    // buffer clearing respects scissoring.
-    if(states.scissor_test_enabled
-       && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
-           || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
-    {
-        states.draw_target->clear_depth(states.clear_depth, states.scissor_box);
-    }
-    else
-    {
-        states.draw_target->clear_depth(states.clear_depth);
-    }
+    const std::size_t snapshot_idx = capture_state();
+    command_list.emplace_back(
+      clear_command{
+        .kind = kind,
+        .state_snapshot_index = snapshot_idx});
 }
 
 /*
@@ -183,7 +263,7 @@ void sdl_render_context::initialize(SDL_Window* window, SDL_Renderer* renderer, 
     sdl_renderer = renderer;
 
     // reset states to default values.
-    states.reset(&framebuffer);
+    states.reset();
 
     // set viewport dimensions.
     states.set_viewport(0, 0, width, height);
@@ -380,7 +460,7 @@ void offscreen_render_context::initialize(
     }
 
     // reset states to default values.
-    states.reset(&framebuffer);
+    states.reset();
 
     // set viewport dimensions.
     states.set_viewport(0, 0, width, height);

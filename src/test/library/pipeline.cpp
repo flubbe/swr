@@ -260,6 +260,23 @@ struct offscreen_context_fixture
     }
 };
 
+BOOST_AUTO_TEST_CASE(clear_commands_are_recorded_in_the_command_stream)
+{
+    offscreen_context_fixture fixture;
+
+    swr::ClearColorBuffer();
+    swr::ClearDepthBuffer();
+
+    BOOST_REQUIRE(swr::impl::global_context->command_list.size() == 2);
+    BOOST_REQUIRE(std::holds_alternative<swr::impl::clear_command>(swr::impl::global_context->command_list[0]));
+    BOOST_REQUIRE(std::holds_alternative<swr::impl::clear_command>(swr::impl::global_context->command_list[1]));
+
+    const auto& color_cmd = std::get<swr::impl::clear_command>(swr::impl::global_context->command_list[0]);
+    const auto& depth_cmd = std::get<swr::impl::clear_command>(swr::impl::global_context->command_list[1]);
+    BOOST_REQUIRE(color_cmd.kind == swr::impl::clear_kind::color);
+    BOOST_REQUIRE(depth_cmd.kind == swr::impl::clear_kind::depth);
+}
+
 /**
  * Shader for rendering transformed geometry (for shadow pass testing).
  */
@@ -579,6 +596,77 @@ BOOST_AUTO_TEST_CASE(nonindexed_draw_invokes_vertex_shader_once_per_submitted_ve
     swr::DisableAttributeBuffer(vertex_buffer_id);
     swr::DeleteAttributeBuffer(vertex_buffer_id);
     swr::UnregisterShader(shader_id);
+}
+
+BOOST_AUTO_TEST_CASE(nonindexed_draw_snapshots_attribute_buffer_at_submission)
+{
+    configure_draw_state();
+
+    const ml::vec4 first_draw_color{0.9f, 0.1f, 0.1f, 1.0f};
+    const ml::vec4 second_draw_color{0.1f, 0.8f, 0.2f, 1.0f};
+
+    std::atomic<std::uint64_t> first_vertex_invocation_count{0};
+    std::atomic<std::uint64_t> second_vertex_invocation_count{0};
+    vertex_counting_shader first_shader{
+      &first_vertex_invocation_count,
+      first_draw_color};
+    vertex_counting_shader second_shader{
+      &second_vertex_invocation_count,
+      second_draw_color};
+
+    const std::uint32_t first_shader_id =
+      swr::RegisterShader(&first_shader);
+    BOOST_REQUIRE(first_shader_id != 0);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    const std::uint32_t second_shader_id =
+      swr::RegisterShader(&second_shader);
+    BOOST_REQUIRE(second_shader_id != 0);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE(swr::BindShader(first_shader_id));
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    const std::vector<ml::vec4> first_vertices{
+      {-0.9f, -0.8f, 0.0f, 1.0f},
+      {-0.1f, -0.8f, 0.0f, 1.0f},
+      {-0.5f, 0.8f, 0.0f, 1.0f}};
+    const std::vector<ml::vec4> second_vertices{
+      {0.1f, -0.8f, 0.0f, 1.0f},
+      {0.9f, -0.8f, 0.0f, 1.0f},
+      {0.5f, 0.8f, 0.0f, 1.0f}};
+
+    const std::uint32_t vertex_buffer_id =
+      swr::CreateAttributeBuffer(first_vertices);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::EnableAttributeBuffer(vertex_buffer_id, 0);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::DrawElements(swr::vertex_buffer_mode::triangles, first_vertices.size());
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::UpdateAttributeBuffer(vertex_buffer_id, second_vertices);
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    BOOST_REQUIRE(swr::BindShader(second_shader_id));
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::DrawElements(swr::vertex_buffer_mode::triangles, second_vertices.size());
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    swr::Present();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+
+    BOOST_CHECK_EQUAL(first_vertex_invocation_count.load(std::memory_order_relaxed), 3ull);
+    BOOST_CHECK_EQUAL(second_vertex_invocation_count.load(std::memory_order_relaxed), 3ull);
+    BOOST_CHECK_EQUAL(
+      read_default_color_pixel(context, target_size / 4, target_size / 2),
+      to_default_color_pixel(context, first_draw_color));
+    BOOST_CHECK_EQUAL(
+      read_default_color_pixel(context, 3 * target_size / 4, target_size / 2),
+      to_default_color_pixel(context, second_draw_color));
+
+    swr::DisableAttributeBuffer(vertex_buffer_id);
+    swr::DeleteAttributeBuffer(vertex_buffer_id);
+    swr::UnregisterShader(second_shader_id);
+    swr::UnregisterShader(first_shader_id);
 }
 
 BOOST_AUTO_TEST_CASE(indexed_draw_invokes_vertex_shader_once_per_unique_index_and_renders)

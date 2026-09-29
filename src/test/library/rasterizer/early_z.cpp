@@ -791,6 +791,8 @@ BOOST_AUTO_TEST_CASE(shader_metadata_enables_early_fragment_depth_rejection)
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
 
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 
@@ -803,6 +805,8 @@ BOOST_AUTO_TEST_CASE(shader_metadata_enables_early_fragment_depth_rejection)
 
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 
@@ -870,6 +874,8 @@ BOOST_AUTO_TEST_CASE(early_fragment_depth_feature_can_be_disabled)
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 
     swr::SetRasterizerFeature(
@@ -884,6 +890,8 @@ BOOST_AUTO_TEST_CASE(early_fragment_depth_feature_can_be_disabled)
 
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 

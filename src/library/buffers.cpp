@@ -30,28 +30,34 @@ std::uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
     return impl::global_context->vertex_attribute_buffers.push(attribs);
 }
 
-void UpdateIndexBuffer(std::uint32_t id, const std::vector<std::uint32_t>& data)
+void UpdateIndexBuffer(
+  std::uint32_t id,
+  const std::vector<std::uint32_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
+    impl::render_context* context = impl::global_context;
+
     if(!impl::global_context->index_buffers.contains(id))
     {
         impl::global_context->last_error = swr::error::invalid_value;
         return;
     }
-    auto& ib = impl::global_context->index_buffers[id];
-    ib.assign(data.begin(), data.end());
+
+    context->index_buffers[id] = data;
 }
 
 void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
+    impl::render_context* context = impl::global_context;
+
     if(!impl::global_context->vertex_attribute_buffers.contains(id))
     {
-        impl::global_context->last_error = error::invalid_value;
+        impl::global_context->last_error = swr::error::invalid_value;
         return;
     }
-    auto& ab = impl::global_context->vertex_attribute_buffers[id];
-    ab.data.assign(data.begin(), data.end());
+
+    context->vertex_attribute_buffers[id] = data;
 }
 
 template<typename T>
@@ -94,22 +100,22 @@ void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    // check if id and slot are valid.
-    if(context->vertex_attribute_buffers.contains(id) && slot < context->active_vabs.max_size())
-    {
-        // check if we need to allocate a new slot.
-        if(slot >= context->active_vabs.size())
-        {
-            context->active_vabs.resize(slot + 1, static_cast<int>(impl::vertex_attribute_index::invalid));
-        }
-
-        context->active_vabs[slot] = id;
-        context->vertex_attribute_buffers[id].slot = slot;
-    }
-    else
+    if(!context->vertex_attribute_buffers.contains(id)
+       || slot >= context->active_vabs.max_size())
     {
         context->last_error = error::invalid_value;
+        return;
     }
+
+    if(slot >= context->active_vabs.size())
+    {
+        context->active_vabs.resize(
+          slot + 1,
+          static_cast<int>(impl::vertex_attribute_index::invalid));
+    }
+
+    context->active_vabs[slot] = id;
+    context->vertex_attribute_buffers[id].slot = slot;
 }
 
 void DisableAttributeBuffer(std::uint32_t id)
@@ -117,20 +123,22 @@ void DisableAttributeBuffer(std::uint32_t id)
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    // check that BufferId is valid.
-    if(context->vertex_attribute_buffers.contains(id))
+    if(!context->vertex_attribute_buffers.contains(id))
     {
-        auto& buf = context->vertex_attribute_buffers[id];
-        if(buf.slot >= 0 && static_cast<std::size_t>(buf.slot) < context->active_vabs.size())
-        {
-            context->active_vabs[buf.slot] = -1;
-            buf.slot = impl::vertex_attribute_buffer::no_slot_associated;
-
-            return;
-        }
+        context->last_error = error::invalid_value;
+        return;
     }
 
-    context->last_error = error::invalid_value;
+    auto& buf = context->vertex_attribute_buffers[id];
+    if(buf.slot < 0
+       || static_cast<std::size_t>(buf.slot) >= context->active_vabs.size())
+    {
+        context->last_error = error::invalid_value;
+        return;
+    }
+
+    context->active_vabs[buf.slot] = -1;
+    buf.slot = impl::vertex_attribute_buffer::no_slot_associated;
 }
 
 } /* namespace swr */

@@ -21,10 +21,17 @@
 /* user headers. */
 #include "swr_internal.h"
 #include "clipping.h"
+#include "frame_arena.h"
 
 /*
  * tests.
  */
+
+/** Aligned vec4 pool for constructing render_objects directly in unit tests. */
+using test_vec4_pool = swr::impl::frame_arena<
+  1,
+  ml::vec4,
+  utils::aligned_default_init_allocator<ml::vec4, utils::alignment::sse>>;
 
 BOOST_AUTO_TEST_SUITE(clipping)
 
@@ -33,7 +40,9 @@ BOOST_AUTO_TEST_CASE(empty_input)
     swr::impl::render_object obj;
 
     swr::impl::program_info info;
-    obj.states.shader_info = &info;
+    swr::impl::render_states local_states;
+    local_states.shader_info = &info;
+    obj.states = &local_states;
 
     /*
      * test empty input for line clipping.
@@ -143,20 +152,24 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
      */
 
     // render_object setup.
+    test_vec4_pool pool;
     swr::impl::render_object obj;
 
     constexpr std::uint32_t COORD_COUNT = 14;
     constexpr std::uint32_t INDEX_COUNT = 14;
 
-    obj.allocate_coords(COORD_COUNT);
-    obj.indices.reserve(INDEX_COUNT);
-    for(std::uint32_t i = 0; i < INDEX_COUNT; ++i)
-    {
-        obj.indices.emplace_back(i);
-    }
+    obj.coord_count = COORD_COUNT;
+    obj.allocate_coords(pool.allocate_range(COORD_COUNT));
+
+    std::vector<std::uint32_t> indices(INDEX_COUNT);
+    std::iota(std::begin(indices), std::end(indices), 0);
+    obj.indices = indices;
+
     obj.vertex_flags.resize(INDEX_COUNT);
     swr::impl::program_info info;
-    obj.states.shader_info = &info;
+    swr::impl::render_states local_states;
+    local_states.shader_info = &info;
+    obj.states = &local_states;
 
     // input data.
     ml::vec4 coords[COORD_COUNT] = {
@@ -205,8 +218,14 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     {
         return (v.w > 0) && (-v.w <= v.x) && (v.x <= v.w) && (-v.w <= v.y) && (v.y <= v.w) && (-v.w <= v.z) && (v.z <= v.w);
     };
-    obj.indices = {0, 1};
+
+    indices = {0, 1};
+    obj.indices = indices;
+
     obj.vertex_flags.resize(2);
+
+    test_vec4_pool loop_coords_pool;
+    loop_coords_pool.reserve(2);
 
     for(int k = 0; k < 10000; ++k)
     {
@@ -217,7 +236,9 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
             points[1] = vec_rnd();
         } while(!in_frustum(points[0]) || !in_frustum(points[1]));
 
-        obj.allocate_coords(2);
+        loop_coords_pool.reset();
+        obj.coord_count = 2;
+        obj.allocate_coords(loop_coords_pool.allocate_range(2));
 
         if(obj.coords.empty())
         {
@@ -254,16 +275,20 @@ BOOST_AUTO_TEST_CASE(line_clip)
 {
     // render_object setup.
     const std::uint32_t VERTEX_COUNT = 2;
+    test_vec4_pool pool;
     swr::impl::render_object obj;
-    obj.allocate_coords(VERTEX_COUNT);
-    obj.indices.reserve(VERTEX_COUNT);
-    for(std::uint32_t i = 0; i < VERTEX_COUNT; ++i)
-    {
-        obj.indices.emplace_back(i);
-    }
+    obj.coord_count = VERTEX_COUNT;
+    obj.allocate_coords(pool.allocate_range(VERTEX_COUNT));
+
+    std::vector<std::uint32_t> indices(VERTEX_COUNT);
+    std::iota(std::begin(indices), std::end(indices), 0);
+    obj.indices = indices;
+
     obj.vertex_flags.resize(VERTEX_COUNT);
     swr::impl::program_info info;
-    obj.states.shader_info = &info;
+    swr::impl::render_states local_states;
+    local_states.shader_info = &info;
+    obj.states = &local_states;
 
     swr::impl::vertex_buffer out1, out2;
 
@@ -367,13 +392,19 @@ BOOST_AUTO_TEST_CASE(line_clip_range_parity)
 {
     swr::impl::render_object obj;
     swr::impl::program_info info;
-    obj.states.shader_info = &info;
+    swr::impl::render_states local_states;
+    local_states.shader_info = &info;
+    obj.states = &local_states;
 
     constexpr std::size_t line_count = 512;
     constexpr std::size_t vertex_count = line_count * 2;
-    obj.allocate_coords(vertex_count);
+    test_vec4_pool pool;
+    obj.coord_count = vertex_count;
+    obj.allocate_coords(pool.allocate_range(vertex_count));
     obj.vertex_flags.assign(vertex_count, 0);
-    obj.indices.resize(vertex_count);
+
+    std::vector<std::uint32_t> indices(vertex_count);
+    obj.indices = indices;
 
     std::mt19937 rng{1337u};
     std::uniform_real_distribution<float> coord_dist(-2.0f, 2.0f);
@@ -387,7 +418,9 @@ BOOST_AUTO_TEST_CASE(line_clip_range_parity)
       geom::vf_clip_z_min,
       geom::vf_clip_z_max,
       geom::vf_clip_w_min};
-    std::uniform_int_distribution<std::size_t> plane_dist(0, clip_plane_flags.size() - 1);
+    std::uniform_int_distribution<std::size_t> plane_dist{
+      0,
+      clip_plane_flags.size() - 1};
 
     for(std::size_t i = 0; i < vertex_count; ++i)
     {
@@ -437,13 +470,19 @@ BOOST_AUTO_TEST_CASE(triangle_clip_range_parity)
 {
     swr::impl::render_object obj;
     swr::impl::program_info info;
-    obj.states.shader_info = &info;
+    swr::impl::render_states local_states;
+    local_states.shader_info = &info;
+    obj.states = &local_states;
 
     constexpr std::size_t triangle_count = 384;
     constexpr std::size_t vertex_count = triangle_count * 3;
-    obj.allocate_coords(vertex_count);
+    test_vec4_pool pool;
+    obj.coord_count = vertex_count;
+    obj.allocate_coords(pool.allocate_range(vertex_count));
     obj.vertex_flags.assign(vertex_count, 0);
-    obj.indices.resize(vertex_count);
+
+    std::vector<std::uint32_t> indices(vertex_count);
+    obj.indices = indices;
 
     std::mt19937 rng{4242u};
     std::uniform_real_distribution<float> coord_dist(-2.0f, 2.0f);
@@ -508,11 +547,19 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference)
     swr::impl::program_info info;
     info.iqs.emplace_back(swr::interpolation_qualifier::flat);
     info.varying_count = 1;
-    obj.states.shader_info = &info;
+    swr::impl::render_states local_states;
+    local_states.shader_info = &info;
+    obj.states = &local_states;
 
-    obj.allocate_coords(3);
-    obj.allocate_varyings(1);
-    obj.indices = {0, 1, 2};
+    test_vec4_pool pool;
+    pool.reserve(3 + 3 * 1);    // coords + varyings, prevent reallocation between allocations
+    obj.coord_count = 3;
+    obj.allocate_coords(pool.allocate_range(3));
+    obj.allocate_varyings(1, pool.allocate_range(3 * 1));
+
+    std::vector<std::uint32_t> indices = {0, 1, 2};
+    obj.indices = indices;
+
     obj.vertex_flags.assign(3, 0);
 
     obj.coords[0] = {-2.0f, 0.0f, 0.0f, 1.0f};
@@ -547,11 +594,19 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference_per_input_triangle)
     swr::impl::program_info info;
     info.iqs.emplace_back(swr::interpolation_qualifier::flat);
     info.varying_count = 1;
-    obj.states.shader_info = &info;
+    swr::impl::render_states local_states;
+    local_states.shader_info = &info;
+    obj.states = &local_states;
 
-    obj.allocate_coords(6);
-    obj.allocate_varyings(1);
-    obj.indices = {0, 1, 2, 3, 4, 5};
+    test_vec4_pool pool;
+    pool.reserve(6 + 6 * 1);    // coords + varyings, prevent reallocation between allocations
+    obj.coord_count = 6;
+    obj.allocate_coords(pool.allocate_range(6));
+    obj.allocate_varyings(1, pool.allocate_range(6 * 1));
+
+    std::vector<std::uint32_t> indices = {0, 1, 2, 3, 4, 5};
+    obj.indices = indices;
+
     obj.vertex_flags.assign(6, 0);
 
     obj.coords[0] = {-2.0f, 0.0f, 0.0f, 1.0f};

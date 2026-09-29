@@ -19,7 +19,10 @@
 namespace rast
 {
 
-void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const geom::vertex& v)
+void sweep_rasterizer::draw_point(
+  swr::impl::framebuffer_draw_target& draw_target,
+  const swr::impl::render_states& states,
+  const geom::vertex& v)
 {
     /*
      * a note on the pixel center adjustment:
@@ -68,12 +71,12 @@ void sweep_rasterizer::draw_point(const swr::impl::render_states& states, const 
 
     for_each_covered_point_pixel(
       adjusted_coords,
-      states.draw_target->properties.width,
-      states.draw_target->properties.height,
+      draw_target.properties.width,
+      draw_target.properties.height,
       [&](auto x, auto y)
       {
-          process_fragment(x, y, states, shader, v.coords.w, info, out);
-          states.draw_target->merge_color(
+          process_fragment(draw_target, x, y, states, shader, v.coords.w, info, out);
+          draw_target.merge_color(
             0,
             x,
             y,

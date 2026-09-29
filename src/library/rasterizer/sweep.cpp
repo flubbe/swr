@@ -29,7 +29,7 @@ bool may_write_default_depth_buffer(
   const swr::impl::default_framebuffer* framebuffer)
 {
     return primitive.states != nullptr
-           && primitive.states->draw_target == framebuffer
+           && primitive.states->draw_target == swr::impl::default_framebuffer_id
            && framebuffer->depth_buffer.info.data_ptr
            && primitive.states->depth_test_enabled
            && primitive.states->write_depth
@@ -43,26 +43,31 @@ bool may_write_default_depth_buffer(
  */
 
 void sweep_rasterizer::add_point(
+  swr::impl::framebuffer_draw_target& draw_target,
   const swr::impl::render_states* states,
   geom::vertex* vertex)
 {
     draw_list.emplace_back(
+      draw_target,
       states,
       vertex);
 }
 
 void sweep_rasterizer::add_line(
+  swr::impl::framebuffer_draw_target& draw_target,
   const swr::impl::render_states* states,
   geom::vertex* v1,
   geom::vertex* v2)
 {
     draw_list.emplace_back(
+      draw_target,
       states,
       v1,
       v2);
 }
 
 void sweep_rasterizer::add_triangle(
+  swr::impl::framebuffer_draw_target& draw_target,
   const swr::impl::render_states* states,
   bool is_front_facing,
   geom::vertex* v1,
@@ -70,6 +75,7 @@ void sweep_rasterizer::add_triangle(
   geom::vertex* v3)
 {
     draw_list.emplace_back(
+      draw_target,
       states,
       is_front_facing,
       v1,
@@ -141,7 +147,8 @@ void sweep_rasterizer::draw_primitives()
 {
     if(!draw_list.empty())
     {
-        ensure_tile_cache_for_target(draw_list.front().states->draw_target);
+        ensure_tile_cache_for_target(
+          draw_list.front().draw_target);
     }
 
     tiles.clear_shader_instances();
@@ -164,18 +171,20 @@ void sweep_rasterizer::draw_primitives_sequential()
 {
     for(auto& it: draw_list)
     {
-        ensure_tile_cache_for_target(it.states->draw_target);
+        ensure_tile_cache_for_target(it.draw_target);
 
         // draw the primitive.
         if(it.type == primitive::primitive_type::point)
         {
             draw_point(
+              it.draw_target,
               *it.states,
               *it.v[0]);
         }
         else if(it.type == primitive::primitive_type::line)
         {
             draw_line(
+              it.draw_target,
               *it.states,
               true,
               *it.v[0],
@@ -184,6 +193,7 @@ void sweep_rasterizer::draw_primitives_sequential()
         else if(it.type == primitive::primitive_type::triangle)
         {
             draw_filled_triangle(
+              it.draw_target,
               *it.states,
               it.is_front_facing,
               *it.v[0],
@@ -210,7 +220,7 @@ void sweep_rasterizer::draw_primitives_parallel()
     const swr::impl::framebuffer_draw_target* cached_draw_target = nullptr;
     for(auto& it: draw_list)
     {
-        if(cached_draw_target != it.states->draw_target)
+        if(cached_draw_target != &it.draw_target)
         {
             if(triangles_in_tile_cache > 0)
             {
@@ -218,8 +228,8 @@ void sweep_rasterizer::draw_primitives_parallel()
                 triangles_in_tile_cache = 0;
             }
 
-            ensure_tile_cache_for_target(it.states->draw_target);
-            cached_draw_target = it.states->draw_target;
+            ensure_tile_cache_for_target(it.draw_target);
+            cached_draw_target = &it.draw_target;
         }
 
         // if needed, process triangles to keep draw order.
@@ -234,12 +244,14 @@ void sweep_rasterizer::draw_primitives_parallel()
         if(it.type == primitive::primitive_type::point)
         {
             draw_point(
+              it.draw_target,
               *it.states,
               *it.v[0]);
         }
         else if(it.type == primitive::primitive_type::line)
         {
             draw_line(
+              it.draw_target,
               *it.states,
               true,
               *it.v[0],
@@ -248,6 +260,7 @@ void sweep_rasterizer::draw_primitives_parallel()
         else if(it.type == primitive::primitive_type::triangle)
         {
             draw_filled_triangle(
+              it.draw_target,
               *it.states,
               it.is_front_facing,
               *it.v[0],
@@ -271,7 +284,8 @@ void sweep_rasterizer::draw_primitives_parallel()
  * tile processing.
  */
 
-void sweep_rasterizer::process_tile(tile& in_tile)
+void sweep_rasterizer::process_tile(
+  tile& in_tile)
 {
     const unsigned int tile_x = in_tile.x;
     const unsigned int tile_y = in_tile.y;
@@ -331,6 +345,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
             assert(it.precomputed_payload_index < in_tile.primitive_small_payloads.size());
 
             process_block_small_checked(
+              *it.draw_target,
               tile_x,
               tile_y,
               it,
@@ -350,6 +365,7 @@ void sweep_rasterizer::process_tile(tile& in_tile)
             assert(payload.quad_offset + payload.quad_count <= in_tile.primitive_sparse_quad_payloads.size());
 
             process_block_sparse_checked(
+              *it.draw_target,
               tile_x,
               tile_y,
               it,

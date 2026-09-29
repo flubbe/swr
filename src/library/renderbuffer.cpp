@@ -52,6 +52,8 @@ bool texture_attachment_binding::is_valid() const
         return false;
     }
 
+    // FIXME check pending deletions. currently there is no pending deletion mechanism for textures.
+
     if(!global_context->texture_2d_storage[tex_id])
     {
         return false;
@@ -104,6 +106,15 @@ bool depth_renderbuffer_attachment_binding::is_valid() const
     if(!global_context->depth_attachments.contains(attachment_id))
     {
         return false;
+    }
+
+    for(const auto& res: global_context->pending_resource_deletions)
+    {
+        if(res.type == resource_type::depth_attachment
+           && res.id == attachment_id)
+        {
+            return false;
+        }
     }
 
     return &global_context->depth_attachments[attachment_id] == attachment
@@ -1171,26 +1182,16 @@ void framebuffer_object::depth_compare_write_block(
  * framebuffer object interface.
  */
 
-/** the default framebuffer has id 0. this constant is mostly here to make the code below more readable. */
-constexpr std::uint32_t default_framebuffer_id = 0;
-
-/** two more functions for handling the default_framebuffer_id case. */
-static auto id_to_slot = [](std::uint32_t id) -> std::uint32_t
-{ return id - 1; };
-static auto slot_to_id = [](std::uint32_t slot) -> std::uint32_t
-{ return slot + 1; };
-
 std::uint32_t CreateFramebufferObject()
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    // set up a new framebuffer.
     auto slot = context->framebuffer_objects.push({});
-    auto* new_fbo = &context->framebuffer_objects[slot];
-    new_fbo->reset(slot);
+    auto id = impl::framebuffer_slot_to_id(slot);
+    context->framebuffer_objects[slot].reset(id);
 
-    return slot_to_id(slot);
+    return id;
 }
 
 void ReleaseFramebufferObject(
@@ -1199,25 +1200,31 @@ void ReleaseFramebufferObject(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id == default_framebuffer_id)
+    if(id == impl::default_framebuffer_id)
     {
         // do not release default framebuffer.
         return;
     }
 
-    auto slot = id_to_slot(id);
-    if(context->framebuffer_objects.contains(slot))
-    {
-        // check if we are bound to a target and reset the target if necessary.
-        if(context->states.draw_target == &context->framebuffer_objects[slot])
-        {
-            context->states.draw_target = &context->framebuffer;
-        }
+    auto slot = impl::framebuffer_id_to_slot(id);
 
-        // release framebuffer object.
-        context->framebuffer_objects[slot].reset();
-        context->framebuffer_objects.erase(slot);
+    if(!context->framebuffer_objects.contains(slot))
+    {
+        // Ignore unknown ids.
+        return;
     }
+
+    // check if we are bound to a target and reset the target if necessary.
+    if(context->states.draw_target == id)
+    {
+        context->states.draw_target = impl::default_framebuffer_id;
+    }
+
+    // Mark buffer for deletion.
+    // Duplications are resolved when processing deletions.
+    context->pending_resource_deletions.push_back(
+      {.type = impl::resource_type::framebuffer_object,
+       .id = id});
 }
 
 void BindFramebufferObject(
@@ -1227,44 +1234,30 @@ void BindFramebufferObject(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id == default_framebuffer_id)
+    if(id == impl::default_framebuffer_id)
     {
-        // bind the default framebuffer.
-        if(target == framebuffer_target::draw
-           || target == framebuffer_target::draw_read)
-        {
-            context->states.draw_target = &context->framebuffer;
-        }
-
-        if(target == framebuffer_target::read
-           || target == framebuffer_target::draw_read)
-        {
-            /* unimplemented. */
-        }
-
+        context->states.draw_target = impl::default_framebuffer_id;
         return;
     }
 
     // check that the id is valid.
-    auto slot = id_to_slot(id);
+    auto slot = impl::framebuffer_id_to_slot(id);
     if(!context->framebuffer_objects.contains(slot))
     {
-        context->last_error = error::invalid_operation;
+        context->last_error = error::invalid_value;
         return;
     }
 
     if(target == framebuffer_target::draw
        || target == framebuffer_target::draw_read)
     {
-        context->states.draw_target = &context->framebuffer_objects[slot];
+        context->states.draw_target = id;
     }
-
-    if(target == framebuffer_target::read
-       || target == framebuffer_target::draw_read)
+    else if(target == framebuffer_target::read
+            || target == framebuffer_target::draw_read)
     {
         /* unimplemented. */
-
-        assert(0);    // TODO
+        context->last_error = error::unimplemented;
     }
 }
 
@@ -1277,9 +1270,31 @@ void FramebufferTexture(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id == default_framebuffer_id)
+    if(id == impl::default_framebuffer_id)
     {
         // textures cannot be bound to the default framebuffer.
+        context->last_error = error::invalid_value;
+        return;
+    }
+
+    auto slot = impl::framebuffer_id_to_slot(id);
+    if(!context->framebuffer_objects.contains(slot))
+    {
+        context->last_error = error::invalid_value;
+        return;
+    }
+    auto fbo = &context->framebuffer_objects[slot];
+
+    // check if we should detach the texture.
+    if(attachment_id == 0)
+    {
+        fbo->detach_texture(attachment);
+        return;
+    }
+
+    auto tex_id = attachment_id;
+    if(!context->texture_2d_storage.contains(tex_id))
+    {
         context->last_error = error::invalid_value;
         return;
     }
@@ -1290,23 +1305,12 @@ void FramebufferTexture(
     {
         // use texture as color buffer.
 
-        // get framebuffer object.
-        auto slot = id_to_slot(id);
-        if(!context->framebuffer_objects.contains(slot))
-        {
-            context->last_error = error::invalid_value;
-            return;
-        }
-        auto fbo = &context->framebuffer_objects[slot];
-
-        // get texture.
-        auto tex_id = attachment_id;
-        if(!context->texture_2d_storage.contains(tex_id))
-        {
-            context->last_error = error::invalid_value;
-            return;
-        }
         if(context->texture_2d_storage[tex_id]->as_texture_color_2d() == nullptr)
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+        if(level >= context->texture_2d_storage[tex_id]->mip_level_count())
         {
             context->last_error = error::invalid_value;
             return;
@@ -1320,21 +1324,12 @@ void FramebufferTexture(
     }
     else if(attachment == framebuffer_attachment::depth_attachment)
     {
-        auto slot = id_to_slot(id);
-        if(!context->framebuffer_objects.contains(slot))
-        {
-            context->last_error = error::invalid_value;
-            return;
-        }
-        auto fbo = &context->framebuffer_objects[slot];
-
-        auto tex_id = attachment_id;
-        if(!context->texture_2d_storage.contains(tex_id))
-        {
-            context->last_error = error::invalid_value;
-            return;
-        }
         if(context->texture_2d_storage[tex_id]->as_texture_depth_2d() == nullptr)
+        {
+            context->last_error = error::invalid_value;
+            return;
+        }
+        if(level >= context->texture_2d_storage[tex_id]->mip_level_count())
         {
             context->last_error = error::invalid_value;
             return;
@@ -1370,9 +1365,13 @@ void ReleaseDepthRenderbuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
+    // Ignore unknown ids.
     if(context->depth_attachments.contains(id))
     {
-        context->depth_attachments.erase(id);
+        // Duplications are resolved when processing deletions.
+        context->pending_resource_deletions.push_back(
+          {.type = impl::resource_type::depth_attachment,
+           .id = id});
     }
 }
 
@@ -1384,7 +1383,7 @@ void FramebufferRenderbuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(id == default_framebuffer_id)
+    if(id == impl::default_framebuffer_id)
     {
         // don't operate on the default framebuffer.
         context->last_error = error::invalid_value;
@@ -1404,7 +1403,7 @@ void FramebufferRenderbuffer(
         return;
     }
 
-    auto slot = id_to_slot(id);
+    auto slot = impl::framebuffer_id_to_slot(id);
     if(!context->framebuffer_objects.contains(slot))
     {
         context->last_error = error::invalid_value;

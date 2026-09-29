@@ -242,6 +242,8 @@ BOOST_AUTO_TEST_CASE(fbo_blend_one_zero_overwrites_texture_attachment)
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
     check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
@@ -262,6 +264,8 @@ BOOST_AUTO_TEST_CASE(fbo_blend_zero_one_preserves_texture_attachment)
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
     check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
@@ -281,6 +285,8 @@ BOOST_AUTO_TEST_CASE(fbo_blend_source_alpha_combines_source_and_destination)
 
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
     check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
@@ -310,6 +316,8 @@ BOOST_AUTO_TEST_CASE(fbo_larger_than_default_draw_target_rasterizes_without_miss
 
     swr::SetClearColor(clear.r, clear.g, clear.b, clear.a);
     swr::ClearColorBuffer();
+    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::Present();
     BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
     check_representative_pixels(
       context,
