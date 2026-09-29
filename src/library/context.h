@@ -10,8 +10,10 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <unordered_set>
+#include <bit>
+#include <functional>
+#include <memory>
+#include <utility>
 #include <variant>
 #include <vector>
 
