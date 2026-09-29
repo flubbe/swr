@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_SUITE(frame_arena)
 
 BOOST_AUTO_TEST_CASE(lifecycle_and_reset)
 {
-    swr::impl::frame_arena<int> arena;
+    swr::impl::frame_arena<1, int> arena;
 
     BOOST_TEST(arena.empty());
     BOOST_TEST(arena.size() == 0u);
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(lifecycle_and_reset)
 
 BOOST_AUTO_TEST_CASE(allocate_range_and_std_like_interface)
 {
-    swr::impl::frame_arena<std::string> arena;
+    swr::impl::frame_arena<1, std::string> arena;
     arena.reserve(8);
 
     auto span = arena.allocate_range(3);
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(clear_and_release)
 {
     tracked_value::reset_counters();
 
-    swr::impl::frame_arena<tracked_value> arena;
+    swr::impl::frame_arena<2, tracked_value> arena;    // skip destructors on first reset() call.
     arena.reserve(4);
     arena.emplace_back(1);
     arena.emplace_back(2);

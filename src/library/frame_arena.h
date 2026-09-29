@@ -36,10 +36,12 @@ namespace impl
  * This container is intended for high-frequency frame allocation where object
  * lifetime is naturally bounded by a frame.
  *
+ * @tparam CleanupFrames Frame reset interval (in reset calls) for capacity trimming.
  * @tparam T A default-initializable type.
  * @tparam Allocator An allocator. Defaults to `std::allocator`.
  */
 template<
+  std::size_t CleanupFrames,
   std::default_initializable T,
   typename Allocator = std::allocator<T>>
     requires(std::is_copy_assignable_v<T> && std::is_move_assignable_v<T>)
@@ -54,6 +56,15 @@ class frame_arena
      * @note `used <= storage.size()` always holds.
      * */
     std::size_t used{0};
+
+    /** Peak usage. */
+    std::size_t peak_used{0};
+
+    /** Below-peak usage. */
+    std::size_t frames_below_peak{0};
+
+    /** Free memory every N frames. */
+    static constexpr std::size_t shrink_threshold_frames = CleanupFrames;
 
 public:
     using value_type = T;
@@ -271,9 +282,32 @@ public:
      *
      * No destructors are run. Existing object state and any memory owned by those
      * objects are retained for reuse by subsequent frames.
+     *
+     * Does a cleanup every N frames.
      */
     void reset() noexcept
     {
+        peak_used = std::max(peak_used, used);
+
+        // Track how long we've been using significantly less than our peak
+        if(peak_used < storage.capacity() / 2)
+        {
+            frames_below_peak++;
+
+            if(frames_below_peak >= shrink_threshold_frames)
+            {
+                storage.resize(peak_used);
+                storage.shrink_to_fit();
+
+                frames_below_peak = 0;
+                peak_used = 0;
+            }
+        }
+        else
+        {
+            frames_below_peak = 0;
+        }
+
         used = 0;
     }
 
@@ -299,6 +333,14 @@ public:
     void release()
     {
         clear();
+        storage.shrink_to_fit();
+    }
+
+    /** Trims allocated capacity down to the current active size. */
+    void shrink_to_fit()
+    {
+        // Reclaim memory beyond 'used'
+        storage.resize(used);
         storage.shrink_to_fit();
     }
 };

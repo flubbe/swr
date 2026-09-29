@@ -360,24 +360,34 @@ constexpr std::uint32_t framebuffer_slot_to_id(std::uint32_t slot)
     return slot + 1;
 };
 
+/** Resource type, used for deferred deletion. */
 enum class resource_type
 {
-    none,
-    framebuffer_object,
-    depth_attachment
+    none,               /** No type. */
+    framebuffer_object, /** Framebuffer object. */
+    depth_attachment    /** Depth attachment for a framebuffer object. */
 };
 
+/** Resource key for deferred deletions. */
 struct resource_key
 {
+    /** Resource type. */
     resource_type type{resource_type::none};
+
+    /** Resource id. */
     std::uint32_t id{0};
 
-    friend bool operator==(const resource_key&, const resource_key&) = default;
+    friend bool operator==(
+      const resource_key&,
+      const resource_key&) = default;
 };
 
 /** a general render context (not associated to any output device/window). */
 struct render_context
 {
+    /** Arena memory is cleaned up every N frames. */
+    static constexpr std::size_t CleanupFrames = 120;
+
     /** the context type. */
     context_type type{context_type::generic};
 
@@ -437,10 +447,10 @@ struct render_context
      * Storage is retained between frames; only the live slots [0, command_list.size()) are valid during a frame.
      * Each entry contains all the data needed to execute that command.
      */
-    frame_arena<render_command> command_list;
+    frame_arena<CleanupFrames, render_command> command_list;
 
     /** Pending resource deletions. */
-    frame_arena<resource_key> pending_resource_deletions;
+    frame_arena<CleanupFrames, resource_key> pending_resource_deletions;
 
     /** Process pending deletions list. */
     void process_pending_deletions();
@@ -450,19 +460,19 @@ struct render_context
      * Indexed by draw_command::render_object_index when processing draw commands.
      * On reset() inner vector buffers (coords, varyings, etc.) keep their capacity.
      */
-    frame_arena<render_object> render_objects;
+    frame_arena<CleanupFrames, render_object> render_objects;
 
     /**
      * Per-frame pool of index-buffer payload elements referenced by draw commands.
      * Storage is retained between frames so payload elements can be reused without per-frame heap churn.
      */
-    frame_arena<std::uint32_t> index_buffer_pool;
+    frame_arena<CleanupFrames, std::uint32_t> index_buffer_pool;
 
     /**
      * Per-frame resolved draw execution contexts, one per draw command.
      * These are built at the start of Present() and consumed by the ST/MT pipeline.
      */
-    frame_arena<draw_execution> resolved_draws;
+    frame_arena<CleanupFrames, draw_execution> resolved_draws;
 
     /**
      * Per-frame render state snapshots, one per draw call.
@@ -474,9 +484,11 @@ struct render_context
      * Capacity is pre-reserved at the end of `Present()` to avoid mid-frame
      * reallocation.
      */
-    frame_arena<render_states> state_snapshots;
+    frame_arena<CleanupFrames, render_states> state_snapshots;
 
+    /** Per-frame attribute pool. */
     frame_arena<
+      CleanupFrames,
       ml::vec4,
       utils::aligned_default_init_allocator<
         ml::vec4,
@@ -490,6 +502,7 @@ struct render_context
      * Must be reset() after render_objects.reset() at the end of Present().
      */
     frame_arena<
+      CleanupFrames,
       ml::vec4,
       utils::aligned_default_init_allocator<
         ml::vec4,

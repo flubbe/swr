@@ -29,6 +29,7 @@
 
 /** Aligned vec4 pool for constructing render_objects directly in unit tests. */
 using test_vec4_pool = swr::impl::frame_arena<
+  1,
   ml::vec4,
   utils::aligned_default_init_allocator<ml::vec4, utils::alignment::sse>>;
 

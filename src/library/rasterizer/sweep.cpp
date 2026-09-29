@@ -147,8 +147,6 @@ void sweep_rasterizer::draw_primitives()
 {
     if(!draw_list.empty())
     {
-        // FIXME FBO lifetimes.
-
         ensure_tile_cache_for_target(
           draw_list.front().draw_target);
     }
