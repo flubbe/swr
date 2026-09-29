@@ -835,9 +835,6 @@ class demo_viewer : public swr_app::renderwindow
     /** bitmap font renderer. */
     font::renderer font_rend;
 
-    /** runtime msec/fps measurement reference time. */
-    std::chrono::steady_clock::time_point msec_reference_time;
-
     /** frame counter. */
     std::uint32_t frame_count{0};
 
@@ -1176,9 +1173,6 @@ public:
           256, 256, 16, 16);
         font_rend.initialize(font_shader_id, font, width, height);
 
-        // set reference time for fps measurements.
-        msec_reference_time = std::chrono::steady_clock::now();
-
         return true;
     }
 
@@ -1269,11 +1263,6 @@ public:
         }
 
         wheel_angle += wheel_angular_speed * delta_time;
-
-        auto now = std::chrono::steady_clock::now();
-        auto msec_delta_time = std::chrono::duration_cast<std::chrono::duration<float, std::milli>>(now - msec_reference_time).count();
-        msec_reference_time = now;
-
         angle += delta_time * 0.2f;
 
         view = ml::matrices::look_at(
@@ -1299,7 +1288,7 @@ public:
 
         begin_render();
         draw_objects(objects, materials, textures);
-        draw_delta_time(msec_delta_time);
+        draw_delta_time(delta_time);
         end_render();
 
         ++frame_count;
@@ -1420,25 +1409,25 @@ public:
         accum += delta_time;
         ++frame_count;
 
-        static float display_msec{delta_time};
+        static float display_sec{delta_time};
 
-        if(accum > 500.f)
+        if(accum > 0.5f)
         {
-            display_msec = accum / static_cast<float>(frame_count);
+            display_sec = accum / static_cast<float>(frame_count);
 
-            accum -= 500.f;
+            accum = 0.f;
             frame_count = 0;
         }
 
         swr::BindUniform(0, ml::matrices::orthographic_projection(0, width, height, 0, -1000, 1000));
         swr::BindUniform(1, ml::mat4x4::identity());
 
-        std::string str = std::format("msec: {: #6.2f}", display_msec);
+        std::string str = std::format("msec: {: #6.2f}", display_sec * 1000.f);
         font_rend.draw_string(font::renderer::string_alignment::right | font::renderer::string_alignment::top, str);
 
         std::uint32_t w{0}, h{0};
         font.get_string_dimensions(str, w, h);
-        str = std::format(" fps: {: #6.1f}", 1000.0f / display_msec);
+        str = std::format(" fps: {: #6.1f}", 1.0f / display_sec);
         font_rend.draw_string(font::renderer::string_alignment::right, str, 0 /* ignored */, h);
 
         str = std::format("Steering [L/R]: {:.2f}", steering_value);

@@ -309,7 +309,6 @@ public:
     {
         if(context != nullptr)
         {
-
             swr::DeleteAttributeBuffer(blur_tc_id);
             swr::DeleteAttributeBuffer(blur_vb_id);
 

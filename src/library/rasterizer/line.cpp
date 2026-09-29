@@ -32,6 +32,7 @@ namespace rast
  * note: in_draw_endpoint should be used for correctly drawing line-strips, but is currently unused.
  */
 void sweep_rasterizer::draw_line(
+  swr::impl::framebuffer_draw_target& draw_target,
   const swr::impl::render_states& states,
   [[maybe_unused]] bool in_draw_endpoint,
   const geom::vertex& v0,
@@ -62,8 +63,8 @@ void sweep_rasterizer::draw_line(
     auto emit_fragment = [&](int x, int y, line_emit_kind kind)
     {
         if(x >= 0 && y >= 0
-           && x < states.draw_target->properties.width
-           && y < states.draw_target->properties.height)
+           && x < draw_target.properties.width
+           && y < draw_target.properties.height)
         {
             attr.get_varyings(temp_varyings);
 
@@ -71,6 +72,7 @@ void sweep_rasterizer::draw_line(
             swr::impl::fragment_output out;
 
             process_fragment(
+              draw_target,
               x,
               y,
               states,
@@ -79,7 +81,7 @@ void sweep_rasterizer::draw_line(
               frag_info,
               out);
 
-            states.draw_target->merge_color(
+            draw_target.merge_color(
               0,
               x,
               y,

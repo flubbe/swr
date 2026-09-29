@@ -782,11 +782,13 @@ void transform_clip_coord_to_viewport(
 
 void assemble_render_object(
   impl::render_context* context,
-  impl::render_object& obj)
+  impl::render_object& obj,
+  impl::framebuffer_draw_target& draw_target)
 {
     if(obj.clipped_vertices_source == impl::clipped_vertex_source::original_indexed_vertices)
     {
         context->assemble_original_indexed_primitives(
+          draw_target,
           obj.states,
           obj.mode,
           obj);
@@ -794,6 +796,7 @@ void assemble_render_object(
     }
 
     context->assemble_primitives(
+      draw_target,
       obj.states,
       obj.mode,
       obj.clipped_vertices);
@@ -2066,11 +2069,15 @@ inline void execute_clear_command(
            && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != context->framebuffer.color_buffer.info.width
                || states.scissor_box.y_min != 0 || states.scissor_box.y_max != context->framebuffer.color_buffer.info.height))
         {
-            states.draw_target->clear_color(0, states.clear_color, states.scissor_box);
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_color(0, states.clear_color, states.scissor_box);
         }
         else
         {
-            states.draw_target->clear_color(0, states.clear_color);
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_color(0, states.clear_color);
         }
     }
     else
@@ -2080,11 +2087,15 @@ inline void execute_clear_command(
            && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != context->framebuffer.color_buffer.info.width
                || states.scissor_box.y_min != 0 || states.scissor_box.y_max != context->framebuffer.color_buffer.info.height))
         {
-            states.draw_target->clear_depth(states.clear_depth, states.scissor_box);
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_depth(states.clear_depth, states.scissor_box);
         }
         else
         {
-            states.draw_target->clear_depth(states.clear_depth);
+            context->resolve_draw_target(
+                     states.draw_target)
+              ->clear_depth(states.clear_depth);
         }
     }
 }
@@ -2111,6 +2122,7 @@ void Present()
     // immediately return if there is nothing to do.
     if(context->command_list.empty())
     {
+        context->process_pending_deletions();
         return;
     }
 
@@ -2177,14 +2189,19 @@ void Present()
         utils::clock(stage_assembly);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        for(const auto& draw: context->resolved_draws.span())
+        for(auto& draw: context->resolved_draws.span())
         {
             if(draw.clipped_vertex_range.count == 0)
             {
                 continue;
             }
 
-            assemble_render_object(context, *draw.object);
+            // TODO pass draw target forward explicitly
+
+            assemble_render_object(
+              context,
+              *draw.object,
+              *draw.draw_target);
         }
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
@@ -2252,11 +2269,16 @@ void Present()
                 .attribute_index_range = buffer_range,
                 .clipped_vertex_range = {},
                 .states = obj.states,
+                .draw_target = context->resolve_draw_target(
+                  obj.states->draw_target),
                 .discard = false});
         }
     }
 
     flush_batch();
+
+    // Process pending resource deletions.
+    context->process_pending_deletions();
 
     // Reset arenas; storage capacity and inner buffers are retained for next frame.
     context->state_snapshots.reset();
@@ -2339,12 +2361,10 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height)
 
     // Public API follows OpenGL semantics (viewport origin at lower-left),
     // while the internal rasterizer uses a top-down viewport y-axis.
-    int internal_y = y;
-    if(context->states.draw_target != nullptr)
-    {
-        const int framebuffer_height = context->states.draw_target->properties.height;
-        internal_y = framebuffer_height - (y + static_cast<int>(height));
-    }
+    const int internal_y = context->resolve_draw_target(
+                                    context->states.draw_target)
+                             ->properties.height
+                           - (y + static_cast<int>(height));
 
     context->states.set_viewport(x, internal_y, width, height);
 }

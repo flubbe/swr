@@ -465,6 +465,7 @@ public:
 };
 
 static void submit_original_indexed_triangle(
+  framebuffer_draw_target& draw_target,
   rast::rasterizer* rasterizer,
   const render_states* states,
   lazy_vertex_cache& vertices,
@@ -478,6 +479,7 @@ static void submit_original_indexed_triangle(
     const std::size_t m3 = vertices.cached_index_of(i3);
 
     rasterizer->add_triangle(
+      draw_target,
       states,
       is_front_facing,
       &vertices.at(m1),
@@ -862,6 +864,7 @@ void assemble_fill_original_indexed_triangles_chunk(
 
 /** Submit assembled nonindexed fill triangles from a worker chunk to the rasterizer. */
 void submit_assembled_fill_nonindexed_triangles_chunk(
+  framebuffer_draw_target& draw_target,
   rast::rasterizer* rasterizer,
   const render_states* states,
   vertex_buffer& vb,
@@ -873,6 +876,7 @@ void submit_assembled_fill_nonindexed_triangles_chunk(
         auto& v2 = vb[tri.index + 1];
         auto& v3 = vb[tri.index + 2];
         rasterizer->add_triangle(
+          draw_target,
           states,
           tri.is_front_facing,
           &v1,
@@ -883,6 +887,7 @@ void submit_assembled_fill_nonindexed_triangles_chunk(
 
 /** Submit assembled indexed fill triangles from a worker chunk to the rasterizer. */
 void submit_assembled_fill_indexed_triangles_chunk(
+  framebuffer_draw_target& draw_target,
   rast::rasterizer* rasterizer,
   const render_states* states,
   vertex_buffer& vb,
@@ -894,6 +899,7 @@ void submit_assembled_fill_indexed_triangles_chunk(
         auto& v2 = vb[tri.i2];
         auto& v3 = vb[tri.i3];
         rasterizer->add_triangle(
+          draw_target,
           states,
           tri.is_front_facing,
           &v1,
@@ -907,6 +913,7 @@ void submit_assembled_fill_indexed_triangles_chunk(
 } /* namespace */
 
 void render_context::assemble_primitives(
+  framebuffer_draw_target& draw_target,
   const render_states* states,
   vertex_buffer_mode mode,
   vertex_buffer& vb)
@@ -922,7 +929,10 @@ void render_context::assemble_primitives(
         {
             profile.point_input();
 
-            rasterizer->add_point(states, &vertex_it);
+            rasterizer->add_point(
+              draw_target,
+              states,
+              &vertex_it);
             profile.point_emitted();
         }
     }
@@ -934,7 +944,11 @@ void render_context::assemble_primitives(
         {
             profile.line_input();
 
-            rasterizer->add_line(states, &vb[i], &vb[i + 1]);
+            rasterizer->add_line(
+              draw_target,
+              states,
+              &vb[i],
+              &vb[i + 1]);
             profile.line_emitted();
         }
     }
@@ -991,13 +1005,21 @@ void render_context::assemble_primitives(
                     auto* cur_vertex = &vb[i];
 
                     // Add the current line to the rasterizer.
-                    rasterizer->add_line(states, prev_vertex, cur_vertex);
+                    rasterizer->add_line(
+                      draw_target,
+                      states,
+                      prev_vertex,
+                      cur_vertex);
                     profile.line_emitted();
 
                     prev_vertex = cur_vertex;
                 }
                 // close the strip.
-                rasterizer->add_line(states, prev_vertex, first_vertex);
+                rasterizer->add_line(
+                  draw_target,
+                  states,
+                  prev_vertex,
+                  first_vertex);
                 profile.line_emitted();
             }
         }
@@ -1036,6 +1058,7 @@ void render_context::assemble_primitives(
                     profile.merge(chunk.profile);
 
                     submit_assembled_fill_nonindexed_triangles_chunk(
+                      draw_target,
                       rasterizer.get(),
                       states,
                       vb,
@@ -1052,7 +1075,7 @@ void render_context::assemble_primitives(
                   0,
                   triangle_count,
                   profile,
-                  [rasterizer_ptr, states, &vb](
+                  [rasterizer_ptr, &draw_target, states, &vb](
                     std::size_t i,
                     bool is_front_facing)
                   {
@@ -1060,6 +1083,7 @@ void render_context::assemble_primitives(
                       auto& v2 = vb[i + 1];
                       auto& v3 = vb[i + 2];
                       rasterizer_ptr->add_triangle(
+                        draw_target,
                         states,
                         is_front_facing,
                         &v1,
@@ -1080,180 +1104,8 @@ void render_context::assemble_primitives(
     submit_primitive_assembly_profile(profile);
 }
 
-void render_context::assemble_indexed_primitives(
-  const render_states* states,
-  vertex_buffer_mode mode,
-  vertex_buffer& vb,
-  std::span<const std::uint32_t> indices)
-{
-    primitive_assembly_profile profile;
-
-    if(indices.empty())
-    {
-        return;
-    }
-
-    if(mode == vertex_buffer_mode::points
-       || states->poly_mode == polygon_mode::point)
-    {
-        for(const std::uint32_t index: indices)
-        {
-            assert(index < vb.size());
-
-            profile.point_input();
-
-            rasterizer->add_point(states, &vb[index]);
-            profile.point_emitted();
-        }
-    }
-    else if(mode == vertex_buffer_mode::lines)
-    {
-        const std::size_t size = indices.size() & ~std::size_t{1};
-        for(std::size_t i = 0; i < size; i += 2)
-        {
-            assert(indices[i] < vb.size());
-            assert(indices[i + 1] < vb.size());
-
-            profile.line_input();
-
-            rasterizer->add_line(states, &vb[indices[i]], &vb[indices[i + 1]]);
-            profile.line_emitted();
-        }
-    }
-    else if(mode == vertex_buffer_mode::triangles
-            && states->poly_mode == polygon_mode::line)
-    {
-        const std::size_t size = (indices.size() / 3) * 3;
-        for(std::size_t i = 0; i < size; i += 3)
-        {
-            assert(indices[i] < vb.size());
-            assert(indices[i + 1] < vb.size());
-            assert(indices[i + 2] < vb.size());
-
-            auto& v1 = vb[indices[i]];
-            auto& v2 = vb[indices[i + 1]];
-            auto& v3 = vb[indices[i + 2]];
-
-            profile.triangle_input();
-
-            if(states->culling_enabled)
-            {
-                const int area_sign =
-                  triangle_area_sign(v1.coords.xy(), v2.coords.xy(), v3.coords.xy());
-                if(area_sign == 0)
-                {
-                    profile.triangle_culled_degenerate();
-                    continue;
-                }
-
-                const bool is_front_facing =
-                  (states->front_face == front_face_orientation::cw && area_sign >= 0)
-                  || (states->front_face == front_face_orientation::ccw && area_sign <= 0);
-                const cull_face_direction orient =
-                  is_front_facing
-                    ? cull_face_direction::front
-                    : cull_face_direction::back;
-                if(cull_reject(states->cull_mode, orient))
-                {
-                    profile.triangle_culled_face();
-                    continue;
-                }
-            }
-
-            rasterizer->add_line(states, &v1, &v2);
-            profile.line_emitted();
-
-            rasterizer->add_line(states, &v2, &v3);
-            profile.line_emitted();
-
-            rasterizer->add_line(states, &v3, &v1);
-            profile.line_emitted();
-        }
-    }
-    else if(mode == vertex_buffer_mode::triangles
-            && states->poly_mode == polygon_mode::fill)
-    {
-        const std::size_t triangle_count = indices.size() / 3;
-        if(triangle_count == 0)
-        {
-            return;
-        }
-
-#ifdef SWR_ENABLE_MULTI_THREADING
-        const std::size_t thread_count = thread_pool.get_thread_count();
-        const bool do_parallel_assembly =
-          thread_count > 1
-          && triangle_count >= min_parallel_assembly_triangles;
-
-        if(do_parallel_assembly)
-        {
-            const std::size_t task_count = std::min(thread_count, triangle_count);
-            std::vector<indexed_assembled_triangle_chunk> chunks(task_count);
-
-            for(std::size_t t = 0; t < task_count; ++t)
-            {
-                const std::size_t begin_triangle = (t * triangle_count) / task_count;
-                const std::size_t end_triangle = ((t + 1) * triangle_count) / task_count;
-
-                thread_pool.push_immediate_task(
-                  assemble_fill_indexed_triangles_chunk<indexed_triangle_source>,
-                  states,
-                  &vb,
-                  begin_triangle,
-                  end_triangle,
-                  &chunks[t],
-                  indexed_triangle_source{indices});
-            }
-
-            thread_pool.run_tasks_and_wait();
-
-            for(const auto& chunk: chunks)
-            {
-                profile.merge(chunk.profile);
-
-                submit_assembled_fill_indexed_triangles_chunk(
-                  rasterizer.get(),
-                  states,
-                  vb,
-                  chunk);
-            }
-        }
-        else
-        {
-#endif /* SWR_ENABLE_MULTI_THREADING */
-            auto* rasterizer_ptr = rasterizer.get();
-            assemble_fill_indexed_triangles_range(
-              states,
-              &vb,
-              0,
-              triangle_count,
-              profile,
-              indexed_triangle_source{indices},
-              [rasterizer_ptr, states, &vb](
-                std::size_t i1,
-                std::size_t i2,
-                std::size_t i3,
-                bool is_front_facing)
-              {
-                  auto& v1 = vb[i1];
-                  auto& v2 = vb[i2];
-                  auto& v3 = vb[i3];
-                  rasterizer_ptr->add_triangle(
-                    states,
-                    is_front_facing,
-                    &v1,
-                    &v2,
-                    &v3);
-              });
-#ifdef SWR_ENABLE_MULTI_THREADING
-        }
-#endif /* SWR_ENABLE_MULTI_THREADING */
-    }
-
-    submit_primitive_assembly_profile(profile);
-}
-
 void render_context::assemble_original_indexed_primitives(
+  framebuffer_draw_target& draw_target,
   const render_states* states,
   vertex_buffer_mode mode,
   render_object& obj)
@@ -1284,7 +1136,10 @@ void render_context::assemble_original_indexed_primitives(
 
             auto& vertex = vertices.at(vertices.cached_index_of(index));
 
-            rasterizer->add_point(states, &vertex);
+            rasterizer->add_point(
+              draw_target,
+              states,
+              &vertex);
             profile.point_emitted();
         }
     }
@@ -1301,7 +1156,11 @@ void render_context::assemble_original_indexed_primitives(
             auto& v1 = vertices.at(vertices.cached_index_of(obj.indices[i]));
             auto& v2 = vertices.at(vertices.cached_index_of(obj.indices[i + 1]));
 
-            rasterizer->add_line(states, &v1, &v2);
+            rasterizer->add_line(
+              draw_target,
+              states,
+              &v1,
+              &v2);
             profile.line_emitted();
         }
     }
@@ -1352,13 +1211,25 @@ void render_context::assemble_original_indexed_primitives(
             auto& v2 = vertices.at(vertices.cached_index_of(obj.indices[i + 1]));
             auto& v3 = vertices.at(vertices.cached_index_of(obj.indices[i + 2]));
 
-            rasterizer->add_line(states, &v1, &v2);
+            rasterizer->add_line(
+              draw_target,
+              states,
+              &v1,
+              &v2);
             profile.line_emitted();
 
-            rasterizer->add_line(states, &v2, &v3);
+            rasterizer->add_line(
+              draw_target,
+              states,
+              &v2,
+              &v3);
             profile.line_emitted();
 
-            rasterizer->add_line(states, &v3, &v1);
+            rasterizer->add_line(
+              draw_target,
+              states,
+              &v3,
+              &v1);
             profile.line_emitted();
         }
     }
@@ -1406,6 +1277,7 @@ void render_context::assemble_original_indexed_primitives(
                 for(const auto& tri: chunk.triangles)
                 {
                     submit_original_indexed_triangle(
+                      draw_target,
                       rasterizer.get(),
                       states,
                       vertices,
@@ -1426,13 +1298,14 @@ void render_context::assemble_original_indexed_primitives(
               0,
               triangle_count,
               profile,
-              [rasterizer_ptr, states, &obj, &vertices](
+              [rasterizer_ptr, &draw_target, states, &obj, &vertices](
                 std::uint32_t i1,
                 std::uint32_t i2,
                 std::uint32_t i3,
                 bool is_front_facing)
               {
                   submit_original_indexed_triangle(
+                    draw_target,
                     rasterizer_ptr,
                     states,
                     vertices,

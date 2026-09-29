@@ -219,7 +219,6 @@ struct triangle_test_context
         states.height = height;
 
         states.shader_info = &program_info;
-        states.draw_target = &draw_target;
     }
 };
 
@@ -249,6 +248,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(EmitFn&& emi
 }
 
 std::vector<covered_triangle_block> collect_covered_triangle_blocks(
+  swr::impl::framebuffer_draw_target& draw_target,
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
   const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
@@ -258,6 +258,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
       [&](auto&& f)
       {
           rast::for_each_covered_triangle_block(
+            draw_target.properties,
             states,
             info,
             provoking_vertex_varyings,
@@ -267,6 +268,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
 }
 
 std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
+  swr::impl::framebuffer_draw_target& draw_target,
   const swr::impl::render_states& states,
   const rast::triangle_info& info,
   const boost::container::static_vector<ml::vec4, 15UL>& provoking_vertex_varyings,
@@ -275,6 +277,7 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
     std::vector<ml::tvec2<int>> out;
 
     rast::for_each_covered_triangle_block(
+      draw_target.properties,
       states,
       info,
       provoking_vertex_varyings,
@@ -610,11 +613,6 @@ BOOST_AUTO_TEST_CASE(setup_degenerate_triangle)
     const geom::vertex v1{};
     const geom::vertex v2{};
 
-    auto draw_target = fake_draw_target{
-      10, 10};
-    auto states = swr::impl::render_states{};
-    states.draw_target = &draw_target;
-
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(info.is_degenerate);
 }
@@ -633,6 +631,7 @@ BOOST_AUTO_TEST_CASE(checked_block_covered)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto blocks = collect_covered_triangle_blocks(
+      ctx.draw_target,
       ctx.states,
       info,
       v0.varyings);
@@ -656,6 +655,7 @@ BOOST_AUTO_TEST_CASE(coarse_block_rejects_empty_edge_regions)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto blocks = collect_covered_triangle_blocks(
+      ctx.draw_target,
       ctx.states,
       info,
       v0.varyings);
@@ -683,6 +683,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
+      ctx.draw_target.properties,
       ctx.states,
       info);
     const int block_x = bounds.start_x;
@@ -707,6 +708,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
         std::vector<std::tuple<int, int, int>> out;
 
         rast::for_each_covered_triangle_block(
+          ctx.draw_target.properties,
           ctx.states,
           info,
           v0.varyings,
@@ -774,6 +776,7 @@ BOOST_AUTO_TEST_CASE(full_block_covered)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto blocks = collect_covered_triangle_blocks(
+      ctx.draw_target,
       ctx.states,
       info,
       v0.varyings);
@@ -809,6 +812,7 @@ BOOST_AUTO_TEST_CASE(single_pixel_triangle_coverage)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -837,6 +841,7 @@ BOOST_AUTO_TEST_CASE(d3d11_1)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -875,6 +880,7 @@ BOOST_AUTO_TEST_CASE(d3d11_3)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -899,6 +905,7 @@ BOOST_AUTO_TEST_CASE(d3d11_4)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -925,6 +932,7 @@ BOOST_AUTO_TEST_CASE(d3d11_5)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -953,6 +961,7 @@ BOOST_AUTO_TEST_CASE(d3d11_6)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -981,6 +990,7 @@ BOOST_AUTO_TEST_CASE(d3d11_7)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1007,6 +1017,7 @@ BOOST_AUTO_TEST_CASE(d3d11_8)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1033,6 +1044,7 @@ BOOST_AUTO_TEST_CASE(d3d11_9)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1061,6 +1073,7 @@ BOOST_AUTO_TEST_CASE(d3d11_10)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1089,6 +1102,7 @@ BOOST_AUTO_TEST_CASE(d3d11_11)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1117,6 +1131,7 @@ BOOST_AUTO_TEST_CASE(d3d11_12)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1145,6 +1160,7 @@ BOOST_AUTO_TEST_CASE(d3d11_13)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1173,6 +1189,7 @@ BOOST_AUTO_TEST_CASE(d3d11_14)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1201,6 +1218,7 @@ BOOST_AUTO_TEST_CASE(d3d11_15)
           BOOST_REQUIRE(!info.is_degenerate);
 
           const auto pixels = collect_covered_triangle_pixels(
+            ctx.draw_target,
             ctx.states,
             info,
             a.varyings);
@@ -1321,6 +1339,7 @@ BOOST_AUTO_TEST_CASE(mixed_flat_and_smooth_varyings_use_per_varying_qualifiers)
     };
 
     rast::for_each_covered_triangle_block(
+      ctx.draw_target.properties,
       ctx.states,
       info,
       v0.varyings,
@@ -1453,6 +1472,7 @@ BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
     };
 
     rast::for_each_covered_triangle_block(
+      ctx.draw_target.properties,
       ctx.states,
       info,
       v0.varyings,
@@ -1605,12 +1625,16 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_preserves_exact_coverage_inside_block)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
+    const auto bounds = rast::compute_triangle_bounds(
+      ctx.draw_target.properties,
+      ctx.states,
+      info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
     BOOST_CHECK_EQUAL(bounds.end_x - bounds.start_x, static_cast<int>(swr::impl::rasterizer_block_size));
     BOOST_CHECK_EQUAL(bounds.end_y - bounds.start_y, static_cast<int>(swr::impl::rasterizer_block_size));
 
     const auto pixels = collect_covered_triangle_pixels(
+      ctx.draw_target,
       ctx.states,
       info,
       v0.varyings);
@@ -1628,10 +1652,9 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     swr::impl::render_states states;
     states.x = 0;
     states.y = 0;
-    states.width = 16;
-    states.height = 16;
+    states.width = draw_target.properties.width;
+    states.height = draw_target.properties.height;
     states.shader_info = &program_info;
-    states.draw_target = &draw_target;
 
     const auto v0 = make_vertex(8.5f, 8.5f);
     const auto v1 = make_vertex(11.5f, 8.5f);
@@ -1640,7 +1663,11 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(states, info);
+    const auto bounds = rast::compute_triangle_bounds(
+      swr::impl::framebuffer_properties{
+        .width = static_cast<int>(states.width),
+        .height = static_cast<int>(states.height)},
+      states, info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     const int block_x = swr::impl::lower_align_on_block_size(bounds.tight_start_x);
@@ -1660,6 +1687,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
 
     bool emitted = false;
     const bool needs_flush = cache.add_small_triangle_checked(
+      draw_target,
       block_x,
       block_y,
       &states,
@@ -1705,7 +1733,10 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_iterator_provides_precomputed_payload)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
+    const auto bounds = rast::compute_triangle_bounds(
+      ctx.draw_target.properties,
+      ctx.states,
+      info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     bool saw_block = false;
@@ -1786,7 +1817,10 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_interpolation_matches_regular_i
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
+    const auto bounds = rast::compute_triangle_bounds(
+      ctx.draw_target.properties,
+      ctx.states,
+      info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     bool saw_payload = false;
@@ -1854,7 +1888,10 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_fast_payload_callback_matches_regular_i
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
+    const auto bounds = rast::compute_triangle_bounds(
+      ctx.draw_target.properties,
+      ctx.states,
+      info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
     bool saw_payload = false;
@@ -1910,7 +1947,10 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
 
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
+    const auto bounds = rast::compute_triangle_bounds(
+      ctx.draw_target.properties,
+      ctx.states,
+      info);
     const int quad_start_x = rast::lower_align_on_quad_size(bounds.tight_start_x);
     const int quad_start_y = rast::lower_align_on_quad_size(bounds.tight_start_y);
     const int quad_end_x = rast::upper_align_on_quad_size(bounds.tight_end_x);
@@ -1921,6 +1961,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
     BOOST_CHECK_EQUAL(quad_end_y - quad_start_y, rast::small_triangle_footprint_size);
 
     const auto pixels = collect_covered_triangle_pixels(
+      ctx.draw_target,
       ctx.states,
       info,
       v0.varyings);
@@ -1940,11 +1981,18 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_crossing_block_boundary_uses_general_pa
     triangle_test_context ctx{block_size * 2, block_size};
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
-    const auto bounds = rast::compute_triangle_bounds(ctx.states, info);
+    const auto bounds = rast::compute_triangle_bounds(
+      ctx.draw_target.properties,
+      ctx.states,
+      info);
 
     BOOST_CHECK(!rast::is_small_quad_triangle(bounds));
 
-    const auto pixels = collect_covered_triangle_pixels(ctx.states, info, v0.varyings);
+    const auto pixels = collect_covered_triangle_pixels(
+      ctx.draw_target,
+      ctx.states,
+      info,
+      v0.varyings);
     BOOST_REQUIRE(!pixels.empty());
 
     bool has_left = false, has_right = false;

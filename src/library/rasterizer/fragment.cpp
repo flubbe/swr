@@ -78,6 +78,7 @@ static std::uint64_t count_masked_fragments(
  *  3) Depth test, unless it was already done before shading.
  */
 void sweep_rasterizer::process_fragment(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   const swr::impl::render_states& states,
@@ -86,7 +87,7 @@ void sweep_rasterizer::process_fragment(
   fragment_info& frag_info,
   swr::impl::fragment_output& out)
 {
-    const int framebuffer_height = states.draw_target->properties.height;
+    const int framebuffer_height = draw_target.properties.height;
 
     /*
      * Scissor test.
@@ -131,7 +132,7 @@ void sweep_rasterizer::process_fragment(
         utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        states.draw_target->depth_compare_write(
+        draw_target.depth_compare_write(
           x,
           y,
           depth_test_value,
@@ -232,7 +233,7 @@ void sweep_rasterizer::process_fragment(
         utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        states.draw_target->depth_compare_write(
+        draw_target.depth_compare_write(
           x,
           y,
           depth_value,
@@ -261,6 +262,7 @@ template<
   bool early_fragment_depth_test,
   bool collect_early_depth_stats>
 void process_fragment_block(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   const swr::impl::render_states& states,
@@ -270,7 +272,7 @@ void process_fragment_block(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const int framebuffer_height = states.draw_target->properties.height;
+    const int framebuffer_height = draw_target.properties.height;
     if constexpr(collect_early_depth_stats)
     {
         assert(early_depth != nullptr);
@@ -343,7 +345,7 @@ void process_fragment_block(
         utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        states.draw_target->depth_compare_write_block(
+        draw_target.depth_compare_write_block(
           x, y,
           depth_test_value,
           states.depth_func,
@@ -556,7 +558,7 @@ void process_fragment_block(
             utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-            states.draw_target->depth_compare_write_block(
+            draw_target.depth_compare_write_block(
               x, y,
               depth_value,
               states.depth_func,
@@ -587,6 +589,7 @@ template<
   bool early_fragment_depth_test,
   bool collect_early_depth_stats>
 void process_fragment_block(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   std::uint8_t mask,
@@ -597,7 +600,7 @@ void process_fragment_block(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const int framebuffer_height = states.draw_target->properties.height;
+    const int framebuffer_height = draw_target.properties.height;
     if constexpr(collect_early_depth_stats)
     {
         assert(early_depth != nullptr);
@@ -678,7 +681,7 @@ void process_fragment_block(
         utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        states.draw_target->depth_compare_write_block(
+        draw_target.depth_compare_write_block(
           x,
           y,
           depth_test_value,
@@ -916,7 +919,7 @@ void process_fragment_block(
             utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-            states.draw_target->depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
+            draw_target.depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::unclock(stage_depth);
@@ -939,6 +942,7 @@ void process_fragment_block(
 }
 
 void sweep_rasterizer::process_fragment_block(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   const swr::impl::render_states& states,
@@ -948,6 +952,7 @@ void sweep_rasterizer::process_fragment_block(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<false, false>(
+      draw_target,
       x,
       y,
       states,
@@ -958,6 +963,7 @@ void sweep_rasterizer::process_fragment_block(
 }
 
 void sweep_rasterizer::process_fragment_block_early_z(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   const swr::impl::render_states& states,
@@ -967,6 +973,7 @@ void sweep_rasterizer::process_fragment_block_early_z(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<true, false>(
+      draw_target,
       x,
       y,
       states,
@@ -977,6 +984,7 @@ void sweep_rasterizer::process_fragment_block_early_z(
 }
 
 void sweep_rasterizer::process_fragment_block_early_z_collect_stats(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   const swr::impl::render_states& states,
@@ -987,6 +995,7 @@ void sweep_rasterizer::process_fragment_block_early_z_collect_stats(
   early_depth_sample& early_depth)
 {
     rast::process_fragment_block<true, true>(
+      draw_target,
       x,
       y,
       states,
@@ -998,6 +1007,7 @@ void sweep_rasterizer::process_fragment_block_early_z_collect_stats(
 }
 
 void sweep_rasterizer::process_fragment_block(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   std::uint8_t mask,
@@ -1008,6 +1018,7 @@ void sweep_rasterizer::process_fragment_block(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<false, false>(
+      draw_target,
       x,
       y,
       mask,
@@ -1019,6 +1030,7 @@ void sweep_rasterizer::process_fragment_block(
 }
 
 void sweep_rasterizer::process_fragment_block_early_z(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   std::uint8_t mask,
@@ -1029,6 +1041,7 @@ void sweep_rasterizer::process_fragment_block_early_z(
   swr::impl::fragment_output_block& out)
 {
     rast::process_fragment_block<true, false>(
+      draw_target,
       x,
       y,
       mask,
@@ -1040,6 +1053,7 @@ void sweep_rasterizer::process_fragment_block_early_z(
 }
 
 void sweep_rasterizer::process_fragment_block_early_z_collect_stats(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   std::uint8_t mask,
@@ -1051,6 +1065,7 @@ void sweep_rasterizer::process_fragment_block_early_z_collect_stats(
   early_depth_sample& early_depth)
 {
     rast::process_fragment_block<true, true>(
+      draw_target,
       x,
       y,
       mask,

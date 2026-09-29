@@ -451,6 +451,9 @@ public:
     using size_type = std::size_t;
     using reference = T&;
     using const_reference = const T&;
+    using difference_type = std::ptrdiff_t;
+    using pointer = T*;
+    using const_pointer = const T*;
 
 private:
     /** data. */

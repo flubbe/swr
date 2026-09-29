@@ -8,12 +8,15 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
 #include <algorithm>
 #include <atomic>
 #include <vector>
 
 #include "geometry/barycentric_coords.h"
 #include "early_depth.h"
+#include "rasterizer.h"
 #include "tile_cache.h"
 
 namespace rast
@@ -116,14 +119,12 @@ class sweep_rasterizer : public rasterizer
     }
 
     void ensure_tile_cache_for_target(
-      const swr::impl::framebuffer_draw_target* draw_target)
+      const swr::impl::framebuffer_draw_target& draw_target)
     {
-        assert(draw_target != nullptr);
-
         const unsigned int tiles_x =
-          tile_count_for_extent(draw_target->properties.width);
+          tile_count_for_extent(draw_target.properties.width);
         const unsigned int tiles_y =
-          tile_count_for_extent(draw_target->properties.height);
+          tile_count_for_extent(draw_target.properties.height);
         const std::size_t expected_tile_count =
           static_cast<std::size_t>(tiles_x) * static_cast<std::size_t>(tiles_y);
 
@@ -137,6 +138,9 @@ class sweep_rasterizer : public rasterizer
     /** a geometric primitive understood by sweep_rasterizer */
     struct primitive
     {
+        /** Draw target. */
+        swr::impl::framebuffer_draw_target& draw_target;
+
         enum class primitive_type
         {
             point,   /** point primitive, consisting of one vertex */
@@ -156,18 +160,16 @@ class sweep_rasterizer : public rasterizer
         /** Points to the active render states (which are stored in the context's draw lists). */
         const swr::impl::render_states* states{nullptr};
 
-        /**
-         * default constructor. only for compatibility with std containers.
-         *
-         * NOTE This does not make sense to use on its own and probably leaves the object in an undefined and unusable state.
-         */
-        primitive() = default;
+        /** Deleted constructor. */
+        primitive() = delete;
 
         /** point constructor. */
         primitive(
+          swr::impl::framebuffer_draw_target& draw_target,
           const swr::impl::render_states* in_states,
           geom::vertex* vertex)
-        : type{primitive_type::point}
+        : draw_target{draw_target}
+        , type{primitive_type::point}
         , is_front_facing{true}
         , v{vertex, nullptr, nullptr}
         , states{in_states}
@@ -176,10 +178,12 @@ class sweep_rasterizer : public rasterizer
 
         /** line constructor. */
         primitive(
+          swr::impl::framebuffer_draw_target& draw_target,
           const swr::impl::render_states* in_states,
           geom::vertex* v1,
           geom::vertex* v2)
-        : type{primitive_type::line}
+        : draw_target{draw_target}
+        , type{primitive_type::line}
         , is_front_facing{true}
         , v{v1, v2, nullptr}
         , states{in_states}
@@ -188,12 +192,14 @@ class sweep_rasterizer : public rasterizer
 
         /** triangle constructor. */
         primitive(
+          swr::impl::framebuffer_draw_target& draw_target,
           const swr::impl::render_states* in_states,
           bool in_is_front_facing,
           geom::vertex* v1,
           geom::vertex* v2,
           geom::vertex* v3)
-        : type{primitive_type::triangle}
+        : draw_target{draw_target}
+        , type{primitive_type::triangle}
         , is_front_facing{in_is_front_facing}
         , v{v1, v2, v3}
         , states{in_states}
@@ -362,6 +368,7 @@ class sweep_rasterizer : public rasterizer
      * Generate a color value along with depth- and stencil flags for a single fragment.
      * Writes to the depth buffer.
      *
+     * @param draw_target The draw target.
      * @param x Raster `x` coordinate of the fragment.
      * @param y Raster `y` coordinate of the fragment.
      * @param states Active render states.
@@ -371,6 +378,7 @@ class sweep_rasterizer : public rasterizer
      * @param out Output buffer for the fragment.
      */
     void process_fragment(
+      swr::impl::framebuffer_draw_target& draw_target,
       int x,
       int y,
       const swr::impl::render_states& states,
@@ -383,6 +391,7 @@ class sweep_rasterizer : public rasterizer
      * Generate color values along with depth- and stencil masks for a 2x2 fragment block.
      * Writes to the depth buffer.
      *
+     * @param draw_target The draw target.
      * @param x Left raster coordinate of the fragment block.
      * @param y Top raster coordinate of the fragment block.
      * @param states Active render states.
@@ -392,6 +401,7 @@ class sweep_rasterizer : public rasterizer
      * @param out Output buffers for the fragment block.
      */
     void process_fragment_block(
+      swr::impl::framebuffer_draw_target& draw_target,
       int x,
       int y,
       const swr::impl::render_states& states,
@@ -404,6 +414,7 @@ class sweep_rasterizer : public rasterizer
      * Generate a 2x2 fragment block with depth testing before fragment shading.
      * Used when shader metadata guarantees early depth testing is legal.
      *
+     * @param draw_target The draw target.
      * @param x Left raster coordinate of the fragment block.
      * @param y Top raster coordinate of the fragment block.
      * @param states Active render states.
@@ -413,6 +424,7 @@ class sweep_rasterizer : public rasterizer
      * @param out Output buffers for the fragment block.
      */
     void process_fragment_block_early_z(
+      swr::impl::framebuffer_draw_target& draw_target,
       int x,
       int y,
       const swr::impl::render_states& states,
@@ -424,6 +436,7 @@ class sweep_rasterizer : public rasterizer
     /**
      * Generate a 2x2 fragment block with early depth testing and collect rejection stats.
      *
+     * @param draw_target The draw target.
      * @param x Left raster coordinate of the fragment block.
      * @param y Top raster coordinate of the fragment block.
      * @param states Active render states.
@@ -434,6 +447,7 @@ class sweep_rasterizer : public rasterizer
      * @param early_depth Early depth test/rejection sample for the adaptive gate.
      */
     void process_fragment_block_early_z_collect_stats(
+      swr::impl::framebuffer_draw_target& draw_target,
       int x,
       int y,
       const swr::impl::render_states& states,
@@ -447,6 +461,7 @@ class sweep_rasterizer : public rasterizer
      * Generate color values along with depth- and stencil masks for a masked 2x2 fragment block.
      * Writes to the depth buffer. Only fragments selected by the mask are shaded and depth-tested.
      *
+     * @param draw_target The draw target.
      * @param x Left raster coordinate of the fragment block.
      * @param y Top raster coordinate of the fragment block.
      * @param mask Coverage mask for the 2x2 fragment block.
@@ -457,6 +472,7 @@ class sweep_rasterizer : public rasterizer
      * @param out Output buffers for the fragment block.
      */
     void process_fragment_block(
+      swr::impl::framebuffer_draw_target& draw_target,
       int x,
       int y,
       std::uint8_t mask,
@@ -470,6 +486,7 @@ class sweep_rasterizer : public rasterizer
      * Generate a masked 2x2 fragment block with depth testing before fragment shading.
      * Only fragments selected by the mask are considered.
      *
+     * @param draw_target The draw target.
      * @param x Left raster coordinate of the fragment block.
      * @param y Top raster coordinate of the fragment block.
      * @param mask Coverage mask for the 2x2 fragment block.
@@ -480,6 +497,7 @@ class sweep_rasterizer : public rasterizer
      * @param out Output buffers for the fragment block.
      */
     void process_fragment_block_early_z(
+      swr::impl::framebuffer_draw_target& draw_target,
       int x,
       int y,
       std::uint8_t mask,
@@ -492,6 +510,7 @@ class sweep_rasterizer : public rasterizer
     /**
      * Generate a masked 2x2 fragment block with early depth testing and collect rejection stats.
      *
+     * @param draw_target The draw target.
      * @param x Left raster coordinate of the fragment block.
      * @param y Top raster coordinate of the fragment block.
      * @param mask Coverage mask for the 2x2 fragment block.
@@ -503,6 +522,7 @@ class sweep_rasterizer : public rasterizer
      * @param early_depth Early depth test/rejection sample for the adaptive gate.
      */
     void process_fragment_block_early_z_collect_stats(
+      swr::impl::framebuffer_draw_target& draw_target,
       int x,
       int y,
       std::uint8_t mask,
@@ -519,6 +539,7 @@ class sweep_rasterizer : public rasterizer
 
     template<early_depth_test_path fragment_depth_path>
     bool process_block_impl(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
@@ -526,6 +547,7 @@ class sweep_rasterizer : public rasterizer
 
     template<early_depth_test_path fragment_depth_path>
     bool process_block_checked_impl(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
@@ -533,6 +555,7 @@ class sweep_rasterizer : public rasterizer
 
     template<early_depth_test_path fragment_depth_path>
     void process_block_precomputed_checked_impl(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
@@ -584,6 +607,7 @@ class sweep_rasterizer : public rasterizer
      * @param quads Precomputed payloads for the 2x2 quads covered by the triangle.
      */
     void process_block_precomputed_checked(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
@@ -602,6 +626,7 @@ class sweep_rasterizer : public rasterizer
      * @param payload Payload describing the small triangle.
      */
     void process_block_small_checked(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
@@ -619,6 +644,7 @@ class sweep_rasterizer : public rasterizer
      * @param payload Sparse triangle payload for the block.
      */
     void process_block_sparse_checked(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
@@ -637,6 +663,7 @@ class sweep_rasterizer : public rasterizer
      * @param quads Precomputed payloads for the 2x2 quads in the block.
      */
     void process_block_sparse_checked(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int block_x,
       unsigned int block_y,
       tile_info& data,
@@ -649,7 +676,8 @@ class sweep_rasterizer : public rasterizer
      *
      * @param in_tile Tile data containing primitives and associated state.
      */
-    void process_tile(tile& in_tile);
+    void process_tile(
+      tile& in_tile);
 
 #ifdef SWR_ENABLE_MULTI_THREADING
     /**
@@ -671,6 +699,7 @@ class sweep_rasterizer : public rasterizer
      * Draw the triangle `(v1,v2,v3)` using a sweep algorithm with blocks of size `rasterizer_block_size`.
      * The triangle is rasterized regardless of its orientation.
      *
+     * @param draw_target Draw target.
      * @param states Active render states for this triangle.
      * @param is_front_facing Whether this triangle is front facing. Passed to the fragment shader.
      * @param v0 First triangle vertex.
@@ -678,6 +707,7 @@ class sweep_rasterizer : public rasterizer
      * @param v2 Third triangle vertex.
      */
     void draw_filled_triangle(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states& states,
       bool is_front_facing,
       const geom::vertex& v0,
@@ -686,6 +716,7 @@ class sweep_rasterizer : public rasterizer
 
     /** draw a line. For line strips, the interior end points should be omitted by setting draw_end_point to false. */
     void draw_line(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states& states,
       bool draw_end_point,
       const geom::vertex& v0,
@@ -693,6 +724,7 @@ class sweep_rasterizer : public rasterizer
 
     /** draw a point. */
     void draw_point(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states& states,
       const geom::vertex& v);
 
@@ -724,7 +756,7 @@ public:
          * set up tile cache.
          */
 
-        ensure_tile_cache_for_target(framebuffer);
+        ensure_tile_cache_for_target(*framebuffer);
     }
 
     /*
@@ -738,13 +770,16 @@ public:
     }
 
     void add_point(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states* states,
       geom::vertex* v) override;
     void add_line(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states* states,
       geom::vertex* v1,
       geom::vertex* v2) override;
     void add_triangle(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states* states,
       bool is_front_facing,
       geom::vertex* v1,

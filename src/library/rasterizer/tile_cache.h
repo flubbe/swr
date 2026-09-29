@@ -79,6 +79,12 @@ struct tile_info
     /** render states. points to an entry in the context's draw list. */
     const swr::impl::render_states* states{nullptr};
 
+    /**
+     * Draw target.
+     * FIXME tiles should not mix draw targets.
+     */
+    swr::impl::framebuffer_draw_target* draw_target{nullptr};
+
     union
     {
         /** attribute interpolators for this block. */
@@ -115,6 +121,7 @@ struct tile_info
      * initializing constructor.
      */
     tile_info(
+      swr::impl::framebuffer_draw_target* draw_target,
       const swr::impl::render_states* in_states,
       std::size_t in_shader_index,
       const geom::barycentric_coordinate_block* in_checked_lambdas,
@@ -122,7 +129,8 @@ struct tile_info
       triangle_interpolator* in_attributes,
       bool in_front_facing,
       rasterization_mode in_mode)
-    : states{in_states}
+    : draw_target{draw_target}
+    , states{in_states}
     , attributes{in_attributes}
     , checked_lambdas{in_checked_lambdas}
     , checked_quad_bounds{in_checked_quad_bounds}
@@ -431,6 +439,7 @@ struct tile_cache
 
     /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
     bool add_triangle_checked(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int in_x,
       unsigned int in_y,
       const swr::impl::render_states* in_states,
@@ -468,6 +477,7 @@ struct tile_cache
 
         // add triangle to the primitives list in-place.
         tile.primitives.emplace_back(
+          &draw_target,
           in_states,
           shader_index,
           &checked_lambdas_ref,
@@ -497,6 +507,7 @@ struct tile_cache
     }
 
     bool add_small_triangle_checked(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int in_x,
       unsigned int in_y,
       const swr::impl::render_states* in_states,
@@ -517,6 +528,7 @@ struct tile_cache
 
             out_emitted = true;
             return add_triangle_checked(
+              draw_target,
               in_x,
               in_y,
               in_states,
@@ -605,6 +617,7 @@ struct tile_cache
         }
 
         return add_small_triangle_checked_payload(
+          draw_target,
           in_x,
           in_y,
           in_states,
@@ -615,6 +628,7 @@ struct tile_cache
     }
 
     bool add_precomputed_triangle_checked_payload(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int in_x,
       unsigned int in_y,
       const swr::impl::render_states* in_states,
@@ -674,6 +688,7 @@ struct tile_cache
 
         auto& primitive = tile.primitives.emplace_back();
         primitive.states = in_states;
+        primitive.draw_target = &draw_target;
         primitive.shader_index = shader_index;
         primitive.checked_lambdas = nullptr;
         primitive.checked_quad_bounds = in_quad_bounds;
@@ -710,6 +725,7 @@ struct tile_cache
     }
 
     bool add_small_triangle_checked_payload(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int in_x,
       unsigned int in_y,
       const swr::impl::render_states* in_states,
@@ -719,6 +735,7 @@ struct tile_cache
       bool& out_emitted)
     {
         return add_precomputed_triangle_checked_payload(
+          draw_target,
           in_x,
           in_y,
           in_states,
@@ -730,6 +747,7 @@ struct tile_cache
     }
 
     bool add_sparse_triangle_checked_payload(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int in_x,
       unsigned int in_y,
       const swr::impl::render_states* in_states,
@@ -779,6 +797,7 @@ struct tile_cache
             static_cast<std::uint16_t>(payload.quads.size())});
 
         auto& primitive = tile.primitives.emplace_back();
+        primitive.draw_target = &draw_target;
         primitive.states = in_states;
         primitive.shader_index = shader_index;
         primitive.checked_lambdas = nullptr;
@@ -813,6 +832,7 @@ struct tile_cache
 
     /** allocate a new tile. returns true if the cache was full or the added triangle filled the cache. */
     bool add_triangle(
+      swr::impl::framebuffer_draw_target& draw_target,
       unsigned int in_x,
       unsigned int in_y,
       const swr::impl::render_states* in_states,
@@ -824,6 +844,7 @@ struct tile_cache
         if(uses_checked_lambdas(in_mode))
         {
             return add_triangle_checked(
+              draw_target,
               in_x,
               in_y,
               in_states,
@@ -861,6 +882,7 @@ struct tile_cache
 
         // add triangle to the primitives list in-place.
         tile.primitives.emplace_back(
+          &draw_target,
           in_states,
           shader_index,
           nullptr,

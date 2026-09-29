@@ -71,6 +71,7 @@ static std::uint64_t count_fragment_masked(
 
 template<bool collect_early_depth_stats>
 void process_precomputed_fragment_block_early_z(
+  swr::impl::framebuffer_draw_target& draw_target,
   int x,
   int y,
   std::uint8_t mask,
@@ -90,7 +91,7 @@ void process_precomputed_fragment_block_early_z(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const int framebuffer_height = states.draw_target->properties.height;
+    const int framebuffer_height = draw_target.properties.height;
     if constexpr(collect_early_depth_stats)
     {
         assert(early_depth != nullptr);
@@ -158,7 +159,7 @@ void process_precomputed_fragment_block_early_z(
     utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-    states.draw_target->depth_compare_write_block(
+    draw_target.depth_compare_write_block(
       x,
       y,
       depth_test_value,
@@ -414,6 +415,7 @@ inline void profile_checked_quad_mask(std::uint8_t mask)
 template<
   early_depth_test_path fragment_depth_path>
 bool sweep_rasterizer::process_block_impl(
+  swr::impl::framebuffer_draw_target& draw_target,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
@@ -506,6 +508,7 @@ bool sweep_rasterizer::process_block_impl(
         {
             early_depth_sample early_depth;
             process_fragment_block_early_z_collect_stats(
+              draw_target,
               x,
               y,
               *data.states,
@@ -521,6 +524,7 @@ bool sweep_rasterizer::process_block_impl(
             if constexpr(fragment_depth_path == early_depth_test_path::early)
             {
                 process_fragment_block_early_z(
+                  draw_target,
                   x,
                   y,
                   *data.states,
@@ -532,6 +536,7 @@ bool sweep_rasterizer::process_block_impl(
             else
             {
                 process_fragment_block(
+                  draw_target,
                   x,
                   y,
                   *data.states,
@@ -552,7 +557,7 @@ bool sweep_rasterizer::process_block_impl(
 
         if(out.write_color)
         {
-            data.states->draw_target->merge_color_block(
+            draw_target.merge_color_block(
               0,
               x,
               y,
@@ -604,6 +609,7 @@ bool sweep_rasterizer::process_block(
     if(fragment_depth_plan.path == early_depth_test_path::early_collect_stats)
     {
         return process_block_impl<early_depth_test_path::early_collect_stats>(
+          *data.draw_target,
           block_x,
           block_y,
           data,
@@ -613,6 +619,7 @@ bool sweep_rasterizer::process_block(
     if(fragment_depth_plan.path == early_depth_test_path::early)
     {
         return process_block_impl<early_depth_test_path::early>(
+          *data.draw_target,
           block_x,
           block_y,
           data,
@@ -620,6 +627,7 @@ bool sweep_rasterizer::process_block(
     }
 
     return process_block_impl<early_depth_test_path::late>(
+      *data.draw_target,
       block_x,
       block_y,
       data,
@@ -629,6 +637,7 @@ bool sweep_rasterizer::process_block(
 template<
   early_depth_test_path fragment_depth_path>
 bool sweep_rasterizer::process_block_checked_impl(
+  swr::impl::framebuffer_draw_target& draw_target,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
@@ -732,6 +741,7 @@ bool sweep_rasterizer::process_block_checked_impl(
             if(mask == 0b1111)
             {
                 process_fragment_block_early_z_collect_stats(
+                  draw_target,
                   x,
                   y,
                   *data.states,
@@ -744,6 +754,7 @@ bool sweep_rasterizer::process_block_checked_impl(
             else
             {
                 process_fragment_block_early_z_collect_stats(
+                  draw_target,
                   x,
                   y,
                   static_cast<std::uint8_t>(mask),
@@ -765,6 +776,7 @@ bool sweep_rasterizer::process_block_checked_impl(
                 if constexpr(fragment_depth_path == early_depth_test_path::early)
                 {
                     process_fragment_block_early_z(
+                      draw_target,
                       x,
                       y,
                       *data.states,
@@ -776,6 +788,7 @@ bool sweep_rasterizer::process_block_checked_impl(
                 else
                 {
                     process_fragment_block(
+                      draw_target,
                       x,
                       y,
                       *data.states,
@@ -790,6 +803,7 @@ bool sweep_rasterizer::process_block_checked_impl(
                 if constexpr(fragment_depth_path == early_depth_test_path::early)
                 {
                     process_fragment_block_early_z(
+                      draw_target,
                       x,
                       y,
                       static_cast<std::uint8_t>(mask),
@@ -802,6 +816,7 @@ bool sweep_rasterizer::process_block_checked_impl(
                 else
                 {
                     process_fragment_block(
+                      draw_target,
                       x,
                       y,
                       static_cast<std::uint8_t>(mask),
@@ -824,7 +839,7 @@ bool sweep_rasterizer::process_block_checked_impl(
 
         if(out.write_color)
         {
-            data.states->draw_target->merge_color_block(
+            draw_target.merge_color_block(
               0,
               x,
               y,
@@ -878,6 +893,7 @@ bool sweep_rasterizer::process_block_checked(
     if(fragment_depth_plan.path == early_depth_test_path::early_collect_stats)
     {
         return process_block_checked_impl<early_depth_test_path::early_collect_stats>(
+          *data.draw_target,
           block_x,
           block_y,
           data,
@@ -887,6 +903,7 @@ bool sweep_rasterizer::process_block_checked(
     if(fragment_depth_plan.path == early_depth_test_path::early)
     {
         return process_block_checked_impl<early_depth_test_path::early>(
+          *data.draw_target,
           block_x,
           block_y,
           data,
@@ -894,6 +911,7 @@ bool sweep_rasterizer::process_block_checked(
     }
 
     return process_block_checked_impl<early_depth_test_path::late>(
+      *data.draw_target,
       block_x,
       block_y,
       data,
@@ -903,6 +921,7 @@ bool sweep_rasterizer::process_block_checked(
 template<
   early_depth_test_path fragment_depth_path>
 void sweep_rasterizer::process_block_precomputed_checked_impl(
+  swr::impl::framebuffer_draw_target& draw_target,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
@@ -981,6 +1000,7 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
         {
             early_depth_sample early_depth;
             process_precomputed_fragment_block_early_z<true>(
+              draw_target,
               static_cast<int>(quad.x),
               static_cast<int>(quad.y),
               quad.mask,
@@ -1003,6 +1023,7 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
             if constexpr(fragment_depth_path == early_depth_test_path::early)
             {
                 process_precomputed_fragment_block_early_z<false>(
+                  draw_target,
                   static_cast<int>(quad.x),
                   static_cast<int>(quad.y),
                   quad.mask,
@@ -1028,6 +1049,7 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
                 if(quad.mask == full_fragment_mask)
                 {
                     process_fragment_block(
+                      draw_target,
                       quad.x,
                       quad.y,
                       *data.states,
@@ -1039,6 +1061,7 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
                 else
                 {
                     process_fragment_block(
+                      draw_target,
                       quad.x,
                       quad.y,
                       quad.mask,
@@ -1061,7 +1084,7 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
 
         if(out.write_color)
         {
-            data.states->draw_target->merge_color_block(
+            draw_target.merge_color_block(
               0,
               quad.x,
               quad.y,
@@ -1092,6 +1115,7 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
 }
 
 void sweep_rasterizer::process_block_precomputed_checked(
+  swr::impl::framebuffer_draw_target& draw_target,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
@@ -1107,6 +1131,7 @@ void sweep_rasterizer::process_block_precomputed_checked(
     if(fragment_depth_plan.path == early_depth_test_path::early_collect_stats)
     {
         process_block_precomputed_checked_impl<early_depth_test_path::early_collect_stats>(
+          draw_target,
           block_x,
           block_y,
           data,
@@ -1119,6 +1144,7 @@ void sweep_rasterizer::process_block_precomputed_checked(
     if(fragment_depth_plan.path == early_depth_test_path::early)
     {
         process_block_precomputed_checked_impl<early_depth_test_path::early>(
+          draw_target,
           block_x,
           block_y,
           data,
@@ -1129,6 +1155,7 @@ void sweep_rasterizer::process_block_precomputed_checked(
     }
 
     process_block_precomputed_checked_impl<early_depth_test_path::late>(
+      draw_target,
       block_x,
       block_y,
       data,
@@ -1138,6 +1165,7 @@ void sweep_rasterizer::process_block_precomputed_checked(
 }
 
 void sweep_rasterizer::process_block_small_checked(
+  swr::impl::framebuffer_draw_target& draw_target,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
@@ -1145,6 +1173,7 @@ void sweep_rasterizer::process_block_small_checked(
   const small_triangle_payload& payload)
 {
     process_block_precomputed_checked(
+      draw_target,
       block_x,
       block_y,
       data,
@@ -1156,6 +1185,7 @@ void sweep_rasterizer::process_block_small_checked(
 }
 
 void sweep_rasterizer::process_block_sparse_checked(
+  swr::impl::framebuffer_draw_target& draw_target,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
@@ -1163,6 +1193,7 @@ void sweep_rasterizer::process_block_sparse_checked(
   const sparse_triangle_payload& payload)
 {
     process_block_precomputed_checked(
+      draw_target,
       block_x,
       block_y,
       data,
@@ -1172,6 +1203,7 @@ void sweep_rasterizer::process_block_sparse_checked(
 }
 
 void sweep_rasterizer::process_block_sparse_checked(
+  swr::impl::framebuffer_draw_target& draw_target,
   unsigned int block_x,
   unsigned int block_y,
   tile_info& data,
@@ -1180,6 +1212,7 @@ void sweep_rasterizer::process_block_sparse_checked(
   std::span<const small_triangle_quad_payload> quads)
 {
     process_block_precomputed_checked(
+      draw_target,
       block_x,
       block_y,
       data,
@@ -1268,6 +1301,7 @@ static float setup_polygon_offset(
 }
 
 void sweep_rasterizer::draw_filled_triangle(
+  swr::impl::framebuffer_draw_target& draw_target,
   const swr::impl::render_states& states,
   bool is_front_facing,
   const geom::vertex& v0,
@@ -1322,6 +1356,7 @@ void sweep_rasterizer::draw_filled_triangle(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     const bounding_box bounds = compute_triangle_bounds(
+      draw_target.properties,
       states,
       info);
     const triangle_rasterization_classification rasterization =
@@ -1457,6 +1492,7 @@ void sweep_rasterizer::draw_filled_triangle(
 
             auto direct_attributes = attributes_row;    // attributes need to be mutable for tile_info.
             tile_info direct_info{
+              &draw_target,
               &states,
               shader_index,
               direct_checked_lambdas,
@@ -1485,6 +1521,7 @@ void sweep_rasterizer::draw_filled_triangle(
                 if(prefer_small_payload)
                 {
                     process_block_small_checked(
+                      draw_target,
                       x,
                       y,
                       direct_info,
@@ -1494,6 +1531,7 @@ void sweep_rasterizer::draw_filled_triangle(
                 else
                 {
                     process_block_sparse_checked(
+                      draw_target,
                       x,
                       y,
                       direct_info,
@@ -1530,6 +1568,7 @@ void sweep_rasterizer::draw_filled_triangle(
                     if(precomputed_small_payload)
                     {
                         needs_flush = tiles.add_small_triangle_checked_payload(
+                          draw_target,
                           x,
                           y,
                           &states,
@@ -1541,6 +1580,7 @@ void sweep_rasterizer::draw_filled_triangle(
                     else
                     {
                         needs_flush = tiles.add_small_triangle_checked(
+                          draw_target,
                           x,
                           y,
                           &states,
@@ -1555,6 +1595,7 @@ void sweep_rasterizer::draw_filled_triangle(
                         && precomputed_sparse_payload)
                 {
                     needs_flush = tiles.add_sparse_triangle_checked_payload(
+                      draw_target,
                       x,
                       y,
                       &states,
@@ -1566,6 +1607,7 @@ void sweep_rasterizer::draw_filled_triangle(
                 else
                 {
                     needs_flush = tiles.add_triangle_checked(
+                      draw_target,
                       x,
                       y,
                       &states,
@@ -1579,6 +1621,7 @@ void sweep_rasterizer::draw_filled_triangle(
             else
             {
                 needs_flush = tiles.add_triangle(
+                  draw_target,
                   x,
                   y,
                   &states,
@@ -1681,6 +1724,7 @@ void sweep_rasterizer::draw_filled_triangle(
             if(precomputed_small_payload)
             {
                 needs_flush = tiles.add_small_triangle_checked_payload(
+                  draw_target,
                   x,
                   y,
                   &states,
@@ -1692,6 +1736,7 @@ void sweep_rasterizer::draw_filled_triangle(
             else
             {
                 needs_flush = tiles.add_small_triangle_checked(
+                  draw_target,
                   x,
                   y,
                   &states,
@@ -1777,6 +1822,7 @@ void sweep_rasterizer::draw_filled_triangle(
         bool emitted_tile_ref = true;
 
         bool needs_flush = tiles.add_small_triangle_checked_payload(
+          draw_target,
           x,
           y,
           &states,

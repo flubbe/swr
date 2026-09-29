@@ -11,6 +11,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -316,6 +317,7 @@ struct draw_execution
     index_range attribute_index_range;
     index_range clipped_vertex_range;
     const render_states* states{nullptr};
+    framebuffer_draw_target* draw_target{nullptr};
     bool discard{false};
 };
 
@@ -345,6 +347,34 @@ using render_command = std::variant<
   clear_command,
   draw_command>;
 
+/** The default framebuffer has id 0, so we skip it. */
+constexpr std::uint32_t framebuffer_id_to_slot(
+  std::uint32_t id)
+{
+    return id - 1;
+}
+
+/** The default framebuffer has id 0, so we skip it. */
+constexpr std::uint32_t framebuffer_slot_to_id(std::uint32_t slot)
+{
+    return slot + 1;
+};
+
+enum class resource_type
+{
+    none,
+    framebuffer_object,
+    depth_attachment
+};
+
+struct resource_key
+{
+    resource_type type{resource_type::none};
+    std::uint32_t id{0};
+
+    friend bool operator==(const resource_key&, const resource_key&) = default;
+};
+
 /** a general render context (not associated to any output device/window). */
 struct render_context
 {
@@ -358,11 +388,31 @@ struct render_context
     /** default frame buffer. */
     default_framebuffer framebuffer;
 
-    /** frame buffer objects. */
+    /** Frame buffer objects. */
     utils::slot_map<framebuffer_object> framebuffer_objects;
 
-    /** depth renderbuffers. */
+    /** Depth renderbuffers. */
     utils::slot_map<attachment_depth> depth_attachments;
+
+    /**
+     * Check framebuffer completeness.
+     *
+     * @param id The framebuffer id.
+     * @returns Returns `true` if the framebuffer is complete.
+     */
+    bool is_framebuffer_complete(
+      std::uint32_t id);
+
+    /**
+     * Resolve an id to a framebuffer.
+     *
+     * @param id The id the resolve.
+     * @returns Returns a draw target.
+     * @throws Throws `std::invalid_argument` if the id doesn't resolve to a draw target.
+     */
+    [[nodiscard]]
+    framebuffer_draw_target* resolve_draw_target(
+      std::uint32_t id);
 
     /*
      * context states.
@@ -388,6 +438,12 @@ struct render_context
      * Each entry contains all the data needed to execute that command.
      */
     frame_arena<render_command> command_list;
+
+    /** Pending resource deletions. */
+    frame_arena<resource_key> pending_resource_deletions;
+
+    /** Process pending deletions list. */
+    void process_pending_deletions();
 
     /**
      * Per-frame arena of render objects.  Storage is retained between frames.
@@ -626,21 +682,10 @@ struct render_context
      * Reference: https://www.khronos.org/opengl/wiki/Primitive_Assembly
      */
     void assemble_primitives(
+      framebuffer_draw_target& draw_target,
       const render_states* states,
       vertex_buffer_mode mode,
       vertex_buffer& vb);
-
-    /**
-     * Assemble primitives from an indexed viewport-space vertex buffer.
-     *
-     * This is used by the no-clipping fast path, where vertices can stay compact
-     * and primitives are described by render_object::indices.
-     */
-    void assemble_indexed_primitives(
-      const render_states* states,
-      vertex_buffer_mode mode,
-      vertex_buffer& vb,
-      std::span<const std::uint32_t> indices);
 
     /**
      * Assemble primitives from original post-shader vertex storage.
@@ -650,6 +695,7 @@ struct render_context
      * only when stable rasterizer pointers are needed.
      */
     void assemble_original_indexed_primitives(
+      framebuffer_draw_target& draw_target,
       const render_states* states,
       vertex_buffer_mode mode,
       render_object& obj);

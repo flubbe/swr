@@ -15,6 +15,17 @@
 #include "geometry/vertex.h"
 #include "states.h"
 
+/*
+ * Forward declarations.
+ */
+
+namespace swr::impl
+{
+
+struct framebuffer_draw_target;
+
+}    // namespace swr::impl
+
 namespace rast
 {
 
@@ -33,6 +44,7 @@ struct rasterizer
      * be valid pointers when the actual rasterization takes place.
      */
     virtual void add_point(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states* s,
       geom::vertex* v) = 0;
 
@@ -41,6 +53,7 @@ struct rasterizer
      * be valid pointers when the actual rasterization takes place.
      */
     virtual void add_line(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states* s,
       geom::vertex* v1,
       geom::vertex* v2) = 0;
@@ -50,6 +63,7 @@ struct rasterizer
      * be valid pointers when the actual rasterization takes place.
      */
     virtual void add_triangle(
+      swr::impl::framebuffer_draw_target& draw_target,
       const swr::impl::render_states* s,
       bool is_front_facing,
       geom::vertex* v1,

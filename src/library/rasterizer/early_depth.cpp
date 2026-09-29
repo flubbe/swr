@@ -328,7 +328,7 @@ block_depth_reject_result early_depth_controller::try_reject_block(
     }
 
     // TODO For now this optimization is only implemented for the default framebuffer depth attachment.
-    if(states.draw_target != request.default_framebuffer)
+    if(states.draw_target != swr::impl::default_framebuffer_id)
     {
         return {};
     }

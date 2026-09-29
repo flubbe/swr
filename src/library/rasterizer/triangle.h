@@ -267,33 +267,35 @@ inline int upper_align_on_quad_size(int v)
 /**
  * Compute conservative triangle bounds in viewport pixel coordinates.
  *
+ * @param draw_target_properties Target properties.
  * @param states Render state supplying draw target dimensions and optional scissor box.
  * @param info Triangle setup data. The triangle is expected to be non-degenerate.
  * @return A bounding_box whose tight fields are half-open pixel bounds and whose non-tight fields
  *         are expanded outward to rasterizer-block alignment. Bounds may be empty if clipped away.
  */
 bounding_box compute_triangle_bounds(
+  const swr::impl::framebuffer_properties& draw_target_properties,
   const swr::impl::render_states& states,
   const triangle_info& info)
 {
     // take scissor box into account.
     int x_min = 0;
-    int x_max = states.draw_target->properties.width;
+    int x_max = draw_target_properties.width;
     int y_min = 0;
-    int y_max = states.draw_target->properties.height;
+    int y_max = draw_target_properties.height;
 
     if(states.scissor_test_enabled)
     {
         x_min = std::max(states.scissor_box.x_min, 0);
-        x_max = std::min(states.scissor_box.x_max, states.draw_target->properties.width);
+        x_max = std::min(states.scissor_box.x_max, draw_target_properties.width);
 
         y_min = std::max(states.scissor_box.y_min, 0);
-        y_max = std::min(states.scissor_box.y_max, states.draw_target->properties.height);
+        y_max = std::min(states.scissor_box.y_max, draw_target_properties.height);
 
         // Convert scissor box to flipped framebuffer y-axis (OpenGL convention)
         const int y_temp = y_min;
-        y_min = states.draw_target->properties.height - y_max;
-        y_max = states.draw_target->properties.height - y_temp;
+        y_min = draw_target_properties.height - y_max;
+        y_max = draw_target_properties.height - y_temp;
     }
 
     auto v0x = ml::truncate_unchecked(info.v0_xy.x);
@@ -1698,6 +1700,7 @@ inline void for_each_thin_triangle_block_with_bounds(
  * should classify first, because that path needs the x/y-major mode chosen by
  * classify_triangle_rasterization.
  *
+ * @param draw_target_properties Target properties.
  * @param states Render state supplying draw target dimensions, scissor, and interpolation qualifiers.
  * @param info Triangle setup data.
  * @param provoking_vertex_varyings Provoking-vertex varyings used for flat interpolation.
@@ -1706,6 +1709,7 @@ inline void for_each_thin_triangle_block_with_bounds(
  */
 template<typename F>
 inline void for_each_covered_triangle_block(
+  const swr::impl::framebuffer_properties& draw_target_properties,
   const swr::impl::render_states& states,
   const triangle_info& info,
   std::span<const ml::vec4> provoking_vertex_varyings,
@@ -1713,6 +1717,7 @@ inline void for_each_covered_triangle_block(
   F&& f)
 {
     const bounding_box bounds = compute_triangle_bounds(
+      draw_target_properties,
       states,
       info);
     for_each_covered_triangle_block_with_bounds(
