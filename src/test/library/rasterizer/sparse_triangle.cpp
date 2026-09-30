@@ -32,129 +32,12 @@
 #include "rasterizer/sweep.h"
 #include "rasterizer/triangle.h"
 #include "rasterizer/block.h"
+#include "../../mocks.h"
+#include "../../utils.h"
 
 /*
  * Helpers.
  */
-
-struct fake_draw_target : swr::impl::framebuffer_draw_target
-{
-    fake_draw_target(unsigned int width, unsigned int height)
-    : swr::impl::framebuffer_draw_target{}
-    {
-        assert(width < std::numeric_limits<int>::max() && height < std::numeric_limits<int>::max());
-        properties.reset(static_cast<int>(width), static_cast<int>(height));
-    }
-
-    void clear_color(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] ml::vec4 clear_color) override
-    {
-    }
-
-    void clear_color(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] ml::vec4 clear_color,
-      [[maybe_unused]] const utils::rect& rect) override
-    {
-    }
-
-    void clear_depth(
-      [[maybe_unused]] ml::fixed_32_t clear_depth) override
-    {
-    }
-
-    void clear_depth(
-      [[maybe_unused]] ml::fixed_32_t clear_depth,
-      [[maybe_unused]] const utils::rect& rect) override
-    {
-    }
-
-    void merge_color(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] const swr::impl::fragment_output& frag,
-      [[maybe_unused]] bool do_blend,
-      [[maybe_unused]] swr::blend_func src,
-      [[maybe_unused]] swr::blend_func dst) override
-    {
-    }
-
-    void merge_color_block(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] const swr::impl::fragment_output_block& frag,
-      [[maybe_unused]] bool do_blend,
-      [[maybe_unused]] swr::blend_func src,
-      [[maybe_unused]] swr::blend_func dst) override
-    {
-    }
-
-    void depth_compare_write(
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] float depth_value,
-      [[maybe_unused]] swr::comparison_func depth_func,
-      [[maybe_unused]] bool write_depth,
-      [[maybe_unused]] bool& write_mask) override
-    {
-    }
-
-    void depth_compare_write_block(
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] const std::array<float, 4>& depth_value,
-      [[maybe_unused]] swr::comparison_func depth_func,
-      [[maybe_unused]] bool write_depth,
-      [[maybe_unused]] std::uint8_t& write_mask) override
-    {
-    }
-};
-
-class fake_program final : public swr::program<fake_program>
-{
-public:
-    swr::program_metadata get_metadata() const override
-    {
-        return {
-          .fragment_shader_may_discard = false,
-          .fragment_shader_may_write_depth = false};
-    }
-
-    void pre_link(
-      boost::container::static_vector<
-        swr::interpolation_qualifier,
-        swr::limits::max::varyings>&
-        iqs) const override
-    {
-        iqs.clear();
-    }
-
-    void vertex_shader(
-      [[maybe_unused]] int gl_VertexID,
-      [[maybe_unused]] int gl_InstanceID,
-      [[maybe_unused]] std::span<const ml::vec4> attribs,
-      [[maybe_unused]] ml::vec4& gl_Position,
-      [[maybe_unused]] float& gl_PointSize,
-      [[maybe_unused]] std::span<float> gl_ClipDistance,
-      [[maybe_unused]] std::span<ml::vec4> varyings) const override
-    {
-    }
-
-    swr::fragment_shader_result fragment_shader(
-      [[maybe_unused]] const ml::vec4& gl_FragCoord,
-      [[maybe_unused]] bool gl_FrontFacing,
-      [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      [[maybe_unused]] std::span<const swr::varying> varyings,
-      [[maybe_unused]] float& gl_FragDepth,
-      [[maybe_unused]] ml::vec4& gl_FragColor) const override
-    {
-        gl_FragColor = {1.f, 1.f, 1.f, 1.f};
-        return swr::fragment_shader_result::accept;
-    }
-};
 
 geom::vertex make_vertex(float x, float y)
 {
@@ -167,8 +50,8 @@ geom::vertex make_vertex(float x, float y)
 
 struct triangle_test_context
 {
-    fake_draw_target draw_target;
-    fake_program shader;
+    mock_draw_target draw_target;
+    mock_program shader;
     swr::impl::program_info program_info;
     swr::impl::render_states states;
 
@@ -462,7 +345,7 @@ void check_thin_trace_preserves_coverage(
         BOOST_REQUIRE(rast::is_thin_rasterization_mode(mode));
         if(expected_mode)
         {
-            BOOST_REQUIRE(mode == *expected_mode);
+            BOOST_REQUIRE_EQUAL(mode, *expected_mode);
         }
 
         auto checked_quads = collect_checked_quads(
@@ -695,7 +578,7 @@ BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
       ctx.states,
       info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
-    BOOST_REQUIRE(mode == rast::tile_info::rasterization_mode::thin_y_major);
+    BOOST_REQUIRE_EQUAL(mode, rast::tile_info::rasterization_mode::thin_y_major);
 
     std::vector<checked_quad_sample> payload_quads;
     rast::tile_cache cache;
@@ -759,10 +642,12 @@ BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
         const auto& tile = cache.entries[tile_index];
         for(const auto& primitive: tile.primitives)
         {
-            BOOST_CHECK(primitive.mode == rast::tile_info::rasterization_mode::sparse_checked);
-            BOOST_REQUIRE(primitive.precomputed_payload_index < tile.primitive_sparse_payloads.size());
+            BOOST_CHECK_EQUAL(primitive.mode, rast::tile_info::rasterization_mode::sparse_checked);
+            BOOST_REQUIRE_LT(primitive.precomputed_payload_index, tile.primitive_sparse_payloads.size());
             const auto& cached_payload = tile.primitive_sparse_payloads[primitive.precomputed_payload_index];
-            BOOST_REQUIRE(cached_payload.quad_offset + cached_payload.quad_count <= tile.primitive_sparse_quad_payloads.size());
+            BOOST_REQUIRE_LE(
+              cached_payload.quad_offset + cached_payload.quad_count,
+              tile.primitive_sparse_quad_payloads.size());
             for(std::uint16_t i = 0; i < cached_payload.quad_count; ++i)
             {
                 const auto& quad = tile.primitive_sparse_quad_payloads[cached_payload.quad_offset + i];
@@ -830,7 +715,7 @@ BOOST_AUTO_TEST_CASE(sparse_triangle_payload_interpolation_matches_regular_inter
       ctx.states,
       info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
-    BOOST_REQUIRE(mode == rast::tile_info::rasterization_mode::thin_y_major);
+    BOOST_REQUIRE_EQUAL(mode, rast::tile_info::rasterization_mode::thin_y_major);
 
     bool saw_payload = false;
     rast::for_each_thin_triangle_block_with_bounds(

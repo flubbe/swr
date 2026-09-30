@@ -22,6 +22,7 @@
 /* user headers. */
 #include "swr_internal.h"
 #include "rasterizer/early_depth_policy.h"
+#include "../../utils.h"
 
 namespace
 {
@@ -35,9 +36,9 @@ struct offscreen_context_fixture
     offscreen_context_fixture()
     {
         context = swr::CreateOffscreenContext(target_size, target_size, 1);
-        BOOST_REQUIRE(context != nullptr);
+        BOOST_REQUIRE_NE(context, nullptr);
         BOOST_REQUIRE(swr::MakeContextCurrent(context));
-        BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+        BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     }
 
     ~offscreen_context_fixture()
@@ -221,23 +222,23 @@ void draw_fullscreen_triangle(
 {
     constant_color_shader shader{color};
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::vector<ml::vec4> vertices{
       {-1.0f, -1.0f, z, 1.0f},
       {3.0f, -1.0f, z, 1.0f},
       {-1.0f, 3.0f, z, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_REQUIRE(swr::BindShader(shader_id));
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DisableAttributeBuffer(vertex_buffer_id);
     swr::DeleteAttributeBuffer(vertex_buffer_id);
@@ -251,23 +252,23 @@ void draw_depth_writing_fullscreen_triangle(
 {
     depth_writing_color_shader shader{color, fragment_z};
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::vector<ml::vec4> vertices{
       {-1.0f, -1.0f, vertex_z, 1.0f},
       {3.0f, -1.0f, vertex_z, 1.0f},
       {-1.0f, 3.0f, vertex_z, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_REQUIRE(swr::BindShader(shader_id));
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DisableAttributeBuffer(vertex_buffer_id);
     swr::DeleteAttributeBuffer(vertex_buffer_id);
@@ -284,23 +285,23 @@ void draw_counted_fullscreen_triangle(
       &invocation_count,
       allow_early_depth};
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::vector<ml::vec4> vertices{
       {-1.0f, -1.0f, z, 1.0f},
       {3.0f, -1.0f, z, 1.0f},
       {-1.0f, 3.0f, z, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_REQUIRE(swr::BindShader(shader_id));
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DisableAttributeBuffer(vertex_buffer_id);
     swr::DeleteAttributeBuffer(vertex_buffer_id);
@@ -314,10 +315,10 @@ void fill_default_depth_checkerboard(
 {
     auto* render_context =
       static_cast<swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
 
     auto& depth_buffer = render_context->framebuffer.depth_buffer;
-    BOOST_REQUIRE(depth_buffer.info.data_ptr != nullptr);
+    BOOST_REQUIRE_NE(depth_buffer.info.data_ptr, nullptr);
 
     const int row_stride =
       depth_buffer.info.pitch / static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
@@ -335,12 +336,12 @@ std::vector<std::uint32_t> snapshot_default_color(swr::context_handle context)
 {
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
 
     const auto& color_buffer = render_context->framebuffer.color_buffer;
-    BOOST_REQUIRE(color_buffer.info.data_ptr != nullptr);
-    BOOST_REQUIRE(color_buffer.info.width > 0);
-    BOOST_REQUIRE(color_buffer.info.height > 0);
+    BOOST_REQUIRE_NE(color_buffer.info.data_ptr, nullptr);
+    BOOST_REQUIRE_GT(color_buffer.info.width, 0);
+    BOOST_REQUIRE_GT(color_buffer.info.height, 0);
 
     const int pixel_count = color_buffer.info.width * color_buffer.info.height;
     return {
@@ -352,12 +353,12 @@ std::vector<std::uint32_t> snapshot_default_depth(swr::context_handle context)
 {
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
 
     const auto& depth_buffer = render_context->framebuffer.depth_buffer;
-    BOOST_REQUIRE(depth_buffer.info.data_ptr != nullptr);
-    BOOST_REQUIRE(depth_buffer.info.width > 0);
-    BOOST_REQUIRE(depth_buffer.info.height > 0);
+    BOOST_REQUIRE_NE(depth_buffer.info.data_ptr, nullptr);
+    BOOST_REQUIRE_GT(depth_buffer.info.width, 0);
+    BOOST_REQUIRE_GT(depth_buffer.info.height, 0);
 
     const int pixel_count = depth_buffer.info.width * depth_buffer.info.height;
     std::vector<std::uint32_t> out;
@@ -399,9 +400,9 @@ BOOST_AUTO_TEST_CASE(early_fragment_depth_auto_state_uses_samples_for_decisions)
     rast::early_depth_sample sample;
     sample.set(min_fragments - 1, 0);
     state.record_test_result(sample);
-    BOOST_CHECK(
-      state.choose_action()
-      == rast::early_fragment_depth_test_auto_action::enabled_collect);
+    BOOST_CHECK_EQUAL(
+      state.choose_action(),
+      rast::early_fragment_depth_test_auto_action::enabled_collect);
 
     state = {};
     sample.set(min_fragments, 0);
@@ -410,13 +411,13 @@ BOOST_AUTO_TEST_CASE(early_fragment_depth_auto_state_uses_samples_for_decisions)
         i < rast::early_fragment_depth_test_auto_probe_period;
         ++i)
     {
-        BOOST_CHECK(
-          state.choose_action()
-          == rast::early_fragment_depth_test_auto_action::disabled);
+        BOOST_CHECK_EQUAL(
+          state.choose_action(),
+          rast::early_fragment_depth_test_auto_action::disabled);
     }
-    BOOST_CHECK(
-      state.choose_action()
-      == rast::early_fragment_depth_test_auto_action::enabled_collect);
+    BOOST_CHECK_EQUAL(
+      state.choose_action(),
+      rast::early_fragment_depth_test_auto_action::enabled_collect);
 
     state = {};
     sample.set(min_fragments, reject_threshold);
@@ -425,13 +426,13 @@ BOOST_AUTO_TEST_CASE(early_fragment_depth_auto_state_uses_samples_for_decisions)
         i < rast::early_fragment_depth_test_auto_sample_period;
         ++i)
     {
-        BOOST_CHECK(
-          state.choose_action()
-          == rast::early_fragment_depth_test_auto_action::enabled_fast);
+        BOOST_CHECK_EQUAL(
+          state.choose_action(),
+          rast::early_fragment_depth_test_auto_action::enabled_fast);
     }
-    BOOST_CHECK(
-      state.choose_action()
-      == rast::early_fragment_depth_test_auto_action::enabled_collect);
+    BOOST_CHECK_EQUAL(
+      state.choose_action(),
+      rast::early_fragment_depth_test_auto_action::enabled_collect);
 }
 
 BOOST_AUTO_TEST_CASE(early_fragment_depth_auto_state_decays_old_samples)
@@ -513,7 +514,7 @@ BOOST_AUTO_TEST_CASE(fully_occluded_triangle_does_not_change_color_or_depth_buff
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     // Occluder: near and covering the full viewport.
     draw_fullscreen_triangle({1.0f, 0.0f, 0.0f, 1.0f}, 0.2f);
@@ -525,8 +526,12 @@ BOOST_AUTO_TEST_CASE(fully_occluded_triangle_does_not_change_color_or_depth_buff
     const auto color_after_occluded = snapshot_default_color(context);
     const auto depth_after_occluded = snapshot_default_depth(context);
 
-    BOOST_CHECK(color_after_occluded == color_after_occluder);
-    BOOST_CHECK(depth_after_occluded == depth_after_occluder);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      color_after_occluded.begin(), color_after_occluded.end(),
+      color_after_occluder.begin(), color_after_occluder.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      depth_after_occluded.begin(), depth_after_occluded.end(),
+      depth_after_occluder.begin(), depth_after_occluder.end());
 }
 
 BOOST_AUTO_TEST_CASE(fully_occluded_triangle_with_less_equal_does_not_change_color_or_depth_buffers)
@@ -540,7 +545,7 @@ BOOST_AUTO_TEST_CASE(fully_occluded_triangle_with_less_equal_does_not_change_col
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_triangle({0.0f, 1.0f, 0.0f, 1.0f}, 0.25f);
     const auto color_after_occluder = snapshot_default_color(context);
@@ -550,8 +555,12 @@ BOOST_AUTO_TEST_CASE(fully_occluded_triangle_with_less_equal_does_not_change_col
     const auto color_after_occluded = snapshot_default_color(context);
     const auto depth_after_occluded = snapshot_default_depth(context);
 
-    BOOST_CHECK(color_after_occluded == color_after_occluder);
-    BOOST_CHECK(depth_after_occluded == depth_after_occluder);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      color_after_occluded.begin(), color_after_occluded.end(),
+      color_after_occluder.begin(), color_after_occluder.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      depth_after_occluded.begin(), depth_after_occluded.end(),
+      depth_after_occluder.begin(), depth_after_occluder.end());
 }
 
 BOOST_AUTO_TEST_CASE(nearer_second_triangle_overwrites_color_and_depth)
@@ -565,7 +574,7 @@ BOOST_AUTO_TEST_CASE(nearer_second_triangle_overwrites_color_and_depth)
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_triangle({1.0f, 0.0f, 0.0f, 1.0f}, 0.7f);
     const auto color_after_far = snapshot_default_color(context);
@@ -590,7 +599,7 @@ BOOST_AUTO_TEST_CASE(greater_depth_test_allows_farther_second_triangle)
     swr::SetClearDepth(0.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_triangle({0.0f, 1.0f, 1.0f, 1.0f}, 0.2f);
     const auto color_after_near = snapshot_default_color(context);
@@ -615,7 +624,7 @@ BOOST_AUTO_TEST_CASE(equal_depth_test_rejects_when_depth_ranges_do_not_overlap)
     swr::SetClearDepth(0.2f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_triangle({1.0f, 0.0f, 0.0f, 1.0f}, 0.2f);
     const auto color_after_first = snapshot_default_color(context);
@@ -625,8 +634,12 @@ BOOST_AUTO_TEST_CASE(equal_depth_test_rejects_when_depth_ranges_do_not_overlap)
     const auto color_after_second = snapshot_default_color(context);
     const auto depth_after_second = snapshot_default_depth(context);
 
-    BOOST_CHECK(color_after_second == color_after_first);
-    BOOST_CHECK(depth_after_second == depth_after_first);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      color_after_second.begin(), color_after_second.end(),
+      color_after_first.begin(), color_after_first.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      depth_after_second.begin(), depth_after_second.end(),
+      depth_after_first.begin(), depth_after_first.end());
 }
 
 BOOST_AUTO_TEST_CASE(not_equal_depth_test_rejects_when_old_and_new_depth_are_identical)
@@ -640,7 +653,7 @@ BOOST_AUTO_TEST_CASE(not_equal_depth_test_rejects_when_old_and_new_depth_are_ide
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_triangle({1.0f, 0.0f, 1.0f, 1.0f}, 0.5f);
     const auto color_after_first = snapshot_default_color(context);
@@ -650,8 +663,12 @@ BOOST_AUTO_TEST_CASE(not_equal_depth_test_rejects_when_old_and_new_depth_are_ide
     const auto color_after_second = snapshot_default_color(context);
     const auto depth_after_second = snapshot_default_depth(context);
 
-    BOOST_CHECK(color_after_second == color_after_first);
-    BOOST_CHECK(depth_after_second == depth_after_first);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      color_after_second.begin(), color_after_second.end(),
+      color_after_first.begin(), color_after_first.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      depth_after_second.begin(), depth_after_second.end(),
+      depth_after_first.begin(), depth_after_first.end());
 }
 
 BOOST_AUTO_TEST_CASE(all_depth_functions_match_expected_second_draw_visibility)
@@ -692,7 +709,7 @@ BOOST_AUTO_TEST_CASE(all_depth_functions_match_expected_second_draw_visibility)
             swr::SetClearDepth(c.clear_depth);
             swr::ClearColorBuffer();
             swr::ClearDepthBuffer();
-            BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+            BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
             draw_fullscreen_triangle({1.0f, 0.0f, 0.0f, 1.0f}, 0.2f);
             const auto color_after_first = snapshot_default_color(context);
@@ -709,8 +726,12 @@ BOOST_AUTO_TEST_CASE(all_depth_functions_match_expected_second_draw_visibility)
             }
             else
             {
-                BOOST_CHECK(color_after_second == color_after_first);
-                BOOST_CHECK(depth_after_second == depth_after_first);
+                BOOST_CHECK_EQUAL_COLLECTIONS(
+                  color_after_second.begin(), color_after_second.end(),
+                  color_after_first.begin(), color_after_first.end());
+                BOOST_CHECK_EQUAL_COLLECTIONS(
+                  depth_after_second.begin(), depth_after_second.end(),
+                  depth_after_first.begin(), depth_after_first.end());
             }
         }
     }
@@ -727,7 +748,7 @@ BOOST_AUTO_TEST_CASE(depth_write_disabled_still_allows_passing_fragments_to_writ
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_triangle({1.0f, 0.0f, 0.0f, 1.0f}, 0.5f);
     const auto color_after_first = snapshot_default_color(context);
@@ -739,7 +760,9 @@ BOOST_AUTO_TEST_CASE(depth_write_disabled_still_allows_passing_fragments_to_writ
     const auto depth_after_second = snapshot_default_depth(context);
 
     BOOST_CHECK(color_after_second != color_after_first);
-    BOOST_CHECK(depth_after_second == depth_after_first);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      depth_after_second.begin(), depth_after_second.end(),
+      depth_after_first.begin(), depth_after_first.end());
 }
 
 BOOST_AUTO_TEST_CASE(block_early_depth_reject_respects_fragment_depth_writes)
@@ -759,7 +782,7 @@ BOOST_AUTO_TEST_CASE(block_early_depth_reject_respects_fragment_depth_writes)
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_triangle({1.0f, 0.0f, 0.0f, 1.0f}, 0.2f);
     const auto color_after_occluder = snapshot_default_color(context);
@@ -790,9 +813,9 @@ BOOST_AUTO_TEST_CASE(shader_metadata_enables_early_fragment_depth_rejection)
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 
@@ -805,9 +828,9 @@ BOOST_AUTO_TEST_CASE(shader_metadata_enables_early_fragment_depth_rejection)
 
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 
     std::uint64_t early_depth_invocations = 0;
@@ -821,12 +844,14 @@ BOOST_AUTO_TEST_CASE(shader_metadata_enables_early_fragment_depth_rejection)
 
 BOOST_AUTO_TEST_CASE(rasterizer_early_depth_features_are_enabled_by_default)
 {
-    BOOST_CHECK(swr::GetRasterizerFeature(
-                  swr::rasterizer_feature::block_early_depth_reject)
-                == swr::rasterizer_feature_mode::automatic);
-    BOOST_CHECK(swr::GetRasterizerFeature(
-                  swr::rasterizer_feature::early_fragment_depth_test)
-                == swr::rasterizer_feature_mode::automatic);
+    BOOST_CHECK_EQUAL(
+      swr::GetRasterizerFeature(
+        swr::rasterizer_feature::block_early_depth_reject),
+      swr::rasterizer_feature_mode::automatic);
+    BOOST_CHECK_EQUAL(
+      swr::GetRasterizerFeature(
+        swr::rasterizer_feature::early_fragment_depth_test),
+      swr::rasterizer_feature_mode::automatic);
 }
 
 BOOST_AUTO_TEST_CASE(rasterizer_early_depth_feature_modes_round_trip)
@@ -834,16 +859,18 @@ BOOST_AUTO_TEST_CASE(rasterizer_early_depth_feature_modes_round_trip)
     swr::SetRasterizerFeature(
       swr::rasterizer_feature::block_early_depth_reject,
       swr::rasterizer_feature_mode::on);
-    BOOST_CHECK(swr::GetRasterizerFeature(
-                  swr::rasterizer_feature::block_early_depth_reject)
-                == swr::rasterizer_feature_mode::on);
+    BOOST_CHECK_EQUAL(
+      swr::GetRasterizerFeature(
+        swr::rasterizer_feature::block_early_depth_reject),
+      swr::rasterizer_feature_mode::on);
 
     swr::SetRasterizerFeature(
       swr::rasterizer_feature::early_fragment_depth_test,
       swr::rasterizer_feature_mode::off);
-    BOOST_CHECK(swr::GetRasterizerFeature(
-                  swr::rasterizer_feature::early_fragment_depth_test)
-                == swr::rasterizer_feature_mode::off);
+    BOOST_CHECK_EQUAL(
+      swr::GetRasterizerFeature(
+        swr::rasterizer_feature::early_fragment_depth_test),
+      swr::rasterizer_feature_mode::off);
 
     swr::SetRasterizerFeature(
       swr::rasterizer_feature::block_early_depth_reject,
@@ -851,12 +878,14 @@ BOOST_AUTO_TEST_CASE(rasterizer_early_depth_feature_modes_round_trip)
     swr::SetRasterizerFeature(
       swr::rasterizer_feature::early_fragment_depth_test,
       swr::rasterizer_feature_mode::automatic);
-    BOOST_CHECK(swr::GetRasterizerFeature(
-                  swr::rasterizer_feature::block_early_depth_reject)
-                == swr::rasterizer_feature_mode::automatic);
-    BOOST_CHECK(swr::GetRasterizerFeature(
-                  swr::rasterizer_feature::early_fragment_depth_test)
-                == swr::rasterizer_feature_mode::automatic);
+    BOOST_CHECK_EQUAL(
+      swr::GetRasterizerFeature(
+        swr::rasterizer_feature::block_early_depth_reject),
+      swr::rasterizer_feature_mode::automatic);
+    BOOST_CHECK_EQUAL(
+      swr::GetRasterizerFeature(
+        swr::rasterizer_feature::early_fragment_depth_test),
+      swr::rasterizer_feature_mode::automatic);
 }
 
 BOOST_AUTO_TEST_CASE(early_fragment_depth_feature_can_be_disabled)
@@ -873,9 +902,9 @@ BOOST_AUTO_TEST_CASE(early_fragment_depth_feature_can_be_disabled)
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 
     swr::SetRasterizerFeature(
@@ -890,9 +919,9 @@ BOOST_AUTO_TEST_CASE(early_fragment_depth_feature_can_be_disabled)
 
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     fill_default_depth_checkerboard(context, 0.2f, 1.0f);
 
     swr::SetRasterizerFeature(
@@ -920,7 +949,7 @@ BOOST_AUTO_TEST_CASE(block_early_depth_feature_can_be_disabled)
     swr::SetClearDepth(1.0f);
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetRasterizerFeature(
       swr::rasterizer_feature::block_early_depth_reject,
@@ -934,7 +963,7 @@ BOOST_AUTO_TEST_CASE(block_early_depth_feature_can_be_disabled)
 
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetRasterizerFeature(
       swr::rasterizer_feature::block_early_depth_reject,

@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "interpolators.h"
+
 namespace rast
 {
 

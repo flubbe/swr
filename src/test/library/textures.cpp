@@ -170,17 +170,17 @@ BOOST_AUTO_TEST_CASE(mipmapped_texture_storage_is_tightly_packed)
     BOOST_CHECK_EQUAL(color_texture->data.pitches[3], 1u);
 
     auto* base_ptr = color_texture->data.buffer.data();
-    BOOST_CHECK(color_texture->data.data_ptrs[0] == base_ptr);
-    BOOST_CHECK(color_texture->data.data_ptrs[1] == base_ptr + 64);
-    BOOST_CHECK(color_texture->data.data_ptrs[2] == base_ptr + 80);
-    BOOST_CHECK(color_texture->data.data_ptrs[3] == base_ptr + 84);
+    BOOST_CHECK_EQUAL(color_texture->data.data_ptrs[0], base_ptr);
+    BOOST_CHECK_EQUAL(color_texture->data.data_ptrs[1], base_ptr + 64);
+    BOOST_CHECK_EQUAL(color_texture->data.data_ptrs[2], base_ptr + 80);
+    BOOST_CHECK_EQUAL(color_texture->data.data_ptrs[3], base_ptr + 84);
 
     swr::impl::texture_attachment_binding binding;
     binding.attach(texture, 2);
     BOOST_CHECK_EQUAL(binding.info.width, 2);
     BOOST_CHECK_EQUAL(binding.info.height, 2);
     BOOST_CHECK_EQUAL(binding.info.pitch, 2);
-    BOOST_CHECK(binding.info.data_ptr == color_texture->data.data_ptrs[2]);
+    BOOST_CHECK_EQUAL(binding.info.data_ptr, color_texture->data.data_ptrs[2]);
 }
 
 BOOST_AUTO_TEST_CASE(texture_v_coordinate_follows_opengl_bottom_to_top_convention)
@@ -238,8 +238,12 @@ BOOST_AUTO_TEST_CASE(depth_texture_supports_compare_sampling)
     texture->set_filter_mag(swr::texture_filter::nearest);
     texture->set_filter_min(swr::texture_filter::nearest);
 
-    BOOST_CHECK(swr::GetTextureCompareMode(texture_id) == swr::texture_compare_mode::none);
-    BOOST_CHECK(swr::GetTextureCompareFunc(texture_id) == swr::comparison_func::less_equal);
+    BOOST_CHECK_EQUAL(
+      swr::GetTextureCompareMode(texture_id),
+      swr::texture_compare_mode::none);
+    BOOST_CHECK_EQUAL(
+      swr::GetTextureCompareFunc(texture_id),
+      swr::comparison_func::less_equal);
 
     const swr::varying uv_bottom_left{
       {0.25f, 0.25f, 0.0f, 0.0f},
@@ -262,8 +266,12 @@ BOOST_AUTO_TEST_CASE(depth_texture_supports_compare_sampling)
     swr::SetTextureCompareFunc(texture_id, swr::comparison_func::less_equal);
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
-    BOOST_CHECK(swr::GetTextureCompareMode(texture_id) == swr::texture_compare_mode::ref_to_texture);
-    BOOST_CHECK(swr::GetTextureCompareFunc(texture_id) == swr::comparison_func::less_equal);
+    BOOST_CHECK_EQUAL(
+      swr::GetTextureCompareMode(texture_id),
+      swr::texture_compare_mode::ref_to_texture);
+    BOOST_CHECK_EQUAL(
+      swr::GetTextureCompareFunc(texture_id),
+      swr::comparison_func::less_equal);
 
     const swr::varying compare_pass{
       {0.25f, 0.25f, 0.20f, 0.0f},
@@ -296,7 +304,7 @@ BOOST_AUTO_TEST_CASE(format_switch_preserves_sampler_identity_and_updates_sampli
     BOOST_REQUIRE_NE(shadow_sampler_before, nullptr);
 
     swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);
-    BOOST_CHECK(swr::GetLastError() == swr::error::invalid_operation);
+    BOOST_CHECK_EQUAL(swr::GetLastError(), swr::error::invalid_operation);
 
     swr::SetImage(
       texture_id,
@@ -310,7 +318,7 @@ BOOST_AUTO_TEST_CASE(format_switch_preserves_sampler_identity_and_updates_sampli
 
     texture = get_texture_ptr(context, texture_id);
     BOOST_REQUIRE_NE(texture, nullptr);
-    BOOST_REQUIRE(texture->as_texture_depth_2d() != nullptr);
+    BOOST_REQUIRE_NE(texture->as_texture_depth_2d(), nullptr);
     BOOST_CHECK_EQUAL(texture->sampler.get(), sampler_before);
 
     swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);

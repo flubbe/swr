@@ -21,6 +21,7 @@
 
 /* user headers. */
 #include "swr_internal.h"
+#include "../utils.h"
 
 namespace
 {
@@ -34,9 +35,9 @@ struct offscreen_context_fixture
     offscreen_context_fixture()
     {
         context = swr::CreateOffscreenContext(target_size, target_size, 1);
-        BOOST_REQUIRE(context != nullptr);
+        BOOST_REQUIRE_NE(context, nullptr);
         BOOST_REQUIRE(swr::MakeContextCurrent(context));
-        BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+        BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     }
 
     ~offscreen_context_fixture()
@@ -113,8 +114,8 @@ std::uint32_t create_fbo_with_texture_attachment(
   std::uint32_t height = target_size)
 {
     const std::uint32_t texture_id = swr::CreateTexture();
-    BOOST_REQUIRE(texture_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(texture_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetImage(
       texture_id,
@@ -123,24 +124,24 @@ std::uint32_t create_fbo_with_texture_attachment(
       height,
       swr::pixel_format::rgba8888,
       {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t fbo_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(fbo_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(fbo_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::FramebufferTexture(
       fbo_id,
       swr::framebuffer_attachment::color_attachment_0,
       texture_id,
       0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetViewport(0, 0, width, height);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     return texture_id;
 }
@@ -152,27 +153,27 @@ void draw_fullscreen_triangle(
 {
     constant_color_shader shader{color};
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(shader_id != 0);
+    BOOST_REQUIRE_NE(shader_id, 0);
 
     const std::vector<ml::vec4> vertices{
       {-1.0f, -1.0f, 0.0f, 1.0f},
       {3.0f, -1.0f, 0.0f, 1.0f},
       {-1.0f, 3.0f, 0.0f, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_REQUIRE(swr::BindShader(shader_id));
     swr::SetState(swr::state::depth_test, false);
     swr::SetState(swr::state::blend, true);
     swr::SetBlendFunc(src_factor, dst_factor);
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 }
 
 const ml::vec4& read_texture_pixel(
@@ -181,19 +182,19 @@ const ml::vec4& read_texture_pixel(
   std::uint32_t x,
   std::uint32_t y)
 {
-    BOOST_REQUIRE(context != nullptr);
+    BOOST_REQUIRE_NE(context, nullptr);
 
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
     BOOST_REQUIRE_LT(texture_id, render_context->texture_2d_storage.slot_count());
 
     const auto* texture_ptr = render_context->texture_2d_storage[texture_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
 
     const auto* texture = texture_ptr->as_texture_color_2d();
-    BOOST_REQUIRE(texture != nullptr);
+    BOOST_REQUIRE_NE(texture, nullptr);
     BOOST_REQUIRE(!texture->data.data_ptrs.empty());
-    BOOST_REQUIRE(texture->data.data_ptrs[0] != nullptr);
+    BOOST_REQUIRE_NE(texture->data.data_ptrs[0], nullptr);
 
 #ifdef SWR_USE_MORTON_CODES
     return texture->data.data_ptrs[0][libmorton::morton2D_32_encode(x, y)];
@@ -241,9 +242,9 @@ BOOST_AUTO_TEST_CASE(fbo_blend_one_zero_overwrites_texture_attachment)
 
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
@@ -263,9 +264,9 @@ BOOST_AUTO_TEST_CASE(fbo_blend_zero_one_preserves_texture_attachment)
 
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
@@ -285,9 +286,9 @@ BOOST_AUTO_TEST_CASE(fbo_blend_source_alpha_combines_source_and_destination)
 
     swr::SetClearColor(dest.r, dest.g, dest.b, dest.a);
     swr::ClearColorBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     check_representative_pixels(context, texture_id, target_size, target_size, dest);
 
     draw_fullscreen_triangle(
@@ -316,9 +317,9 @@ BOOST_AUTO_TEST_CASE(fbo_larger_than_default_draw_target_rasterizes_without_miss
 
     swr::SetClearColor(clear.r, clear.g, clear.b, clear.a);
     swr::ClearColorBuffer();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     check_representative_pixels(
       context,
       texture_id,

@@ -20,6 +20,7 @@
 /* user headers. */
 #include "rasterizer/line.h"
 #include "rasterizer/interpolators.h"
+#include "../../utils.h"
 
 /*
  * Helpers.
@@ -42,12 +43,9 @@ struct emitted_pixel
     }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const ml::tvec2<int>& v)
-{
-    return os << "(" << v.x << ", " << v.y << ")";
-}
-
-inline std::ostream& operator<<(std::ostream& os, const emitted_pixel& px)
+inline std::ostream& operator<<(
+  std::ostream& os,
+  const emitted_pixel& px)
 {
     return os << "emitted_pixel{coord=" << px.coord << "}";
 }
@@ -788,8 +786,8 @@ BOOST_AUTO_TEST_CASE(pixel_connectivity)
         const int dx = std::abs(a.x - b.x);
         const int dy = std::abs(a.y - b.y);
 
-        BOOST_CHECK(dx <= 1);
-        BOOST_CHECK(dy <= 1);
+        BOOST_CHECK_LE(dx, 1);
+        BOOST_CHECK_LE(dy, 1);
     }
 }
 
@@ -818,7 +816,7 @@ BOOST_AUTO_TEST_CASE(reverse_direction_consistency)
       rset.begin(), rset.end(),
       std::back_inserter(diff));
 
-    BOOST_CHECK(diff.size() <= 2);
+    BOOST_CHECK_LE(diff.size(), 2);
 }
 
 BOOST_AUTO_TEST_CASE(varying_interpolation_smooth_and_flat)

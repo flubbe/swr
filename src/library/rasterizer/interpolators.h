@@ -14,6 +14,10 @@
 #include <stdexcept>
 
 #include <boost/container/small_vector.hpp>
+#include <boost/container/static_vector.hpp>
+
+#include "swr/shaders.h"
+#include "geometry/all.h"
 
 namespace rast
 {
@@ -367,7 +371,7 @@ struct triangle_interpolator : basic_interpolation_data<geom::linear_interpolato
           {
             depth_diff_v0v1 * normalized_diff_v0v2.y - depth_diff_v0v2 * normalized_diff_v0v1.y,
             -depth_diff_v0v1 * normalized_diff_v0v2.x + depth_diff_v0v2 * normalized_diff_v0v1.x,
-          };
+        };
 
         const float base_depth = v0_coords.z + polygon_offset;
         const float interpolated_depth =
