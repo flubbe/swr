@@ -37,7 +37,8 @@ void UpdateIndexBuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(!impl::global_context->index_buffers.contains(id))
+    if(!context->index_buffers.contains(id)
+       || context->has_pending_deletion(impl::resource_type::index_buffer, id))
     {
         impl::global_context->last_error = swr::error::invalid_value;
         return;
@@ -51,48 +52,51 @@ void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data)
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(!impl::global_context->vertex_attribute_buffers.contains(id))
+    if(!context->vertex_attribute_buffers.contains(id)
+       || context->has_pending_deletion(impl::resource_type::attribute_buffer, id))
     {
-        impl::global_context->last_error = swr::error::invalid_value;
+        context->last_error = swr::error::invalid_value;
         return;
     }
 
     context->vertex_attribute_buffers[id] = data;
 }
 
-template<typename T>
-static void delete_buffer(std::uint32_t id, utils::slot_map<T>& buffers, error& last_error)
-{
-    if(buffers.contains(id))
-    {
-        buffers[id].clear();
-        buffers.erase(id);
-    }
-    else
-    {
-        last_error = error::invalid_value;
-    }
-}
-
-void DeleteIndexBuffer(std::uint32_t id)
+void DeleteIndexBuffer(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    delete_buffer(id, impl::global_context->index_buffers, impl::global_context->last_error);
+    auto* context = impl::global_context;
+
+    if(!context->index_buffers.contains(id))
+    {
+        context->last_error = error::invalid_value;
+        return;
+    }
+
+    // Mark buffer for deletion.
+    // Duplications are resolved when processing deletions.
+    context->pending_resource_deletions.push_back(
+      {.type = impl::resource_type::index_buffer,
+       .id = id});
 }
 
 void DeleteAttributeBuffer(std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
+    auto* context = impl::global_context;
 
-    if(impl::global_context->vertex_attribute_buffers.contains(id))
+    if(!context->vertex_attribute_buffers.contains(id))
     {
-        impl::global_context->vertex_attribute_buffers[id].data.clear(); /* FIXME the .data member access here prevents more unification with the delete_buffer function above? */
-        impl::global_context->vertex_attribute_buffers.erase(id);
+        context->last_error = error::invalid_value;
+        return;
     }
-    else
-    {
-        impl::global_context->last_error = error::invalid_value;
-    }
+
+    // Mark buffer for deletion.
+    // Duplications are resolved when processing deletions.
+    context->pending_resource_deletions.push_back(
+      {.type = impl::resource_type::attribute_buffer,
+       .id = id});
 }
 
 void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
@@ -101,6 +105,7 @@ void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
     impl::render_context* context = impl::global_context;
 
     if(!context->vertex_attribute_buffers.contains(id)
+       || context->has_pending_deletion(impl::resource_type::attribute_buffer, id)
        || slot >= context->active_vabs.max_size())
     {
         context->last_error = error::invalid_value;
@@ -123,7 +128,8 @@ void DisableAttributeBuffer(std::uint32_t id)
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(!context->vertex_attribute_buffers.contains(id))
+    if(!context->vertex_attribute_buffers.contains(id)
+       || context->has_pending_deletion(impl::resource_type::attribute_buffer, id))
     {
         context->last_error = error::invalid_value;
         return;

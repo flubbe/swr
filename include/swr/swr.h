@@ -61,7 +61,8 @@ enum class wrap_mode
  * @param ib Contains all indices that should make up the index buffer.
  * @return Returns the unique ID of the newly created index buffer.
  */
-std::uint32_t CreateIndexBuffer(const std::vector<std::uint32_t>& ib);
+std::uint32_t CreateIndexBuffer(
+  const std::vector<std::uint32_t>& ib);
 
 /**
  * Update an index buffer from a std::vector of indices.
@@ -69,7 +70,9 @@ std::uint32_t CreateIndexBuffer(const std::vector<std::uint32_t>& ib);
  * @param id The buffer id.
  * @param data Contains all indices that should make up the index buffer.
  */
-void UpdateIndexBuffer(std::uint32_t id, const std::vector<std::uint32_t>& data);
+void UpdateIndexBuffer(
+  std::uint32_t id,
+  const std::vector<std::uint32_t>& data);
 
 /**
  * Free the memory of a vertex buffer. If the supplied id does
@@ -77,7 +80,8 @@ void UpdateIndexBuffer(std::uint32_t id, const std::vector<std::uint32_t>& data)
  *
  * @param id Unique ID representing an index buffer.
  */
-void DeleteIndexBuffer(std::uint32_t id);
+void DeleteIndexBuffer(
+  std::uint32_t id);
 
 /**
  * Specifies how the vertex list in a vertex buffer (possibly in combination with an index buffer) should be interpretted.
@@ -99,7 +103,9 @@ enum class vertex_buffer_mode
  * @param mode Specifies how the contents of the subset of the vertex buffer should be interpretted.
  * @param count The vertex count.
  */
-void DrawElements(vertex_buffer_mode mode, std::size_t count);
+void DrawElements(
+  vertex_buffer_mode mode,
+  std::size_t count);
 
 /**
  * Add a subset of a vertex buffer (as specified by the index buffer) to the list of objects to be rendered.
@@ -108,7 +114,10 @@ void DrawElements(vertex_buffer_mode mode, std::size_t count);
  * @param count Number of elements to use from `index_buffer`.
  * @param index_buffer The index buffer to use.
  */
-void DrawIndexedElements(vertex_buffer_mode mode, std::size_t count, const std::vector<std::uint32_t>& index_buffer);
+void DrawIndexedElements(
+  vertex_buffer_mode mode,
+  std::size_t count,
+  const std::vector<std::uint32_t>& index_buffer);
 
 /*
  * Vertex attribute buffers.
@@ -117,7 +126,8 @@ void DrawIndexedElements(vertex_buffer_mode mode, std::size_t count, const std::
 /**
  * Create an attribute buffer from std::vector of ml::vec4's.
  */
-std::uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& data);
+std::uint32_t CreateAttributeBuffer(
+  const std::vector<ml::vec4>& data);
 
 /**
  * Update an attribute buffer.
@@ -125,30 +135,44 @@ std::uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& data);
  * @param id The buffer id.
  * @param data The attribute data.
  */
-void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data);
+void UpdateAttributeBuffer(
+  std::uint32_t id,
+  const std::vector<ml::vec4>& data);
 
 /**
  * Delete an attribute buffer.
  */
-void DeleteAttributeBuffer(std::uint32_t id);
+void DeleteAttributeBuffer(
+  std::uint32_t id);
 
 /**
  * Activate attribute buffer.
  */
-void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot);
+void EnableAttributeBuffer(
+  std::uint32_t id,
+  std::uint32_t slot);
 
 /**
  * Deactivate buffer.
  */
-void DisableAttributeBuffer(std::uint32_t id);
+void DisableAttributeBuffer(
+  std::uint32_t id);
 
 /*
  * Uniform variables.
  */
-void BindUniform(std::uint32_t UniformId, int Value);
-void BindUniform(std::uint32_t UniformId, float Value);
-void BindUniform(std::uint32_t UniformId, ml::mat4x4 Value);
-void BindUniform(std::uint32_t UniformId, ml::vec4 Value);
+void BindUniform(
+  std::uint32_t UniformId,
+  int Value);
+void BindUniform(
+  std::uint32_t UniformId,
+  float Value);
+void BindUniform(
+  std::uint32_t UniformId,
+  ml::mat4x4 Value);
+void BindUniform(
+  std::uint32_t UniformId,
+  ml::vec4 Value);
 
 /*
  * Rasterization.
@@ -213,7 +237,8 @@ enum class comparison_func
  *
  * @param func The new depth test.
  */
-void SetDepthTest(comparison_func func);
+void SetDepthTest(
+  comparison_func func);
 
 /**
  * Return the current depth test.
@@ -227,7 +252,8 @@ comparison_func GetDepthTest();
  *
  * @param z The clear value.
  */
-void SetClearDepth(float z);
+void SetClearDepth(
+  float z);
 
 /**
  * Clear the depth buffer.
@@ -247,7 +273,11 @@ void ClearDepthBuffer();
  * @param b blue component of clear color
  * @param a alpha component of clear color
  */
-void SetClearColor(float r, float g, float b, float a);
+void SetClearColor(
+  float r,
+  float g,
+  float b,
+  float a);
 
 /**
  * Clear the color buffer.
@@ -271,7 +301,8 @@ enum class front_face_orientation
  *
  * @param Mode Specifies the orientation of front-facing polygons. The initial value is ccw.
  */
-void SetFrontFace(front_face_orientation Mode);
+void SetFrontFace(
+  front_face_orientation Mode);
 
 /** Return the current front-facing polygons. */
 front_face_orientation GetFrontFace();
@@ -290,7 +321,8 @@ enum class cull_face_direction
  *
  * @param Face Specifies whether front- or back-facing facets are candidates for culling.
  */
-void SetCullMode(cull_face_direction face);
+void SetCullMode(
+  cull_face_direction face);
 
 /** Return the current cull mode. */
 cull_face_direction GetCullMode();
@@ -309,7 +341,8 @@ enum class polygon_mode
  *
  * @param Mode Specifies the rasterization mode. Must be one of the modes specified by EPolygonMode.
  */
-void SetPolygonMode(polygon_mode Mode);
+void SetPolygonMode(
+  polygon_mode Mode);
 
 /** Return the current polygon rasterization mode, which is applied to both front- and back-facing polygons. */
 polygon_mode GetPolygonMode();
@@ -321,7 +354,9 @@ polygon_mode GetPolygonMode();
  * @param factor Specifies a scale factor that is used to create a variable depth offset for each polygon. The initial value is 0.
  * @param units Is multiplied by an implementation-specific value to create a constant depth offset. The initial value is 0.
  */
-void PolygonOffset(float factor, float units);
+void PolygonOffset(
+  float factor,
+  float units);
 
 /*
  * Texturing.
@@ -353,7 +388,8 @@ std::uint32_t CreateTexture();
  *
  * @param TextureId The id of the texture to be freed.
  */
-void ReleaseTexture(std::uint32_t TextureId);
+void ReleaseTexture(
+  std::uint32_t TextureId);
 
 /** texture targets. */
 enum class texture_target
@@ -387,7 +423,8 @@ enum texture_unit
  *
  * @param unit specifies which texture unit to activate.
  */
-void ActiveTexture(std::uint32_t unit);
+void ActiveTexture(
+  std::uint32_t unit);
 
 /**
  * Make the specified texture the active one. This also makes the texture parameters available for request.
@@ -395,7 +432,9 @@ void ActiveTexture(std::uint32_t unit);
  * @param target The texture target to bind the texture to.
  * @param id The id of the texture that should be bound to the texture unit.
  */
-void BindTexture(texture_target target, std::uint32_t id);
+void BindTexture(
+  texture_target target,
+  std::uint32_t id);
 
 /**
  * Allocate texture storage and, if data is non-empty, set the image data of a texture.
@@ -407,7 +446,13 @@ void BindTexture(texture_target target, std::uint32_t id);
  * @param format the pixel format of the pixel data
  * @param data if non-empty, this contains the pixel data.
  */
-void SetImage(std::uint32_t texture_id, std::uint32_t level, std::size_t width, std::size_t height, pixel_format format, const std::vector<std::uint8_t>& data);
+void SetImage(
+  std::uint32_t texture_id,
+  std::uint32_t level,
+  std::size_t width,
+  std::size_t height,
+  pixel_format format,
+  const std::vector<std::uint8_t>& data);
 
 /**
  * Update part of a texture.
@@ -421,7 +466,15 @@ void SetImage(std::uint32_t texture_id, std::uint32_t level, std::size_t width, 
  * @param format pixel format of the data
  * @param data image data
  */
-void SetSubImage(std::uint32_t texture_id, std::uint32_t level, std::size_t offset_x, std::size_t offset_y, std::size_t width, std::size_t height, pixel_format format, const std::vector<std::uint8_t>& data);
+void SetSubImage(
+  std::uint32_t texture_id,
+  std::uint32_t level,
+  std::size_t offset_x,
+  std::size_t offset_y,
+  std::size_t width,
+  std::size_t height,
+  pixel_format format,
+  const std::vector<std::uint8_t>& data);
 
 /**
  * Specify the texture wrapping mode with respect to a direction.
@@ -433,7 +486,10 @@ void SetSubImage(std::uint32_t texture_id, std::uint32_t level, std::size_t offs
  * @note Currently only 2d textures are handled. If debugging and if an
  *     error occures while binding the texture, an assertion is raised.
  */
-void SetTextureWrapMode(std::uint32_t id, wrap_mode s, wrap_mode t);
+void SetTextureWrapMode(
+  std::uint32_t id,
+  wrap_mode s,
+  wrap_mode t);
 
 /**
  * Get the current texture wrapping mode with respect to a direction.
@@ -442,7 +498,10 @@ void SetTextureWrapMode(std::uint32_t id, wrap_mode s, wrap_mode t);
  * @param s output for wrapping mode in s direction. may be set to null for no output.
  * @param t output for wrapping mode in s direction. may be set to null for no output.
  */
-void GetTextureWrapMode(std::uint32_t id, wrap_mode* s, wrap_mode* t);
+void GetTextureWrapMode(
+  std::uint32_t id,
+  wrap_mode* s,
+  wrap_mode* t);
 
 /** Texture Filter. */
 enum class texture_filter
@@ -465,7 +524,8 @@ enum class texture_compare_mode
  *
  * @param Filter nearest or linear.
  */
-void SetTextureMinificationFilter(texture_filter Filter);
+void SetTextureMinificationFilter(
+  texture_filter Filter);
 
 /** Return the minification filter for the currently active texture. */
 texture_filter GetTextureMinificationFilter();
@@ -474,7 +534,8 @@ texture_filter GetTextureMinificationFilter();
  * Set the filter for the currently active texture which is used for magnification.
  * @param Filter nearest or linear.
  */
-void SetTextureMagnificationFilter(texture_filter Filter);
+void SetTextureMagnificationFilter(
+  texture_filter Filter);
 
 /** Return the magnification filter for the currently active texture. */
 texture_filter GetTextureMagnificationFilter();
@@ -485,14 +546,17 @@ texture_filter GetTextureMagnificationFilter();
  * @param id The unique texture id, as returned by CreateTexture.
  * @param mode The comparison mode to use for shadow-style sampling.
  */
-void SetTextureCompareMode(std::uint32_t id, texture_compare_mode mode);
+void SetTextureCompareMode(
+  std::uint32_t id,
+  texture_compare_mode mode);
 
 /**
  * Return the depth comparison mode for a texture.
  *
  * @param id The unique texture id, as returned by CreateTexture.
  */
-texture_compare_mode GetTextureCompareMode(std::uint32_t id);
+texture_compare_mode GetTextureCompareMode(
+  std::uint32_t id);
 
 /**
  * Set the comparison function used for depth comparison sampling.
@@ -500,14 +564,17 @@ texture_compare_mode GetTextureCompareMode(std::uint32_t id);
  * @param id The unique texture id, as returned by CreateTexture.
  * @param func The comparison function to use for shadow-style sampling.
  */
-void SetTextureCompareFunc(std::uint32_t id, comparison_func func);
+void SetTextureCompareFunc(
+  std::uint32_t id,
+  comparison_func func);
 
 /**
  * Return the comparison function used for depth comparison sampling.
  *
  * @param id The unique texture id, as returned by CreateTexture.
  */
-comparison_func GetTextureCompareFunc(std::uint32_t id);
+comparison_func GetTextureCompareFunc(
+  std::uint32_t id);
 
 /*
  * Texture sampling.
@@ -560,10 +627,12 @@ struct sampler_base
     }
 
     /** Return the texture size. */
-    virtual ml::tvec2<int> size(std::uint32_t mip_level) const = 0;
+    virtual ml::tvec2<int> size(
+      std::uint32_t mip_level) const = 0;
 
     /** Return the reciprocal texture size. */
-    virtual ml::vec2 size_reciprocal(std::uint32_t mip_level) const = 0;
+    virtual ml::vec2 size_reciprocal(
+      std::uint32_t mip_level) const = 0;
 };
 
 /** (floating-point) texture sampler. */
@@ -584,11 +653,13 @@ struct sampler_2d
     }
 
     /** Return a texel (as a 4-vector) while respecting the active texture filters. */
-    virtual ml::vec4 sample_at(const struct varying& tex_coords) const = 0;
+    virtual ml::vec4 sample_at(
+      const struct varying& tex_coords) const = 0;
 };
 
 /** Depth sampler interface for depth/compare sampling. */
-struct sampler_depth_2d : virtual public sampler_base
+struct sampler_depth_2d
+: virtual public sampler_base
 {
     /** virtual destructor. */
     virtual ~sampler_depth_2d() = default;
@@ -604,10 +675,12 @@ struct sampler_depth_2d : virtual public sampler_base
     }
 
     /** Return a texture value interpreted as depth. */
-    virtual float sample_depth_at(const struct varying& tex_coords) const = 0;
+    virtual float sample_depth_at(
+      const struct varying& tex_coords) const = 0;
 };
 
-struct sampler_shadow_2d : virtual public sampler_base
+struct sampler_shadow_2d
+: virtual public sampler_base
 {
     /** virtual destructor. */
     virtual ~sampler_shadow_2d() = default;
@@ -628,7 +701,8 @@ struct sampler_shadow_2d : virtual public sampler_base
      * The texture coordinates are read from `tex_coords.value.xy`, while
      * `tex_coords.value.z` is used as the comparison reference.
      */
-    virtual float sample_compare_at(const struct varying& tex_coords) const = 0;
+    virtual float sample_compare_at(
+      const struct varying& tex_coords) const = 0;
 
     /** Return the active depth comparison mode. */
     virtual texture_compare_mode compare_mode() const = 0;
@@ -657,7 +731,9 @@ enum class blend_func
  * @param SourceFactor Can be one of the EBlendFunc values. The initial value is Blend_One.
  * @param DestinationFactor Can be one of the EBlendFunc values. The initial value is Blend_Zero.
  */
-void SetBlendFunc(blend_func SourceFactor, blend_func DestinationFactor);
+void SetBlendFunc(
+  blend_func SourceFactor,
+  blend_func DestinationFactor);
 
 /** Return the blend function for the source. */
 blend_func GetSourceBlendFunc();
@@ -678,7 +754,11 @@ blend_func GetDestinationBlendFunc();
  * @param width Width of the scissor box.
  * @param height Height of the scissor box.
  */
-void SetScissorBox(int x, int y, int width, int height);
+void SetScissorBox(
+  int x,
+  int y,
+  int width,
+  int height);
 
 /*
  * States.
@@ -702,14 +782,17 @@ enum class state
  * @param s The state to modify.
  * @param new_state `true` enables the state, `false` disables it.
  */
-void SetState(state s, bool new_state);
+void SetState(
+  state s,
+  bool new_state);
 
 /**
  * Return the value of a given state.
  *
  * @param s A state.
  */
-bool GetState(state s);
+bool GetState(
+  state s);
 
 /*
  * Viewport transform.
@@ -725,7 +808,11 @@ bool GetState(state s);
  * @param width Width of viewport rectangle.
  * @param height Height of viewport rectangle.
  */
-void SetViewport(int x, int y, unsigned int width, unsigned int height);
+void SetViewport(
+  int x,
+  int y,
+  unsigned int width,
+  unsigned int height);
 
 /**
  * Specify mapping of depth values from normalized device coordinates to window coordinates.
@@ -734,7 +821,9 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height);
  * @param zNear Specifies the mapping of the near clipping plane to window coordinates. The initial value is 0.
  * @param zFar Specifies the mapping of the far clipping plane to window coordinates. The initial value is 1.
  */
-void DepthRange(float zNear, float zFar);
+void DepthRange(
+  float zNear,
+  float zFar);
 
 /*
  * Framebuffer objects.
@@ -752,7 +841,8 @@ std::uint32_t CreateFramebufferObject();
  *
  * @param id The id of the framebuffer object to be freed.
  */
-void ReleaseFramebufferObject(std::uint32_t id);
+void ReleaseFramebufferObject(
+  std::uint32_t id);
 
 /** targets for framebuffers. */
 enum class framebuffer_target
@@ -768,7 +858,9 @@ enum class framebuffer_target
  * @param target The target of the binding operation. Zero is reserved for the default framebuffer.
  * @param id The id of the framebuffer to be bound.
  */
-void BindFramebufferObject(framebuffer_target target, std::uint32_t id);
+void BindFramebufferObject(
+  framebuffer_target target,
+  std::uint32_t id);
 
 /** framebuffer attachment names. */
 enum class framebuffer_attachment
@@ -797,7 +889,11 @@ static_assert(
  * @param attachment_id The id of the attached texture.
  * @param level Mipmap level to be attached.
  */
-void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id, std::uint32_t level);
+void FramebufferTexture(
+  std::uint32_t id,
+  framebuffer_attachment attachment,
+  std::uint32_t attachment_id,
+  std::uint32_t level);
 
 /**
  * Generate a depth render buffer of (at least) the requested size.
@@ -806,14 +902,17 @@ void FramebufferTexture(std::uint32_t id, framebuffer_attachment attachment, std
  * @param height the height of the depth buffer.
  * @return Returns the id of the created depth buffer, and 0 on failure.
  */
-std::uint32_t CreateDepthRenderbuffer(std::uint32_t width, std::uint32_t height);
+std::uint32_t CreateDepthRenderbuffer(
+  std::uint32_t width,
+  std::uint32_t height);
 
 /**
  * Release a depth renderbuffer.
  *
  * @param id the id of the depth renderbuffer to be released.
  */
-void ReleaseDepthRenderbuffer(std::uint32_t id);
+void ReleaseDepthRenderbuffer(
+  std::uint32_t id);
 
 /**
  * Attach a texture or a depth buffer to a framebuffer object.
@@ -822,7 +921,10 @@ void ReleaseDepthRenderbuffer(std::uint32_t id);
  * @param attachment The attachment name in the framebuffer object. Currently only accepts framebuffer_attachment::depth_attachment.
  * @param attachment_id The id of the attached texture.
  */
-void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment, std::uint32_t attachment_id);
+void FramebufferRenderbuffer(
+  std::uint32_t id,
+  framebuffer_attachment attachment,
+  std::uint32_t attachment_id);
 
 /*
  * Render contexts.
@@ -837,7 +939,10 @@ void FramebufferRenderbuffer(std::uint32_t id, framebuffer_attachment attachment
  * @param thread_hint A hint to the rasterizer how many threads to use.
  * @return A rendering context that may be used for software rasterization.
  */
-context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, std::uint32_t thread_hint = 0);
+context_handle CreateSDLContext(
+  SDL_Window* Window,
+  SDL_Renderer* Renderer,
+  std::uint32_t thread_hint = 0);
 
 /**
  * Create an offscreen RGBA rendering context.
@@ -847,7 +952,10 @@ context_handle CreateSDLContext(SDL_Window* Window, SDL_Renderer* Renderer, std:
  * @param thread_hint A hint to the rasterizer how many threads to use.
  * @return A rendering context that may be used for software rasterization.
  */
-context_handle CreateOffscreenContext(std::uint32_t width, std::uint32_t height, std::uint32_t thread_hint = 0);
+context_handle CreateOffscreenContext(
+  std::uint32_t width,
+  std::uint32_t height,
+  std::uint32_t thread_hint = 0);
 
 /**
  * Resize an offscreen RGBA rendering context.
@@ -857,7 +965,10 @@ context_handle CreateOffscreenContext(std::uint32_t width, std::uint32_t height,
  * @param height The new offscreen buffer height.
  * @return `true` on success and `false` if resizing failed.
  */
-bool ResizeOffscreenContext(context_handle context, std::uint32_t width, std::uint32_t height);
+bool ResizeOffscreenContext(
+  context_handle context,
+  std::uint32_t width,
+  std::uint32_t height);
 
 /**
  * Destroy a context created with CreateSDLContext. Frees all memory associated to the context
@@ -865,7 +976,8 @@ bool ResizeOffscreenContext(context_handle context, std::uint32_t width, std::ui
  *
  * @param Context A context to destroy.
  */
-void DestroyContext(context_handle Context);
+void DestroyContext(
+  context_handle Context);
 
 /**
  * Make the supplied context active.
@@ -873,14 +985,16 @@ void DestroyContext(context_handle Context);
  * @param Context The context to be made active.
  * @return _true_ on success, and _false_ on failure.
  */
-bool MakeContextCurrent(context_handle Context);
+bool MakeContextCurrent(
+  context_handle Context);
 
 /**
  * Copies the contents of the default color buffer of the context into the active window.
  *
  * @param Context The context to use for color buffer copying.
  */
-void CopyDefaultColorBuffer(context_handle Context);
+void CopyDefaultColorBuffer(
+  context_handle Context);
 
 /**
  * Get a pointer to the color buffer and its dimension.
@@ -903,6 +1017,9 @@ void GetContextInfo(
  */
 
 /** Get the current library version. */
-void GetVersion(int& major, int& minor, int& patch);
+void GetVersion(
+  int& major,
+  int& minor,
+  int& patch);
 
 } /* namespace swr */

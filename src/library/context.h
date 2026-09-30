@@ -344,6 +344,19 @@ enum class buffer_update_kind
     attribute
 };
 
+/** Update buffer command. */
+struct update_buffer_command
+{
+    buffer_update_kind kind;
+    index_range indices;
+};
+
+/** Update texture command. */
+struct update_texture_command
+{
+    /* TODO Rect, Data, ... */
+};
+
 /** Render command type, including command data. */
 using render_command = std::variant<
   clear_command,
@@ -366,6 +379,9 @@ constexpr std::uint32_t framebuffer_slot_to_id(std::uint32_t slot)
 enum class resource_type
 {
     none,               /** No type. */
+    index_buffer,       /** Index buffer. */
+    attribute_buffer,   /** Attribute buffer. */
+    texture,            /** Texture. */
     framebuffer_object, /** Framebuffer object. */
     depth_attachment    /** Depth attachment for a framebuffer object. */
 };
@@ -454,6 +470,11 @@ struct render_context
     /** Pending resource deletions. */
     frame_arena<CleanupFrames, resource_key> pending_resource_deletions;
 
+    /** Check whether a resource has a pending delete. */
+    bool has_pending_deletion(
+      resource_type type,
+      std::uint32_t id) const;
+
     /** Process pending deletions list. */
     void process_pending_deletions();
 
@@ -488,15 +509,6 @@ struct render_context
      */
     frame_arena<CleanupFrames, render_states> state_snapshots;
 
-    /** Per-frame attribute pool. */
-    frame_arena<
-      CleanupFrames,
-      ml::vec4,
-      utils::aligned_default_init_allocator<
-        ml::vec4,
-        utils::alignment::sse>>
-      attribute_snapshot_pool;
-
     /**
      * Per-frame vertex data pool backing coords, attribs, and varyings for all
      * render objects. SSE-aligned; storage is retained between frames so capacity
@@ -509,7 +521,7 @@ struct render_context
       utils::aligned_default_init_allocator<
         ml::vec4,
         utils::alignment::sse>>
-      vertex_data_pool;
+      vec4_data;
 
     /**
      * Capture the current render states as a frame snapshot and return its index.
@@ -527,10 +539,10 @@ struct render_context
     {
         const auto attrib_count = active_vabs.size();
 
-        const std::uint32_t attrib_range_start = attribute_snapshot_pool.size();
+        const std::uint32_t attrib_range_start = vec4_data.size();
         const std::uint32_t attrib_range_size = count * attrib_count;
 
-        auto attribs = attribute_snapshot_pool.allocate_range(attrib_range_size);
+        auto attribs = vec4_data.allocate_range(attrib_range_size);
         for(std::size_t i = 0; i < count; ++i)
         {
             auto vertex_attribs = attribs.subspan(i * attrib_count);

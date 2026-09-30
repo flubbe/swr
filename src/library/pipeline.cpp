@@ -1523,9 +1523,9 @@ static void invoke_vertex_shader_and_clip_preprocess(
     const std::size_t varying_count = shader_instance.get_varying_count();
     obj.allocate_varyings(
       varying_count,
-      ctx.vertex_data_pool.allocate_range(draw.vertex_count * varying_count));
+      ctx.vec4_data.allocate_range(draw.vertex_count * varying_count));
     draw.clipped_vertex_range = {
-      .begin = ctx.vertex_data_pool.size(),
+      .begin = ctx.vec4_data.size(),
       .count = 0};
 
     // push shader tasks to thread pool.
@@ -2158,7 +2158,7 @@ void Present()
     context->resolved_draws.reset();
     context->resolved_draws.reserve(draw_count);
     context->render_objects.reserve(draw_count);
-    context->vertex_data_pool.reserve(vertex_data_total);
+    context->vec4_data.reserve(vertex_data_total);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_present_total = 0;
@@ -2254,11 +2254,11 @@ void Present()
             obj.indices = command_indices;
             obj.allocate_attribs(draw->attribute_count);
             std::copy(
-              context->attribute_snapshot_pool.data() + buffer_range.begin,
-              context->attribute_snapshot_pool.data() + buffer_range.begin + buffer_range.count,
+              context->vec4_data.data() + buffer_range.begin,
+              context->vec4_data.data() + buffer_range.begin + buffer_range.count,
               obj.attribs.begin());
             obj.allocate_coords(
-              context->vertex_data_pool.allocate_range(obj.coord_count));
+              context->vec4_data.allocate_range(obj.coord_count));
 
             context->resolved_draws.emplace_back(
               impl::draw_execution{
@@ -2284,8 +2284,7 @@ void Present()
     context->render_objects.reset();
     context->command_list.reset();
     context->index_buffer_pool.reset();
-    context->attribute_snapshot_pool.reset();
-    context->vertex_data_pool.reset();
+    context->vec4_data.reset();
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_present_total);
