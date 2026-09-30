@@ -8,26 +8,79 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#include <algorithm>
+
 /* user headers. */
 #include "swr_internal.h"
 
 namespace swr
 {
 
+namespace impl
+{
+
+void render_context::create_update_buffer_command(
+  buffer_update_kind kind,
+  std::uint32_t id,
+  index_range range)
+{
+    command_list.emplace_back(impl::update_buffer_command{
+      .kind = kind,
+      .buffer_id = id,
+      .range = range,
+    });
+}
+
+}    // namespace impl
+
 /*
  * buffer management.
  */
 
-std::uint32_t CreateIndexBuffer(const std::vector<std::uint32_t>& ib)
+std::uint32_t CreateIndexBuffer(
+  const std::vector<std::uint32_t>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->index_buffers.push(ib);
+    impl::render_context* context = impl::global_context;
+
+    auto id = context->index_buffers.push({});
+
+    // Defer initialization.
+    const std::uint32_t range_start = context->index_buffer_pool.size();
+    const std::uint32_t range_size = data.size();
+
+    auto storage = context->index_buffer_pool.allocate_range(range_size);
+    std::ranges::copy(data, storage.begin());
+
+    context->create_update_buffer_command(
+      impl::buffer_update_kind::index,
+      id,
+      {range_start, range_size});
+
+    return id;
 }
 
-std::uint32_t CreateAttributeBuffer(const std::vector<ml::vec4>& attribs)
+std::uint32_t CreateAttributeBuffer(
+  const std::vector<ml::vec4>& data)
 {
     ASSERT_INTERNAL_CONTEXT;
-    return impl::global_context->vertex_attribute_buffers.push(attribs);
+    impl::render_context* context = impl::global_context;
+
+    auto id = context->vertex_attribute_buffers.push({});
+
+    // Defer initialization.
+    const std::uint32_t range_start = context->vec4_data.size();
+    const std::uint32_t range_size = data.size();
+
+    auto storage = context->vec4_data.allocate_range(range_size);
+    std::ranges::copy(data, storage.begin());
+
+    context->create_update_buffer_command(
+      impl::buffer_update_kind::attribute,
+      id,
+      {range_start, range_size});
+
+    return id;
 }
 
 void UpdateIndexBuffer(
@@ -37,14 +90,23 @@ void UpdateIndexBuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    if(!context->index_buffers.contains(id)
+    if(!context->vertex_attribute_buffers.contains(id)
        || context->has_pending_deletion(impl::resource_type::index_buffer, id))
     {
-        impl::global_context->last_error = swr::error::invalid_value;
+        context->last_error = swr::error::invalid_value;
         return;
     }
 
-    context->index_buffers[id] = data;
+    const std::uint32_t range_start = context->index_buffer_pool.size();
+    const std::uint32_t range_size = data.size();
+
+    auto storage = context->index_buffer_pool.allocate_range(range_size);
+    std::ranges::copy(data, storage.begin());
+
+    context->create_update_buffer_command(
+      impl::buffer_update_kind::index,
+      id,
+      {range_start, range_size});
 }
 
 void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data)
@@ -59,7 +121,16 @@ void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data)
         return;
     }
 
-    context->vertex_attribute_buffers[id] = data;
+    const std::uint32_t range_start = context->vec4_data.size();
+    const std::uint32_t range_size = data.size();
+
+    auto storage = context->vec4_data.allocate_range(range_size);
+    std::ranges::copy(data, storage.begin());
+
+    context->create_update_buffer_command(
+      impl::buffer_update_kind::attribute,
+      id,
+      {range_start, range_size});
 }
 
 void DeleteIndexBuffer(

@@ -1,3 +1,13 @@
+/**
+ * swr - a software rasterizer
+ *
+ * Test mocks.
+ *
+ * \author Felix Lubbe
+ * \copyright Copyright (c) 2026
+ * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
+ */
+
 #include <cassert>
 
 #include "ml/all.h"

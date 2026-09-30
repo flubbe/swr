@@ -58,11 +58,11 @@ enum class wrap_mode
 /**
  * Create an index buffer from a std::vector of indices.
  *
- * @param ib Contains all indices that should make up the index buffer.
+ * @param data Contains all indices that should make up the index buffer.
  * @return Returns the unique ID of the newly created index buffer.
  */
 std::uint32_t CreateIndexBuffer(
-  const std::vector<std::uint32_t>& ib);
+  const std::vector<std::uint32_t>& data);
 
 /**
  * Update an index buffer from a std::vector of indices.

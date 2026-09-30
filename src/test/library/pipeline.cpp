@@ -53,6 +53,7 @@ class vertex_counting_shader final : public swr::program<vertex_counting_shader>
 {
     std::atomic<std::uint64_t>* invocation_count{nullptr};
     ml::vec4 color{1.0f, 0.0f, 0.0f, 1.0f};
+    std::size_t attribute_slot{0};
 
 public:
     explicit vertex_counting_shader(std::atomic<std::uint64_t>* count)
@@ -60,9 +61,13 @@ public:
     {
     }
 
-    vertex_counting_shader(std::atomic<std::uint64_t>* count, ml::vec4 in_color)
+    vertex_counting_shader(
+      std::atomic<std::uint64_t>* count,
+      ml::vec4 in_color,
+      std::size_t in_attribute_slot = 0)
     : invocation_count{count}
     , color{in_color}
+    , attribute_slot{in_attribute_slot}
     {
     }
 
@@ -93,7 +98,7 @@ public:
             invocation_count->fetch_add(1, std::memory_order_relaxed);
         }
 
-        gl_Position = attribs[0];
+        gl_Position = attribs[attribute_slot];
     }
 
     swr::fragment_shader_result fragment_shader(
@@ -678,7 +683,7 @@ BOOST_AUTO_TEST_CASE(indexed_draw_invokes_vertex_shader_once_per_unique_index_an
 
     const ml::vec4 draw_color{0.1f, 0.8f, 0.3f, 1.0f};
     std::atomic<std::uint64_t> vertex_invocation_count{0};
-    vertex_counting_shader shader{&vertex_invocation_count, draw_color};
+    vertex_counting_shader shader{&vertex_invocation_count, draw_color, 3};
     const std::uint32_t shader_id =
       register_and_bind_shader(shader);
 
@@ -692,7 +697,7 @@ BOOST_AUTO_TEST_CASE(indexed_draw_invokes_vertex_shader_once_per_unique_index_an
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
-    swr::EnableAttributeBuffer(vertex_buffer_id, 0);
+    swr::EnableAttributeBuffer(vertex_buffer_id, 3);
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawIndexedElements(
