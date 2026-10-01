@@ -1253,7 +1253,9 @@ BOOST_AUTO_TEST_CASE(triangle_coarse)
 
         for(auto x = start_x; x < end_x; x += test::rasterizer_block_size)
         {
-            BOOST_REQUIRE(ref_mask_ptr < reference_masks_32 + countof(reference_masks_32));
+            BOOST_REQUIRE_LT(
+              ref_mask_ptr,
+              reference_masks_32 + countof(reference_masks_32));
 
             BOOST_CHECK_EQUAL(geom::reduce_coverage_mask(lambdas_box.get_coverage_mask()), *ref_mask_ptr);
             ++ref_mask_ptr;

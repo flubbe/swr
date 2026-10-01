@@ -1187,7 +1187,7 @@ std::uint32_t CreateFramebufferObject()
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    auto slot = context->framebuffer_objects.push({});
+    auto slot = context->framebuffer_objects.insert();
     auto id = impl::framebuffer_slot_to_id(slot);
     context->framebuffer_objects[slot].reset(id);
 
@@ -1353,7 +1353,7 @@ std::uint32_t CreateDepthRenderbuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    auto slot = context->depth_attachments.push({});
+    auto slot = context->depth_attachments.insert();
     context->depth_attachments[slot].allocate(width, height);
 
     return slot;

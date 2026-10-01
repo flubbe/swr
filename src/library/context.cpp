@@ -89,6 +89,21 @@ framebuffer_draw_target* render_context::resolve_draw_target(
     return &framebuffer_objects[slot];
 }
 
+bool render_context::has_pending_deletion(
+  resource_type type,
+  std::uint32_t id) const
+{
+    for(const auto& key: pending_resource_deletions)
+    {
+        if(key.type == type && key.id == id)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void render_context::process_pending_deletions()
 {
     for(auto& key: pending_resource_deletions)
@@ -98,6 +113,30 @@ void render_context::process_pending_deletions()
         case resource_type::none:
             // `none` is only used to default-initialize the resource key.
             assert(0);
+            break;
+        case resource_type::index_buffer:
+            if(index_buffers.contains(key.id))
+            {
+                index_buffers[key.id].clear();
+                index_buffers.erase(key.id);
+            }
+
+            break;
+        case resource_type::attribute_buffer:
+            if(vertex_attribute_buffers.contains(key.id))
+            {
+                vertex_attribute_buffers[key.id].data.clear();
+                vertex_attribute_buffers.erase(key.id);
+            }
+
+            break;
+        case resource_type::texture:
+            if(texture_2d_storage.contains(key.id))
+            {
+                texture_2d_storage[key.id].reset();
+                texture_2d_storage.erase(key.id);
+            }
+
             break;
         case resource_type::depth_attachment:
         {
@@ -164,8 +203,7 @@ void render_context::shutdown()
     index_buffer_pool.release();
     resolved_draws.release();
     state_snapshots.release();
-    attribute_snapshot_pool.release();
-    vertex_data_pool.release();
+    vec4_data.release();
 
     /*
      * Clean up all slot maps.

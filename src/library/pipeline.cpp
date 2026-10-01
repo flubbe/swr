@@ -1523,9 +1523,9 @@ static void invoke_vertex_shader_and_clip_preprocess(
     const std::size_t varying_count = shader_instance.get_varying_count();
     obj.allocate_varyings(
       varying_count,
-      ctx.vertex_data_pool.allocate_range(draw.vertex_count * varying_count));
+      ctx.vec4_data.allocate_range(draw.vertex_count * varying_count));
     draw.clipped_vertex_range = {
-      .begin = ctx.vertex_data_pool.size(),
+      .begin = ctx.vec4_data.size(),
       .count = 0};
 
     // push shader tasks to thread pool.
@@ -2055,8 +2055,8 @@ static void process_vertices(
 namespace
 {
 
-/** Execute a clear color command. */
-inline void execute_clear_command(
+/** Execute a clear command. */
+void execute_clear_command(
   impl::render_context* context,
   const impl::clear_command& cmd)
 {
@@ -2098,6 +2098,93 @@ inline void execute_clear_command(
               ->clear_depth(states.clear_depth);
         }
     }
+}
+
+/** Execute a draw command. */
+void execute_draw_command(
+  impl::render_context* context,
+  const impl::draw_command& cmd)
+{
+    const auto command_indices = context->index_buffer_pool.subspan(
+      cmd.indices.begin,
+      cmd.indices.count);
+
+    const std::size_t index_count =
+      cmd.remapped
+        ? cmd.attribute_indices.count
+        : cmd.indices.count;
+
+    const auto attribute_index_range =
+      cmd.remapped
+        ? context->capture_attribute_buffers(
+            index_count,
+            cmd.active_vab_indices,
+            cmd.attribute_slot_count,
+            cmd.attribute_indices)
+        : context->capture_attribute_buffers(
+            index_count,
+            cmd.active_vab_indices,
+            cmd.attribute_slot_count);
+
+    auto& obj = context->render_objects.allocate();
+    obj.setup(
+      index_count,    // index- and vertex counts match.
+      cmd.mode,
+      cmd.state_snapshot_index);
+    obj.states = &context->state_snapshots[cmd.state_snapshot_index];
+    obj.indices = command_indices;
+
+    // TODO This copy could be avoided by creating the object on draw command
+    //      submission and copying there.
+
+    obj.allocate_attribs(cmd.attribute_slot_count);
+    std::copy(
+      context->vec4_data.data() + attribute_index_range.begin,
+      context->vec4_data.data() + attribute_index_range.begin + attribute_index_range.count,
+      obj.attribs.begin());
+
+    obj.allocate_coords(
+      context->vec4_data.allocate_range(obj.coord_count));
+
+    context->resolved_draws.emplace_back(
+      impl::draw_execution{
+        .object = &obj,
+        .vertex_count = obj.coord_count,
+        .attribute_index_range = attribute_index_range,
+        .attribute_slot_count = cmd.attribute_slot_count,
+        .clipped_vertex_range = {},
+        .states = obj.states,
+        .draw_target = context->resolve_draw_target(
+          obj.states->draw_target),
+        .discard = false});
+}
+
+/** Execute a buffer update command. */
+void execute_update_buffer_command(
+  impl::render_context* context,
+  const impl::update_buffer_command& cmd)
+{
+    switch(cmd.kind)
+    {
+    case impl::buffer_update_kind::index:
+    {
+        auto start = context->index_buffer_pool.cbegin() + cmd.range.begin;
+        context->index_buffers[cmd.buffer_id].assign(
+          start,
+          start + cmd.range.count);
+        return;
+    }
+    case impl::buffer_update_kind::attribute:
+    {
+        auto start = context->vec4_data.cbegin() + cmd.range.begin;
+        context->vertex_attribute_buffers[cmd.buffer_id].data.assign(
+          start,
+          start + cmd.range.count);
+        return;
+    }
+    }
+
+    context->last_error = error::invalid_value;
 }
 
 } /* anonymous namespace */
@@ -2158,7 +2245,7 @@ void Present()
     context->resolved_draws.reset();
     context->resolved_draws.reserve(draw_count);
     context->render_objects.reserve(draw_count);
-    context->vertex_data_pool.reserve(vertex_data_total);
+    context->vec4_data.reserve(vertex_data_total);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_present_total = 0;
@@ -2230,6 +2317,11 @@ void Present()
             flush_batch();
             execute_clear_command(context, *clear);
         }
+        else if(auto* update = std::get_if<impl::update_buffer_command>(&cmd))
+        {
+            flush_batch();
+            execute_update_buffer_command(context, *update);
+        }
         else if(auto* draw = std::get_if<impl::draw_command>(&cmd))
         {
             if(draw->indices.count == 0)
@@ -2237,39 +2329,7 @@ void Present()
                 continue;
             }
 
-            const auto command_indices =
-              context->index_buffer_pool.subspan(
-                draw->indices.begin,
-                draw->indices.count);
-            const auto attribute_count =
-              draw->attribute_indices.count;
-            const auto buffer_range = draw->attribute_index_range;
-
-            auto& obj = context->render_objects.allocate();
-            obj.setup(
-              attribute_count,
-              draw->mode,
-              draw->state_snapshot_index);
-            obj.states = &context->state_snapshots[draw->state_snapshot_index];
-            obj.indices = command_indices;
-            obj.allocate_attribs(draw->attribute_count);
-            std::copy(
-              context->attribute_snapshot_pool.data() + buffer_range.begin,
-              context->attribute_snapshot_pool.data() + buffer_range.begin + buffer_range.count,
-              obj.attribs.begin());
-            obj.allocate_coords(
-              context->vertex_data_pool.allocate_range(obj.coord_count));
-
-            context->resolved_draws.emplace_back(
-              impl::draw_execution{
-                .object = &obj,
-                .vertex_count = obj.coord_count,
-                .attribute_index_range = buffer_range,
-                .clipped_vertex_range = {},
-                .states = obj.states,
-                .draw_target = context->resolve_draw_target(
-                  obj.states->draw_target),
-                .discard = false});
+            execute_draw_command(context, *draw);
         }
     }
 
@@ -2284,8 +2344,8 @@ void Present()
     context->render_objects.reset();
     context->command_list.reset();
     context->index_buffer_pool.reset();
-    context->attribute_snapshot_pool.reset();
-    context->vertex_data_pool.reset();
+    context->active_vab_indices_pool.reset();
+    context->vec4_data.reset();
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     utils::unclock(stage_present_total);

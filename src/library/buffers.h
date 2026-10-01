@@ -42,8 +42,9 @@ struct vertex_attribute_buffer
     vertex_attribute_buffer() = default;
 
     /** constructor. */
-    vertex_attribute_buffer(const std::vector<ml::vec4>& in_data)
-    : data(in_data)
+    explicit vertex_attribute_buffer(
+      std::span<const ml::vec4>& in_data)
+    : data{in_data.begin(), in_data.end()}
     {
     }
 };

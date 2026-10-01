@@ -25,131 +25,15 @@
 #include "rasterizer/sweep.h"
 #include "rasterizer/triangle.h"
 #include "rasterizer/block.h"
+#include "../../mocks.h"
+#include "../../utils.h"
 
 /*
  * Helpers.
  */
 
-struct fake_draw_target : swr::impl::framebuffer_draw_target
-{
-    fake_draw_target(unsigned int width, unsigned int height)
-    : swr::impl::framebuffer_draw_target{}
-    {
-        assert(width < std::numeric_limits<int>::max() && height < std::numeric_limits<int>::max());
-        properties.reset(static_cast<int>(width), static_cast<int>(height));
-    }
-
-    void clear_color(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] ml::vec4 clear_color) override
-    {
-    }
-
-    void clear_color(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] ml::vec4 clear_color,
-      [[maybe_unused]] const utils::rect& rect) override
-    {
-    }
-
-    void clear_depth(
-      [[maybe_unused]] ml::fixed_32_t clear_depth) override
-    {
-    }
-
-    void clear_depth(
-      [[maybe_unused]] ml::fixed_32_t clear_depth,
-      [[maybe_unused]] const utils::rect& rect) override
-    {
-    }
-
-    void merge_color(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] const swr::impl::fragment_output& frag,
-      [[maybe_unused]] bool do_blend,
-      [[maybe_unused]] swr::blend_func src,
-      [[maybe_unused]] swr::blend_func dst) override
-    {
-    }
-
-    void merge_color_block(
-      [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] const swr::impl::fragment_output_block& frag,
-      [[maybe_unused]] bool do_blend,
-      [[maybe_unused]] swr::blend_func src,
-      [[maybe_unused]] swr::blend_func dst) override
-    {
-    }
-
-    void depth_compare_write(
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] float depth_value,
-      [[maybe_unused]] swr::comparison_func depth_func,
-      [[maybe_unused]] bool write_depth,
-      [[maybe_unused]] bool& write_mask) override
-    {
-    }
-
-    void depth_compare_write_block(
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
-      [[maybe_unused]] const std::array<float, 4>& depth_value,
-      [[maybe_unused]] swr::comparison_func depth_func,
-      [[maybe_unused]] bool write_depth,
-      [[maybe_unused]] std::uint8_t& write_mask) override
-    {
-    }
-};
-
-class fake_program final : public swr::program<fake_program>
-{
-public:
-    swr::program_metadata get_metadata() const override
-    {
-        return {
-          .fragment_shader_may_discard = false,
-          .fragment_shader_may_write_depth = false};
-    }
-
-    void pre_link(
-      boost::container::static_vector<
-        swr::interpolation_qualifier,
-        swr::limits::max::varyings>&
-        iqs) const override
-    {
-        iqs.clear();
-    }
-
-    void vertex_shader(
-      [[maybe_unused]] int gl_VertexID,
-      [[maybe_unused]] int gl_InstanceID,
-      [[maybe_unused]] std::span<const ml::vec4> attribs,
-      [[maybe_unused]] ml::vec4& gl_Position,
-      [[maybe_unused]] float& gl_PointSize,
-      [[maybe_unused]] std::span<float> gl_ClipDistance,
-      [[maybe_unused]] std::span<ml::vec4> varyings) const override
-    {
-    }
-
-    swr::fragment_shader_result fragment_shader(
-      [[maybe_unused]] const ml::vec4& gl_FragCoord,
-      [[maybe_unused]] bool gl_FrontFacing,
-      [[maybe_unused]] const ml::vec2& gl_PointCoord,
-      [[maybe_unused]] std::span<const swr::varying> varyings,
-      [[maybe_unused]] float& gl_FragDepth,
-      [[maybe_unused]] ml::vec4& gl_FragColor) const override
-    {
-        gl_FragColor = {1.f, 1.f, 1.f, 1.f};
-        return swr::fragment_shader_result::accept;
-    }
-};
-
-class alignas(64) over_aligned_program final : public swr::program<over_aligned_program>
+class alignas(64) over_aligned_program final
+: public swr::program<over_aligned_program>
 {
 public:
     swr::program_metadata get_metadata() const override
@@ -203,8 +87,8 @@ geom::vertex make_vertex(float x, float y)
 
 struct triangle_test_context
 {
-    fake_draw_target draw_target;
-    fake_program shader;
+    mock_draw_target draw_target;
+    mock_program shader;
     swr::impl::program_info program_info;
     swr::impl::render_states states;
 
@@ -512,34 +396,6 @@ void for_each_triangle_permutation(
     } while(std::next_permutation(perm.begin(), perm.end()));
 }
 
-namespace rast
-{
-
-std::ostream& operator<<(
-  std::ostream& os,
-  const tile_info::rasterization_mode& mode)
-{
-    switch(mode)
-    {
-    case tile_info::rasterization_mode::block:
-        return os << "block";
-    case tile_info::rasterization_mode::checked:
-        return os << "checked";
-    case tile_info::rasterization_mode::thin_x_major:
-        return os << "thin_x_major";
-    case tile_info::rasterization_mode::thin_y_major:
-        return os << "thin_y_major";
-    case tile_info::rasterization_mode::small_checked:
-        return os << "small_checked";
-    case tile_info::rasterization_mode::sparse_checked:
-        return os << "sparse_checked";
-    }
-
-    return os << "unknown";
-}
-
-}    // namespace rast
-
 namespace ml
 {
 
@@ -555,11 +411,6 @@ bool operator!=(const tvec2<T>& a, const tvec2<T>& b)
     return !(a == b);
 }
 
-std::ostream& operator<<(std::ostream& os, const ml::tvec2<int>& v)
-{
-    return os << "(" << v.x << ", " << v.y << ")";
-}
-
 }    // namespace ml
 
 /*
@@ -573,8 +424,8 @@ BOOST_AUTO_TEST_CASE(over_aligned_shader_storage)
     over_aligned_program shader;
     swr::impl::program_info program_info{&shader};
 
-    BOOST_TEST(program_info.program_size == sizeof(over_aligned_program));
-    BOOST_TEST(program_info.program_alignment == alignof(over_aligned_program));
+    BOOST_CHECK_EQUAL(program_info.program_size, sizeof(over_aligned_program));
+    BOOST_CHECK_EQUAL(program_info.program_alignment, alignof(over_aligned_program));
 
     boost::container::static_vector<
       swr::uniform,
@@ -588,10 +439,10 @@ BOOST_AUTO_TEST_CASE(over_aligned_shader_storage)
       vertex_storage.data(),
       &program_info,
       uniforms};
-    BOOST_TEST(
+    BOOST_CHECK_EQUAL(
       reinterpret_cast<std::uintptr_t>(vertex_instance.get())
-        % alignof(over_aligned_program)
-      == 0);
+        % alignof(over_aligned_program),
+      0);
 
     boost::container::static_vector<
       swr::sampler_base*,
@@ -601,10 +452,10 @@ BOOST_AUTO_TEST_CASE(over_aligned_shader_storage)
       &program_info,
       uniforms,
       samplers_2d};
-    BOOST_TEST(
+    BOOST_CHECK_EQUAL(
       reinterpret_cast<std::uintptr_t>(fragment_instance.get())
-        % alignof(over_aligned_program)
-      == 0);
+        % alignof(over_aligned_program),
+      0);
 }
 
 BOOST_AUTO_TEST_CASE(setup_degenerate_triangle)
@@ -759,8 +610,9 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
 
     const auto tight_quads = collect_checked_quads(true);
     const auto full_quads = collect_checked_quads(false);
-    BOOST_REQUIRE_EQUAL(tight_quads.size(), full_quads.size());
-    BOOST_CHECK(tight_quads == full_quads);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+      tight_quads.begin(), tight_quads.end(),
+      full_quads.begin(), full_quads.end());
 }
 
 BOOST_AUTO_TEST_CASE(full_block_covered)
@@ -1281,7 +1133,7 @@ BOOST_AUTO_TEST_CASE(mixed_flat_and_smooth_varyings_use_per_varying_qualifiers)
 
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
-    BOOST_REQUIRE(info.v0 == &v1);
+    BOOST_REQUIRE_EQUAL(info.v0, &v1);
 
     std::size_t sample_count = 0;
     bool saw_smooth_value_from_non_provoking_vertex = false;
@@ -1646,8 +1498,8 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_preserves_exact_coverage_inside_block)
 
 BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
 {
-    fake_draw_target draw_target{16, 16};
-    fake_program shader;
+    mock_draw_target draw_target{16, 16};
+    mock_program shader;
     swr::impl::program_info program_info{&shader};
     swr::impl::render_states states;
     states.x = 0;

@@ -275,7 +275,7 @@ public:
         blur_depth_id = swr::CreateDepthRenderbuffer(w, h);
         swr::FramebufferRenderbuffer(blur_fbo, swr::framebuffer_attachment::depth_attachment, blur_depth_id);
 
-        blur_vb_id = swr::CreateAttributeBuffer({
+        const std::array blur_vb = {
           ml::vec4{0, 0, 1, 1},
           ml::vec4{width, height, 1, 1},
           ml::vec4{width, 0, 1, 1},
@@ -283,13 +283,15 @@ public:
           ml::vec4{0, 0, 1, 1},
           ml::vec4{0, height, 1, 1},
           ml::vec4{width, height, 1, 1},
-        });
+        };
+
+        blur_vb_id = swr::CreateAttributeBuffer(std::span{blur_vb});
 
         const float u_max = static_cast<float>(width) / static_cast<float>(w);
         const float v_min = 1.0f - static_cast<float>(height) / static_cast<float>(h);
         const float v_max = 1.0f;
 
-        blur_tc_id = swr::CreateAttributeBuffer({
+        const std::array blur_tc = {
           ml::vec4{0, v_max, 0, 0},
           ml::vec4{u_max, v_min, 0, 0},
           ml::vec4{u_max, v_max, 0, 0},
@@ -297,7 +299,9 @@ public:
           ml::vec4{0, v_max, 0, 0},
           ml::vec4{0, v_min, 0, 0},
           ml::vec4{u_max, v_min, 0, 0},
-        });
+        };
+
+        blur_tc_id = swr::CreateAttributeBuffer(std::span{blur_tc});
 
         // create particles.
         particle_system.delay_add(0.1f, max_particles);

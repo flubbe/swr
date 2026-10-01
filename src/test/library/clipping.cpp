@@ -187,11 +187,11 @@ BOOST_AUTO_TEST_CASE(line_clip_preserve)
     }
 
     // clip lines.
-    BOOST_REQUIRE((INDEX_COUNT & 1) == 0);
+    BOOST_REQUIRE_EQUAL((INDEX_COUNT & 1), 0);
     swr::impl::clip_line_buffer(obj, swr::impl::clip_output::line_list);
     BOOST_CHECK_EQUAL(obj.clipped_vertices.size(), COORD_COUNT);
 
-    BOOST_REQUIRE(obj.clipped_vertices.size() == COORD_COUNT);
+    BOOST_REQUIRE_EQUAL(obj.clipped_vertices.size(), COORD_COUNT);
     for(std::size_t i = 0; i < COORD_COUNT; ++i)
     {
         // compare bits.
@@ -345,8 +345,8 @@ BOOST_AUTO_TEST_CASE(line_clip)
 
         if(v1_inside || v2_inside)
         {
-            BOOST_REQUIRE(out1.size() == 2);
-            BOOST_REQUIRE(out2.size() == 2);
+            BOOST_REQUIRE_EQUAL(out1.size(), 2);
+            BOOST_REQUIRE_EQUAL(out2.size(), 2);
 
             BOOST_CHECK_EQUAL(get_bits(out1[0].coords.x), get_bits(out2[1].coords.x));
             BOOST_CHECK_EQUAL(get_bits(out1[0].coords.y), get_bits(out2[1].coords.y));
@@ -366,7 +366,7 @@ BOOST_AUTO_TEST_CASE(line_clip)
             BOOST_TEST((out1.empty() || out1.size() == 2));
             BOOST_TEST((out2.empty() || out2.size() == 2));
 
-            BOOST_REQUIRE(out1.size() == out2.size());
+            BOOST_REQUIRE_EQUAL(out1.size(), out2.size());
             if(out1.size() == 2)
             {
                 // because of floating-point errors, the coordinates might
@@ -579,7 +579,7 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference)
     for(std::size_t i = 0; i < obj.clipped_vertices.size(); i += 3)
     {
         const geom::vertex& emitted_first = obj.clipped_vertices[i];
-        BOOST_REQUIRE(emitted_first.provoking_vertex_varyings != nullptr);
+        BOOST_REQUIRE_NE(emitted_first.provoking_vertex_varyings, nullptr);
 
         BOOST_CHECK_EQUAL(get_bits(emitted_first.provoking_vertex_varyings[0].x), get_bits(obj.varyings[0].x));
         BOOST_CHECK_EQUAL(get_bits(emitted_first.provoking_vertex_varyings[0].y), get_bits(obj.varyings[0].y));
@@ -633,7 +633,7 @@ BOOST_AUTO_TEST_CASE(triangle_clip_preserves_flat_reference_per_input_triangle)
     auto check_flat_reference = [&](std::size_t emitted_vertex, std::size_t source_vertex)
     {
         const geom::vertex& emitted = obj.clipped_vertices[emitted_vertex];
-        BOOST_REQUIRE(emitted.provoking_vertex_varyings != nullptr);
+        BOOST_REQUIRE_NE(emitted.provoking_vertex_varyings, nullptr);
 
         BOOST_CHECK_EQUAL(get_bits(emitted.provoking_vertex_varyings[0].x), get_bits(obj.varyings[source_vertex].x));
         BOOST_CHECK_EQUAL(get_bits(emitted.provoking_vertex_varyings[0].y), get_bits(obj.varyings[source_vertex].y));

@@ -23,6 +23,7 @@
 
 /* user headers. */
 #include "swr_internal.h"
+#include "../utils.h"
 
 namespace
 {
@@ -52,6 +53,7 @@ class vertex_counting_shader final : public swr::program<vertex_counting_shader>
 {
     std::atomic<std::uint64_t>* invocation_count{nullptr};
     ml::vec4 color{1.0f, 0.0f, 0.0f, 1.0f};
+    std::size_t attribute_slot{0};
 
 public:
     explicit vertex_counting_shader(std::atomic<std::uint64_t>* count)
@@ -59,9 +61,13 @@ public:
     {
     }
 
-    vertex_counting_shader(std::atomic<std::uint64_t>* count, ml::vec4 in_color)
+    vertex_counting_shader(
+      std::atomic<std::uint64_t>* count,
+      ml::vec4 in_color,
+      std::size_t in_attribute_slot = 0)
     : invocation_count{count}
     , color{in_color}
+    , attribute_slot{in_attribute_slot}
     {
     }
 
@@ -92,7 +98,7 @@ public:
             invocation_count->fetch_add(1, std::memory_order_relaxed);
         }
 
-        gl_Position = attribs[0];
+        gl_Position = attribs[attribute_slot];
     }
 
     swr::fragment_shader_result fragment_shader(
@@ -248,9 +254,9 @@ struct offscreen_context_fixture
     offscreen_context_fixture()
     {
         context = swr::CreateOffscreenContext(target_size, target_size, 1);
-        BOOST_REQUIRE(context != nullptr);
+        BOOST_REQUIRE_NE(context, nullptr);
         BOOST_REQUIRE(swr::MakeContextCurrent(context));
-        BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+        BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     }
 
     ~offscreen_context_fixture()
@@ -267,14 +273,14 @@ BOOST_AUTO_TEST_CASE(clear_commands_are_recorded_in_the_command_stream)
     swr::ClearColorBuffer();
     swr::ClearDepthBuffer();
 
-    BOOST_REQUIRE(swr::impl::global_context->command_list.size() == 2);
+    BOOST_REQUIRE_EQUAL(swr::impl::global_context->command_list.size(), 2);
     BOOST_REQUIRE(std::holds_alternative<swr::impl::clear_command>(swr::impl::global_context->command_list[0]));
     BOOST_REQUIRE(std::holds_alternative<swr::impl::clear_command>(swr::impl::global_context->command_list[1]));
 
     const auto& color_cmd = std::get<swr::impl::clear_command>(swr::impl::global_context->command_list[0]);
     const auto& depth_cmd = std::get<swr::impl::clear_command>(swr::impl::global_context->command_list[1]);
-    BOOST_REQUIRE(color_cmd.kind == swr::impl::clear_kind::color);
-    BOOST_REQUIRE(depth_cmd.kind == swr::impl::clear_kind::depth);
+    BOOST_REQUIRE_EQUAL(color_cmd.kind, swr::impl::clear_kind::color);
+    BOOST_REQUIRE_EQUAL(depth_cmd.kind, swr::impl::clear_kind::depth);
 }
 
 /**
@@ -442,10 +448,10 @@ std::uint32_t read_default_color_pixel(
 {
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
 
     const auto& color_buffer = render_context->framebuffer.color_buffer;
-    BOOST_REQUIRE(color_buffer.info.data_ptr != nullptr);
+    BOOST_REQUIRE_NE(color_buffer.info.data_ptr, nullptr);
 
     const int row_stride =
       color_buffer.info.pitch
@@ -460,7 +466,7 @@ std::uint32_t to_default_color_pixel(
 {
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
 
     return render_context->framebuffer.color_buffer.converter.to_pixel(
       ml::clamp_to_unit_interval(color));
@@ -474,13 +480,13 @@ ml::vec4 sample_texture_uv(
 {
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
     BOOST_REQUIRE(render_context->texture_2d_storage.contains(texture_id));
 
     const auto* texture_ptr = render_context->texture_2d_storage[texture_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     const auto* color_texture = texture_ptr->as_texture_color_2d();
-    BOOST_REQUIRE(color_texture != nullptr);
+    BOOST_REQUIRE_NE(color_texture, nullptr);
     BOOST_REQUIRE(!color_texture->data.data_ptrs.empty());
 
     const swr::varying uv{{u, v, 0.0f, 0.0f}, {}, {}};
@@ -491,10 +497,10 @@ std::uint32_t register_and_bind_shader(
   const vertex_counting_shader& shader)
 {
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(shader_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(shader_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     BOOST_REQUIRE(swr::BindShader(shader_id));
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     return shader_id;
 }
 
@@ -511,12 +517,12 @@ void draw_fullscreen_quad_with_uv(
   std::uint32_t uv_buffer)
 {
     swr::EnableAttributeBuffer(position_buffer, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::EnableAttributeBuffer(uv_buffer, 1);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawElements(swr::vertex_buffer_mode::triangles, 6);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DisableAttributeBuffer(uv_buffer);
     swr::DisableAttributeBuffer(position_buffer);
@@ -528,11 +534,11 @@ float min_depth_texture_value(
 {
     const auto* render_context =
       static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
     BOOST_REQUIRE(render_context->texture_2d_storage.contains(texture_id));
 
     const auto* texture_ptr = render_context->texture_2d_storage[texture_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     const auto* depth_texture = texture_ptr->as_texture_depth_2d();
     BOOST_REQUIRE(depth_texture != nullptr);
     BOOST_REQUIRE(!depth_texture->data.data_ptrs.empty());
@@ -581,15 +587,15 @@ BOOST_AUTO_TEST_CASE(nonindexed_draw_invokes_vertex_shader_once_per_submitted_ve
       {0.75f, -0.75f, 0.0f, 1.0f},
       {0.75f, 0.75f, 0.0f, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_CHECK_EQUAL(vertex_invocation_count.load(std::memory_order_relaxed), 6ull);
 
@@ -616,14 +622,14 @@ BOOST_AUTO_TEST_CASE(nonindexed_draw_snapshots_attribute_buffer_at_submission)
 
     const std::uint32_t first_shader_id =
       swr::RegisterShader(&first_shader);
-    BOOST_REQUIRE(first_shader_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(first_shader_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     const std::uint32_t second_shader_id =
       swr::RegisterShader(&second_shader);
-    BOOST_REQUIRE(second_shader_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(second_shader_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     BOOST_REQUIRE(swr::BindShader(first_shader_id));
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::vector<ml::vec4> first_vertices{
       {-0.9f, -0.8f, 0.0f, 1.0f},
@@ -636,23 +642,23 @@ BOOST_AUTO_TEST_CASE(nonindexed_draw_snapshots_attribute_buffer_at_submission)
 
     const std::uint32_t vertex_buffer_id =
       swr::CreateAttributeBuffer(first_vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::DrawElements(swr::vertex_buffer_mode::triangles, first_vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::UpdateAttributeBuffer(vertex_buffer_id, second_vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_REQUIRE(swr::BindShader(second_shader_id));
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::DrawElements(swr::vertex_buffer_mode::triangles, second_vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_CHECK_EQUAL(first_vertex_invocation_count.load(std::memory_order_relaxed), 3ull);
     BOOST_CHECK_EQUAL(second_vertex_invocation_count.load(std::memory_order_relaxed), 3ull);
@@ -677,7 +683,7 @@ BOOST_AUTO_TEST_CASE(indexed_draw_invokes_vertex_shader_once_per_unique_index_an
 
     const ml::vec4 draw_color{0.1f, 0.8f, 0.3f, 1.0f};
     std::atomic<std::uint64_t> vertex_invocation_count{0};
-    vertex_counting_shader shader{&vertex_invocation_count, draw_color};
+    vertex_counting_shader shader{&vertex_invocation_count, draw_color, 3};
     const std::uint32_t shader_id =
       register_and_bind_shader(shader);
 
@@ -689,18 +695,18 @@ BOOST_AUTO_TEST_CASE(indexed_draw_invokes_vertex_shader_once_per_unique_index_an
     const std::vector<std::uint32_t> indices{0, 1, 2, 2, 1, 3};
 
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
-    swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    swr::EnableAttributeBuffer(vertex_buffer_id, 3);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::DrawIndexedElements(
       swr::vertex_buffer_mode::triangles,
       indices.size(),
       indices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_CHECK_EQUAL(vertex_invocation_count.load(std::memory_order_relaxed), 4ull);
     BOOST_CHECK_EQUAL(
@@ -719,29 +725,29 @@ BOOST_AUTO_TEST_CASE(scissor_box_uses_opengl_lower_left_coordinates_for_framebuf
     swr::SetScissorBox(0, 0, target_size, target_size / 2);
 
     const std::uint32_t texture_id = swr::CreateTexture();
-    BOOST_REQUIRE(texture_id != 0);
+    BOOST_REQUIRE_NE(texture_id, 0);
     swr::SetImage(texture_id, 0, target_size, target_size, swr::pixel_format::rgba8888, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* texture_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[texture_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     texture_ptr->set_filter_mag(swr::texture_filter::nearest);
     texture_ptr->set_filter_min(swr::texture_filter::nearest);
 
     const std::uint32_t depth_id = swr::CreateDepthRenderbuffer(target_size, target_size);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t framebuffer_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(framebuffer_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(framebuffer_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::FramebufferTexture(framebuffer_id, swr::framebuffer_attachment::color_attachment_0, texture_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::FramebufferRenderbuffer(framebuffer_id, swr::framebuffer_attachment::depth_attachment, depth_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, framebuffer_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size);
     swr::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     swr::ClearColorBuffer();
@@ -759,14 +765,14 @@ BOOST_AUTO_TEST_CASE(scissor_box_uses_opengl_lower_left_coordinates_for_framebuf
       {1.0f, -1.0f, 0.0f, 1.0f},
       {1.0f, 1.0f, 0.0f, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const ml::vec4 top_sample = sample_texture_uv(context, texture_id, 0.5f, 0.75f);
     const ml::vec4 bottom_sample = sample_texture_uv(context, texture_id, 0.5f, 0.25f);
@@ -795,29 +801,29 @@ BOOST_AUTO_TEST_CASE(viewport_uses_opengl_lower_left_coordinates_for_framebuffer
     configure_draw_state();
 
     const std::uint32_t texture_id = swr::CreateTexture();
-    BOOST_REQUIRE(texture_id != 0);
+    BOOST_REQUIRE_NE(texture_id, 0);
     swr::SetImage(texture_id, 0, target_size, target_size, swr::pixel_format::rgba8888, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* texture_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[texture_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     texture_ptr->set_filter_mag(swr::texture_filter::nearest);
     texture_ptr->set_filter_min(swr::texture_filter::nearest);
 
     const std::uint32_t depth_id = swr::CreateDepthRenderbuffer(target_size, target_size);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t framebuffer_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(framebuffer_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(framebuffer_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::FramebufferTexture(framebuffer_id, swr::framebuffer_attachment::color_attachment_0, texture_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::FramebufferRenderbuffer(framebuffer_id, swr::framebuffer_attachment::depth_attachment, depth_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, framebuffer_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size / 2);
     swr::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     swr::ClearColorBuffer();
@@ -835,14 +841,14 @@ BOOST_AUTO_TEST_CASE(viewport_uses_opengl_lower_left_coordinates_for_framebuffer
       {1.0f, -1.0f, 0.0f, 1.0f},
       {1.0f, 1.0f, 0.0f, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const ml::vec4 top_sample = sample_texture_uv(context, texture_id, 0.5f, 0.75f);
     const ml::vec4 bottom_sample = sample_texture_uv(context, texture_id, 0.5f, 0.25f);
@@ -870,29 +876,29 @@ BOOST_AUTO_TEST_CASE(viewport_y_offset_uses_opengl_lower_left_coordinates_for_fr
     configure_draw_state();
 
     const std::uint32_t texture_id = swr::CreateTexture();
-    BOOST_REQUIRE(texture_id != 0);
+    BOOST_REQUIRE_NE(texture_id, 0);
     swr::SetImage(texture_id, 0, target_size, target_size, swr::pixel_format::rgba8888, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* texture_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[texture_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     texture_ptr->set_filter_mag(swr::texture_filter::nearest);
     texture_ptr->set_filter_min(swr::texture_filter::nearest);
 
     const std::uint32_t depth_id = swr::CreateDepthRenderbuffer(target_size, target_size);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t framebuffer_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(framebuffer_id != 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_NE(framebuffer_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::FramebufferTexture(framebuffer_id, swr::framebuffer_attachment::color_attachment_0, texture_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::FramebufferRenderbuffer(framebuffer_id, swr::framebuffer_attachment::depth_attachment, depth_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, framebuffer_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, target_size / 2, target_size, target_size / 2);
     swr::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     swr::ClearColorBuffer();
@@ -910,14 +916,14 @@ BOOST_AUTO_TEST_CASE(viewport_y_offset_uses_opengl_lower_left_coordinates_for_fr
       {1.0f, -1.0f, 0.0f, 1.0f},
       {1.0f, 1.0f, 0.0f, 1.0f}};
     const std::uint32_t vertex_buffer_id = swr::CreateAttributeBuffer(vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::EnableAttributeBuffer(vertex_buffer_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::DrawElements(swr::vertex_buffer_mode::triangles, vertices.size());
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const ml::vec4 top_sample = sample_texture_uv(context, texture_id, 0.5f, 0.75f);
     const ml::vec4 bottom_sample = sample_texture_uv(context, texture_id, 0.5f, 0.25f);
@@ -948,7 +954,7 @@ BOOST_AUTO_TEST_CASE(fragment_shader_receives_bound_color_sampler)
 
     texture_sampling_shader shader;
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(shader_id != 0);
+    BOOST_REQUIRE_NE(shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(shader_id));
 
     const std::vector<ml::vec4> positions{
@@ -962,27 +968,27 @@ BOOST_AUTO_TEST_CASE(fragment_shader_receives_bound_color_sampler)
 
     const std::uint32_t pos_id = swr::CreateAttributeBuffer(positions);
     const std::uint32_t uv_id = swr::CreateAttributeBuffer(uvs);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t texture_id = swr::CreateTexture();
-    BOOST_REQUIRE(texture_id != 0);
+    BOOST_REQUIRE_NE(texture_id, 0);
     const std::vector<std::uint8_t> tex_data = {
       0xff, 0x00, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
       0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     swr::SetImage(texture_id, 0, 2, 2, swr::pixel_format::rgba8888, tex_data);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* texture_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[texture_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     texture_ptr->set_filter_mag(swr::texture_filter::nearest);
     texture_ptr->set_filter_min(swr::texture_filter::nearest);
 
     swr::BindTexture(swr::texture_target::texture_2d, texture_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
@@ -1011,53 +1017,53 @@ BOOST_AUTO_TEST_CASE(fragment_shader_can_read_depth_and_shadow_compare_values)
 
     const std::uint32_t pos_id = swr::CreateAttributeBuffer(positions);
     const std::uint32_t uv_id = swr::CreateAttributeBuffer(uvs);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t depth_tex_id = swr::CreateTexture();
-    BOOST_REQUIRE(depth_tex_id != 0);
+    BOOST_REQUIRE_NE(depth_tex_id, 0);
     const std::vector<float> depth_values = {
       0.75f, 0.50f,
       0.25f, 1.00f};
     std::vector<std::uint8_t> depth_data(depth_values.size() * sizeof(float));
     std::memcpy(depth_data.data(), depth_values.data(), depth_data.size());
     swr::SetImage(depth_tex_id, 0, 2, 2, swr::pixel_format::depth32f, depth_data);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* texture_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     texture_ptr->set_filter_mag(swr::texture_filter::nearest);
     texture_ptr->set_filter_min(swr::texture_filter::nearest);
 
     swr::BindTexture(swr::texture_target::texture_2d, depth_tex_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     depth_sampling_shader depth_shader;
     const std::uint32_t depth_shader_id = swr::RegisterShader(&depth_shader);
-    BOOST_REQUIRE(depth_shader_id != 0);
+    BOOST_REQUIRE_NE(depth_shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(depth_shader_id));
 
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
       to_default_color_pixel(context, ml::vec4{0.25f, 0.25f, 0.25f, 1.0f}));
 
     swr::SetTextureCompareMode(depth_tex_id, swr::texture_compare_mode::ref_to_texture);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetTextureCompareFunc(depth_tex_id, swr::comparison_func::less_equal);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     shadow_compare_shader shadow_shader;
     const std::uint32_t shadow_shader_id = swr::RegisterShader(&shadow_shader);
-    BOOST_REQUIRE(shadow_shader_id != 0);
+    BOOST_REQUIRE_NE(shadow_shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(shadow_shader_id));
 
     swr::BindUniform(0, 0.20f);
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
@@ -1066,7 +1072,7 @@ BOOST_AUTO_TEST_CASE(fragment_shader_can_read_depth_and_shadow_compare_values)
     swr::BindUniform(0, 0.30f);
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
@@ -1095,33 +1101,33 @@ BOOST_AUTO_TEST_CASE(shadow_compare_can_consume_depth_generated_in_previous_pass
 
     const std::uint32_t pos_id = swr::CreateAttributeBuffer(positions);
     const std::uint32_t uv_id = swr::CreateAttributeBuffer(uvs);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t color_tex_id = swr::CreateTexture();
     const std::uint32_t depth_tex_id = swr::CreateTexture();
-    BOOST_REQUIRE(color_tex_id != 0);
-    BOOST_REQUIRE(depth_tex_id != 0);
+    BOOST_REQUIRE_NE(color_tex_id, 0);
+    BOOST_REQUIRE_NE(depth_tex_id, 0);
 
     swr::SetImage(color_tex_id, 0, target_size, target_size, swr::pixel_format::rgba8888, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetImage(depth_tex_id, 0, target_size, target_size, swr::pixel_format::depth32f, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* depth_tex_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(depth_tex_ptr != nullptr);
+    BOOST_REQUIRE_NE(depth_tex_ptr, nullptr);
     depth_tex_ptr->set_filter_mag(swr::texture_filter::nearest);
     depth_tex_ptr->set_filter_min(swr::texture_filter::nearest);
 
     const std::uint32_t fbo_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(fbo_id != 0);
+    BOOST_REQUIRE_NE(fbo_id, 0);
     swr::FramebufferTexture(fbo_id, swr::framebuffer_attachment::color_attachment_0, color_tex_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::FramebufferTexture(fbo_id, swr::framebuffer_attachment::depth_attachment, depth_tex_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     // Pass 1: generate depth map via rasterization.
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size);
     swr::SetState(swr::state::depth_test, true);
     swr::SetClearDepth(1.0f);
@@ -1132,37 +1138,37 @@ BOOST_AUTO_TEST_CASE(shadow_compare_can_consume_depth_generated_in_previous_pass
     const std::uint32_t depth_writer_shader_id = register_and_bind_shader(depth_writer_shader);
 
     swr::EnableAttributeBuffer(pos_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::DrawElements(swr::vertex_buffer_mode::triangles, 6);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::DisableAttributeBuffer(pos_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     // Pass 2: read depth map through shadow compare sampling.
     swr::BindFramebufferObject(swr::framebuffer_target::draw, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size);
     swr::SetState(swr::state::depth_test, false);
     swr::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     swr::ClearColorBuffer();
 
     swr::SetTextureCompareMode(depth_tex_id, swr::texture_compare_mode::ref_to_texture);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetTextureCompareFunc(depth_tex_id, swr::comparison_func::less_equal);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::BindTexture(swr::texture_target::texture_2d, depth_tex_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     shadow_compare_shader shadow_shader;
     const std::uint32_t shadow_shader_id = swr::RegisterShader(&shadow_shader);
-    BOOST_REQUIRE(shadow_shader_id != 0);
+    BOOST_REQUIRE_NE(shadow_shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(shadow_shader_id));
 
     swr::BindUniform(0, 0.25f);
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
       to_default_color_pixel(context, ml::vec4{1.0f, 1.0f, 1.0f, 1.0f}));
@@ -1170,7 +1176,7 @@ BOOST_AUTO_TEST_CASE(shadow_compare_can_consume_depth_generated_in_previous_pass
     swr::BindUniform(0, 0.75f);
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
       to_default_color_pixel(context, ml::vec4{0.0f, 0.0f, 0.0f, 1.0f}));
@@ -1206,33 +1212,33 @@ BOOST_AUTO_TEST_CASE(shadow_map_depth_written_in_one_pass_is_visible_to_shadow_c
 
     const std::uint32_t pos_id = swr::CreateAttributeBuffer(positions);
     const std::uint32_t uv_id = swr::CreateAttributeBuffer(uvs);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t color_tex_id = swr::CreateTexture();
     const std::uint32_t depth_tex_id = swr::CreateTexture();
-    BOOST_REQUIRE(color_tex_id != 0);
-    BOOST_REQUIRE(depth_tex_id != 0);
+    BOOST_REQUIRE_NE(color_tex_id, 0);
+    BOOST_REQUIRE_NE(depth_tex_id, 0);
 
     swr::SetImage(color_tex_id, 0, target_size, target_size, swr::pixel_format::rgba8888, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetImage(depth_tex_id, 0, target_size, target_size, swr::pixel_format::depth32f, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* depth_tex_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(depth_tex_ptr != nullptr);
+    BOOST_REQUIRE_NE(depth_tex_ptr, nullptr);
     depth_tex_ptr->set_filter_mag(swr::texture_filter::nearest);
     depth_tex_ptr->set_filter_min(swr::texture_filter::nearest);
 
     const std::uint32_t fbo_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(fbo_id != 0);
+    BOOST_REQUIRE_NE(fbo_id, 0);
     swr::FramebufferTexture(fbo_id, swr::framebuffer_attachment::color_attachment_0, color_tex_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::FramebufferTexture(fbo_id, swr::framebuffer_attachment::depth_attachment, depth_tex_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     // Pass 1: write depth into the shadow map.
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size);
     swr::SetClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     swr::ClearColorBuffer();
@@ -1240,7 +1246,7 @@ BOOST_AUTO_TEST_CASE(shadow_map_depth_written_in_one_pass_is_visible_to_shadow_c
 
     fixed_depth_shader writer{0.25f};
     const std::uint32_t writer_shader_id = swr::RegisterShader(&writer);
-    BOOST_REQUIRE(writer_shader_id != 0);
+    BOOST_REQUIRE_NE(writer_shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(writer_shader_id));
 
     swr::BindUniform(0, ml::mat4x4::identity());
@@ -1248,12 +1254,12 @@ BOOST_AUTO_TEST_CASE(shadow_map_depth_written_in_one_pass_is_visible_to_shadow_c
 
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const auto* render_context = static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
     const auto* texture_ptr = render_context->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     const auto* depth_texture = texture_ptr->as_texture_depth_2d();
     BOOST_REQUIRE(depth_texture != nullptr);
     BOOST_REQUIRE(!depth_texture->data.data_ptrs.empty());
@@ -1264,28 +1270,28 @@ BOOST_AUTO_TEST_CASE(shadow_map_depth_written_in_one_pass_is_visible_to_shadow_c
 
     // Pass 2: read the written depth via shadow compare.
     swr::BindFramebufferObject(swr::framebuffer_target::draw, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size);
     swr::SetState(swr::state::depth_test, false);
     swr::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     swr::ClearColorBuffer();
 
     swr::SetTextureCompareMode(depth_tex_id, swr::texture_compare_mode::ref_to_texture);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetTextureCompareFunc(depth_tex_id, swr::comparison_func::less_equal);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::BindTexture(swr::texture_target::texture_2d, depth_tex_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     shadow_compare_shader shadow_shader;
     const std::uint32_t shadow_shader_id = swr::RegisterShader(&shadow_shader);
-    BOOST_REQUIRE(shadow_shader_id != 0);
+    BOOST_REQUIRE_NE(shadow_shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(shadow_shader_id));
 
     swr::BindUniform(0, 0.25f);
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
       to_default_color_pixel(context, ml::vec4{1.0f, 1.0f, 1.0f, 1.0f}));
@@ -1293,7 +1299,7 @@ BOOST_AUTO_TEST_CASE(shadow_map_depth_written_in_one_pass_is_visible_to_shadow_c
     swr::BindUniform(0, 0.75f);
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     BOOST_CHECK_EQUAL(
       read_default_color_pixel(context, target_size / 2, target_size / 2),
       to_default_color_pixel(context, ml::vec4{0.0f, 0.0f, 0.0f, 1.0f}));
@@ -1328,32 +1334,32 @@ BOOST_AUTO_TEST_CASE(depth_texture_can_be_written_and_read_back)
 
     const std::uint32_t pos_id = swr::CreateAttributeBuffer(positions);
     const std::uint32_t uv_id = swr::CreateAttributeBuffer(uvs);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t color_tex_id = swr::CreateTexture();
     const std::uint32_t depth_tex_id = swr::CreateTexture();
-    BOOST_REQUIRE(color_tex_id != 0);
-    BOOST_REQUIRE(depth_tex_id != 0);
+    BOOST_REQUIRE_NE(color_tex_id, 0);
+    BOOST_REQUIRE_NE(depth_tex_id, 0);
 
     swr::SetImage(color_tex_id, 0, target_size, target_size, swr::pixel_format::rgba8888, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetImage(depth_tex_id, 0, target_size, target_size, swr::pixel_format::depth32f, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* depth_tex_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(depth_tex_ptr != nullptr);
+    BOOST_REQUIRE_NE(depth_tex_ptr, nullptr);
     depth_tex_ptr->set_filter_mag(swr::texture_filter::nearest);
     depth_tex_ptr->set_filter_min(swr::texture_filter::nearest);
 
     const std::uint32_t fbo_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(fbo_id != 0);
+    BOOST_REQUIRE_NE(fbo_id, 0);
     swr::FramebufferTexture(fbo_id, swr::framebuffer_attachment::color_attachment_0, color_tex_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::FramebufferTexture(fbo_id, swr::framebuffer_attachment::depth_attachment, depth_tex_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size);
     swr::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     swr::ClearColorBuffer();
@@ -1361,7 +1367,7 @@ BOOST_AUTO_TEST_CASE(depth_texture_can_be_written_and_read_back)
 
     fixed_depth_shader writer{0.25f};
     const std::uint32_t writer_shader_id = swr::RegisterShader(&writer);
-    BOOST_REQUIRE(writer_shader_id != 0);
+    BOOST_REQUIRE_NE(writer_shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(writer_shader_id));
 
     swr::BindUniform(0, ml::mat4x4::identity());
@@ -1369,14 +1375,14 @@ BOOST_AUTO_TEST_CASE(depth_texture_can_be_written_and_read_back)
 
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const auto* render_context = static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
     const auto* texture_ptr = render_context->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     const auto* depth_texture = texture_ptr->as_texture_depth_2d();
-    BOOST_REQUIRE(depth_texture != nullptr);
+    BOOST_REQUIRE_NE(depth_texture, nullptr);
     BOOST_REQUIRE(!depth_texture->data.data_ptrs.empty());
 
     const std::size_t center_index = static_cast<std::size_t>(target_size / 2) * target_size + static_cast<std::size_t>(target_size / 2);
@@ -1412,32 +1418,32 @@ BOOST_AUTO_TEST_CASE(depth_only_framebuffer_can_capture_depth_for_shadow_mapping
 
     const std::uint32_t pos_id = swr::CreateAttributeBuffer(positions);
     const std::uint32_t uv_id = swr::CreateAttributeBuffer(uvs);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t depth_tex_id = swr::CreateTexture();
-    BOOST_REQUIRE(depth_tex_id != 0);
+    BOOST_REQUIRE_NE(depth_tex_id, 0);
 
     swr::SetImage(depth_tex_id, 0, target_size, target_size, swr::pixel_format::depth32f, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* depth_tex_ptr = static_cast<swr::impl::render_context*>(context)->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(depth_tex_ptr != nullptr);
+    BOOST_REQUIRE_NE(depth_tex_ptr, nullptr);
     depth_tex_ptr->set_filter_mag(swr::texture_filter::nearest);
     depth_tex_ptr->set_filter_min(swr::texture_filter::nearest);
 
     const std::uint32_t fbo_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(fbo_id != 0);
+    BOOST_REQUIRE_NE(fbo_id, 0);
     swr::FramebufferTexture(fbo_id, swr::framebuffer_attachment::depth_attachment, depth_tex_id, 0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, target_size, target_size);
     swr::ClearDepthBuffer();
 
     fixed_depth_shader writer{0.25f};
     const std::uint32_t writer_shader_id = swr::RegisterShader(&writer);
-    BOOST_REQUIRE(writer_shader_id != 0);
+    BOOST_REQUIRE_NE(writer_shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(writer_shader_id));
 
     swr::BindUniform(0, ml::mat4x4::identity());
@@ -1445,14 +1451,14 @@ BOOST_AUTO_TEST_CASE(depth_only_framebuffer_can_capture_depth_for_shadow_mapping
 
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const auto* render_context = static_cast<const swr::impl::render_context*>(context);
-    BOOST_REQUIRE(render_context != nullptr);
+    BOOST_REQUIRE_NE(render_context, nullptr);
     const auto* texture_ptr = render_context->texture_2d_storage[depth_tex_id].get();
-    BOOST_REQUIRE(texture_ptr != nullptr);
+    BOOST_REQUIRE_NE(texture_ptr, nullptr);
     const auto* depth_texture = texture_ptr->as_texture_depth_2d();
-    BOOST_REQUIRE(depth_texture != nullptr);
+    BOOST_REQUIRE_NE(depth_texture, nullptr);
     BOOST_REQUIRE(!depth_texture->data.data_ptrs.empty());
 
     const std::size_t center_index =
@@ -1511,25 +1517,25 @@ BOOST_AUTO_TEST_CASE(shadow_demo_light_pass_writes_non_clear_depth_when_culling_
 
     const std::uint32_t cube_verts_id = swr::CreateAttributeBuffer(cube_vertices);
     const std::uint32_t plane_verts_id = swr::CreateAttributeBuffer(plane_vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t depth_tex_id = swr::CreateTexture();
-    BOOST_REQUIRE(depth_tex_id != 0);
+    BOOST_REQUIRE_NE(depth_tex_id, 0);
     swr::SetImage(depth_tex_id, 0, 64, 64, swr::pixel_format::depth32f, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t fbo_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(fbo_id != 0);
+    BOOST_REQUIRE_NE(fbo_id, 0);
     swr::FramebufferTexture(
       fbo_id,
       swr::framebuffer_attachment::depth_attachment,
       depth_tex_id,
       0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     shadow_demo_depth_shader shader;
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(shader_id != 0);
+    BOOST_REQUIRE_NE(shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(shader_id));
 
     const ml::vec3 light_direction{0.45f, -1.0f, -0.35f};
@@ -1552,7 +1558,7 @@ BOOST_AUTO_TEST_CASE(shadow_demo_light_pass_writes_non_clear_depth_when_culling_
     plane_model *= ml::matrices::translation(0.0f, -1.5f, 0.0f);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, 64, 64);
     swr::SetClearDepth(1.0f);
     swr::ClearDepthBuffer();
@@ -1576,7 +1582,7 @@ BOOST_AUTO_TEST_CASE(shadow_demo_light_pass_writes_non_clear_depth_when_culling_
     swr::DisableAttributeBuffer(plane_verts_id);
 
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const float min_depth = min_depth_texture_value(context, depth_tex_id);
     BOOST_CHECK_LT(min_depth, 0.999f);
@@ -1626,25 +1632,25 @@ BOOST_AUTO_TEST_CASE(shadow_demo_light_pass_writes_non_clear_depth_when_culling_
 
     const std::uint32_t cube_verts_id = swr::CreateAttributeBuffer(cube_vertices);
     const std::uint32_t plane_verts_id = swr::CreateAttributeBuffer(plane_vertices);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t depth_tex_id = swr::CreateTexture();
-    BOOST_REQUIRE(depth_tex_id != 0);
+    BOOST_REQUIRE_NE(depth_tex_id, 0);
     swr::SetImage(depth_tex_id, 0, 64, 64, swr::pixel_format::depth32f, {});
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const std::uint32_t fbo_id = swr::CreateFramebufferObject();
-    BOOST_REQUIRE(fbo_id != 0);
+    BOOST_REQUIRE_NE(fbo_id, 0);
     swr::FramebufferTexture(
       fbo_id,
       swr::framebuffer_attachment::depth_attachment,
       depth_tex_id,
       0);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     shadow_demo_depth_shader shader;
     const std::uint32_t shader_id = swr::RegisterShader(&shader);
-    BOOST_REQUIRE(shader_id != 0);
+    BOOST_REQUIRE_NE(shader_id, 0);
     BOOST_REQUIRE(swr::BindShader(shader_id));
 
     const ml::vec3 light_direction{0.45f, -1.0f, -0.35f};
@@ -1667,7 +1673,7 @@ BOOST_AUTO_TEST_CASE(shadow_demo_light_pass_writes_non_clear_depth_when_culling_
     plane_model *= ml::matrices::translation(0.0f, -1.5f, 0.0f);
 
     swr::BindFramebufferObject(swr::framebuffer_target::draw, fbo_id);
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
     swr::SetViewport(0, 0, 64, 64);
     swr::SetClearDepth(1.0f);
     swr::ClearDepthBuffer();
@@ -1691,7 +1697,7 @@ BOOST_AUTO_TEST_CASE(shadow_demo_light_pass_writes_non_clear_depth_when_culling_
     swr::DisableAttributeBuffer(plane_verts_id);
 
     swr::Present();
-    BOOST_REQUIRE(swr::GetLastError() == swr::error::none);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     const float min_depth = min_depth_texture_value(context, depth_tex_id);
     BOOST_CHECK_LT(min_depth, 0.999f);

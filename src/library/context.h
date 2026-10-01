@@ -13,6 +13,7 @@
 #include <bit>
 #include <functional>
 #include <memory>
+#include <span>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -301,14 +302,17 @@ struct draw_command
     /** Index buffer, as indices into the index buffer pool. */
     index_range indices;
 
+    /** Index into the active vertex attribute buffers pool */
+    index_range active_vab_indices;
+
+    /** Attribute slot count. */
+    std::size_t attribute_slot_count;
+
+    /** Whether the attribute indices were remapped. */
+    bool remapped;
+
     /** Attribute source indices, as indices into the index buffer pool. */
     index_range attribute_indices;
-
-    /** Attribute snapshot range captured when the draw was submitted. */
-    index_range attribute_index_range;
-
-    /** Attribute count per submitted vertex in the snapshot range. */
-    std::size_t attribute_count{0};
 };
 
 /** Resolved execution context for a draw command. */
@@ -317,6 +321,7 @@ struct draw_execution
     render_object* object{nullptr};
     std::size_t vertex_count;
     index_range attribute_index_range;
+    std::size_t attribute_slot_count;
     index_range clipped_vertex_range;
     const render_states* states{nullptr};
     framebuffer_draw_target* draw_target{nullptr};
@@ -344,9 +349,24 @@ enum class buffer_update_kind
     attribute
 };
 
+/** Update buffer command. */
+struct update_buffer_command
+{
+    buffer_update_kind kind;
+    std::uint32_t buffer_id;
+    index_range range;
+};
+
+/** Update texture command. */
+struct update_texture_command
+{
+    /* TODO Rect, Data, ... */
+};
+
 /** Render command type, including command data. */
 using render_command = std::variant<
   clear_command,
+  update_buffer_command,
   draw_command>;
 
 /** The default framebuffer has id 0, so we skip it. */
@@ -366,6 +386,9 @@ constexpr std::uint32_t framebuffer_slot_to_id(std::uint32_t slot)
 enum class resource_type
 {
     none,               /** No type. */
+    index_buffer,       /** Index buffer. */
+    attribute_buffer,   /** Attribute buffer. */
+    texture,            /** Texture. */
     framebuffer_object, /** Framebuffer object. */
     depth_attachment    /** Depth attachment for a framebuffer object. */
 };
@@ -454,6 +477,11 @@ struct render_context
     /** Pending resource deletions. */
     frame_arena<CleanupFrames, resource_key> pending_resource_deletions;
 
+    /** Check whether a resource has a pending delete. */
+    bool has_pending_deletion(
+      resource_type type,
+      std::uint32_t id) const;
+
     /** Process pending deletions list. */
     void process_pending_deletions();
 
@@ -469,6 +497,8 @@ struct render_context
      * Storage is retained between frames so payload elements can be reused without per-frame heap churn.
      */
     frame_arena<CleanupFrames, std::uint32_t> index_buffer_pool;
+
+    frame_arena<CleanupFrames, std::pair<int, int>> active_vab_indices_pool;
 
     /**
      * Per-frame resolved draw execution contexts, one per draw command.
@@ -488,15 +518,6 @@ struct render_context
      */
     frame_arena<CleanupFrames, render_states> state_snapshots;
 
-    /** Per-frame attribute pool. */
-    frame_arena<
-      CleanupFrames,
-      ml::vec4,
-      utils::aligned_default_init_allocator<
-        ml::vec4,
-        utils::alignment::sse>>
-      attribute_snapshot_pool;
-
     /**
      * Per-frame vertex data pool backing coords, attribs, and varyings for all
      * render objects. SSE-aligned; storage is retained between frames so capacity
@@ -509,7 +530,7 @@ struct render_context
       utils::aligned_default_init_allocator<
         ml::vec4,
         utils::alignment::sse>>
-      vertex_data_pool;
+      vec4_data;
 
     /**
      * Capture the current render states as a frame snapshot and return its index.
@@ -518,32 +539,72 @@ struct render_context
     std::size_t capture_state();
 
     /**
-     * Capture the current attribute buffers.
+     * Capture the current attribute buffers for indexed draw calls.
+     *
+     * @note Populates the vertex attributes as a sparse array.
+     * @param index_count Index count.
+     * @param active_vab_indices Range (inside `active_vab_indices_pool`) of
+     *     active vertex array buffer indices.
+     * @param attribute_indices Range (inside `index_buffer_pool`) of vertex attribute
+     *     indices.
+     * @returns Returns the index range of captured attributes inside `vec4_data`.
      */
-    template<typename TransformFn>
     index_range capture_attribute_buffers(
-      std::size_t count,
-      TransformFn&& transform_fn)
+      std::size_t index_count,
+      const index_range& active_vab_indices,
+      std::size_t attribute_slot_count,
+      const index_range& attribute_indices)
     {
-        const auto attrib_count = active_vabs.size();
+        const auto attrib_count = active_vab_indices.count;
 
-        const std::uint32_t attrib_range_start = attribute_snapshot_pool.size();
-        const std::uint32_t attrib_range_size = count * attrib_count;
+        const std::size_t attrib_range_start = vec4_data.size();
+        const std::size_t attrib_range_size = index_count * attribute_slot_count;
 
-        auto attribs = attribute_snapshot_pool.allocate_range(attrib_range_size);
-        for(std::size_t i = 0; i < count; ++i)
+        const auto remapped_indices = std::span{
+          &index_buffer_pool[attribute_indices.begin],
+          attribute_indices.count};
+
+        auto attribs = vec4_data.allocate_range(index_count * attribute_slot_count);
+        for(std::size_t i = 0; i < index_count; ++i)
         {
-            auto vertex_attribs = attribs.subspan(i * attrib_count);
-            for(std::size_t slot = 0; slot < attrib_count; ++slot)
+            auto vertex_attribs = attribs.subspan(i * attribute_slot_count);
+            for(std::size_t j = 0; j < attrib_count; ++j)
             {
-                const int& id = active_vabs[slot];
+                const auto [slot, buffer_id] = active_vab_indices_pool[active_vab_indices.begin + j];
+                vertex_attribs[slot] = vertex_attribute_buffers[buffer_id].data[remapped_indices[i]];
+            }
+        }
 
-                if(id == static_cast<int>(impl::vertex_attribute_index::invalid))
-                {
-                    continue;
-                }
+        return {attrib_range_start, attrib_range_size};
+    }
 
-                vertex_attribs[slot] = vertex_attribute_buffers[id].data[transform_fn(i)];
+    /**
+     * Capture the current attribute buffers for regular draw calls.
+     *
+     * @note Populates the vertex attributes as a sparse array.
+     * @param index_count Index count.
+     * @param active_vab_indices Range (inside `active_vab_indices_pool`) of
+     *     active vertex array buffer indices.
+     * @returns Returns the index range of captured attributes inside `vec4_data`.
+     */
+    index_range capture_attribute_buffers(
+      std::size_t index_count,
+      const index_range& active_vab_indices,
+      std::size_t attribute_slot_count)
+    {
+        const auto attrib_count = active_vab_indices.count;
+
+        const std::size_t attrib_range_start = vec4_data.size();
+        const std::size_t attrib_range_size = index_count * attribute_slot_count;
+
+        auto attribs = vec4_data.allocate_range(attrib_range_size);
+        for(std::size_t i = 0; i < index_count; ++i)
+        {
+            auto vertex_attribs = attribs.subspan(i * attribute_slot_count);
+            for(std::size_t j = 0; j < attrib_count; ++j)
+            {
+                const auto [slot, buffer_id] = active_vab_indices_pool[active_vab_indices.begin + j];
+                vertex_attribs[slot] = vertex_attribute_buffers[buffer_id].data[i];
             }
         }
 
@@ -673,7 +734,19 @@ struct render_context
     void create_indexed_draw_command(
       vertex_buffer_mode mode,
       std::size_t count,
-      const std::vector<std::uint32_t>& index_buffer);
+      std::span<const std::uint32_t> index_buffer);
+
+    /**
+     * Insert an update command for a buffer.
+     *
+     * @param kind The buffer kind.
+     * @param id The buffer id.
+     * @param range Range in the buffer storage pool.
+     */
+    void create_update_buffer_command(
+      buffer_update_kind kind,
+      std::uint32_t id,
+      index_range range);
 
     /*
      * buffer management.

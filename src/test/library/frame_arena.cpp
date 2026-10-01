@@ -89,33 +89,33 @@ BOOST_AUTO_TEST_CASE(lifecycle_and_reset)
     swr::impl::frame_arena<1, int> arena;
 
     BOOST_TEST(arena.empty());
-    BOOST_TEST(arena.size() == 0u);
+    BOOST_CHECK_EQUAL(arena.size(), 0u);
 
     arena.emplace_back(7);
     arena.push_back(8);
 
-    BOOST_TEST(arena.size() == 2u);
-    BOOST_TEST(arena[0] == 7);
-    BOOST_TEST(arena[1] == 8);
+    BOOST_CHECK_EQUAL(arena.size(), 2u);
+    BOOST_CHECK_EQUAL(arena[0], 7);
+    BOOST_CHECK_EQUAL(arena[1], 8);
 
     auto span = arena.span();
-    BOOST_TEST(span.size() == 2u);
-    BOOST_TEST(span[1] == 8);
+    BOOST_CHECK_EQUAL(span.size(), 2u);
+    BOOST_CHECK_EQUAL(span[1], 8);
 
     arena.reset();
 
     BOOST_TEST(arena.empty());
-    BOOST_TEST(arena.size() == 0u);
-    BOOST_TEST(arena.capacity() >= 2u);
+    BOOST_CHECK_EQUAL(arena.size(), 0u);
+    BOOST_CHECK_GE(arena.capacity(), 2u);
 
     auto& first = arena.allocate();
     first = 11;
     auto& second = arena.allocate();
     second = 12;
 
-    BOOST_TEST(arena.size() == 2u);
-    BOOST_TEST(arena[0] == 11);
-    BOOST_TEST(arena[1] == 12);
+    BOOST_CHECK_EQUAL(arena.size(), 2u);
+    BOOST_CHECK_EQUAL(arena[0], 11);
+    BOOST_CHECK_EQUAL(arena[1], 12);
 }
 
 BOOST_AUTO_TEST_CASE(allocate_range_and_std_like_interface)
@@ -128,10 +128,10 @@ BOOST_AUTO_TEST_CASE(allocate_range_and_std_like_interface)
     span[1] = "beta";
     span[2] = "gamma";
 
-    BOOST_TEST(arena.size() == 3u);
-    BOOST_TEST(arena[0] == "alpha");
-    BOOST_TEST(arena[1] == "beta");
-    BOOST_TEST(arena[2] == "gamma");
+    BOOST_CHECK_EQUAL(arena.size(), 3u);
+    BOOST_CHECK_EQUAL(arena[0], "alpha");
+    BOOST_CHECK_EQUAL(arena[1], "beta");
+    BOOST_CHECK_EQUAL(arena[2], "gamma");
 
     std::vector<std::string> collected;
     for(const auto& value: arena)
@@ -154,7 +154,9 @@ BOOST_AUTO_TEST_CASE(allocate_range_and_std_like_interface)
     BOOST_REQUIRE_EQUAL(const_collected.size(), 3u);
     BOOST_CHECK_EQUAL(const_collected[2], "gamma");
 
-    BOOST_TEST(std::distance(arena.begin(), arena.end()) == 3);
+    BOOST_CHECK_EQUAL(
+      std::distance(arena.begin(), arena.end()),
+      3);
 }
 
 BOOST_AUTO_TEST_CASE(clear_and_release)
@@ -167,39 +169,39 @@ BOOST_AUTO_TEST_CASE(clear_and_release)
     arena.emplace_back(2);
     arena.emplace_back(3);
 
-    BOOST_TEST(arena.size() == 3u);
-    BOOST_TEST(tracked_value::alive == 3u);
-    BOOST_TEST(tracked_value::constructions == 3u);
+    BOOST_CHECK_EQUAL(arena.size(), 3u);
+    BOOST_CHECK_EQUAL(tracked_value::alive, 3u);
+    BOOST_CHECK_EQUAL(tracked_value::constructions, 3u);
 
     arena.clear();
     BOOST_TEST(arena.empty());
-    BOOST_TEST(arena.size() == 0u);
-    BOOST_TEST(tracked_value::alive == 0u);
-    BOOST_TEST(tracked_value::destructions == 3u);
+    BOOST_CHECK_EQUAL(arena.size(), 0u);
+    BOOST_CHECK_EQUAL(tracked_value::alive, 0u);
+    BOOST_CHECK_EQUAL(tracked_value::destructions, 3u);
 
     arena.emplace_back(4);
-    BOOST_TEST(tracked_value::constructions == 4u);
-    BOOST_TEST(arena.size() == 1u);
-    BOOST_TEST(arena[0].value == 4);
-    BOOST_TEST(tracked_value::alive == 1u);
+    BOOST_CHECK_EQUAL(tracked_value::constructions, 4u);
+    BOOST_CHECK_EQUAL(arena.size(), 1u);
+    BOOST_CHECK_EQUAL(arena[0].value, 4);
+    BOOST_CHECK_EQUAL(tracked_value::alive, 1u);
 
     arena.reset();
-    BOOST_TEST(tracked_value::alive == 1u);
-    BOOST_TEST(tracked_value::destructions == 3u);
+    BOOST_CHECK_EQUAL(tracked_value::alive, 1u);
+    BOOST_CHECK_EQUAL(tracked_value::destructions, 3u);
 
     auto& reused_slot = arena.allocate();
     reused_slot.value = 5;
-    BOOST_TEST(arena[0].value == 5);
-    BOOST_TEST(tracked_value::alive == 1u);
-    BOOST_TEST(tracked_value::destructions == 3u);
+    BOOST_CHECK_EQUAL(arena[0].value, 5);
+    BOOST_CHECK_EQUAL(tracked_value::alive, 1u);
+    BOOST_CHECK_EQUAL(tracked_value::destructions, 3u);
 
     const auto capacity_before_release = arena.capacity();
     arena.release();
     BOOST_TEST(arena.empty());
-    BOOST_TEST(arena.size() == 0u);
-    BOOST_TEST(tracked_value::alive == 0u);
-    BOOST_TEST(tracked_value::destructions == 4u);
-    BOOST_TEST(arena.capacity() <= capacity_before_release);
+    BOOST_CHECK_EQUAL(arena.size(), 0u);
+    BOOST_CHECK_EQUAL(tracked_value::alive, 0u);
+    BOOST_CHECK_EQUAL(tracked_value::destructions, 4u);
+    BOOST_CHECK_LE(arena.capacity(), capacity_before_release);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

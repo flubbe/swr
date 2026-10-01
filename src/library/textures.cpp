@@ -163,66 +163,6 @@ error texture_color_2d::allocate(
     return error::none;
 }
 
-error texture_color_2d::set_data(
-  std::uint32_t level,
-  std::uint32_t in_width,
-  std::uint32_t in_height,
-  pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
-{
-    constexpr auto component_size = sizeof(std::uint32_t);
-
-    auto ret = allocate(level, in_width, in_height, in_format);
-    if(ret != error::none)
-    {
-        return ret;
-    }
-
-    if(in_width == 0 || in_height == 0)
-    {
-        return error::none;
-    }
-
-    if(in_data.empty())
-    {
-        return error::none;
-    }
-
-    assert(in_width * in_height * component_size <= in_data.size());
-
-    if(static_cast<std::size_t>(level) >= mip_level_count())
-    {
-        return error::invalid_value;
-    }
-
-    auto data_ptr = data.data_ptrs[level];
-#ifndef SWR_USE_MORTON_CODES
-    const auto pitch = data.pitches[level];
-#endif
-
-    pixel_format_converter pfc{
-      pixel_format_descriptor::named_format(in_format)};
-    for(std::uint32_t y = 0; y < in_height; ++y)
-    {
-        for(std::uint32_t x = 0; x < in_width; ++x)
-        {
-            const std::uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
-            std::uint32_t color =
-              (*buf_ptr) << 24
-              | (*(buf_ptr + 1)) << 16
-              | (*(buf_ptr + 2)) << 8
-              | (*(buf_ptr + 3));
-#ifdef SWR_USE_MORTON_CODES
-            data_ptr[libmorton::morton2D_32_encode(x, y)] = pfc.to_color(color);
-#else
-            data_ptr[y * pitch + x] = pfc.to_color(color);
-#endif
-        }
-    }
-
-    return error::none;
-}
-
 error texture_color_2d::set_sub_data(
   std::uint32_t level,
   std::uint32_t in_x,
@@ -230,7 +170,7 @@ error texture_color_2d::set_sub_data(
   std::uint32_t in_width,
   std::uint32_t in_height,
   pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
+  std::span<const std::uint8_t> in_data)
 {
     ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(std::uint32_t);
@@ -244,7 +184,7 @@ error texture_color_2d::set_sub_data(
     {
         return error::invalid_value;
     }
-    assert(in_width * in_height * component_size == in_data.size());
+    assert(in_width * in_height * component_size <= in_data.size());
 
     if(level >= mip_level_count())
     {
@@ -376,64 +316,6 @@ error texture_depth_2d::allocate(
     return error::none;
 }
 
-error texture_depth_2d::set_data(
-  std::uint32_t level,
-  std::uint32_t in_width,
-  std::uint32_t in_height,
-  pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
-{
-    constexpr auto component_size = sizeof(float);
-
-    auto ret = allocate(level, in_width, in_height, in_format);
-    if(ret != error::none)
-    {
-        return ret;
-    }
-
-    if(in_width == 0 || in_height == 0)
-    {
-        return error::none;
-    }
-
-    if(in_data.empty())
-    {
-        return error::none;
-    }
-
-    assert(in_width * in_height * component_size <= in_data.size());
-
-    if(static_cast<std::size_t>(level) >= mip_level_count())
-    {
-        return error::invalid_value;
-    }
-
-#ifndef SWR_USE_MORTON_CODES
-    const auto pitch = data.pitches[level];
-#endif
-    auto data_ptr = data.data_ptrs[level];
-    for(std::uint32_t y = 0; y < in_height; ++y)
-    {
-        for(std::uint32_t x = 0; x < in_width; ++x)
-        {
-            float depth = 0.0f;
-            std::memcpy(
-              &depth,
-              &in_data[(y * in_width + x) * component_size],
-              sizeof(depth));
-            const ml::fixed_32_t depth_value{
-              std::clamp(depth, 0.0f, 1.0f)};
-#ifdef SWR_USE_MORTON_CODES
-            data_ptr[libmorton::morton2D_32_encode(x, y)] = depth_value;
-#else
-            data_ptr[y * pitch + x] = depth_value;
-#endif
-        }
-    }
-
-    return error::none;
-}
-
 error texture_depth_2d::set_sub_data(
   std::uint32_t level,
   std::uint32_t in_x,
@@ -441,7 +323,7 @@ error texture_depth_2d::set_sub_data(
   std::uint32_t in_width,
   std::uint32_t in_height,
   pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
+  std::span<const std::uint8_t> in_data)
 {
     ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(float);
@@ -569,6 +451,13 @@ bool bind_texture_pointer(
         return false;
     }
 
+    if(!global_context->texture_2d_storage.contains(id)
+       || global_context->has_pending_deletion(impl::resource_type::texture, id))
+    {
+        global_context->last_error = error::invalid_value;
+        return false;
+    }
+
     // if needed, increase unit array size.
     auto unit = global_context->states.texture_2d_active_unit;
     if(unit >= global_context->states.texture_2d_units.size())
@@ -656,7 +545,7 @@ void create_default_texture(
     };
 
     // the memory allocated here is freed in render_device_context::shutdown.
-    context->texture_2d_storage.push(std::make_unique<texture_color_2d>(default_tex_id));
+    context->texture_2d_storage.insert(std::make_unique<texture_color_2d>(default_tex_id));
     context->default_texture_2d = context->texture_2d_storage[default_tex_id].get();
     assert(context->default_texture_2d->id == default_tex_id);
 
@@ -689,7 +578,7 @@ std::uint32_t CreateTexture()
     impl::render_context* context = impl::global_context;
 
     // set up a new texture.
-    auto slot = context->texture_2d_storage.push(
+    auto slot = context->texture_2d_storage.insert(
       std::make_unique<impl::texture_color_2d>());
 
     impl::texture_2d* new_texture = context->texture_2d_storage[slot].get();
@@ -725,34 +614,39 @@ void ReleaseTexture(
   std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
-    impl::render_context* context = impl::global_context;
+    auto* context = impl::global_context;
 
-    if(context->texture_2d_storage.contains(id))
+    if(!context->texture_2d_storage.contains(id)
+       || context->has_pending_deletion(impl::resource_type::texture, id))
     {
-        const auto active_unit = context->states.texture_2d_active_unit;
+        context->last_error = error::invalid_value;
+        return;
+    }
 
-        // see if this was the last texture used on the active unit, and if so reset to the default texture.
-        if(active_unit < context->states.texture_2d_units.size())
+    // see if this was the last texture used on the active unit, and if so reset to the default texture.
+    const auto active_unit = context->states.texture_2d_active_unit;
+    if(active_unit < context->states.texture_2d_units.size())
+    {
+        auto texture_2d = &context->states.texture_2d_units[active_unit];
+        auto sampler_2d = &context->states.texture_2d_samplers[active_unit];
+
+        if((*texture_2d)
+           && (*texture_2d)->id == context->texture_2d_storage[id]->id)
         {
-            auto texture_2d = &context->states.texture_2d_units[active_unit];
-            auto sampler_2d = &context->states.texture_2d_samplers[active_unit];
-
-            if((*texture_2d)
-               && (*texture_2d)->id == context->texture_2d_storage[id]->id)
+            // reset to the default texture.
+            *texture_2d = context->default_texture_2d;
+            if(*texture_2d)
             {
-                // reset to the default texture.
-                *texture_2d = context->default_texture_2d;
-                if(*texture_2d)
-                {
-                    *sampler_2d = static_cast<swr::sampler_2d*>((*texture_2d)->sampler.get());
-                }
+                *sampler_2d = static_cast<swr::sampler_2d*>((*texture_2d)->sampler.get());
             }
         }
-
-        // free texture memory.
-        context->texture_2d_storage[id].reset();
-        context->texture_2d_storage.erase(id);
     }
+
+    // Mark buffer for deletion.
+    // Duplications are resolved when processing deletions.
+    context->pending_resource_deletions.push_back(
+      {.type = impl::resource_type::texture,
+       .id = id});
 }
 
 void ActiveTexture(
@@ -784,15 +678,6 @@ void BindTexture(
   texture_target target,
   std::uint32_t id)
 {
-    ASSERT_INTERNAL_CONTEXT;
-    impl::render_context* context = impl::global_context;
-
-    if(target != texture_target::texture_2d)
-    {
-        context->last_error = error::unimplemented;
-        return;
-    }
-
     impl::bind_texture_pointer(target, id);
 }
 
@@ -802,7 +687,7 @@ void SetImage(
   std::size_t width,
   std::size_t height,
   pixel_format format,
-  const std::vector<std::uint8_t>& data)
+  std::span<const std::uint8_t> data)
 {
     // TODO Rebinding code likely needs a rewrite.
 
@@ -815,7 +700,8 @@ void SetImage(
         return;
     }
 
-    if(!context->texture_2d_storage.contains(texture_id))
+    if(!context->texture_2d_storage.contains(texture_id)
+       || context->has_pending_deletion(impl::resource_type::texture, texture_id))
     {
         context->last_error = error::invalid_value;
         return;
@@ -882,7 +768,7 @@ void SetSubImage(
   std::size_t width,
   std::size_t height,
   pixel_format format,
-  const std::vector<std::uint8_t>& data)
+  std::span<const std::uint8_t> data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -893,7 +779,8 @@ void SetSubImage(
         return;
     }
 
-    if(!context->texture_2d_storage.contains(texture_id))
+    if(!context->texture_2d_storage.contains(texture_id)
+       || context->has_pending_deletion(impl::resource_type::texture, texture_id))
     {
         context->last_error = error::invalid_value;
         return;

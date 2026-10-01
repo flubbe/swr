@@ -162,10 +162,30 @@ void render_context::create_draw_command(
 
     auto indices = index_buffer_pool.allocate_range(count);
     std::ranges::iota(indices, 0);
-    auto attribute_range = capture_attribute_buffers(
-      count,
-      [](std::uint32_t i) -> std::uint32_t
-      { return i; });
+
+    boost::container::static_vector<
+      std::pair<int, int>,
+      swr::limits::max::attributes>
+      active_vab_indices;
+    std::size_t attribute_slot_count = 0;
+    for(std::size_t slot = 0; slot < active_vabs.size(); ++slot)
+    {
+        auto buffer_id = active_vabs[slot];
+        if(buffer_id >= 0)
+        {
+            active_vab_indices.push_back(
+              std::make_pair(slot, buffer_id));
+
+            attribute_slot_count = std::max(attribute_slot_count, slot + 1);
+        }
+    }
+
+    const std::size_t active_vab_begin = active_vab_indices_pool.size();
+    auto active_vab_range = active_vab_indices_pool.allocate_range(
+      active_vab_indices.size());
+    std::ranges::copy(
+      active_vab_indices,
+      active_vab_range.begin());
 
     command_list.emplace_back(impl::draw_command{
       .mode = mode,
@@ -173,15 +193,16 @@ void render_context::create_draw_command(
       .indices = {
         .begin = index_begin,
         .count = count},
-      .attribute_indices = {.begin = index_begin, .count = count},
-      .attribute_index_range = attribute_range,
-      .attribute_count = active_vabs.size()});
+      .active_vab_indices = {.begin = active_vab_begin, .count = active_vab_indices.size()},
+      .attribute_slot_count = attribute_slot_count,
+      .remapped = false,
+      .attribute_indices = {.begin = index_begin, .count = count}});
 }
 
 void render_context::create_indexed_draw_command(
   vertex_buffer_mode mode,
   std::size_t count,
-  const std::vector<std::uint32_t>& index_buffer)
+  std::span<const std::uint32_t> index_buffer)
 {
     if(index_buffer.empty())
     {
@@ -204,24 +225,40 @@ void render_context::create_indexed_draw_command(
 
     auto attribute_indices = index_buffer_pool.allocate_range(
       compacted.source_indices.size());
-    std::copy(
-      compacted.source_indices.begin(),
-      compacted.source_indices.end(),
+    std::ranges::copy(
+      compacted.source_indices,
       attribute_indices.begin());
 
     const std::size_t index_begin = index_buffer_pool.size();
     auto indices = index_buffer_pool.allocate_range(
       compacted.remapped_indices.size());
-    std::copy(
-      compacted.remapped_indices.begin(),
-      compacted.remapped_indices.end(),
+    std::ranges::copy(
+      compacted.remapped_indices,
       indices.begin());
-    auto attribute_range = capture_attribute_buffers(
-      compacted.source_indices.size(),
-      [&compacted](std::uint32_t i) -> std::uint32_t
-      {
-          return compacted.source_indices[i];
-      });
+
+    boost::container::static_vector<
+      std::pair<int, int>,
+      swr::limits::max::attributes>
+      active_vab_indices;
+    std::size_t attribute_slot_count{0};
+    for(std::size_t slot = 0; slot < active_vabs.size(); ++slot)
+    {
+        auto buffer_id = active_vabs[slot];
+        if(buffer_id >= 0)
+        {
+            active_vab_indices.push_back(
+              std::make_pair(slot, buffer_id));
+
+            attribute_slot_count = std::max(attribute_slot_count, slot + 1);
+        }
+    }
+
+    const std::size_t active_vab_begin = active_vab_indices_pool.size();
+    auto active_vab_range = active_vab_indices_pool.allocate_range(
+      active_vab_indices.size());
+    std::ranges::copy(
+      active_vab_indices,
+      active_vab_range.begin());
 
     // Queue draw command.
     command_list.emplace_back(impl::draw_command{
@@ -230,9 +267,10 @@ void render_context::create_indexed_draw_command(
       .indices = {
         .begin = index_begin,
         .count = indices.size()},
-      .attribute_indices = {.begin = attribute_index_begin, .count = attribute_indices.size()},
-      .attribute_index_range = attribute_range,
-      .attribute_count = active_vabs.size()});
+      .active_vab_indices = {.begin = active_vab_begin, .count = active_vab_indices.size()},
+      .attribute_slot_count = attribute_slot_count,
+      .remapped = true,
+      .attribute_indices = {.begin = attribute_index_begin, .count = attribute_indices.size()}});
 }
 
 } /* namespace impl */
