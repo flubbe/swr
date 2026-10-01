@@ -545,7 +545,7 @@ void create_default_texture(
     };
 
     // the memory allocated here is freed in render_device_context::shutdown.
-    context->texture_2d_storage.push(std::make_unique<texture_color_2d>(default_tex_id));
+    context->texture_2d_storage.insert(std::make_unique<texture_color_2d>(default_tex_id));
     context->default_texture_2d = context->texture_2d_storage[default_tex_id].get();
     assert(context->default_texture_2d->id == default_tex_id);
 
@@ -578,7 +578,7 @@ std::uint32_t CreateTexture()
     impl::render_context* context = impl::global_context;
 
     // set up a new texture.
-    auto slot = context->texture_2d_storage.push(
+    auto slot = context->texture_2d_storage.insert(
       std::make_unique<impl::texture_color_2d>());
 
     impl::texture_2d* new_texture = context->texture_2d_storage[slot].get();

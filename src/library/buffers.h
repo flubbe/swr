@@ -43,8 +43,8 @@ struct vertex_attribute_buffer
 
     /** constructor. */
     explicit vertex_attribute_buffer(
-      const std::vector<ml::vec4>& in_data)
-    : data(in_data)
+      std::span<const ml::vec4>& in_data)
+    : data{in_data.begin(), in_data.end()}
     {
     }
 };

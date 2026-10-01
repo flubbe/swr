@@ -105,7 +105,7 @@ void create_default_shader(render_context* context)
     }
 
     // Register shader.
-    auto index = context->programs.push(std::move(pi));
+    auto index = context->programs.insert(std::move(pi));
     if(index != default_shader_index)
     {
         throw std::runtime_error("unable to create default shader: wrong shader location.");
@@ -148,7 +148,7 @@ std::uint32_t RegisterShader(const program_base* in_shader)
     pi.flags |= swr::impl::program_flags::prelinked;
 
     // Register shader.
-    return impl::global_context->programs.push(std::move(pi));
+    return impl::global_context->programs.insert(std::move(pi));
 }
 
 void UnregisterShader(std::uint32_t id)

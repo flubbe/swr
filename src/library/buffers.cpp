@@ -43,7 +43,7 @@ std::uint32_t CreateIndexBuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    auto id = context->index_buffers.push({});
+    auto id = context->index_buffers.insert();
 
     // Defer initialization.
     const std::uint32_t range_start = context->index_buffer_pool.size();
@@ -66,7 +66,7 @@ std::uint32_t CreateAttributeBuffer(
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
-    auto id = context->vertex_attribute_buffers.push({});
+    auto id = context->vertex_attribute_buffers.insert();
 
     // Defer initialization.
     const std::uint32_t range_start = context->vec4_data.size();
