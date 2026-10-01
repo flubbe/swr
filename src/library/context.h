@@ -13,6 +13,7 @@
 #include <bit>
 #include <functional>
 #include <memory>
+#include <span>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -733,7 +734,7 @@ struct render_context
     void create_indexed_draw_command(
       vertex_buffer_mode mode,
       std::size_t count,
-      const std::vector<std::uint32_t>& index_buffer);
+      std::span<const std::uint32_t> index_buffer);
 
     /**
      * Insert an update command for a buffer.

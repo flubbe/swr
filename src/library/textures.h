@@ -11,6 +11,7 @@
 #pragma once
 
 #include <limits>
+#include <span>
 
 /* morton codes */
 #ifdef SWR_USE_MORTON_CODES
@@ -405,7 +406,7 @@ struct texture_2d
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) = 0;
+      std::span<const std::uint8_t> data) = 0;
 
     /**
      * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up.
@@ -418,7 +419,7 @@ struct texture_2d
       std::uint32_t in_width,
       std::uint32_t in_height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) = 0;
+      std::span<const std::uint8_t> data) = 0;
 
     /** clear all texture data. */
     virtual void clear();
@@ -504,7 +505,7 @@ struct texture_color_2d final : public texture_2d
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
+      std::span<const std::uint8_t> data) override;
     swr::error set_sub_data(
       std::uint32_t level,
       std::uint32_t in_x,
@@ -512,7 +513,7 @@ struct texture_color_2d final : public texture_2d
       std::uint32_t in_width,
       std::uint32_t in_height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
+      std::span<const std::uint8_t> data) override;
     void clear() override;
 
     texture_color_2d* as_texture_color_2d() override
@@ -567,7 +568,7 @@ struct texture_depth_2d final : public texture_2d
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
+      std::span<const std::uint8_t> data) override;
     swr::error set_sub_data(
       std::uint32_t level,
       std::uint32_t in_x,
@@ -575,7 +576,7 @@ struct texture_depth_2d final : public texture_2d
       std::uint32_t in_width,
       std::uint32_t in_height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
+      std::span<const std::uint8_t> data) override;
     void clear() override;
 
     texture_depth_2d* as_texture_depth_2d() override

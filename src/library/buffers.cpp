@@ -38,7 +38,7 @@ void render_context::create_update_buffer_command(
  */
 
 std::uint32_t CreateIndexBuffer(
-  const std::vector<std::uint32_t>& data)
+  std::span<const std::uint32_t> data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -61,7 +61,7 @@ std::uint32_t CreateIndexBuffer(
 }
 
 std::uint32_t CreateAttributeBuffer(
-  const std::vector<ml::vec4>& data)
+  std::span<const ml::vec4> data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -85,7 +85,7 @@ std::uint32_t CreateAttributeBuffer(
 
 void UpdateIndexBuffer(
   std::uint32_t id,
-  const std::vector<std::uint32_t>& data)
+  std::span<const std::uint32_t> data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -109,7 +109,9 @@ void UpdateIndexBuffer(
       {range_start, range_size});
 }
 
-void UpdateAttributeBuffer(std::uint32_t id, const std::vector<ml::vec4>& data)
+void UpdateAttributeBuffer(
+  std::uint32_t id,
+  std::span<const ml::vec4> data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -152,7 +154,8 @@ void DeleteIndexBuffer(
        .id = id});
 }
 
-void DeleteAttributeBuffer(std::uint32_t id)
+void DeleteAttributeBuffer(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     auto* context = impl::global_context;
@@ -170,7 +173,9 @@ void DeleteAttributeBuffer(std::uint32_t id)
        .id = id});
 }
 
-void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
+void EnableAttributeBuffer(
+  std::uint32_t id,
+  std::uint32_t slot)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
@@ -194,7 +199,8 @@ void EnableAttributeBuffer(std::uint32_t id, std::uint32_t slot)
     context->vertex_attribute_buffers[id].slot = slot;
 }
 
-void DisableAttributeBuffer(std::uint32_t id)
+void DisableAttributeBuffer(
+  std::uint32_t id)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;

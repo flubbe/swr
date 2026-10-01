@@ -51,6 +51,34 @@ struct swr_attribute_buffer
         return true;
     }
 
+    /** update existing buffer. */
+    bool update(
+      std::span<const ml::vec4> data,
+      bool keep = false)
+    {
+        if(id == -1)
+        {
+            // no buffer, nothing to update.
+            return false;
+        }
+
+        if(keep)
+        {
+            attribs.assign(data.begin(), data.end());
+        }
+        else
+        {
+            attribs.clear();
+            attribs.shrink_to_fit();
+        }
+
+        swr::UpdateAttributeBuffer(
+          id,
+          data);
+
+        return true;
+    }
+
     /** unload buffer. */
     void unload()
     {

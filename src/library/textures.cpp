@@ -168,7 +168,7 @@ error texture_color_2d::set_data(
   std::uint32_t in_width,
   std::uint32_t in_height,
   pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
+  std::span<const std::uint8_t> in_data)
 {
     constexpr auto component_size = sizeof(std::uint32_t);
 
@@ -230,7 +230,7 @@ error texture_color_2d::set_sub_data(
   std::uint32_t in_width,
   std::uint32_t in_height,
   pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
+  std::span<const std::uint8_t> in_data)
 {
     ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(std::uint32_t);
@@ -381,7 +381,7 @@ error texture_depth_2d::set_data(
   std::uint32_t in_width,
   std::uint32_t in_height,
   pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
+  std::span<const std::uint8_t> in_data)
 {
     constexpr auto component_size = sizeof(float);
 
@@ -441,7 +441,7 @@ error texture_depth_2d::set_sub_data(
   std::uint32_t in_width,
   std::uint32_t in_height,
   pixel_format in_format,
-  const std::vector<std::uint8_t>& in_data)
+  std::span<const std::uint8_t> in_data)
 {
     ASSERT_INTERNAL_CONTEXT;
     constexpr auto component_size = sizeof(float);
@@ -805,7 +805,7 @@ void SetImage(
   std::size_t width,
   std::size_t height,
   pixel_format format,
-  const std::vector<std::uint8_t>& data)
+  std::span<const std::uint8_t> data)
 {
     // TODO Rebinding code likely needs a rewrite.
 
@@ -886,7 +886,7 @@ void SetSubImage(
   std::size_t width,
   std::size_t height,
   pixel_format format,
-  const std::vector<std::uint8_t>& data)
+  std::span<const std::uint8_t> data)
 {
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;

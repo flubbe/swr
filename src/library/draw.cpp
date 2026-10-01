@@ -33,7 +33,7 @@ void DrawElements(
 void DrawIndexedElements(
   vertex_buffer_mode mode,
   std::size_t count,
-  const std::vector<std::uint32_t>& index_buffer)
+  std::span<const std::uint32_t> index_buffer)
 {
     ASSERT_INTERNAL_CONTEXT;
 

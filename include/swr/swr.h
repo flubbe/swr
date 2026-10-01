@@ -15,7 +15,7 @@
  */
 
 /* C++ headers. */
-#include <vector>
+#include <span>
 
 /* SDL */
 #include <SDL3/SDL.h>
@@ -56,23 +56,23 @@ enum class wrap_mode
  */
 
 /**
- * Create an index buffer from a std::vector of indices.
+ * Create an index buffer from indices.
  *
  * @param data Contains all indices that should make up the index buffer.
  * @return Returns the unique ID of the newly created index buffer.
  */
 std::uint32_t CreateIndexBuffer(
-  const std::vector<std::uint32_t>& data);
+  std::span<const std::uint32_t> data);
 
 /**
- * Update an index buffer from a std::vector of indices.
+ * Update an index buffer.
  *
  * @param id The buffer id.
  * @param data Contains all indices that should make up the index buffer.
  */
 void UpdateIndexBuffer(
   std::uint32_t id,
-  const std::vector<std::uint32_t>& data);
+  std::span<const std::uint32_t> data);
 
 /**
  * Free the memory of a vertex buffer. If the supplied id does
@@ -117,17 +117,17 @@ void DrawElements(
 void DrawIndexedElements(
   vertex_buffer_mode mode,
   std::size_t count,
-  const std::vector<std::uint32_t>& index_buffer);
+  std::span<const std::uint32_t> index_buffer);
 
 /*
  * Vertex attribute buffers.
  */
 
 /**
- * Create an attribute buffer from std::vector of ml::vec4's.
+ * Create an attribute buffer.
  */
 std::uint32_t CreateAttributeBuffer(
-  const std::vector<ml::vec4>& data);
+  std::span<const ml::vec4> data);
 
 /**
  * Update an attribute buffer.
@@ -137,7 +137,7 @@ std::uint32_t CreateAttributeBuffer(
  */
 void UpdateAttributeBuffer(
   std::uint32_t id,
-  const std::vector<ml::vec4>& data);
+  std::span<const ml::vec4> data);
 
 /**
  * Delete an attribute buffer.
@@ -452,7 +452,7 @@ void SetImage(
   std::size_t width,
   std::size_t height,
   pixel_format format,
-  const std::vector<std::uint8_t>& data);
+  std::span<const std::uint8_t> data);
 
 /**
  * Update part of a texture.
@@ -474,7 +474,7 @@ void SetSubImage(
   std::size_t width,
   std::size_t height,
   pixel_format format,
-  const std::vector<std::uint8_t>& data);
+  std::span<const std::uint8_t> data);
 
 /**
  * Specify the texture wrapping mode with respect to a direction.
