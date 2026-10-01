@@ -401,12 +401,34 @@ struct texture_2d
      * Set the texture data using the specified pixel format. the base texture level needs to be set up first through this call, since
      * it allocates the storage. the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    virtual swr::error set_data(
+    swr::error set_data(
       std::uint32_t level,
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format,
-      std::span<const std::uint8_t> data) = 0;
+      std::span<const std::uint8_t> data)
+    {
+        // Allocate storage and delegate to set_sub_data.
+        // If there is no data passed in, we only allocate.
+
+        auto ret = allocate(level, width, height, format);
+        if(ret != error::none)
+        {
+            return ret;
+        }
+
+        if(width == 0 || height == 0 || data.empty())
+        {
+            return error::none;
+        }
+
+        return set_sub_data(
+          level,
+          0, 0,
+          width, height,
+          format,
+          data);
+    }
 
     /**
      * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up.
@@ -500,12 +522,6 @@ struct texture_color_2d final : public texture_2d
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format) override;
-    swr::error set_data(
-      std::uint32_t level,
-      std::uint32_t width,
-      std::uint32_t height,
-      pixel_format format,
-      std::span<const std::uint8_t> data) override;
     swr::error set_sub_data(
       std::uint32_t level,
       std::uint32_t in_x,
@@ -563,12 +579,6 @@ struct texture_depth_2d final : public texture_2d
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format) override;
-    swr::error set_data(
-      std::uint32_t level,
-      std::uint32_t width,
-      std::uint32_t height,
-      pixel_format format,
-      std::span<const std::uint8_t> data) override;
     swr::error set_sub_data(
       std::uint32_t level,
       std::uint32_t in_x,

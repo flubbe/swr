@@ -163,66 +163,6 @@ error texture_color_2d::allocate(
     return error::none;
 }
 
-error texture_color_2d::set_data(
-  std::uint32_t level,
-  std::uint32_t in_width,
-  std::uint32_t in_height,
-  pixel_format in_format,
-  std::span<const std::uint8_t> in_data)
-{
-    constexpr auto component_size = sizeof(std::uint32_t);
-
-    auto ret = allocate(level, in_width, in_height, in_format);
-    if(ret != error::none)
-    {
-        return ret;
-    }
-
-    if(in_width == 0 || in_height == 0)
-    {
-        return error::none;
-    }
-
-    if(in_data.empty())
-    {
-        return error::none;
-    }
-
-    assert(in_width * in_height * component_size <= in_data.size());
-
-    if(static_cast<std::size_t>(level) >= mip_level_count())
-    {
-        return error::invalid_value;
-    }
-
-    auto data_ptr = data.data_ptrs[level];
-#ifndef SWR_USE_MORTON_CODES
-    const auto pitch = data.pitches[level];
-#endif
-
-    pixel_format_converter pfc{
-      pixel_format_descriptor::named_format(in_format)};
-    for(std::uint32_t y = 0; y < in_height; ++y)
-    {
-        for(std::uint32_t x = 0; x < in_width; ++x)
-        {
-            const std::uint8_t* buf_ptr = &in_data[(y * in_width + x) * component_size];
-            std::uint32_t color =
-              (*buf_ptr) << 24
-              | (*(buf_ptr + 1)) << 16
-              | (*(buf_ptr + 2)) << 8
-              | (*(buf_ptr + 3));
-#ifdef SWR_USE_MORTON_CODES
-            data_ptr[libmorton::morton2D_32_encode(x, y)] = pfc.to_color(color);
-#else
-            data_ptr[y * pitch + x] = pfc.to_color(color);
-#endif
-        }
-    }
-
-    return error::none;
-}
-
 error texture_color_2d::set_sub_data(
   std::uint32_t level,
   std::uint32_t in_x,
@@ -244,7 +184,7 @@ error texture_color_2d::set_sub_data(
     {
         return error::invalid_value;
     }
-    assert(in_width * in_height * component_size == in_data.size());
+    assert(in_width * in_height * component_size <= in_data.size());
 
     if(level >= mip_level_count())
     {
@@ -370,64 +310,6 @@ error texture_depth_2d::allocate(
            || in_height != height >> u_level)
         {
             return error::invalid_value;
-        }
-    }
-
-    return error::none;
-}
-
-error texture_depth_2d::set_data(
-  std::uint32_t level,
-  std::uint32_t in_width,
-  std::uint32_t in_height,
-  pixel_format in_format,
-  std::span<const std::uint8_t> in_data)
-{
-    constexpr auto component_size = sizeof(float);
-
-    auto ret = allocate(level, in_width, in_height, in_format);
-    if(ret != error::none)
-    {
-        return ret;
-    }
-
-    if(in_width == 0 || in_height == 0)
-    {
-        return error::none;
-    }
-
-    if(in_data.empty())
-    {
-        return error::none;
-    }
-
-    assert(in_width * in_height * component_size <= in_data.size());
-
-    if(static_cast<std::size_t>(level) >= mip_level_count())
-    {
-        return error::invalid_value;
-    }
-
-#ifndef SWR_USE_MORTON_CODES
-    const auto pitch = data.pitches[level];
-#endif
-    auto data_ptr = data.data_ptrs[level];
-    for(std::uint32_t y = 0; y < in_height; ++y)
-    {
-        for(std::uint32_t x = 0; x < in_width; ++x)
-        {
-            float depth = 0.0f;
-            std::memcpy(
-              &depth,
-              &in_data[(y * in_width + x) * component_size],
-              sizeof(depth));
-            const ml::fixed_32_t depth_value{
-              std::clamp(depth, 0.0f, 1.0f)};
-#ifdef SWR_USE_MORTON_CODES
-            data_ptr[libmorton::morton2D_32_encode(x, y)] = depth_value;
-#else
-            data_ptr[y * pitch + x] = depth_value;
-#endif
         }
     }
 
