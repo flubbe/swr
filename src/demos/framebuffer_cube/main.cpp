@@ -191,8 +191,8 @@ public:
           ml::vec4{0.0f, 1.0f, 0.0f, 0.0f},
         };
 
-        quad_verts = swr::CreateAttributeBuffer(std::span{vertex_data});
-        quad_uvs = swr::CreateAttributeBuffer(std::span{uv_data});
+        quad_verts = swr::CreateAttributeBuffer(vertex_data);
+        quad_uvs = swr::CreateAttributeBuffer(uv_data);
         quad_indices = {0, 1, 2, 0, 2, 3};
 
         std::vector<std::uint8_t> image_data(framebuffer_width * framebuffer_height * sizeof(std::uint32_t));

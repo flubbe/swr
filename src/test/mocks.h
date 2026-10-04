@@ -22,9 +22,9 @@ struct mock_draw_target final
         assert(
           width < std::numeric_limits<int>::max()
           && height < std::numeric_limits<int>::max());
-        properties.reset(
-          static_cast<int>(width),
-          static_cast<int>(height));
+        dimensions = {
+          width,
+          height};
     }
 
     void clear_color(

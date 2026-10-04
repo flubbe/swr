@@ -156,6 +156,9 @@ BOOST_AUTO_TEST_CASE(mipmapped_texture_storage_is_tightly_packed)
     swr::SetImage(texture_id, 3, 1, 1, swr::pixel_format::rgba8888, {});
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
+    swr::Present();
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+
     auto* texture = get_texture_ptr(context, texture_id);
     auto* color_texture = texture->as_texture_color_2d();
     BOOST_REQUIRE_NE(color_texture, nullptr);
@@ -179,7 +182,7 @@ BOOST_AUTO_TEST_CASE(mipmapped_texture_storage_is_tightly_packed)
     binding.attach(texture, 2);
     BOOST_CHECK_EQUAL(binding.info.width, 2);
     BOOST_CHECK_EQUAL(binding.info.height, 2);
-    BOOST_CHECK_EQUAL(binding.info.pitch, 2);
+    BOOST_CHECK_EQUAL(binding.info.stride, 2);
     BOOST_CHECK_EQUAL(binding.info.data_ptr, color_texture->data.data_ptrs[2]);
 }
 
@@ -193,6 +196,8 @@ BOOST_AUTO_TEST_CASE(texture_v_coordinate_follows_opengl_bottom_to_top_conventio
       0xff, 0x00, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
       0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     swr::SetImage(texture_id, 0, 2, 2, swr::pixel_format::rgba8888, image_data);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* texture = get_texture_ptr(context, texture_id);
@@ -230,6 +235,8 @@ BOOST_AUTO_TEST_CASE(depth_texture_supports_compare_sampling)
     const auto image_data = make_depth_data({0.75f, 0.50f,
                                              0.25f, 1.00f});
     swr::SetImage(texture_id, 0, 2, 2, swr::pixel_format::depth32f, image_data);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     auto* texture = get_texture_ptr(context, texture_id);
@@ -286,6 +293,37 @@ BOOST_AUTO_TEST_CASE(depth_texture_supports_compare_sampling)
     BOOST_CHECK_EQUAL(texture->sampler->sample_compare_at(compare_fail), 0.0f);
 }
 
+BOOST_AUTO_TEST_CASE(depth_compare_state_can_be_set_before_deferred_image_execution)
+{
+    const auto texture_id = swr::CreateTexture();
+    BOOST_REQUIRE_NE(texture_id, 0);
+
+    swr::SetImage(texture_id, 0, 2, 2, swr::pixel_format::depth32f, {});
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+
+    swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::SetTextureCompareFunc(texture_id, swr::comparison_func::greater);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+
+    BOOST_CHECK_EQUAL(
+      swr::GetTextureCompareMode(texture_id),
+      swr::texture_compare_mode::ref_to_texture);
+    BOOST_CHECK_EQUAL(
+      swr::GetTextureCompareFunc(texture_id),
+      swr::comparison_func::greater);
+    BOOST_CHECK_EQUAL(swr::GetLastError(), swr::error::none);
+
+    swr::Present();
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+
+    auto* texture = get_texture_ptr(context, texture_id);
+    BOOST_REQUIRE_NE(texture, nullptr);
+    BOOST_REQUIRE_NE(texture->as_texture_depth_2d(), nullptr);
+    BOOST_CHECK_EQUAL(texture->get_compare_mode(), swr::texture_compare_mode::ref_to_texture);
+    BOOST_CHECK_EQUAL(texture->get_compare_func(), swr::comparison_func::greater);
+}
+
 BOOST_AUTO_TEST_CASE(format_switch_preserves_sampler_identity_and_updates_sampling_behavior)
 {
     const auto texture_id = swr::CreateTexture();
@@ -314,6 +352,8 @@ BOOST_AUTO_TEST_CASE(format_switch_preserves_sampler_identity_and_updates_sampli
       swr::pixel_format::depth32f,
       make_depth_data({0.75f, 0.50f,
                        0.25f, 1.00f}));
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     texture = get_texture_ptr(context, texture_id);
@@ -349,6 +389,8 @@ BOOST_AUTO_TEST_CASE(depth_texture_linear_compare_sampling_filters_comparison_re
                                              0.80f, 0.90f});
     swr::SetImage(texture_id, 0, 2, 2, swr::pixel_format::depth32f, image_data);
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
@@ -379,6 +421,8 @@ BOOST_AUTO_TEST_CASE(depth_texture_nearest_compare_sampling_stays_binary_per_tap
                                              0.10f, 0.10f, 0.90f, 0.90f,
                                              0.10f, 0.10f, 0.90f, 0.90f});
     swr::SetImage(texture_id, 0, 4, 4, swr::pixel_format::depth32f, image_data);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);
@@ -434,6 +478,8 @@ BOOST_AUTO_TEST_CASE(depth_compare_mipmap_selection_ignores_reference_gradients)
       swr::pixel_format::depth32f,
       make_depth_data(std::vector<float>(4, 0.10f)));
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
@@ -475,6 +521,8 @@ BOOST_AUTO_TEST_CASE(shadow_texture_helper_can_preserve_uv_gradients_with_separa
       2,
       swr::pixel_format::depth32f,
       make_depth_data(std::vector<float>(4, 0.10f)));
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);
@@ -520,6 +568,8 @@ BOOST_AUTO_TEST_CASE(projected_shadow_texture_helper_preserves_projected_gradien
       2,
       swr::pixel_format::depth32f,
       make_depth_data(std::vector<float>(4, 0.10f)));
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    swr::Present();
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
 
     swr::SetTextureCompareMode(texture_id, swr::texture_compare_mode::ref_to_texture);

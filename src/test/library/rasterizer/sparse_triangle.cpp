@@ -96,12 +96,12 @@ std::vector<checked_quad_sample> collect_checked_quads(
     std::vector<checked_quad_sample> out;
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
-      draw_target.properties,
+      draw_target.dimensions,
       states,
       info);
 
     rast::for_each_covered_triangle_block(
-      draw_target.properties,
+      draw_target.dimensions,
       states,
       info,
       provoking_vertex_varyings,
@@ -157,7 +157,7 @@ std::vector<checked_quad_sample> collect_thin_trace_quads(
     std::vector<checked_quad_sample> out;
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
-      draw_target.properties,
+      draw_target.dimensions,
       states,
       info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
@@ -338,7 +338,7 @@ void check_thin_trace_preserves_coverage(
         BOOST_REQUIRE(!info.is_degenerate);
 
         const rast::bounding_box bounds = rast::compute_triangle_bounds(
-          ctx.draw_target.properties,
+          ctx.draw_target.dimensions,
           ctx.states,
           info);
         const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
@@ -393,7 +393,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_are_quad_aligned_and_block_clamped)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
 
@@ -402,7 +402,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_are_quad_aligned_and_block_clamped)
 
     bool saw_checked_block = false;
     rast::for_each_covered_triangle_block(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info,
       v0.varyings,
@@ -459,7 +459,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_respect_scissor)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     const rast::quad_bounds quad_bounds = rast::compute_checked_quad_bounds(
@@ -574,7 +574,7 @@ BOOST_AUTO_TEST_CASE(thin_trace_provides_precomputed_sparse_payloads)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
@@ -711,7 +711,7 @@ BOOST_AUTO_TEST_CASE(sparse_triangle_payload_interpolation_matches_regular_inter
     BOOST_REQUIRE(!info.is_degenerate);
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     const auto mode = rast::classify_triangle_rasterization(bounds, info).mode;
@@ -763,7 +763,7 @@ BOOST_AUTO_TEST_CASE(coarse_block_rejects_edge_empty_regions)
     bool saw_edge_empty_region = false;
 
     rast::for_each_covered_triangle_block(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info,
       v0.varyings,

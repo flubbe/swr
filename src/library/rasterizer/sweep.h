@@ -122,9 +122,9 @@ class sweep_rasterizer : public rasterizer
       const swr::impl::framebuffer_draw_target& draw_target)
     {
         const unsigned int tiles_x =
-          tile_count_for_extent(draw_target.properties.width);
+          tile_count_for_extent(draw_target.dimensions.width);
         const unsigned int tiles_y =
-          tile_count_for_extent(draw_target.properties.height);
+          tile_count_for_extent(draw_target.dimensions.height);
         const std::size_t expected_tile_count =
           static_cast<std::size_t>(tiles_x) * static_cast<std::size_t>(tiles_y);
 

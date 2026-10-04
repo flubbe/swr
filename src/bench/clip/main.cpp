@@ -317,8 +317,8 @@ bool load_obj_drawables(
         }
 
         drawable_object obj;
-        obj.vertex_buffer_id = swr::CreateAttributeBuffer(std::span{pos_buffer});
-        obj.color_buffer_id = swr::CreateAttributeBuffer(std::span{color_buffer});
+        obj.vertex_buffer_id = swr::CreateAttributeBuffer(pos_buffer);
+        obj.color_buffer_id = swr::CreateAttributeBuffer(color_buffer);
         obj.triangle_count = pos_buffer.size() / 3;
         out_objects.emplace_back(obj);
     }

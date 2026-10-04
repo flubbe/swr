@@ -94,7 +94,7 @@ public:
         swr::DrawIndexedElements(
           swr::vertex_buffer_mode::triangles,
           index_buffer.size(),
-          std::span{index_buffer});
+          index_buffer);
         swr::DisableAttributeBuffer(normal_buffer_id);
         swr::DisableAttributeBuffer(vertex_buffer_id);
     }
@@ -339,8 +339,8 @@ struct gear_object
 
         outside = {
           std::move(ib),
-          swr::CreateAttributeBuffer(std::span{vb}),
-          swr::CreateAttributeBuffer(std::span{nb})};
+          swr::CreateAttributeBuffer(vb),
+          swr::CreateAttributeBuffer(nb)};
         vb.clear();
         nb.clear();
         ib.clear();

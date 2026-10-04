@@ -63,8 +63,8 @@ void sweep_rasterizer::draw_line(
     auto emit_fragment = [&](int x, int y, line_emit_kind kind)
     {
         if(x >= 0 && y >= 0
-           && x < draw_target.properties.width
-           && y < draw_target.properties.height)
+           && x < draw_target.dimensions.width
+           && y < draw_target.dimensions.height)
         {
             attr.get_varyings(temp_varyings);
 

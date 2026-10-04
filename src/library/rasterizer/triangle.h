@@ -15,11 +15,11 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-#include "../swr_internal.h"
-
 #include <array>
 #include <concepts>
 #include <span>
+
+#include "../swr_internal.h"
 
 namespace rast
 {
@@ -274,7 +274,7 @@ inline int upper_align_on_quad_size(int v)
  *         are expanded outward to rasterizer-block alignment. Bounds may be empty if clipped away.
  */
 bounding_box compute_triangle_bounds(
-  const swr::impl::framebuffer_properties& draw_target_properties,
+  const swr::impl::framebuffer_dimensions& draw_target_properties,
   const swr::impl::render_states& states,
   const triangle_info& info)
 {
@@ -287,10 +287,14 @@ bounding_box compute_triangle_bounds(
     if(states.scissor_test_enabled)
     {
         x_min = std::max(states.scissor_box.x_min, 0);
-        x_max = std::min(states.scissor_box.x_max, draw_target_properties.width);
+        x_max = utils::clamp_to_size(
+          states.scissor_box.x_max,
+          draw_target_properties.width);
 
         y_min = std::max(states.scissor_box.y_min, 0);
-        y_max = std::min(states.scissor_box.y_max, draw_target_properties.height);
+        y_max = utils::clamp_to_size(
+          states.scissor_box.y_max,
+          draw_target_properties.height);
 
         // Convert scissor box to flipped framebuffer y-axis (OpenGL convention)
         const int y_temp = y_min;
@@ -1709,7 +1713,7 @@ inline void for_each_thin_triangle_block_with_bounds(
  */
 template<typename F>
 inline void for_each_covered_triangle_block(
-  const swr::impl::framebuffer_properties& draw_target_properties,
+  const swr::impl::framebuffer_dimensions& draw_target_properties,
   const swr::impl::render_states& states,
   const triangle_info& info,
   std::span<const ml::vec4> provoking_vertex_varyings,

@@ -767,4 +767,31 @@ constexpr T round_to_next_power_of_two(T n)
     return std::bit_ceil(n);
 }
 
+/*
+ * numerics.
+ */
+
+/**
+ * Clamps a value into the range `[0, limit]` as a `std::size_t`.
+ *
+ * @param value The value to clamp.
+ * @param limit Upper limit (inclusive).
+ * @returns The clamped value converted to `std::size_t`.
+ */
+template<std::integral T>
+    requires(
+      static_cast<std::uintmax_t>(std::numeric_limits<T>::max()) <= static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()))
+constexpr std::size_t clamp_to_size(T value, std::size_t limit)
+{
+    if constexpr(std::is_signed_v<T>)
+    {
+        if(value <= 0)
+        {
+            return 0;
+        }
+    }
+
+    return std::min(static_cast<std::size_t>(value), limit);
+}
+
 } /* namespace utils */

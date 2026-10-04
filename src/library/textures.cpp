@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  *
- * texture management.
+ * Texture management.
  *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2026
@@ -17,7 +17,82 @@ namespace swr
 namespace impl
 {
 
-static std::unique_ptr<texture_2d> make_texture_for_format(
+/**
+ * Check if there is a pending texture update command for the
+ * texture's base image (mipmap level 0).
+ *
+ * @param context The render context.
+ * @param texture_id Texture id to check for an update command.
+ */
+static bool has_pending_base_image_update(
+  const render_context* context,
+  std::uint32_t texture_id)
+{
+    for(const auto& command: context->command_list.span())
+    {
+        const auto* update = std::get_if<update_texture_command>(&command);
+        if(update != nullptr
+           && update->texture_id == texture_id
+           && update->kind == texture_update_kind::create
+           && update->level == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool texture_will_be_depth(
+  const render_context* context,
+  std::uint32_t texture_id)
+{
+    bool is_depth_texture =
+      context->texture_2d_storage.contains(texture_id)
+      && context->texture_2d_storage[texture_id]
+      && context->texture_2d_storage[texture_id]->as_texture_depth_2d() != nullptr;
+
+    for(const auto& command: context->command_list.span())
+    {
+        const auto* update = std::get_if<update_texture_command>(&command);
+        if(update != nullptr
+           && update->texture_id == texture_id
+           && update->kind == texture_update_kind::create
+           && update->level == 0)
+        {
+            is_depth_texture = update->format == pixel_format::depth32f;
+        }
+    }
+    return is_depth_texture;
+}
+
+/*
+ * render_context.
+ */
+
+void render_context::create_texture_update_command(
+  texture_update_kind kind,
+  std::uint32_t texture_id,
+  std::uint32_t level,
+  std::size_t offset_x,
+  std::size_t offset_y,
+  std::size_t width,
+  std::size_t height,
+  pixel_format format,
+  std::span<const std::uint8_t> data)
+{
+    command_list.emplace_back(update_texture_command{
+      .kind = kind,
+      .texture_id = texture_id,
+      .level = level,
+      .offset_x = offset_x,
+      .offset_y = offset_y,
+      .width = width,
+      .height = height,
+      .format = format,
+      .data = {data.begin(), data.end()}});    // copy data into command
+}
+
+std::unique_ptr<texture_2d> make_texture_for_format(
   std::uint32_t id,
   pixel_format format)
 {
@@ -29,12 +104,148 @@ static std::unique_ptr<texture_2d> make_texture_for_format(
     return std::make_unique<texture_color_2d>(id);
 }
 
-/** convenience macro to record failing function calls. */
-#define CHECK_AND_SET_LAST_ERROR(expr)      \
-    if(auto ret = expr; ret != error::none) \
-    {                                       \
-        context->last_error = ret;          \
+/*
+ * Command execution.
+ */
+
+void render_context::execute_command(
+  const impl::update_texture_command& cmd)
+{
+    switch(cmd.kind)
+    {
+    case impl::texture_update_kind::create:
+    {
+        if(cmd.level == 0)
+        {
+            auto* existing = texture_2d_storage[cmd.texture_id].get();
+            const bool is_depth_tex = existing->as_texture_depth_2d() != nullptr;
+            const bool wants_depth_tex = cmd.format == pixel_format::depth32f;
+            if(is_depth_tex != wants_depth_tex)
+            {
+                auto replacement = impl::make_texture_for_format(cmd.texture_id, cmd.format);
+
+                replacement->set_filter_mag(existing->sampler->get_filter_mag());
+                replacement->set_filter_min(existing->sampler->get_filter_min());
+
+                auto ret = replacement->set_wrap_s(existing->sampler->get_wrap_s());
+                if(ret != error::none)
+                {
+                    last_error = ret;
+                    return;
+                }
+
+                ret = replacement->set_wrap_t(existing->sampler->get_wrap_t());
+                if(ret != error::none)
+                {
+                    last_error = ret;
+                    return;
+                }
+
+                replacement->sampler = std::move(existing->sampler);
+                replacement->sampler->set_associated_texture(replacement.get());
+                texture_2d_storage[cmd.texture_id] = std::move(replacement);
+
+                auto* rebound = texture_2d_storage[cmd.texture_id].get();
+                for(std::size_t i = 0; i < states.texture_2d_units.size(); ++i)
+                {
+                    auto* bound_tex = states.texture_2d_units[i];
+                    if(bound_tex != nullptr
+                       && bound_tex->id == cmd.texture_id)
+                    {
+                        states.texture_2d_units[i] = rebound;
+                    }
+                }
+            }
+        }
+
+        impl::texture_2d* texture_2d = texture_2d_storage[cmd.texture_id].get();
+        auto ret = texture_2d->set_data(
+          cmd.level,
+          cmd.width,
+          cmd.height,
+          cmd.format,
+          cmd.data);
+        if(ret != error::none)
+        {
+            last_error = ret;
+            return;
+        }
+
+        auto* updated_texture = texture_2d_storage[cmd.texture_id].get();
+        for(std::size_t slot = 0; slot < framebuffer_objects.slot_count(); ++slot)
+        {
+            if(!framebuffer_objects.contains(slot))
+            {
+                continue;
+            }
+
+            auto& fbo = framebuffer_objects[slot];
+            if(cmd.level == 0)
+            {
+                fbo.update_logical_texture_dimensions(
+                  cmd.texture_id,
+                  cmd.width,
+                  cmd.height);
+            }
+            fbo.refresh_texture_attachments(
+              cmd.texture_id,
+              updated_texture);
+        }
+
+        return;
     }
+    case impl::texture_update_kind::update:
+    {
+        impl::texture_2d* texture_2d = texture_2d_storage[cmd.texture_id].get();
+        auto ret = texture_2d->set_sub_data(
+          cmd.level,
+          cmd.offset_x,
+          cmd.offset_y,
+          cmd.width,
+          cmd.height,
+          cmd.format,
+          cmd.data);
+        if(ret != error::none)
+        {
+            last_error = ret;
+            return;
+        }
+
+        auto* updated_texture = texture_2d_storage[cmd.texture_id].get();
+        for(std::size_t slot = 0; slot < framebuffer_objects.slot_count(); ++slot)
+        {
+            if(framebuffer_objects.contains(slot))
+            {
+                framebuffer_objects[slot].refresh_texture_attachments(
+                  cmd.texture_id,
+                  updated_texture);
+            }
+        }
+
+        return;
+    }
+    }
+
+    last_error = error::invalid_value;
+}
+
+void render_context::execute_command(
+  const texture_compare_command& cmd)
+{
+    if(!texture_2d_storage.contains(cmd.texture_id)
+       || !texture_2d_storage[cmd.texture_id]
+       || texture_2d_storage[cmd.texture_id]->as_texture_depth_2d() == nullptr)
+    {
+        last_error = error::invalid_operation;
+        return;
+    }
+
+    auto* texture = texture_2d_storage[cmd.texture_id].get();
+
+    last_error = cmd.update_mode
+                   ? texture->set_compare_mode(cmd.mode)
+                   : texture->set_compare_func(cmd.function);
+}
 
 /*
  * texture_2d.
@@ -172,9 +383,6 @@ error texture_color_2d::set_sub_data(
   pixel_format in_format,
   std::span<const std::uint8_t> in_data)
 {
-    ASSERT_INTERNAL_CONTEXT;
-    constexpr auto component_size = sizeof(std::uint32_t);
-
     if(in_width == 0 || in_height == 0)
     {
         return error::none;
@@ -184,6 +392,8 @@ error texture_color_2d::set_sub_data(
     {
         return error::invalid_value;
     }
+
+    constexpr auto component_size = sizeof(std::uint32_t);
     assert(in_width * in_height * component_size <= in_data.size());
 
     if(level >= mip_level_count())
@@ -642,6 +852,14 @@ void ReleaseTexture(
         }
     }
 
+    for(std::size_t slot = 0; slot < context->framebuffer_objects.slot_count(); ++slot)
+    {
+        if(context->framebuffer_objects.contains(slot))
+        {
+            context->framebuffer_objects[slot].detach_logical_texture_resource(id);
+        }
+    }
+
     // Mark buffer for deletion.
     // Duplications are resolved when processing deletions.
     context->pending_resource_deletions.push_back(
@@ -689,8 +907,6 @@ void SetImage(
   pixel_format format,
   std::span<const std::uint8_t> data)
 {
-    // TODO Rebinding code likely needs a rewrite.
-
     ASSERT_INTERNAL_CONTEXT;
     impl::render_context* context = impl::global_context;
 
@@ -707,57 +923,28 @@ void SetImage(
         return;
     }
 
+    context->create_texture_update_command(
+      impl::texture_update_kind::create,
+      texture_id,
+      level,
+      0, 0,
+      width, height,
+      format,
+      data);
+
     if(level == 0)
     {
-        auto* existing = context->texture_2d_storage[texture_id].get();
-        const bool is_depth_tex = existing->as_texture_depth_2d() != nullptr;
-        const bool wants_depth_tex = format == pixel_format::depth32f;
-        if(is_depth_tex != wants_depth_tex)
+        for(std::size_t slot = 0; slot < context->framebuffer_objects.slot_count(); ++slot)
         {
-            auto replacement = impl::make_texture_for_format(texture_id, format);
-
-            replacement->set_filter_mag(existing->sampler->get_filter_mag());
-            replacement->set_filter_min(existing->sampler->get_filter_min());
-
-            auto ret = replacement->set_wrap_s(existing->sampler->get_wrap_s());
-            if(ret != error::none)
+            if(context->framebuffer_objects.contains(slot))
             {
-                context->last_error = ret;
-                return;
-            }
-
-            ret = replacement->set_wrap_t(existing->sampler->get_wrap_t());
-            if(ret != error::none)
-            {
-                context->last_error = ret;
-                return;
-            }
-
-            replacement->sampler = std::move(existing->sampler);
-            replacement->sampler->set_associated_texture(replacement.get());
-            context->texture_2d_storage[texture_id] = std::move(replacement);
-
-            auto* rebound = context->texture_2d_storage[texture_id].get();
-            for(std::size_t i = 0; i < context->states.texture_2d_units.size(); ++i)
-            {
-                auto* bound_tex = context->states.texture_2d_units[i];
-                if(bound_tex != nullptr
-                   && bound_tex->id == texture_id)
-                {
-                    context->states.texture_2d_units[i] = rebound;
-                }
+                context->framebuffer_objects[slot].update_logical_texture_dimensions(
+                  texture_id,
+                  width,
+                  height);
             }
         }
     }
-
-    impl::texture_2d* texture_2d = context->texture_2d_storage[texture_id].get();
-    CHECK_AND_SET_LAST_ERROR(
-      texture_2d->set_data(
-        level,
-        width,
-        height,
-        format,
-        data));
 }
 
 void SetSubImage(
@@ -786,17 +973,22 @@ void SetSubImage(
         return;
     }
 
-    impl::texture_2d* texture_2d = context->texture_2d_storage[texture_id].get();
-    CHECK_AND_SET_LAST_ERROR(
-      texture_2d->set_sub_data(
-        level,
-        offset_x,
-        offset_y,
-        width,
-        height,
-        format,
-        data));
+    context->create_texture_update_command(
+      impl::texture_update_kind::update,
+      texture_id,
+      level,
+      offset_x, offset_y,
+      width, height,
+      format,
+      data);
 }
+
+/** convenience macro to record failing function calls. */
+#define CHECK_AND_SET_LAST_ERROR(expr)      \
+    if(auto ret = expr; ret != error::none) \
+    {                                       \
+        context->last_error = ret;          \
+    }
 
 void SetTextureWrapMode(
   std::uint32_t id,
@@ -941,15 +1133,26 @@ void SetTextureCompareMode(
         impl::render_context* context = impl::global_context;
         auto texture_2d = context->states.texture_2d_units[context->states.texture_2d_active_unit];
 
-        if(texture_2d)
+        if(texture_2d && impl::texture_will_be_depth(context, id))
         {
-            if(texture_2d->as_texture_depth_2d() == nullptr)
+            if(impl::has_pending_base_image_update(context, id))
             {
-                context->last_error = error::invalid_operation;
-                return;
+                if(mode != texture_compare_mode::none
+                   && mode != texture_compare_mode::ref_to_texture)
+                {
+                    context->last_error = error::invalid_value;
+                    return;
+                }
+                context->command_list.emplace_back(impl::texture_compare_command{
+                  .texture_id = id,
+                  .update_mode = true,
+                  .mode = mode,
+                  .function = comparison_func::less_equal});
             }
-
-            CHECK_AND_SET_LAST_ERROR(texture_2d->set_compare_mode(mode));
+            else
+            {
+                CHECK_AND_SET_LAST_ERROR(texture_2d->set_compare_mode(mode));
+            }
         }
         else
         {
@@ -969,13 +1172,24 @@ texture_compare_mode GetTextureCompareMode(
 
         if(texture_2d)
         {
-            if(texture_2d->as_texture_depth_2d() == nullptr)
+            if(!impl::texture_will_be_depth(context, id))
             {
                 context->last_error = error::invalid_operation;
                 return texture_compare_mode::none;
             }
 
-            return texture_2d->get_compare_mode();
+            auto mode = texture_2d->as_texture_depth_2d()
+                          ? texture_2d->get_compare_mode()
+                          : texture_compare_mode::none;
+            for(const auto& command: context->command_list.span())
+            {
+                const auto* compare = std::get_if<impl::texture_compare_command>(&command);
+                if(compare != nullptr && compare->texture_id == id && compare->update_mode)
+                {
+                    mode = compare->mode;
+                }
+            }
+            return mode;
         }
 
         context->last_error = error::invalid_operation;
@@ -994,15 +1208,20 @@ void SetTextureCompareFunc(
         impl::render_context* context = impl::global_context;
         auto texture_2d = context->states.texture_2d_units[context->states.texture_2d_active_unit];
 
-        if(texture_2d)
+        if(texture_2d && impl::texture_will_be_depth(context, id))
         {
-            if(texture_2d->as_texture_depth_2d() == nullptr)
+            if(impl::has_pending_base_image_update(context, id))
             {
-                context->last_error = error::invalid_operation;
-                return;
+                context->command_list.emplace_back(impl::texture_compare_command{
+                  .texture_id = id,
+                  .update_mode = false,
+                  .mode = texture_compare_mode::none,
+                  .function = func});
             }
-
-            CHECK_AND_SET_LAST_ERROR(texture_2d->set_compare_func(func));
+            else
+            {
+                CHECK_AND_SET_LAST_ERROR(texture_2d->set_compare_func(func));
+            }
         }
         else
         {
@@ -1022,13 +1241,24 @@ comparison_func GetTextureCompareFunc(
 
         if(texture_2d)
         {
-            if(texture_2d->as_texture_depth_2d() == nullptr)
+            if(!impl::texture_will_be_depth(context, id))
             {
                 context->last_error = error::invalid_operation;
                 return comparison_func::less_equal;
             }
 
-            return texture_2d->get_compare_func();
+            auto func = texture_2d->as_texture_depth_2d()
+                          ? texture_2d->get_compare_func()
+                          : comparison_func::less_equal;
+            for(const auto& command: context->command_list.span())
+            {
+                const auto* compare = std::get_if<impl::texture_compare_command>(&command);
+                if(compare != nullptr && compare->texture_id == id && !compare->update_mode)
+                {
+                    func = compare->function;
+                }
+            }
+            return func;
         }
 
         context->last_error = error::invalid_operation;

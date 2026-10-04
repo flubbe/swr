@@ -454,7 +454,7 @@ std::uint32_t read_default_color_pixel(
     BOOST_REQUIRE_NE(color_buffer.info.data_ptr, nullptr);
 
     const int row_stride =
-      color_buffer.info.pitch
+      color_buffer.info.stride
       / static_cast<int>(sizeof(swr::impl::attachment_color_buffer::value_type));
 
     return color_buffer.info.data_ptr[y * row_stride + x];
@@ -1255,6 +1255,7 @@ BOOST_AUTO_TEST_CASE(shadow_map_depth_written_in_one_pass_is_visible_to_shadow_c
     draw_fullscreen_quad_with_uv(pos_id, uv_id);
     swr::Present();
     BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    BOOST_REQUIRE(swr::impl::global_context->is_framebuffer_complete(fbo_id));
 
     const auto* render_context = static_cast<const swr::impl::render_context*>(context);
     BOOST_REQUIRE_NE(render_context, nullptr);

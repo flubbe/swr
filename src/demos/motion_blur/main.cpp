@@ -285,7 +285,7 @@ public:
           ml::vec4{width, height, 1, 1},
         };
 
-        blur_vb_id = swr::CreateAttributeBuffer(std::span{blur_vb});
+        blur_vb_id = swr::CreateAttributeBuffer(blur_vb);
 
         const float u_max = static_cast<float>(width) / static_cast<float>(w);
         const float v_min = 1.0f - static_cast<float>(height) / static_cast<float>(h);
@@ -301,7 +301,7 @@ public:
           ml::vec4{u_max, v_min, 0, 0},
         };
 
-        blur_tc_id = swr::CreateAttributeBuffer(std::span{blur_tc});
+        blur_tc_id = swr::CreateAttributeBuffer(blur_tc);
 
         // create particles.
         particle_system.delay_add(0.1f, max_particles);

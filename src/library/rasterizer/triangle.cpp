@@ -91,7 +91,7 @@ void process_precomputed_fragment_block_early_z(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const int framebuffer_height = draw_target.properties.height;
+    const int framebuffer_height = draw_target.dimensions.height;
     if constexpr(collect_early_depth_stats)
     {
         assert(early_depth != nullptr);
@@ -127,16 +127,16 @@ void process_precomputed_fragment_block_early_z(
 
         if(scissor_mask == 0)
         {
-            out.write_color = 0;
-            out.write_stencil = 0;
+            out.write_color_mask = 0;
+            out.write_stencil_mask = 0;
             return;
         }
 
         active_mask &= scissor_mask;
         if(active_mask == 0)
         {
-            out.write_color = 0;
-            out.write_stencil = 0;
+            out.write_color_mask = 0;
+            out.write_stencil_mask = 0;
             return;
         }
 
@@ -217,8 +217,8 @@ void process_precomputed_fragment_block_early_z(
     active_mask &= depth_mask;
     if(active_mask == 0)
     {
-        out.write_color = 0;
-        out.write_stencil = 0;
+        out.write_color_mask = 0;
+        out.write_stencil_mask = 0;
         return;
     }
 
@@ -360,8 +360,8 @@ void process_precomputed_fragment_block_early_z(
 
     if(accept_mask == 0)
     {
-        out.write_color = 0;
-        out.write_stencil = 0;
+        out.write_color_mask = 0;
+        out.write_stencil_mask = 0;
         return;
     }
 
@@ -373,8 +373,8 @@ void process_precomputed_fragment_block_early_z(
     out.color[1] = color[1];
     out.color[2] = color[2];
     out.color[3] = color[3];
-    out.write_color = write_color;
-    out.write_stencil = write_stencil;
+    out.write_color_mask = write_color;
+    out.write_stencil_mask = write_stencil;
 }
 
 }    // namespace
@@ -555,7 +555,7 @@ bool sweep_rasterizer::process_block_impl(
         utils::clock(stage_merge_block);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        if(out.write_color)
+        if(out.write_color_mask)
         {
             draw_target.merge_color_block(
               0,
@@ -837,7 +837,7 @@ bool sweep_rasterizer::process_block_checked_impl(
         utils::clock(stage_merge_block);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        if(out.write_color)
+        if(out.write_color_mask)
         {
             draw_target.merge_color_block(
               0,
@@ -1082,7 +1082,7 @@ void sweep_rasterizer::process_block_precomputed_checked_impl(
         utils::clock(stage_merge_block);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-        if(out.write_color)
+        if(out.write_color_mask)
         {
             draw_target.merge_color_block(
               0,
@@ -1356,7 +1356,7 @@ void sweep_rasterizer::draw_filled_triangle(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
     const bounding_box bounds = compute_triangle_bounds(
-      draw_target.properties,
+      draw_target.dimensions,
       states,
       info);
     const triangle_rasterization_classification rasterization =

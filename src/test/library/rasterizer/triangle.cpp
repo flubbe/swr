@@ -142,7 +142,7 @@ std::vector<covered_triangle_block> collect_covered_triangle_blocks(
       [&](auto&& f)
       {
           rast::for_each_covered_triangle_block(
-            draw_target.properties,
+            draw_target.dimensions,
             states,
             info,
             provoking_vertex_varyings,
@@ -161,7 +161,7 @@ std::vector<ml::tvec2<int>> collect_covered_triangle_pixels(
     std::vector<ml::tvec2<int>> out;
 
     rast::for_each_covered_triangle_block(
-      draw_target.properties,
+      draw_target.dimensions,
       states,
       info,
       provoking_vertex_varyings,
@@ -427,10 +427,8 @@ BOOST_AUTO_TEST_CASE(over_aligned_shader_storage)
     BOOST_CHECK_EQUAL(program_info.program_size, sizeof(over_aligned_program));
     BOOST_CHECK_EQUAL(program_info.program_alignment, alignof(over_aligned_program));
 
-    boost::container::static_vector<
-      swr::uniform,
-      swr::limits::max::uniform_locations>
-      uniforms;
+    swr::uniform_bindings uniforms;
+    swr::sampler_bindings samplers_2d;
 
     swr::impl::shader_storage_buffer vertex_storage{
       program_info.program_size,
@@ -438,16 +436,13 @@ BOOST_AUTO_TEST_CASE(over_aligned_shader_storage)
     swr::impl::vertex_shader_instance_container vertex_instance{
       vertex_storage.data(),
       &program_info,
-      uniforms};
+      uniforms,
+      samplers_2d};
     BOOST_CHECK_EQUAL(
       reinterpret_cast<std::uintptr_t>(vertex_instance.get())
         % alignof(over_aligned_program),
       0);
 
-    boost::container::static_vector<
-      swr::sampler_base*,
-      swr::limits::max::texture_units>
-      samplers_2d;
     swr::impl::fragment_shader_instance_container fragment_instance{
       &program_info,
       uniforms,
@@ -534,7 +529,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const rast::bounding_box bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     const int block_x = bounds.start_x;
@@ -559,7 +554,7 @@ BOOST_AUTO_TEST_CASE(checked_quad_bounds_preserve_coverage)
         std::vector<std::tuple<int, int, int>> out;
 
         rast::for_each_covered_triangle_block(
-          ctx.draw_target.properties,
+          ctx.draw_target.dimensions,
           ctx.states,
           info,
           v0.varyings,
@@ -1191,7 +1186,7 @@ BOOST_AUTO_TEST_CASE(mixed_flat_and_smooth_varyings_use_per_varying_qualifiers)
     };
 
     rast::for_each_covered_triangle_block(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info,
       v0.varyings,
@@ -1324,7 +1319,7 @@ BOOST_AUTO_TEST_CASE(varying_continuity_across_block_boundaries)
     };
 
     rast::for_each_covered_triangle_block(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info,
       v0.varyings,
@@ -1478,7 +1473,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_preserves_exact_coverage_inside_block)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
@@ -1504,8 +1499,8 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     swr::impl::render_states states;
     states.x = 0;
     states.y = 0;
-    states.width = draw_target.properties.width;
-    states.height = draw_target.properties.height;
+    states.width = draw_target.dimensions.width;
+    states.height = draw_target.dimensions.height;
     states.shader_info = &program_info;
 
     const auto v0 = make_vertex(8.5f, 8.5f);
@@ -1516,9 +1511,9 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto bounds = rast::compute_triangle_bounds(
-      swr::impl::framebuffer_properties{
-        .width = static_cast<int>(states.width),
-        .height = static_cast<int>(states.height)},
+      swr::impl::framebuffer_dimensions{
+        .width = states.width,
+        .height = states.height},
       states, info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
 
@@ -1586,7 +1581,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_iterator_provides_precomputed_payload)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
@@ -1670,7 +1665,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_interpolation_matches_regular_i
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
@@ -1741,7 +1736,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_fast_payload_callback_matches_regular_i
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     BOOST_REQUIRE(rast::is_small_quad_triangle(bounds));
@@ -1800,7 +1795,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_threshold_is_two_by_two_quads)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
     const int quad_start_x = rast::lower_align_on_quad_size(bounds.tight_start_x);
@@ -1834,7 +1829,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_crossing_block_boundary_uses_general_pa
     const auto info = rast::setup_triangle(v0, v1, v2);
     BOOST_REQUIRE(!info.is_degenerate);
     const auto bounds = rast::compute_triangle_bounds(
-      ctx.draw_target.properties,
+      ctx.draw_target.dimensions,
       ctx.states,
       info);
 

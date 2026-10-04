@@ -81,7 +81,7 @@ depth_range scan_depth_range(
 {
     constexpr int depth_value_size =
       static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
-    const int row_stride = depth_buffer.info.pitch / depth_value_size;
+    const int row_stride = depth_buffer.info.stride / depth_value_size;
     const int start_x = static_cast<int>(block_x);
     const int start_y = static_cast<int>(block_y);
 

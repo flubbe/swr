@@ -71,8 +71,8 @@ void sweep_rasterizer::draw_point(
 
     for_each_covered_point_pixel(
       adjusted_coords,
-      draw_target.properties.width,
-      draw_target.properties.height,
+      draw_target.dimensions.width,
+      draw_target.dimensions.height,
       [&](auto x, auto y)
       {
           process_fragment(draw_target, x, y, states, shader, v.coords.w, info, out);

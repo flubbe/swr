@@ -968,7 +968,6 @@ static void process_vertices(
         }
 
         impl::render_object& obj = *draw.object;
-        obj.states = draw.states;
         obj.clear_clipped_output();
 
         if(obj.coord_count == 0 || obj.indices.empty())
@@ -2052,31 +2051,33 @@ static void process_vertices(
 
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
-namespace
+/*
+ * Command execution.
+ */
+
+namespace impl
 {
 
-/** Execute a clear command. */
-void execute_clear_command(
-  impl::render_context* context,
+void render_context::execute_command(
   const impl::clear_command& cmd)
 {
-    const impl::render_states& states = context->state_snapshots[cmd.state_snapshot_index];
+    const impl::render_states& states = state_snapshots[cmd.state_snapshot_index];
 
     if(cmd.kind == impl::clear_kind::color)
     {
         // buffer clearing respects scissoring.
         if(states.scissor_test_enabled
-           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != context->framebuffer.color_buffer.info.width
-               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != context->framebuffer.color_buffer.info.height))
+           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
+               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
         {
-            context->resolve_draw_target(
-                     states.draw_target)
+            resolve_draw_target(
+              states.draw_target)
               ->clear_color(0, states.clear_color, states.scissor_box);
         }
         else
         {
-            context->resolve_draw_target(
-                     states.draw_target)
+            resolve_draw_target(
+              states.draw_target)
               ->clear_color(0, states.clear_color);
         }
     }
@@ -2084,28 +2085,26 @@ void execute_clear_command(
     {
         // buffer clearing respects scissoring.
         if(states.scissor_test_enabled
-           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != context->framebuffer.color_buffer.info.width
-               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != context->framebuffer.color_buffer.info.height))
+           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
+               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
         {
-            context->resolve_draw_target(
-                     states.draw_target)
+            resolve_draw_target(
+              states.draw_target)
               ->clear_depth(states.clear_depth, states.scissor_box);
         }
         else
         {
-            context->resolve_draw_target(
-                     states.draw_target)
+            resolve_draw_target(
+              states.draw_target)
               ->clear_depth(states.clear_depth);
         }
     }
 }
 
-/** Execute a draw command. */
-void execute_draw_command(
-  impl::render_context* context,
+void render_context::execute_command(
   const impl::draw_command& cmd)
 {
-    const auto command_indices = context->index_buffer_pool.subspan(
+    const auto command_indices = index_buffer_pool.subspan(
       cmd.indices.begin,
       cmd.indices.count);
 
@@ -2116,22 +2115,22 @@ void execute_draw_command(
 
     const auto attribute_index_range =
       cmd.remapped
-        ? context->capture_attribute_buffers(
+        ? capture_attribute_buffers(
             index_count,
             cmd.active_vab_indices,
             cmd.attribute_slot_count,
             cmd.attribute_indices)
-        : context->capture_attribute_buffers(
+        : capture_attribute_buffers(
             index_count,
             cmd.active_vab_indices,
             cmd.attribute_slot_count);
 
-    auto& obj = context->render_objects.allocate();
+    auto& obj = render_objects.allocate();
     obj.setup(
       index_count,    // index- and vertex counts match.
       cmd.mode,
       cmd.state_snapshot_index);
-    obj.states = &context->state_snapshots[cmd.state_snapshot_index];
+    obj.states = &state_snapshots[cmd.state_snapshot_index];
     obj.indices = command_indices;
 
     // TODO This copy could be avoided by creating the object on draw command
@@ -2139,14 +2138,14 @@ void execute_draw_command(
 
     obj.allocate_attribs(cmd.attribute_slot_count);
     std::copy(
-      context->vec4_data.data() + attribute_index_range.begin,
-      context->vec4_data.data() + attribute_index_range.begin + attribute_index_range.count,
+      vec4_data.data() + attribute_index_range.begin,
+      vec4_data.data() + attribute_index_range.begin + attribute_index_range.count,
       obj.attribs.begin());
 
     obj.allocate_coords(
-      context->vec4_data.allocate_range(obj.coord_count));
+      vec4_data.allocate_range(obj.coord_count));
 
-    context->resolved_draws.emplace_back(
+    resolved_draws.emplace_back(
       impl::draw_execution{
         .object = &obj,
         .vertex_count = obj.coord_count,
@@ -2154,40 +2153,37 @@ void execute_draw_command(
         .attribute_slot_count = cmd.attribute_slot_count,
         .clipped_vertex_range = {},
         .states = obj.states,
-        .draw_target = context->resolve_draw_target(
-          obj.states->draw_target),
-        .discard = false});
+        .draw_target = resolve_draw_target(
+          obj.states->draw_target)});
 }
 
-/** Execute a buffer update command. */
-void execute_update_buffer_command(
-  impl::render_context* context,
+void render_context::execute_command(
   const impl::update_buffer_command& cmd)
 {
     switch(cmd.kind)
     {
     case impl::buffer_update_kind::index:
     {
-        auto start = context->index_buffer_pool.cbegin() + cmd.range.begin;
-        context->index_buffers[cmd.buffer_id].assign(
+        auto start = index_buffer_pool.cbegin() + cmd.range.begin;
+        index_buffers[cmd.buffer_id].assign(
           start,
           start + cmd.range.count);
         return;
     }
     case impl::buffer_update_kind::attribute:
     {
-        auto start = context->vec4_data.cbegin() + cmd.range.begin;
-        context->vertex_attribute_buffers[cmd.buffer_id].data.assign(
+        auto start = vec4_data.cbegin() + cmd.range.begin;
+        vertex_attribute_buffers[cmd.buffer_id].data.assign(
           start,
           start + cmd.range.count);
         return;
     }
     }
 
-    context->last_error = error::invalid_value;
+    last_error = error::invalid_value;
 }
 
-} /* anonymous namespace */
+}    // namespace impl
 
 /*
  * Execute the graphics pipeline and output an image into the frame buffer. The function operates on
@@ -2206,16 +2202,17 @@ void Present()
     ASSERT_INTERNAL_CONTEXT;
     auto context = impl::global_context;
 
-    // immediately return if there is nothing to do.
+    // Immediately return if there is nothing to do.
     if(context->command_list.empty())
     {
         context->process_pending_deletions();
         return;
     }
 
-    // Pre-reserve vertex data storage for all draw commands. This must happen
+    // Reserve vertex data storage for all draw commands. This must happen
     // before allocate_range() is called because reallocating the pool would
-    // invalidate previously allocated spans.
+    // invalidate previously allocated spans. Furher, resolved draw point into
+    // the render object arena, which therefore must remain stable during a frame.
 
     std::size_t vertex_data_total = 0;
     std::size_t draw_count = 0;
@@ -2232,9 +2229,9 @@ void Present()
             ++draw_count;
 
             vertex_data_total += draw->attribute_indices.count;
+
             const impl::render_states& states =
               context->state_snapshots[draw->state_snapshot_index];
-
             if(states.shader_info)
             {
                 vertex_data_total += draw->attribute_indices.count * states.shader_info->varying_count;
@@ -2310,27 +2307,22 @@ void Present()
         context->resolved_draws.reset();
     };
 
+    // Commands dispatch.
     for(const auto& cmd: context->command_list.span())
     {
-        if(auto* clear = std::get_if<impl::clear_command>(&cmd))
-        {
-            flush_batch();
-            execute_clear_command(context, *clear);
-        }
-        else if(auto* update = std::get_if<impl::update_buffer_command>(&cmd))
-        {
-            flush_batch();
-            execute_update_buffer_command(context, *update);
-        }
-        else if(auto* draw = std::get_if<impl::draw_command>(&cmd))
-        {
-            if(draw->indices.count == 0)
-            {
-                continue;
-            }
+        std::visit(
+          [context, flush_batch](const auto& command)
+          {
+              using command_type = std::decay_t<decltype(command)>;
 
-            execute_draw_command(context, *draw);
-        }
+              if constexpr(command_type::requires_flush)
+              {
+                  flush_batch();
+              }
+
+              context->execute_command(command);
+          },
+          cmd);
     }
 
     flush_batch();
@@ -2419,10 +2411,17 @@ void SetViewport(int x, int y, unsigned int width, unsigned int height)
 
     // Public API follows OpenGL semantics (viewport origin at lower-left),
     // while the internal rasterizer uses a top-down viewport y-axis.
-    const int internal_y = context->resolve_draw_target(
-                                    context->states.draw_target)
-                             ->properties.height
-                           - (y + static_cast<int>(height));
+    int framebuffer_height = context->framebuffer.dimensions.height;
+    if(context->states.draw_target != impl::default_framebuffer_id)
+    {
+        const auto slot = impl::framebuffer_id_to_slot(context->states.draw_target);
+        if(context->framebuffer_objects.contains(slot))
+        {
+            framebuffer_height = context->framebuffer_objects[slot].get_logical_height();
+        }
+    }
+
+    const int internal_y = framebuffer_height - (y + static_cast<int>(height));
 
     context->states.set_viewport(x, internal_y, width, height);
 }

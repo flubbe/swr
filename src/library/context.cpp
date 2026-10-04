@@ -131,6 +131,13 @@ void render_context::process_pending_deletions()
 
             break;
         case resource_type::texture:
+            for(std::size_t slot = 0; slot < framebuffer_objects.slot_count(); ++slot)
+            {
+                if(framebuffer_objects.contains(slot))
+                {
+                    framebuffer_objects[slot].detach_texture_resource(key.id);
+                }
+            }
             if(texture_2d_storage.contains(key.id))
             {
                 texture_2d_storage[key.id].reset();
@@ -140,6 +147,13 @@ void render_context::process_pending_deletions()
             break;
         case resource_type::depth_attachment:
         {
+            for(std::size_t slot = 0; slot < framebuffer_objects.slot_count(); ++slot)
+            {
+                if(framebuffer_objects.contains(slot))
+                {
+                    framebuffer_objects[slot].detach_depth_renderbuffer_resource(key.id);
+                }
+            }
             if(depth_attachments.contains(key.id))
             {
                 depth_attachments.erase(key.id);

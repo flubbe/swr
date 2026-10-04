@@ -485,8 +485,8 @@ public:
           ml::vec4{0.0f, 1.0f, 0.0f, 0.0f},
         };
 
-        quad_vertices = swr::CreateAttributeBuffer(std::span{vertex_data});
-        quad_uvs = swr::CreateAttributeBuffer(std::span{uv_data});
+        quad_vertices = swr::CreateAttributeBuffer(vertex_data);
+        quad_uvs = swr::CreateAttributeBuffer(uv_data);
 
         scene_color_texture = swr::CreateTexture();
         scene_depth_texture = swr::CreateTexture();
