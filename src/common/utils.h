@@ -408,16 +408,12 @@ public:
 };
 
 /*
- * simple slot map.
+ * Slot map.
  */
 
 /**
  * A container of objects that keeps track of empty slots. The free slot re-usage pattern is LIFO.
  * The internal container needs to support the operations emplace_back, size, clear, shrink_to_fit, operator[].
- *
- * Some remarks:
- *  - The data is not automatically compacted/freed.
- *  - freeing only marks slots as "free" (e.g., without invalidating or destructing them).
  */
 template<
   typename T,
@@ -433,9 +429,22 @@ class slot_map
     using const_pointer = const T*;
 
 private:
+    /** Slot storage type. */
     class slot
     {
         alignas(T) std::byte storage[sizeof(T)];
+
+        T* ptr() noexcept
+        {
+            return std::launder(
+              reinterpret_cast<T*>(storage));
+        }
+
+        const T* ptr() const noexcept
+        {
+            return std::launder(
+              reinterpret_cast<const T*>(storage));
+        }
 
     public:
         template<typename... Args>
@@ -460,19 +469,6 @@ private:
         {
             return *ptr();
         }
-
-    private:
-        T* ptr() noexcept
-        {
-            return std::launder(
-              reinterpret_cast<T*>(storage));
-        }
-
-        const T* ptr() const noexcept
-        {
-            return std::launder(
-              reinterpret_cast<const T*>(storage));
-        }
     };
 
     Container<slot> data;
@@ -480,7 +476,7 @@ private:
     std::vector<size_type> free_slots;
 
 public:
-    /** insert a new item. */
+    /** Insert a new item. */
     template<typename... Args>
     size_type insert(Args&&... args)
     {
@@ -519,7 +515,7 @@ public:
         free_slots.emplace_back(i);
     }
 
-    /** clear data and list of free slots. */
+    /** Clear data and list of free slots. */
     void clear()
     {
         for(size_type i = 0; i < data.size(); ++i)
@@ -535,7 +531,7 @@ public:
         free_slots.clear();
     }
 
-    /** shrink to fit elements, if supported by the container. */
+    /** Shrink to fit elements, if supported by the container. */
     void shrink_to_fit()
     {
         data.shrink_to_fit();
@@ -543,7 +539,7 @@ public:
         free_slots.shrink_to_fit();
     }
 
-    /** query size. */
+    /** Query size. */
     [[nodiscard]]
     size_type size() const noexcept
     {
@@ -551,21 +547,21 @@ public:
         return data.size() - free_slots.size();
     }
 
-    /** check whether the slot map is empty. */
+    /** Check whether the slot map is empty. */
     [[nodiscard]]
     bool empty() const noexcept
     {
         return size() == 0;
     }
 
-    /** query the current slot count. */
+    /** Query the current slot count. */
     [[nodiscard]]
     size_type slot_count() const noexcept
     {
         return data.size();
     }
 
-    /** query the free slot count. */
+    /** Query the free slot count. */
     [[nodiscard]]
     size_type free_slot_count() const noexcept
     {
@@ -573,14 +569,14 @@ public:
     }
 
     /*
-     * element access.
+     * Element access.
      */
 
-    /** check whether a specific index is contained in the map. */
+    /** Check whether a specific index is contained in the map. */
     [[nodiscard]]
     bool contains(size_type i) const noexcept
     {
-        return i < data.size() && occupied[i];
+        return i < occupied.size() && occupied[i];
     }
 
     /**
@@ -606,7 +602,7 @@ public:
     }
 
     /**
-     * checked element access.
+     * Checked element access.
      *
      * @throws Throws `std::out_of_range` if the index is not contained in the map.
      */
@@ -621,7 +617,7 @@ public:
     }
 
     /**
-     * checked element access.
+     * Checked element access.
      *
      * @throws Throws `std::out_of_range` if the index is not contained in the map.
      */
