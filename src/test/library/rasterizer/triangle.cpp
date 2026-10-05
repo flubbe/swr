@@ -1511,7 +1511,7 @@ BOOST_AUTO_TEST_CASE(small_quad_triangle_payload_stores_covered_quads)
     BOOST_REQUIRE(!info.is_degenerate);
 
     const auto bounds = rast::compute_triangle_bounds(
-      swr::impl::framebuffer_dimensions{
+      swr::impl::dimensions_2d{
         .width = states.width,
         .height = states.height},
       states, info);

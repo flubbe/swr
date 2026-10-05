@@ -1454,34 +1454,8 @@ void FramebufferTexture(
         }
 
         auto* texture = context->texture_2d_storage[attachment_id].get();
-        bool is_depth_texture = texture->as_texture_depth_2d() != nullptr;
-        std::size_t mip_level_count = texture->mip_level_count();
-        std::size_t base_width = texture->width;
-        std::size_t base_height = texture->height;
-
-        for(const auto& command: context->command_list.span())
-        {
-            const auto* update = std::get_if<impl::update_texture_command>(&command);
-            if(update != nullptr
-               && update->texture_id == attachment_id
-               && update->kind == impl::texture_update_kind::create
-               && update->level == 0)
-            {
-                is_depth_texture = update->format == pixel_format::depth32f;
-                base_width = update->width;
-                base_height = update->height;
-                mip_level_count = 0;
-                for(std::size_t width = update->width, height = update->height;
-                    width != 0 && height != 0;
-                    width >>= 1, height >>= 1)
-                {
-                    ++mip_level_count;
-                }
-            }
-        }
-
-        if(is_depth_texture != is_depth_attachment
-           || level >= mip_level_count)
+        if((texture->logical_format == pixel_format::depth32f) != is_depth_attachment
+           || level >= texture->logical_mip_level_count())
         {
             context->last_error = error::invalid_value;
             return;
@@ -1491,8 +1465,8 @@ void FramebufferTexture(
           attachment,
           attachment_id,
           level,
-          static_cast<int>(base_width >> level),
-          static_cast<int>(base_height >> level));
+          texture->logical_width >> level,
+          texture->logical_height >> level);
     }
 
     context->create_framebuffer_texture_command(id, attachment, attachment_id, level);

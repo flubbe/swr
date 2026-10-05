@@ -76,6 +76,31 @@ BOOST_AUTO_TEST_CASE(framebuffer_object_with_valid_color_attachment_is_complete)
     BOOST_CHECK(swr::impl::global_context->is_framebuffer_complete(fbo));
 }
 
+BOOST_AUTO_TEST_CASE(framebuffer_texture_uses_latest_queued_image_state)
+{
+    const std::uint32_t fbo = swr::CreateFramebufferObject();
+    const std::uint32_t texture_id = swr::CreateTexture();
+    BOOST_REQUIRE_NE(fbo, 0);
+    BOOST_REQUIRE_NE(texture_id, 0);
+
+    swr::SetImage(texture_id, 0, 8, 8, swr::pixel_format::rgba8888, {});
+    swr::SetImage(texture_id, 0, 4, 4, swr::pixel_format::depth32f, {});
+    swr::FramebufferTexture(
+      fbo,
+      swr::framebuffer_attachment::depth_attachment,
+      texture_id,
+      2);
+
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    BOOST_CHECK_EQUAL(
+      swr::impl::global_context->framebuffer_objects[swr::impl::framebuffer_id_to_slot(fbo)].get_logical_height(),
+      1);
+
+    swr::Present();
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    BOOST_CHECK(swr::impl::global_context->is_framebuffer_complete(fbo));
+}
+
 BOOST_AUTO_TEST_CASE(framebuffer_object_with_invalid_color_attachment_is_incomplete)
 {
     const std::uint32_t fbo = swr::CreateFramebufferObject();

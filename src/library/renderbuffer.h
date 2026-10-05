@@ -408,21 +408,11 @@ struct depth_renderbuffer_attachment_binding
     bool is_valid() const;
 };
 
-/** Framebuffer dimensions. */
-struct framebuffer_dimensions
-{
-    /** Width of the framebuffer target. */
-    std::size_t width{0};
-
-    /** Height of the framebuffer target. */
-    std::size_t height{0};
-};
-
 /** framebuffer draw target. */
 struct framebuffer_draw_target
 {
     /** The target's dimensions. */
-    framebuffer_dimensions dimensions;
+    dimensions_2d dimensions;
 
     /** Virtual destructor. */
     virtual ~framebuffer_draw_target() = default;
@@ -632,7 +622,7 @@ struct default_framebuffer final
 struct logical_texture_attachment
 {
     /** Framebuffer dimensions. */
-    std::optional<framebuffer_dimensions> dimensions;
+    std::optional<dimensions_2d> dimensions;
 
     /** Mipmap level. */
     std::uint32_t level = 0;
@@ -673,7 +663,7 @@ class framebuffer_object final
     std::uint32_t logical_depth_renderbuffer_id{0};
 
     /** Logical framebuffer dimensions, visible immediately. */
-    framebuffer_dimensions logical_dimensions;
+    dimensions_2d logical_dimensions;
 
     /** Depth attachments. */
     std::variant<
@@ -746,7 +736,7 @@ class framebuffer_object final
       typename ColorContainer,
       typename GetColorDim,
       typename GetDepthDim>
-    static framebuffer_dimensions compute_min_dimensions(
+    static dimensions_2d compute_min_dimensions(
       const ColorContainer& color_attachments,
       std::size_t active_color_count,
       GetColorDim&& get_color_dim,
@@ -792,22 +782,22 @@ class framebuffer_object final
         dimensions = compute_min_dimensions(
           color_bindings,
           color_attachment_count,
-          [](const auto& binding) -> std::optional<framebuffer_dimensions>
+          [](const auto& binding) -> std::optional<dimensions_2d>
           {
               if(binding)
               {
-                  return framebuffer_dimensions{
+                  return dimensions_2d{
                     binding->info.width,
                     binding->info.height};
               }
               return std::nullopt;
           },
-          [this]() -> std::optional<framebuffer_dimensions>
+          [this]() -> std::optional<dimensions_2d>
           {
               const auto* depth = get_depth_attachment_info();
               if(depth && depth->width > 0 && depth->height > 0)
               {
-                  return framebuffer_dimensions{
+                  return dimensions_2d{
                     depth->width,
                     depth->height};
               }
@@ -821,7 +811,7 @@ class framebuffer_object final
         logical_dimensions = compute_min_dimensions(
           logical_color_attachments,
           logical_color_attachments.size(),
-          [](const auto& attachment) -> std::optional<framebuffer_dimensions>
+          [](const auto& attachment) -> std::optional<dimensions_2d>
           {
               if(attachment.texture_id != 0)
               {
@@ -829,7 +819,7 @@ class framebuffer_object final
               }
               return std::nullopt;
           },
-          [this]() -> std::optional<framebuffer_dimensions>
+          [this]() -> std::optional<dimensions_2d>
           {
               if(logical_depth_attachment.texture_id != 0
                  || logical_depth_renderbuffer_id != 0)

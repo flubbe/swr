@@ -274,7 +274,7 @@ inline int upper_align_on_quad_size(int v)
  *         are expanded outward to rasterizer-block alignment. Bounds may be empty if clipped away.
  */
 bounding_box compute_triangle_bounds(
-  const swr::impl::framebuffer_dimensions& draw_target_properties,
+  const swr::impl::dimensions_2d& draw_target_properties,
   const swr::impl::render_states& states,
   const triangle_info& info)
 {
@@ -1713,7 +1713,7 @@ inline void for_each_thin_triangle_block_with_bounds(
  */
 template<typename F>
 inline void for_each_covered_triangle_block(
-  const swr::impl::framebuffer_dimensions& draw_target_properties,
+  const swr::impl::dimensions_2d& draw_target_properties,
   const swr::impl::render_states& states,
   const triangle_info& info,
   std::span<const ml::vec4> provoking_vertex_varyings,

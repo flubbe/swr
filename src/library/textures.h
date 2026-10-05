@@ -38,8 +38,18 @@ struct texture_depth_2d;
 /** default texture id. */
 constexpr int default_tex_id = 0;
 
+/** 2D dimensions. */
+struct dimensions_2d
+{
+    /** Width. */
+    std::size_t width{0};
+
+    /** Height. */
+    std::size_t height{0};
+};
+
 /*
- * texture storage.
+ * Texture storage.
  */
 
 /** Stores the texture data. */
@@ -328,6 +338,32 @@ struct texture_2d
 
     /** source format of the texture. */
     pixel_format format{pixel_format::unsupported};
+
+    /** Logical base image width, including queued API changes. */
+    std::uint32_t logical_width{0};
+
+    /** Logical base image height, including queued API changes. */
+    std::uint32_t logical_height{0};
+
+    /** Logical image format, including queued API changes. */
+    pixel_format logical_format{pixel_format::unsupported};
+
+    /** Return the mip level count implied by the logical base image.*/
+    std::size_t logical_mip_level_count() const
+    {
+        return std::bit_width(std::max(logical_width, logical_height));
+    }
+
+    /** Set logical base image metadata immediately when an image is queued. */
+    void set_logical_info(
+      std::uint32_t in_width,
+      std::uint32_t in_height,
+      pixel_format in_format)
+    {
+        logical_width = in_width;
+        logical_height = in_height;
+        logical_format = in_format;
+    }
 
     /** texture sampler. */
     std::unique_ptr<sampler_2d_impl> sampler;

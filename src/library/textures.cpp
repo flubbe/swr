@@ -934,6 +934,11 @@ void SetImage(
 
     if(level == 0)
     {
+        context->texture_2d_storage[texture_id]->set_logical_info(
+          width,
+          height,
+          format);
+
         for(std::size_t slot = 0; slot < context->framebuffer_objects.slot_count(); ++slot)
         {
             if(context->framebuffer_objects.contains(slot))
