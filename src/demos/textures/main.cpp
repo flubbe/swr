@@ -9,6 +9,8 @@
  */
 
 #include <print>
+#include <string>
+#include <tuple>
 
 /* software rasterizer headers. */
 #include "swr/swr.h"
@@ -51,6 +53,9 @@ class demo_cube : public swr_app::renderwindow
     /** a rotation offset for the cube. */
     float cube_rotation{0};
 
+    /** Whether to pause rotation. */
+    bool pause{false};
+
     /** frame counter. */
     std::uint32_t frame_count{0};
 
@@ -59,6 +64,103 @@ class demo_cube : public swr_app::renderwindow
 
     /** viewport height. */
     static const int height = 480;
+
+    /** Current texture resolution divider. */
+    std::uint32_t texture_resolution_div = 0;
+
+    /** Max resolution divider. */
+    static const std::uint32_t max_texture_resolution_div = 7;
+
+    /** Current texture filters. */
+    std::uint32_t texture_filter_index = 0;
+
+    /**
+     * Texture filters.
+     *
+     * @note We currently don't generate mipmaps.
+     */
+    const std::array<
+      std::tuple<
+        swr::texture_filter,
+        swr::texture_filter,
+        std::string>,
+      4>
+      texture_filter_list = {
+        std::tuple{swr::texture_filter::linear, swr::texture_filter::linear, "linear/linear"},
+        std::tuple{swr::texture_filter::linear, swr::texture_filter::nearest, "linear/nearest"},
+        std::tuple{swr::texture_filter::nearest, swr::texture_filter::linear, "nearest/linear"},
+        std::tuple{swr::texture_filter::nearest, swr::texture_filter::nearest, "nearest/nearest"},
+    };
+
+    bool refresh_texture()
+    {
+        if(cube_tex != 0)
+        {
+            swr::ReleaseTexture(cube_tex);
+            cube_tex = 0;
+        }
+
+        const auto cube_texture_filename = "../textures/crate1/crate1_diffuse.png";
+        auto ret = utils::load_uniform(
+          cube_texture_filename,
+          texture_resolution_div,
+          false);
+        if(!ret.has_value())
+        {
+            platform::logf("[!!] Unable to load texture: {}", cube_texture_filename);
+            return false;
+        }
+
+        cube_tex = ret.value();
+        swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
+
+        swr::BindTexture(swr::texture_target::texture_2d, cube_tex);
+        swr::SetTextureMagnificationFilter(
+          std::get<0>(texture_filter_list[texture_filter_index]));
+        swr::SetTextureMinificationFilter(
+          std::get<1>(texture_filter_list[texture_filter_index]));
+
+        std::println("Active texture filters: {}", std::get<2>(texture_filter_list[texture_filter_index]));
+        std::println(
+          "Texture resolution divider: 2^{}{}",
+          texture_resolution_div,
+          texture_resolution_div == 0
+            ? " [base resolution]"
+            : "");
+
+        return true;
+    }
+
+    void increase_texture_resolution()
+    {
+        if(texture_resolution_div > 0)
+        {
+            --texture_resolution_div;
+        }
+
+        refresh_texture();
+    }
+
+    void decrease_texture_resolution()
+    {
+        if(texture_resolution_div < max_texture_resolution_div)
+        {
+            ++texture_resolution_div;
+        }
+
+        refresh_texture();
+    }
+
+    void cycle_texture_filters()
+    {
+        ++texture_filter_index;
+        if(texture_filter_index >= texture_filter_list.size())
+        {
+            texture_filter_index = 0;
+        }
+
+        refresh_texture();
+    }
 
 public:
     /** constructor. */
@@ -131,16 +233,10 @@ public:
         cube_uvs = swr::CreateAttributeBuffer(uvs);
 
         // cube texture.
-        const auto cube_texture_filename = "../textures/crate1/crate1_diffuse.png";
-        auto ret = utils::load_uniform(cube_texture_filename);
-        if(!ret.has_value())
+        if(!refresh_texture())
         {
-            platform::logf("[!!] Unable to load texture: {}", cube_texture_filename);
             return false;
         }
-
-        cube_tex = ret.value();
-        swr::SetTextureWrapMode(cube_tex, swr::wrap_mode::repeat, swr::wrap_mode::mirrored_repeat);
 
         return true;
     }
@@ -182,15 +278,42 @@ public:
                 swr_app::application::quit();
                 return;
             }
+
+            if(e.type == SDL_EVENT_KEY_DOWN
+               && e.key.key == SDLK_SPACE)
+            {
+                pause = !pause;
+            }
+
+            if(e.type == SDL_EVENT_KEY_DOWN
+               && e.key.key == SDLK_W)
+            {
+                increase_texture_resolution();
+            }
+
+            if(e.type == SDL_EVENT_KEY_DOWN
+               && e.key.key == SDLK_S)
+            {
+                decrease_texture_resolution();
+            }
+
+            if(e.type == SDL_EVENT_KEY_DOWN
+               && e.key.key == SDLK_F)
+            {
+                cycle_texture_filters();
+            }
         }
 
         /*
          * update animation.
          */
-        cube_rotation += 0.2f * delta_time;
-        if(cube_rotation > 2 * static_cast<float>(M_PI))
+        if(!pause)
         {
-            cube_rotation -= 2 * static_cast<float>(M_PI);
+            cube_rotation += 0.2f * delta_time;
+            if(cube_rotation > 2 * static_cast<float>(M_PI))
+            {
+                cube_rotation -= 2 * static_cast<float>(M_PI);
+            }
         }
 
         begin_render();
@@ -270,6 +393,12 @@ public:
 
         window = std::make_unique<demo_cube>();
         window->create();
+
+        std::print(
+          "SPACE    Toggle cube rotation\n"
+          "F        Cycle through texture filters\n"
+          "S        Decreate texture resolution\n"
+          "W        Increate texture resolution\n");
     }
 
     /** destroy the window. */
