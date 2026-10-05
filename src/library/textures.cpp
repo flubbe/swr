@@ -168,7 +168,8 @@ void render_context::execute_command(
         if(ret != error::none)
         {
             last_error = ret;
-            return;
+
+            // still update the slots below.
         }
 
         auto* updated_texture = texture_2d_storage[cmd.texture_id].get();
@@ -187,9 +188,13 @@ void render_context::execute_command(
                   cmd.width,
                   cmd.height);
             }
-            fbo.refresh_texture_attachments(
-              cmd.texture_id,
-              updated_texture);
+            if(auto ret = fbo.refresh_texture_attachments(
+                 cmd.texture_id,
+                 updated_texture);
+               ret != error::none)
+            {
+                last_error = ret;
+            }
         }
 
         return;
@@ -208,7 +213,8 @@ void render_context::execute_command(
         if(ret != error::none)
         {
             last_error = ret;
-            return;
+
+            // still update the slots below.
         }
 
         auto* updated_texture = texture_2d_storage[cmd.texture_id].get();
@@ -216,9 +222,13 @@ void render_context::execute_command(
         {
             if(framebuffer_objects.contains(slot))
             {
-                framebuffer_objects[slot].refresh_texture_attachments(
-                  cmd.texture_id,
-                  updated_texture);
+                if(auto ret = framebuffer_objects[slot].refresh_texture_attachments(
+                     cmd.texture_id,
+                     updated_texture);
+                   ret != error::none)
+                {
+                    last_error = ret;
+                }
             }
         }
 

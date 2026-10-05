@@ -707,6 +707,9 @@ struct render_context
      * Command dispatch.
      */
 
+    // TODO Validation should happen on command submission,
+    //      so that these calls never fail.
+
     void execute_command(
       const impl::clear_command& cmd);
 

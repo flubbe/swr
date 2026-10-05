@@ -241,7 +241,7 @@ struct texture_attachment_binding
      * @param in_level The mipmap lavel to bind to.
      */
     [[nodiscard]]
-    bool attach(
+    error attach(
       texture_2d* in_tex,
       std::uint32_t in_level)
     {
@@ -251,7 +251,7 @@ struct texture_attachment_binding
         if(color_texture == nullptr
            || in_level >= color_texture->data.data_ptrs.size())
         {
-            return false;
+            return error::invalid_value;
         }
 
         tex_id = in_tex->id;
@@ -265,7 +265,7 @@ struct texture_attachment_binding
           .stride = in_tex->mip_pitch(in_level),
           .data_ptr = color_texture->data.data_ptrs[in_level]};
 
-        return true;
+        return error::none;
     }
 
     /** Detach external buffer. */
@@ -313,7 +313,7 @@ struct depth_texture_attachment_binding
      * @param in_level The mipmap lavel to bind to.
      */
     [[nodiscard]]
-    bool attach(
+    error attach(
       texture_2d* in_tex,
       std::uint32_t in_level)
     {
@@ -323,7 +323,7 @@ struct depth_texture_attachment_binding
         if(depth_texture == nullptr
            || in_level >= depth_texture->data.data_ptrs.size())
         {
-            return false;
+            return error::invalid_value;
         }
 
         tex_id = in_tex->id;
@@ -337,7 +337,7 @@ struct depth_texture_attachment_binding
           .stride = in_tex->mip_pitch(in_level) * sizeof(value_type),
           .data_ptr = depth_texture->data.data_ptrs[in_level]};
 
-        return true;
+        return error::none;
     }
 
     /** Detach external buffer. */
@@ -1112,26 +1112,46 @@ public:
         }
     }
 
-    /** Refresh physical attachment pointers after a texture image update. */
-    void refresh_texture_attachments(
+    /**
+     * Refresh physical attachment pointers after a texture image update.
+     *
+     * @param texture_id The texture id to refresh.
+     * @param texture The new texture object.
+     * @returns Returns `true` on success and `false` if an attachment failed.
+     */
+    [[nodiscard]]
+    error refresh_texture_attachments(
       std::uint32_t texture_id,
       texture_2d* texture)
     {
+        error last_error = error::none;
+
         for(auto& binding: color_bindings)
         {
             if(binding && binding->tex_id == texture_id)
             {
-                binding->attach(texture, binding->level);
+                if(auto ret = binding->attach(texture, binding->level);
+                   ret != error::none)
+                {
+                    last_error = ret;
+                }
             }
         }
 
         if(auto* depth_texture = std::get_if<depth_texture_attachment_binding>(&depth_binding);
            depth_texture && depth_texture->tex_id == texture_id)
         {
-            depth_texture->attach(texture, depth_texture->level);
+            if(auto ret = depth_texture->attach(texture, depth_texture->level);
+               ret != error::none)
+            {
+                last_error = ret;
+            }
             refresh_attachment_caches();
         }
+
         calculate_effective_dimensions();
+
+        return last_error;
     }
 
     /** Detach texture references before their storage is destroyed. */
@@ -1177,7 +1197,8 @@ public:
     }
 
     /** Attach at texture. */
-    void attach_texture(
+    [[nodiscard]]
+    error attach_texture(
       framebuffer_attachment attachment,
       texture_2d* tex,
       std::uint32_t level)
@@ -1194,7 +1215,11 @@ public:
                 ++color_attachment_count;
             }
 
-            color_bindings[index]->attach(tex, level);
+            if(auto ret = color_bindings[index]->attach(tex, level);
+               ret != error::none)
+            {
+                return ret;
+            }
 
             const auto width = color_bindings[index]->info.width;
             const auto height = color_bindings[index]->info.height;
@@ -1209,6 +1234,8 @@ public:
                 update_effective_dimensions_incremental(width, height);
             }
         }
+
+        return error::none;
     }
 
     /** Detach a texture. */
@@ -1247,16 +1274,24 @@ public:
      *
      * TODO Documentation.
      */
-    void attach_depth_texture(
+    [[nodiscard]]
+    error attach_depth_texture(
       texture_2d* texture,
       std::uint32_t level)
     {
         depth_binding.emplace<depth_texture_attachment_binding>();
-        std::get<depth_texture_attachment_binding>(depth_binding)
-          .attach(texture, level);
+        if(auto ret = std::get<depth_texture_attachment_binding>(depth_binding)
+                        .attach(texture, level);
+           ret != error::none)
+        {
+            depth_binding.emplace<std::monostate>();
+            return ret;
+        }
 
         refresh_attachment_caches();
         calculate_effective_dimensions();
+
+        return error::none;
     }
 
     /** Detach the current depth binding. */
