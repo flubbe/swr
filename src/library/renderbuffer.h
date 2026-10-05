@@ -1207,8 +1207,8 @@ public:
         if(index < color_bindings.size())
         {
             const bool was_empty = !color_bindings[index];
-            const int old_width = was_empty ? 0 : color_bindings[index]->info.width;
-            const int old_height = was_empty ? 0 : color_bindings[index]->info.height;
+            const std::size_t old_width = was_empty ? 0 : color_bindings[index]->info.width;
+            const std::size_t old_height = was_empty ? 0 : color_bindings[index]->info.height;
             if(was_empty)
             {
                 color_bindings[index].emplace();
@@ -1221,9 +1221,9 @@ public:
                 return ret;
             }
 
-            const auto width = color_bindings[index]->info.width;
-            const auto height = color_bindings[index]->info.height;
-            if(width <= 0 || height <= 0
+            const std::size_t width = color_bindings[index]->info.width;
+            const std::size_t height = color_bindings[index]->info.height;
+            if(width == 0 || height == 0
                || (!was_empty
                    && (width > old_width || height > old_height)))
             {

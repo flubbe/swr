@@ -513,11 +513,6 @@ struct texture_compare_command
     /** Texture id. */
     std::uint32_t texture_id;
 
-    std::variant<
-      texture_compare_mode,
-      comparison_func>
-      mode_or_function;
-
     /** Whether to update the mode or the function. */
     bool update_mode;
 

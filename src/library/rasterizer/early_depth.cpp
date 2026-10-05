@@ -8,11 +8,11 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
-/* user headers. */
-#include "../swr_internal.h"
-
 #include <algorithm>
 #include <cassert>
+
+/* user headers. */
+#include "../swr_internal.h"
 
 #include "geometry/interpolators.h"
 #include "early_depth.h"
@@ -30,8 +30,8 @@ constexpr unsigned int early_depth_reject_min_candidate_quads =
 
 struct block_span
 {
-    int width{0};
-    int height{0};
+    std::uint32_t width{0};
+    std::uint32_t height{0};
 };
 
 [[nodiscard]]
@@ -40,24 +40,22 @@ block_span compute_block_span(
   unsigned int block_x,
   unsigned int block_y)
 {
-    const int x = static_cast<int>(block_x);
-    const int y = static_cast<int>(block_y);
-    if(x >= depth_buffer.info.width
-       || y >= depth_buffer.info.height)
+    if(block_x >= depth_buffer.info.width
+       || block_y >= depth_buffer.info.height)
     {
         return {};
     }
 
     return {
-      std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.width - x),
-      std::min<int>(swr::impl::rasterizer_block_size, depth_buffer.info.height - y)};
+      std::min<std::uint32_t>(swr::impl::rasterizer_block_size, depth_buffer.info.width - block_x),
+      std::min<std::uint32_t>(swr::impl::rasterizer_block_size, depth_buffer.info.height - block_y)};
 }
 
 [[nodiscard]]
 depth_range conservative_depth_range_for_block(
   const geom::linear_interpolator_2d<float>& depth,
-  int block_width,
-  int block_height)
+  std::uint32_t block_width,
+  std::uint32_t block_height)
 {
     const float max_dx = static_cast<float>(block_width - 1);
     const float max_dy = static_cast<float>(block_height - 1);
@@ -163,22 +161,22 @@ void record_block_reject_sample(
 
 tile_depth_cache::tile_depth_cache(
   swr::impl::default_framebuffer* framebuffer,
-  unsigned int x,
-  unsigned int y)
+  std::uint32_t x,
+  std::uint32_t y)
 : framebuffer{framebuffer}
-, x{static_cast<int>(x)}
-, y{static_cast<int>(y)}
+, x{x}
+, y{y}
 {
-    assert(framebuffer);
+    assert(framebuffer != nullptr);
 }
 
 const depth_range& tile_depth_cache::stored_depth_range()
 {
-    assert(framebuffer);
+    assert(framebuffer != nullptr);
 
     const auto& depth_buffer = framebuffer->depth_buffer;
-    const int x0 = x;
-    const int y0 = y;
+    const std::uint32_t x0 = x;
+    const std::uint32_t y0 = y;
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     swr::impl::profile_raster_stored_depth_range_requests.fetch_add(1, std::memory_order_relaxed);
@@ -193,20 +191,27 @@ const depth_range& tile_depth_cache::stored_depth_range()
         return range;
     }
 
-    const int width =
-      std::max(
-        0,
-        std::min<int>(
-          swr::impl::rasterizer_block_size,
-          depth_buffer.info.width - x0));
-    const int height =
-      std::max(
-        0,
-        std::min<int>(
-          swr::impl::rasterizer_block_size,
-          depth_buffer.info.height - y0));
+    const auto clamped_block_size =
+      [](std::uint32_t start, std::uint32_t extent)
+    {
+        return start < extent ? extent - start : 0u;
+    };
 
-    if(width <= 0 || height <= 0)
+    const std::uint32_t width =
+      std::min(
+        swr::impl::rasterizer_block_size,
+        clamped_block_size(
+          x0,
+          static_cast<std::uint32_t>(depth_buffer.info.width)));
+
+    const std::uint32_t height =
+      std::min(
+        swr::impl::rasterizer_block_size,
+        clamped_block_size(
+          y0,
+          static_cast<std::uint32_t>(depth_buffer.info.height)));
+
+    if(width == 0 || height == 0)
     {
         range = {0, 0};
         valid = true;
@@ -215,8 +220,8 @@ const depth_range& tile_depth_cache::stored_depth_range()
 
     range = scan_depth_range(
       depth_buffer,
-      static_cast<unsigned int>(x0),
-      static_cast<unsigned int>(y0),
+      x0,
+      y0,
       {width, height});
     valid = true;
 
