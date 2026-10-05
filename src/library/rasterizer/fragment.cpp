@@ -25,13 +25,17 @@ const ml::vec2 pixel_center{0.5f, 0.5f};
 /*
  * statically verify assumptions.
  */
-static_assert(swr::fragment_shader_result::discard == 0, "swr::fragment_shader_result::discard needs to evaluate to the numerical value 0");
-static_assert(swr::fragment_shader_result::accept == 1, "swr::fragment_shader_result::accept needs to evaluate to the numerical value 1");
+static_assert(
+  swr::fragment_shader_result::discard == 0,
+  "swr::fragment_shader_result::discard needs to evaluate to the numerical value 0");
+static_assert(
+  swr::fragment_shader_result::accept == 1,
+  "swr::fragment_shader_result::accept needs to evaluate to the numerical value 1");
 
 namespace
 {
 
-static void clamp_depth_values(
+void clamp_depth_values(
   std::array<float, 4>& depth_value)
 {
 #ifdef SWR_USE_SIMD
@@ -51,7 +55,7 @@ static void clamp_depth_values(
 }
 
 [[nodiscard]]
-static std::uint64_t count_masked_fragments(
+std::uint64_t count_masked_fragments(
   std::uint8_t mask)
 {
     return ((mask & 8) ? 1u : 0u)
@@ -87,7 +91,7 @@ void sweep_rasterizer::process_fragment(
   fragment_info& frag_info,
   swr::impl::fragment_output& out)
 {
-    const int framebuffer_height = draw_target.properties.height;
+    const int framebuffer_height = draw_target.dimensions.height;
 
     /*
      * Scissor test.
@@ -106,13 +110,13 @@ void sweep_rasterizer::process_fragment(
         if(x < x_min || x >= x_max
            || y < y_min || y >= y_max)
         {
-            out.write_flags = 0;
+            out.write_flags = swr::impl::fragment_output_flags::none;
             return;
         }
     }
 
     // initialize write flags.
-    std::uint32_t write_flags = swr::impl::fragment_output::fof_write_color;
+    std::uint32_t write_flags = swr::impl::fragment_output_flags::write_color;
 
     /* stencil buffering is currently unimplemented and the stencil mask is default-initialized to false. */
 
@@ -147,7 +151,7 @@ void sweep_rasterizer::process_fragment(
 
         if(!depth_write_mask)
         {
-            out.write_flags = 0;
+            out.write_flags = swr::impl::fragment_output_flags::none;
             return;
         }
     }
@@ -216,7 +220,7 @@ void sweep_rasterizer::process_fragment(
 
     if(accept_fragment == swr::discard)
     {
-        out.write_flags = 0;
+        out.write_flags = swr::impl::fragment_output_flags::none;
         return;
     }
 
@@ -247,8 +251,8 @@ void sweep_rasterizer::process_fragment(
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
     }
 
-    auto to_mask = [](bool b) -> std::uint32_t
-    { return ~(static_cast<std::uint32_t>(b) - 1); };
+    auto to_mask = [](bool b) -> swr::impl::fragment_output_flags::flag_type
+    { return ~(static_cast<swr::impl::fragment_output_flags::flag_type>(b) - 1); };
 
     out.color = color;
     out.write_flags = write_flags & to_mask(depth_write_mask);
@@ -272,7 +276,7 @@ void process_fragment_block(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const int framebuffer_height = draw_target.properties.height;
+    const int framebuffer_height = draw_target.dimensions.height;
     if constexpr(collect_early_depth_stats)
     {
         assert(early_depth != nullptr);
@@ -316,8 +320,8 @@ void process_fragment_block(
         if(scissor_mask == 0)
         {
             // the mask only contains 'false'.
-            out.write_color = 0;
-            out.write_stencil = 0;
+            out.write_color_mask = 0;
+            out.write_stencil_mask = 0;
 
             return;
         }
@@ -402,8 +406,8 @@ void process_fragment_block(
         active_mask &= depth_mask;
         if(active_mask == 0)
         {
-            out.write_color = 0;
-            out.write_stencil = 0;
+            out.write_color_mask = 0;
+            out.write_stencil_mask = 0;
             return;
         }
 
@@ -534,8 +538,8 @@ void process_fragment_block(
 
     if(accept_mask == 0)
     {
-        out.write_color = 0;
-        out.write_stencil = 0;
+        out.write_color_mask = 0;
+        out.write_stencil_mask = 0;
 
         return;
     }
@@ -581,8 +585,8 @@ void process_fragment_block(
     out.color[2] = color[2];
     out.color[3] = color[3];
 
-    out.write_color = write_color;
-    out.write_stencil = write_stencil;
+    out.write_color_mask = write_color;
+    out.write_stencil_mask = write_stencil;
 }
 
 template<
@@ -600,7 +604,7 @@ void process_fragment_block(
   swr::impl::fragment_output_block& out,
   early_depth_sample* early_depth = nullptr)
 {
-    const int framebuffer_height = draw_target.properties.height;
+    const int framebuffer_height = draw_target.dimensions.height;
     if constexpr(collect_early_depth_stats)
     {
         assert(early_depth != nullptr);
@@ -645,8 +649,8 @@ void process_fragment_block(
         if(scissor_mask == 0)
         {
             // the mask only contains 'false'.
-            out.write_color = 0;
-            out.write_stencil = 0;
+            out.write_color_mask = 0;
+            out.write_stencil_mask = 0;
 
             return;
         }
@@ -654,8 +658,8 @@ void process_fragment_block(
         active_mask &= scissor_mask;
         if(active_mask == 0)
         {
-            out.write_color = 0;
-            out.write_stencil = 0;
+            out.write_color_mask = 0;
+            out.write_stencil_mask = 0;
             return;
         }
 
@@ -739,8 +743,8 @@ void process_fragment_block(
         active_mask &= depth_mask;
         if(active_mask == 0)
         {
-            out.write_color = 0;
-            out.write_stencil = 0;
+            out.write_color_mask = 0;
+            out.write_stencil_mask = 0;
             return;
         }
 
@@ -895,8 +899,8 @@ void process_fragment_block(
 
     if(accept_mask == 0)
     {
-        out.write_color = 0;
-        out.write_stencil = 0;
+        out.write_color_mask = 0;
+        out.write_stencil_mask = 0;
 
         return;
     }
@@ -937,8 +941,8 @@ void process_fragment_block(
     out.color[2] = color[2];
     out.color[3] = color[3];
 
-    out.write_color = write_color;
-    out.write_stencil = write_stencil;
+    out.write_color_mask = write_color;
+    out.write_stencil_mask = write_stencil;
 }
 
 void sweep_rasterizer::process_fragment_block(

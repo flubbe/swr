@@ -11,6 +11,7 @@
 #pragma once
 
 #include <limits>
+#include <span>
 
 /* morton codes */
 #ifdef SWR_USE_MORTON_CODES
@@ -37,8 +38,18 @@ struct texture_depth_2d;
 /** default texture id. */
 constexpr int default_tex_id = 0;
 
+/** 2D dimensions. */
+struct dimensions_2d
+{
+    /** Width. */
+    std::size_t width{0};
+
+    /** Height. */
+    std::size_t height{0};
+};
+
 /*
- * texture storage.
+ * Texture storage.
  */
 
 /** Stores the texture data. */
@@ -328,6 +339,32 @@ struct texture_2d
     /** source format of the texture. */
     pixel_format format{pixel_format::unsupported};
 
+    /** Logical base image width, including queued API changes. */
+    std::uint32_t logical_width{0};
+
+    /** Logical base image height, including queued API changes. */
+    std::uint32_t logical_height{0};
+
+    /** Logical image format, including queued API changes. */
+    pixel_format logical_format{pixel_format::unsupported};
+
+    /** Return the mip level count implied by the logical base image.*/
+    std::size_t logical_mip_level_count() const
+    {
+        return std::bit_width(std::max(logical_width, logical_height));
+    }
+
+    /** Set logical base image metadata immediately when an image is queued. */
+    void set_logical_info(
+      std::uint32_t in_width,
+      std::uint32_t in_height,
+      pixel_format in_format)
+    {
+        logical_width = in_width;
+        logical_height = in_height;
+        logical_format = in_format;
+    }
+
     /** texture sampler. */
     std::unique_ptr<sampler_2d_impl> sampler;
 
@@ -400,12 +437,34 @@ struct texture_2d
      * Set the texture data using the specified pixel format. the base texture level needs to be set up first through this call, since
      * it allocates the storage. the uploaded image needs to have a 4-component format, with 8 bits per component.
      */
-    virtual swr::error set_data(
+    swr::error set_data(
       std::uint32_t level,
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) = 0;
+      std::span<const std::uint8_t> data)
+    {
+        // Allocate storage and delegate to set_sub_data.
+        // If there is no data passed in, we only allocate.
+
+        auto ret = allocate(level, width, height, format);
+        if(ret != error::none)
+        {
+            return ret;
+        }
+
+        if(width == 0 || height == 0 || data.empty())
+        {
+            return error::none;
+        }
+
+        return set_sub_data(
+          level,
+          0, 0,
+          width, height,
+          format,
+          data);
+    }
 
     /**
      * Set the sub-texture data using the specified pixel format. only valid to call after set_data has set the texture storage up.
@@ -418,7 +477,7 @@ struct texture_2d
       std::uint32_t in_width,
       std::uint32_t in_height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) = 0;
+      std::span<const std::uint8_t> data) = 0;
 
     /** clear all texture data. */
     virtual void clear();
@@ -499,12 +558,6 @@ struct texture_color_2d final : public texture_2d
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format) override;
-    swr::error set_data(
-      std::uint32_t level,
-      std::uint32_t width,
-      std::uint32_t height,
-      pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
     swr::error set_sub_data(
       std::uint32_t level,
       std::uint32_t in_x,
@@ -512,7 +565,7 @@ struct texture_color_2d final : public texture_2d
       std::uint32_t in_width,
       std::uint32_t in_height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
+      std::span<const std::uint8_t> data) override;
     void clear() override;
 
     texture_color_2d* as_texture_color_2d() override
@@ -562,12 +615,6 @@ struct texture_depth_2d final : public texture_2d
       std::uint32_t width,
       std::uint32_t height,
       pixel_format format) override;
-    swr::error set_data(
-      std::uint32_t level,
-      std::uint32_t width,
-      std::uint32_t height,
-      pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
     swr::error set_sub_data(
       std::uint32_t level,
       std::uint32_t in_x,
@@ -575,7 +622,7 @@ struct texture_depth_2d final : public texture_2d
       std::uint32_t in_width,
       std::uint32_t in_height,
       pixel_format format,
-      const std::vector<std::uint8_t>& data) override;
+      std::span<const std::uint8_t> data) override;
     void clear() override;
 
     texture_depth_2d* as_texture_depth_2d() override

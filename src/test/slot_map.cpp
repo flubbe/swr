@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE(slot_map_basic_push)
     BOOST_CHECK(sm.empty());
 
     // Push first element
-    std::size_t idx1 = sm.push(42);
+    std::size_t idx1 = sm.insert(42);
     BOOST_CHECK_EQUAL(idx1, 0);
     BOOST_CHECK_EQUAL(sm.size(), 1);
     BOOST_CHECK_EQUAL(sm.slot_count(), 1);
@@ -40,14 +40,14 @@ BOOST_AUTO_TEST_CASE(slot_map_basic_push)
     BOOST_CHECK_EQUAL(sm[idx1], 42);
 
     // Push second element
-    std::size_t idx2 = sm.push(24);
+    std::size_t idx2 = sm.insert(24);
     BOOST_CHECK_EQUAL(idx2, 1);
     BOOST_CHECK_EQUAL(sm.size(), 2);
     BOOST_CHECK_EQUAL(sm.slot_count(), 2);
     BOOST_CHECK_EQUAL(sm[idx2], 24);
 
     // Push third element
-    std::size_t idx3 = sm.push(12);
+    std::size_t idx3 = sm.insert(12);
     BOOST_CHECK_EQUAL(idx3, 2);
     BOOST_CHECK_EQUAL(sm.size(), 3);
     BOOST_CHECK_EQUAL(sm.slot_count(), 3);
@@ -61,11 +61,11 @@ BOOST_AUTO_TEST_CASE(slot_map_push_move)
     std::string s1 = "hello";
     std::string s2 = "world";
 
-    std::size_t idx1 = sm.push(std::move(s1));
+    std::size_t idx1 = sm.insert(std::move(s1));
     BOOST_CHECK_EQUAL(sm[idx1], "hello");
     BOOST_CHECK(s1.empty());    // moved from
 
-    std::size_t idx2 = sm.push(std::move(s2));
+    std::size_t idx2 = sm.insert(std::move(s2));
     BOOST_CHECK_EQUAL(sm[idx2], "world");
     BOOST_CHECK(s2.empty());    // moved from
 }
@@ -75,9 +75,9 @@ BOOST_AUTO_TEST_CASE(slot_map_free_and_reuse)
     utils::slot_map<int> sm;
 
     // Push three elements
-    std::size_t idx1 = sm.push(1);
-    std::size_t idx2 = sm.push(2);
-    std::size_t idx3 = sm.push(3);
+    std::size_t idx1 = sm.insert(1);
+    std::size_t idx2 = sm.insert(2);
+    std::size_t idx3 = sm.insert(3);
 
     BOOST_CHECK_EQUAL(sm.size(), 3);
     BOOST_CHECK_EQUAL(sm.slot_count(), 3);
@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE(slot_map_free_and_reuse)
     BOOST_CHECK(sm.contains(idx3));
 
     // Push new element - should reuse freed slot
-    std::size_t idx4 = sm.push(4);
+    std::size_t idx4 = sm.insert(4);
     BOOST_CHECK_EQUAL(idx4, idx2);    // Should reuse idx2
     BOOST_CHECK_EQUAL(sm.size(), 3);
     BOOST_CHECK_EQUAL(sm.slot_count(), 3);
@@ -104,7 +104,7 @@ BOOST_AUTO_TEST_CASE(slot_map_free_and_reuse)
     BOOST_CHECK(!sm.contains(idx1));
 
     // Push another element - should reuse idx1 (LIFO)
-    std::size_t idx5 = sm.push(5);
+    std::size_t idx5 = sm.insert(5);
     BOOST_CHECK_EQUAL(idx5, idx1);
     BOOST_CHECK_EQUAL(sm.size(), 3);
     BOOST_CHECK_EQUAL(sm[idx5], 5);
@@ -116,10 +116,10 @@ BOOST_AUTO_TEST_CASE(slot_map_lifo_free_slots)
     utils::slot_map<int> sm;
 
     // Push elements
-    std::size_t idx1 = sm.push(1);
-    std::size_t idx2 = sm.push(2);
-    sm.push(3);
-    std::size_t idx4 = sm.push(4);
+    std::size_t idx1 = sm.insert(1);
+    std::size_t idx2 = sm.insert(2);
+    sm.insert(3);
+    std::size_t idx4 = sm.insert(4);
 
     // Free in order: idx2, idx4, idx1
     sm.erase(idx2);
@@ -127,17 +127,17 @@ BOOST_AUTO_TEST_CASE(slot_map_lifo_free_slots)
     sm.erase(idx1);
 
     // Push should reuse in LIFO order: idx1, idx4, idx2
-    std::size_t idx5 = sm.push(5);
+    std::size_t idx5 = sm.insert(5);
     BOOST_CHECK_EQUAL(idx5, idx1);
 
-    std::size_t idx6 = sm.push(6);
+    std::size_t idx6 = sm.insert(6);
     BOOST_CHECK_EQUAL(idx6, idx4);
 
-    std::size_t idx7 = sm.push(7);
+    std::size_t idx7 = sm.insert(7);
     BOOST_CHECK_EQUAL(idx7, idx2);
 
     // Now push new element at end
-    std::size_t idx8 = sm.push(8);
+    std::size_t idx8 = sm.insert(8);
     BOOST_CHECK_EQUAL(idx8, 4);    // Next available slot
 }
 
@@ -145,9 +145,9 @@ BOOST_AUTO_TEST_CASE(slot_map_clear)
 {
     utils::slot_map<int> sm;
 
-    sm.push(1);
-    sm.push(2);
-    sm.push(3);
+    sm.insert(1);
+    sm.insert(2);
+    sm.insert(3);
 
     BOOST_CHECK_EQUAL(sm.size(), 3);
     BOOST_CHECK_EQUAL(sm.slot_count(), 3);
@@ -163,9 +163,9 @@ BOOST_AUTO_TEST_CASE(slot_map_shrink_to_fit)
 {
     utils::slot_map<int> sm;
 
-    sm.push(1);
-    sm.push(2);
-    sm.push(3);
+    sm.insert(1);
+    sm.insert(2);
+    sm.insert(3);
 
     BOOST_CHECK_EQUAL(sm.slot_count(), 3);
 
@@ -184,8 +184,8 @@ BOOST_AUTO_TEST_CASE(slot_map_access_operators)
 {
     utils::slot_map<std::string> sm;
 
-    std::size_t idx1 = sm.push("hello");
-    std::size_t idx2 = sm.push("world");
+    std::size_t idx1 = sm.insert("hello");
+    std::size_t idx2 = sm.insert("world");
 
     // Test const access
     const auto& const_sm = sm;
@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(slot_map_edge_cases)
     BOOST_CHECK(sm.empty());
 
     // Test single element operations
-    std::size_t idx = sm.push(42);
+    std::size_t idx = sm.insert(42);
     BOOST_CHECK_EQUAL(sm.size(), 1);
     BOOST_CHECK(!sm.empty());
 
@@ -216,7 +216,7 @@ BOOST_AUTO_TEST_CASE(slot_map_edge_cases)
     BOOST_CHECK(sm.empty());
 
     // Push again after freeing all
-    std::size_t idx2 = sm.push(24);
+    std::size_t idx2 = sm.insert(24);
     BOOST_CHECK_EQUAL(idx2, idx);    // Should reuse
     BOOST_CHECK_EQUAL(sm.size(), 1);
     BOOST_CHECK_EQUAL(sm[idx2], 24);
@@ -225,10 +225,10 @@ BOOST_AUTO_TEST_CASE(slot_map_edge_cases)
 BOOST_AUTO_TEST_CASE(slot_map_custom_container)
 {
     // Test with std::deque as container
-    utils::slot_map<int, std::deque<int>> sm;
+    utils::slot_map<int, std::deque> sm;
 
-    std::size_t idx1 = sm.push(1);
-    std::size_t idx2 = sm.push(2);
+    std::size_t idx1 = sm.insert(1);
+    std::size_t idx2 = sm.insert(2);
 
     BOOST_CHECK_EQUAL(sm.size(), 2);
     BOOST_CHECK_EQUAL(sm.slot_count(), 2);
@@ -239,7 +239,7 @@ BOOST_AUTO_TEST_CASE(slot_map_custom_container)
     BOOST_CHECK_EQUAL(sm.size(), 1);
     BOOST_CHECK(!sm.contains(idx1));
 
-    std::size_t idx3 = sm.push(3);
+    std::size_t idx3 = sm.insert(3);
     BOOST_CHECK_EQUAL(idx3, idx1);    // Should reuse
     BOOST_CHECK_EQUAL(sm[idx3], 3);
 }
@@ -252,7 +252,7 @@ BOOST_AUTO_TEST_CASE(slot_map_multiple_free_reuse)
     std::vector<std::size_t> indices;
     for(int i = 0; i < 10; ++i)
     {
-        indices.push_back(sm.push(i));
+        indices.push_back(sm.insert(i));
     }
 
     BOOST_CHECK_EQUAL(sm.size(), 10);
@@ -270,7 +270,7 @@ BOOST_AUTO_TEST_CASE(slot_map_multiple_free_reuse)
     std::vector<std::size_t> new_indices;
     for(int i = 100; i < 105; ++i)
     {
-        new_indices.push_back(sm.push(i));
+        new_indices.push_back(sm.insert(i));
     }
 
     BOOST_CHECK_EQUAL(sm.size(), 10);
@@ -293,15 +293,15 @@ BOOST_AUTO_TEST_CASE(slot_map_size_capacity_consistency)
     // Test that size + free_slot_count() == capacity
     BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
-    sm.push(1);
+    sm.insert(1);
     BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
-    sm.push(2);
+    sm.insert(2);
     BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
     sm.erase(0);
     BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 
-    sm.push(3);
+    sm.insert(3);
     BOOST_CHECK_EQUAL(sm.size() + sm.free_slot_count(), sm.slot_count());
 }

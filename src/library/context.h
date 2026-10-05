@@ -1,7 +1,7 @@
 /**
  * swr - a software rasterizer
  *
- * general render context and SDL render context.
+ * General render context and SDL render context.
  *
  * \author Felix Lubbe
  * \copyright Copyright (c) 2026
@@ -13,6 +13,7 @@
 #include <bit>
 #include <functional>
 #include <memory>
+#include <span>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -28,18 +29,18 @@ namespace impl
 {
 
 /*
- * shader support.
+ * Shader support.
  */
 
 using shader_storage_buffer = utils::aligned_byte_storage;
 
-/** program flags. */
+/** Program flags. */
 enum class program_flags : std::uint32_t
 {
-    none = 0,
-    prelinked = 1 << 0,
-    linked = 1 << 1,
-    has_flat_varyings = 1 << 2
+    none = 0,                  /** No flags. */
+    prelinked = 1 << 0,        /** Program is pre-linked. */
+    linked = 1 << 1,           /** Program is linked. */
+    has_flat_varyings = 1 << 2 /** Whether any varying is flat / doesn't need interpolation. */
 };
 
 constexpr program_flags operator&(
@@ -66,48 +67,50 @@ constexpr program_flags& operator|=(
     return a;
 }
 
-/** invalid vertex attribute index. */
+/** Invalid vertex attribute index. */
 enum class vertex_attribute_index
 {
     invalid = -1
 };
 
-/** graphics program info. */
+/** Graphics program info. */
 struct program_info
 {
-    /** varying count. has to match iqs.size(). */
+    /** Varying count. Has to match `iqs.size()`. */
     std::uint32_t varying_count{0};
 
-    /** interpolation qualifiers for varyings. */
+    /** Interpolation qualifiers for varyings. */
     boost::container::static_vector<
       swr::interpolation_qualifier,
       swr::limits::max::varyings>
       iqs;
 
-    /** flags. */
+    /** Flags. */
     program_flags flags{program_flags::none};
 
     /** Shader behavior metadata. */
     swr::program_metadata metadata{};
 
-    /** (pointer to) the graphics program/shader. */
+    /** The graphics program/shader. */
     const program_base* shader{nullptr};
 
-    /** shader size. */
+    /** Shader size. */
     std::size_t program_size{0};
 
-    /** shader alignment. */
+    /** Shader alignment. */
     std::size_t program_alignment{utils::alignment::sse};
 
 #ifndef SWR_ENABLE_MULTI_THREADING
-    /** shader instance. */
+    /** Shader instance. */
     shader_storage_buffer storage;
 #endif
 
-    /** default constructor. */
+    /** Default constructor. */
     program_info() = default;
+    program_info(const program_info&) = default;
+    program_info(program_info&&) = default;
 
-    /** constructor. */
+    /** Constructor. */
     program_info(const program_base* in_shader)
     : metadata{in_shader->get_metadata()}
     , shader{in_shader}
@@ -119,7 +122,11 @@ struct program_info
     {
     }
 
-    /** shader validation. */
+    /** Assignments. */
+    program_info& operator=(const program_info&) = default;
+    program_info& operator=(program_info&&) = default;
+
+    /** Shader validation. */
     bool validate() const
     {
         return shader
@@ -128,7 +135,7 @@ struct program_info
     }
 
     /*
-     * accessors.
+     * Accessors.
      */
 
     bool is_prelinked() const
@@ -148,21 +155,45 @@ struct program_info
 };
 
 /*
- * render contexts.
+ * Render contexts.
  */
 
-/** convenience vertex shader instance container. */
+/**
+ * Vertex shader instance container.
+ *
+ * Manages shader lifetime: Creates a shader instance on construction
+ * in externally provided storage and takes care of destruction. Handles
+ * move assignments.
+ *
+ * @note The external storage has to outlive the container instance.
+ * @note Uniforms and samplers are non-owning and must outlive the container instance.
+ */
 class vertex_shader_instance_container
 {
+    /** Shader instance. */
     const swr::program_base* shader{nullptr};
+
+    /** Varying count. */
     std::size_t varying_count{0};
 
 public:
+    /** Disallow construction without shader instance. */
+    vertex_shader_instance_container() = delete;
+
+    /**
+     * Construct a vertex shader instance container.
+     *
+     * @param storage Storage to construct the shader in.
+     * @param shader_info Shader info.
+     * @param uniforms Shader uniform.
+     * @param samplers_2d 2D samplers.
+     * @note Uniforms and samplers are non-owning and must outlive the class instance.
+     */
     vertex_shader_instance_container(
       std::byte* storage,
       impl::program_info* shader_info,
       const swr::uniform_bindings& uniforms,
-      const swr::sampler_bindings& samplers_2d = {})
+      const swr::sampler_bindings& samplers_2d)
     {
         assert(shader_info);
         assert(shader_info->shader);
@@ -177,43 +208,89 @@ public:
           swr::program_instance_bindings{uniforms, samplers_2d});
     }
 
-    vertex_shader_instance_container(const vertex_shader_instance_container&) = delete;
-    vertex_shader_instance_container(vertex_shader_instance_container&& other)
+    /** Disallow copies. */
+    vertex_shader_instance_container(
+      const vertex_shader_instance_container&) = delete;
+
+    /** Move the shader instance. */
+    vertex_shader_instance_container(
+      vertex_shader_instance_container&& other) noexcept
     : shader{other.shader}
     , varying_count{other.varying_count}
     {
         other.shader = nullptr;
     }
 
-    ~vertex_shader_instance_container()
+    /** Destructor. */
+    ~vertex_shader_instance_container() noexcept
     {
+        // Happens when container was moved from.
         if(shader != nullptr)
         {
             shader->~program_base();
         }
     }
 
-    vertex_shader_instance_container& operator=(const vertex_shader_instance_container&) = delete;
-    vertex_shader_instance_container& operator=(vertex_shader_instance_container&& other) = delete;
+    /** Disallow copies. */
+    vertex_shader_instance_container& operator=(
+      const vertex_shader_instance_container&) = delete;
 
-    const swr::program_base* get() const
+    /** Move the shader instance. */
+    vertex_shader_instance_container& operator=(
+      vertex_shader_instance_container&& other) noexcept
+    {
+        shader = other.shader;
+        varying_count = other.varying_count;
+
+        other.shader = nullptr;
+
+        return *this;
+    }
+
+    /** Get the shader instance. */
+    const swr::program_base* get() const noexcept
     {
         return shader;
     }
 
-    std::size_t get_varying_count() const
+    /** Return the varying count for this shader. */
+    std::size_t get_varying_count() const noexcept
     {
         return varying_count;
     }
 };
 
-/** convenience fragment shader instance container. */
+/**
+ * Fragment shader instance container.
+ *
+ * Manages shader storage and lifetime: Allocates storage, creates a
+ * shader instance on construction and takes care of destruction and
+ * storage deallocation. Handles move assignments.
+ *
+ * @note Uniforms and samplers are non-owning and must outlive the container instance.
+ */
 class fragment_shader_instance_container
 {
+    /** Shader instance storage. */
     shader_storage_buffer storage;
+
+    /** Shader instance. */
     const swr::program_base* shader{nullptr};
 
 public:
+    /** Disallow construction without shader instance. */
+    fragment_shader_instance_container() = delete;
+
+    /**
+     * Create a fragment shader instance container.
+     *
+     * Manages shader storage allocation and lifetime.
+     *
+     * @param shader_info Shader info.
+     * @param uniforms Shader uniform.
+     * @param samplers_2d 2D samplers.
+     * @note Uniforms and samplers are non-owning and must outlive the class instance.
+     */
     fragment_shader_instance_container(
       const impl::program_info* shader_info,
       const swr::uniform_bindings& uniforms,
@@ -237,41 +314,62 @@ public:
           swr::program_instance_bindings{uniforms, samplers_2d});
     }
 
-    fragment_shader_instance_container(const fragment_shader_instance_container&) = delete;
-    fragment_shader_instance_container(fragment_shader_instance_container&& other) noexcept
+    /** Disallow copies. */
+    fragment_shader_instance_container(
+      const fragment_shader_instance_container&) = delete;
+
+    /** Move the shader instance. */
+    fragment_shader_instance_container(
+      fragment_shader_instance_container&& other) noexcept
     : storage{std::move(other.storage)}
     , shader{other.shader}
     {
         other.shader = nullptr;
     }
 
-    ~fragment_shader_instance_container()
+    /** Destructor. */
+    ~fragment_shader_instance_container() noexcept
     {
+        // Happens when container was moved from.
         if(shader != nullptr)
         {
             shader->~program_base();
         }
     }
 
-    fragment_shader_instance_container& operator=(const fragment_shader_instance_container&) = delete;
-    fragment_shader_instance_container& operator=(fragment_shader_instance_container&& other) = delete;
+    /** Disable copies. */
+    fragment_shader_instance_container& operator=(
+      const fragment_shader_instance_container&) = delete;
 
-    const swr::program_base* get() const
+    /** Move the shader instance. */
+    fragment_shader_instance_container& operator=(
+      fragment_shader_instance_container&& other) noexcept
+    {
+        storage = std::move(other.storage);
+        shader = other.shader;
+
+        other.shader = nullptr;
+
+        return *this;
+    }
+
+    /** Get the shader instance. */
+    const swr::program_base* get() const noexcept
     {
         return shader;
     }
 };
 
-/** the context type. */
+/** The context type. */
 enum class context_type
 {
-    generic,  /** generic context. */
+    generic,  /** A generic, unspecified context. */
     sdl,      /** SDL context. */
-    offscreen /** offscreen context. */
+    offscreen /** Offscreen context. */
 };
 
 /*
- * render commands.
+ * Render commands.
  */
 
 /**
@@ -289,9 +387,185 @@ struct index_range
     std::size_t count{0};
 };
 
+/** Resolved execution context for a draw command. */
+struct draw_execution
+{
+    /** Render object. Pointer into `render_context::render_objects`. */
+    render_object* object{nullptr};
+
+    /** Vertex count. */
+    std::size_t vertex_count;
+
+    /** Attribute range in `render_context::vec4_data`. */
+    index_range attribute_index_range;
+
+    /** Attribute slot count. */
+    std::size_t attribute_slot_count;
+
+    /**
+     * Clipped vertices range in `render_context::vec4_data`.
+     *
+     * FIXME Seems unused-ish?
+     */
+    index_range clipped_vertex_range;
+
+    /**
+     * Render states in `render_context::state_snapshots`.
+     *
+     * TODO `object->states` points to the same data.
+     */
+    const render_states* states{nullptr};
+
+    /** Draw target */
+    framebuffer_draw_target* draw_target{nullptr};
+};
+
+/** Clear command type. */
+enum class clear_kind
+{
+    color, /** Clear the color buffer. */
+    depth  /** Clear the depth buffer. */
+};
+
+/** Clear command. */
+struct clear_command
+{
+    /** Command requires pipeline flush. */
+    static constexpr bool requires_flush = true;
+
+    /** Clear kind. */
+    clear_kind kind;
+
+    /** State snapshot index in `render_context::state_snapshots`. */
+    std::size_t state_snapshot_index;
+};
+
+/** Buffer update type. */
+enum class buffer_update_kind
+{
+    index,    /** Update index buffer. */
+    attribute /** Update attribute buffer. */
+};
+
+/** Update buffer command. */
+struct update_buffer_command
+{
+    /** Command requires pipeline flush. */
+    static constexpr bool requires_flush = true;
+
+    /** Which buffer to update. */
+    buffer_update_kind kind;
+
+    /** Buffer id. */
+    std::uint32_t buffer_id;
+
+    /** Index range in `render_context::vec4_data` or `render_context::index_buffer_pool`. */
+    index_range range;
+};
+
+/** Texture update kind. */
+enum class texture_update_kind
+{
+    create, /** Create a new texture. */
+    update  /** Update an existing texture. */
+};
+
+/** Update texture command. */
+struct update_texture_command
+{
+    /** Command requires pipeline flush. */
+    static constexpr bool requires_flush = true;
+
+    /** Texture update kind. */
+    texture_update_kind kind;
+
+    /** Texture id. */
+    std::uint32_t texture_id;
+
+    /** Mipmap level. */
+    std::uint32_t level;
+
+    /** X offset for updates. */
+    std::size_t offset_x;
+
+    /** Y offset for updates. */
+    std::size_t offset_y;
+
+    /** Texture width. */
+    std::size_t width;
+
+    /** Texture height. */
+    std::size_t height;
+
+    /** Pixel format. */
+    pixel_format format;
+
+    /** Texture data (possibly empty). */
+    std::vector<std::uint8_t> data;
+};
+
+/** Depth texture comparison parameter update. */
+struct texture_compare_command
+{
+    /** Command requires pipeline flush. */
+    static constexpr bool requires_flush = true;
+
+    /** Texture id. */
+    std::uint32_t texture_id;
+
+    std::variant<
+      texture_compare_mode,
+      comparison_func>
+      mode_or_function;
+
+    /** Whether to update the mode or the function. */
+    bool update_mode;
+
+    /** Texture compare mode. */
+    texture_compare_mode mode;
+
+    /** Comparison function. */
+    comparison_func function;
+};
+
+/** Update a framebuffer texture attachment. */
+struct framebuffer_texture_command
+{
+    /** Command requires pipeline flush. */
+    static constexpr bool requires_flush = true;
+
+    /** Framebuffer id. */
+    std::uint32_t framebuffer_id;
+
+    /** Attachment type. */
+    framebuffer_attachment attachment;
+
+    /** Texture id. */
+    std::uint32_t texture_id;
+
+    /** Mipmap level. */
+    std::uint32_t level;
+};
+
+/** Update a framebuffer depth renderbuffer attachment. */
+struct framebuffer_renderbuffer_command
+{
+    /** Command requires pipeline flush. */
+    static constexpr bool requires_flush = true;
+
+    /** Framebuffer id. */
+    std::uint32_t framebuffer_id;
+
+    /** Renderbuffer id. */
+    std::uint32_t renderbuffer_id;
+};
+
 /** Draw command for a render object. */
 struct draw_command
 {
+    /** Command doesn't require flush. */
+    static constexpr bool requires_flush = false;
+
     /** Vertex buffer mode. */
     vertex_buffer_mode mode;
 
@@ -301,52 +575,27 @@ struct draw_command
     /** Index buffer, as indices into the index buffer pool. */
     index_range indices;
 
+    /** Index into the active vertex attribute buffers pool */
+    index_range active_vab_indices;
+
+    /** Attribute slot count. */
+    std::size_t attribute_slot_count;
+
+    /** Whether the attribute indices were remapped. */
+    bool remapped;
+
     /** Attribute source indices, as indices into the index buffer pool. */
     index_range attribute_indices;
-
-    /** Attribute snapshot range captured when the draw was submitted. */
-    index_range attribute_index_range;
-
-    /** Attribute count per submitted vertex in the snapshot range. */
-    std::size_t attribute_count{0};
-};
-
-/** Resolved execution context for a draw command. */
-struct draw_execution
-{
-    render_object* object{nullptr};
-    std::size_t vertex_count;
-    index_range attribute_index_range;
-    index_range clipped_vertex_range;
-    const render_states* states{nullptr};
-    framebuffer_draw_target* draw_target{nullptr};
-    bool discard{false};
-};
-
-/** Clear command type. */
-enum class clear_kind
-{
-    color,
-    depth
-};
-
-/** Clear command. */
-struct clear_command
-{
-    clear_kind kind;
-    std::size_t state_snapshot_index;
-};
-
-/** Buffer update type. */
-enum class buffer_update_kind
-{
-    index,
-    attribute
 };
 
 /** Render command type, including command data. */
 using render_command = std::variant<
   clear_command,
+  update_buffer_command,
+  update_texture_command,
+  texture_compare_command,
+  framebuffer_texture_command,
+  framebuffer_renderbuffer_command,
   draw_command>;
 
 /** The default framebuffer has id 0, so we skip it. */
@@ -366,6 +615,9 @@ constexpr std::uint32_t framebuffer_slot_to_id(std::uint32_t slot)
 enum class resource_type
 {
     none,               /** No type. */
+    index_buffer,       /** Index buffer. */
+    attribute_buffer,   /** Attribute buffer. */
+    texture,            /** Texture. */
     framebuffer_object, /** Framebuffer object. */
     depth_attachment    /** Depth attachment for a framebuffer object. */
 };
@@ -384,20 +636,20 @@ struct resource_key
       const resource_key&) = default;
 };
 
-/** a general render context (not associated to any output device/window). */
+/** A general render context (not associated to any output device/window). */
 struct render_context
 {
     /** Arena memory is cleaned up every N frames. */
     static constexpr std::size_t CleanupFrames = 120;
 
-    /** the context type. */
+    /** Context type. */
     context_type type{context_type::generic};
 
     /*
-     * frame buffers.
+     * Frame buffers.
      */
 
-    /** default frame buffer. */
+    /** Default frame buffer. */
     default_framebuffer framebuffer;
 
     /** Frame buffer objects. */
@@ -427,21 +679,21 @@ struct render_context
       std::uint32_t id);
 
     /*
-     * context states.
+     * Context states.
      */
 
     /** The current render states. These are copied on each draw call and stored in a draw list. */
     render_states states;
 
     /*
-     * error handling.
+     * Error handling.
      */
 
-    /** last detected error. */
+    /** Last detected error. */
     error last_error{error::none};
 
     /*
-     * command stream and per-frame storage.
+     * Command stream and per-frame storage.
      */
 
     /**
@@ -451,16 +703,50 @@ struct render_context
      */
     frame_arena<CleanupFrames, render_command> command_list;
 
+    /*
+     * Command dispatch.
+     */
+
+    void execute_command(
+      const impl::clear_command& cmd);
+
+    void execute_command(
+      const impl::draw_command& cmd);
+
+    void execute_command(
+      const impl::update_buffer_command& cmd);
+
+    void execute_command(
+      const impl::update_texture_command& cmd);
+
+    void execute_command(
+      const impl::texture_compare_command& cmd);
+
+    void execute_command(
+      const impl::framebuffer_texture_command& cmd);
+
+    void execute_command(
+      const impl::framebuffer_renderbuffer_command& cmd);
+
     /** Pending resource deletions. */
     frame_arena<CleanupFrames, resource_key> pending_resource_deletions;
+
+    /** Check whether a resource has a pending delete. */
+    bool has_pending_deletion(
+      resource_type type,
+      std::uint32_t id) const;
 
     /** Process pending deletions list. */
     void process_pending_deletions();
 
     /**
      * Per-frame arena of render objects.  Storage is retained between frames.
-     * Indexed by draw_command::render_object_index when processing draw commands.
-     * On reset() inner vector buffers (coords, varyings, etc.) keep their capacity.
+     * References by `draw_command::render_object` when processing draw commands.
+     * On `reset()` inner vector buffers (attribs, vertex flags, clipped vertices)
+     * keep their capacity.
+     *
+     * @note Needs to reserve memory before storing render objects, since these references
+     *     have to be stable within a frame.
      */
     frame_arena<CleanupFrames, render_object> render_objects;
 
@@ -469,6 +755,8 @@ struct render_context
      * Storage is retained between frames so payload elements can be reused without per-frame heap churn.
      */
     frame_arena<CleanupFrames, std::uint32_t> index_buffer_pool;
+
+    frame_arena<CleanupFrames, std::pair<int, int>> active_vab_indices_pool;
 
     /**
      * Per-frame resolved draw execution contexts, one per draw command.
@@ -488,15 +776,6 @@ struct render_context
      */
     frame_arena<CleanupFrames, render_states> state_snapshots;
 
-    /** Per-frame attribute pool. */
-    frame_arena<
-      CleanupFrames,
-      ml::vec4,
-      utils::aligned_default_init_allocator<
-        ml::vec4,
-        utils::alignment::sse>>
-      attribute_snapshot_pool;
-
     /**
      * Per-frame vertex data pool backing coords, attribs, and varyings for all
      * render objects. SSE-aligned; storage is retained between frames so capacity
@@ -509,7 +788,7 @@ struct render_context
       utils::aligned_default_init_allocator<
         ml::vec4,
         utils::alignment::sse>>
-      vertex_data_pool;
+      vec4_data;
 
     /**
      * Capture the current render states as a frame snapshot and return its index.
@@ -518,65 +797,105 @@ struct render_context
     std::size_t capture_state();
 
     /**
-     * Capture the current attribute buffers.
+     * Capture the current attribute buffers for indexed draw calls.
+     *
+     * @note Populates the vertex attributes as a sparse array.
+     * @param index_count Index count.
+     * @param active_vab_indices Range (inside `active_vab_indices_pool`) of
+     *     active vertex array buffer indices.
+     * @param attribute_indices Range (inside `index_buffer_pool`) of vertex attribute
+     *     indices.
+     * @returns Returns the index range of captured attributes inside `vec4_data`.
      */
-    template<typename TransformFn>
     index_range capture_attribute_buffers(
-      std::size_t count,
-      TransformFn&& transform_fn)
+      std::size_t index_count,
+      const index_range& active_vab_indices,
+      std::size_t attribute_slot_count,
+      const index_range& attribute_indices)
     {
-        const auto attrib_count = active_vabs.size();
+        const auto attrib_count = active_vab_indices.count;
 
-        const std::uint32_t attrib_range_start = attribute_snapshot_pool.size();
-        const std::uint32_t attrib_range_size = count * attrib_count;
+        const std::size_t attrib_range_start = vec4_data.size();
+        const std::size_t attrib_range_size = index_count * attribute_slot_count;
 
-        auto attribs = attribute_snapshot_pool.allocate_range(attrib_range_size);
-        for(std::size_t i = 0; i < count; ++i)
+        const auto remapped_indices = std::span{
+          &index_buffer_pool[attribute_indices.begin],
+          attribute_indices.count};
+
+        auto attribs = vec4_data.allocate_range(index_count * attribute_slot_count);
+        for(std::size_t i = 0; i < index_count; ++i)
         {
-            auto vertex_attribs = attribs.subspan(i * attrib_count);
-            for(std::size_t slot = 0; slot < attrib_count; ++slot)
+            auto vertex_attribs = attribs.subspan(i * attribute_slot_count);
+            for(std::size_t j = 0; j < attrib_count; ++j)
             {
-                const int& id = active_vabs[slot];
-
-                if(id == static_cast<int>(impl::vertex_attribute_index::invalid))
-                {
-                    continue;
-                }
-
-                vertex_attribs[slot] = vertex_attribute_buffers[id].data[transform_fn(i)];
+                const auto [slot, buffer_id] = active_vab_indices_pool[active_vab_indices.begin + j];
+                vertex_attribs[slot] = vertex_attribute_buffers[buffer_id].data[remapped_indices[i]];
             }
         }
 
         return {attrib_range_start, attrib_range_size};
     }
 
-    /** index buffers. */
+    /**
+     * Capture the current attribute buffers for regular draw calls.
+     *
+     * @note Populates the vertex attributes as a sparse array.
+     * @param index_count Index count.
+     * @param active_vab_indices Range (inside `active_vab_indices_pool`) of
+     *     active vertex array buffer indices.
+     * @returns Returns the index range of captured attributes inside `vec4_data`.
+     */
+    index_range capture_attribute_buffers(
+      std::size_t index_count,
+      const index_range& active_vab_indices,
+      std::size_t attribute_slot_count)
+    {
+        const auto attrib_count = active_vab_indices.count;
+
+        const std::size_t attrib_range_start = vec4_data.size();
+        const std::size_t attrib_range_size = index_count * attribute_slot_count;
+
+        auto attribs = vec4_data.allocate_range(attrib_range_size);
+        for(std::size_t i = 0; i < index_count; ++i)
+        {
+            auto vertex_attribs = attribs.subspan(i * attribute_slot_count);
+            for(std::size_t j = 0; j < attrib_count; ++j)
+            {
+                const auto [slot, buffer_id] = active_vab_indices_pool[active_vab_indices.begin + j];
+                vertex_attribs[slot] = vertex_attribute_buffers[buffer_id].data[i];
+            }
+        }
+
+        return {attrib_range_start, attrib_range_size};
+    }
+
+    /** Index buffers. */
     utils::slot_map<
       std::vector<
         std::uint32_t>>
       index_buffers;
 
-    /** vertex attribute buffers. */
+    /** Vertex attribute buffers. */
     utils::slot_map<vertex_attribute_buffer> vertex_attribute_buffers;
 
-    /** currently active vertex attribute buffers. stores indices into vertex_attribute_buffers. */
+    /** Currently active vertex attribute buffers. stores indices into vertex_attribute_buffers. */
     boost::container::static_vector<
       int,
       swr::limits::max::attributes>
       active_vabs;
 
     /*
-     * shaders.
+     * Shaders.
      */
 
-    /** the registered shaders, together with their program information. */
+    /** The registered shaders, together with their program information. */
     utils::slot_map<program_info> programs;
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    /** storage for the shader instances. */
+    /** Storage for the shader instances. */
     shader_storage_buffer program_storage;
 
-    /** resolved draw with their associated program instances, to avoid reallocations. */
+    /** Resolved draw with their associated program instances, to avoid reallocations. */
     std::vector<
       std::pair<
         swr::impl::draw_execution*,
@@ -584,56 +903,60 @@ struct render_context
       program_instances;
 #endif /* SWR_ENDABLE_MULTI_THREADING */
 
-    /** default shader. */
+    /** Default shader. */
     std::unique_ptr<program_base> default_shader;
 
     /*
-     * texture management.
+     * Texture management.
      */
 
-    /** texture storage. */
+    /** Texture storage. */
     utils::slot_map<std::unique_ptr<texture_2d>> texture_2d_storage;
 
-    /** a default texture. this needs to be allocated in texture_2d_storage at index 0. */
+    /** A default texture. This needs to be allocated in texture_2d_storage at index 0. */
     texture_2d* default_texture_2d{nullptr};
 
     /*
-     * thread pool.
+     * Thread pool.
      */
 
 #ifdef SWR_ENABLE_MULTI_THREADING
-    /** thread pool type to use. */
+    /** Thread pool type to use. */
     typedef concurrency_utils::deferred_thread_pool<
       concurrency_utils::mpmc_blocking_queue<
         std::function<void()>>>
       thread_pool_type;
 
-    /** processing threads. */
+    /** Processing threads. */
     std::uint32_t thread_pool_size{0};
 
-    /** worker threads. */
+    /** Worker threads. */
     thread_pool_type thread_pool;
 #else
-    /** no thread pool type. */
+    /** No thread pool type. */
     typedef std::nullptr_t thread_pool_type;
 #endif /* SWR_ENABLE_MULTI_THREADING */
 
     /*
-     * rasterization.
+     * Rasterization.
      */
 
-    /** rasterizes points, lines and triangles. */
+    /** Rasterizes points, lines and triangles. */
     std::unique_ptr<rast::rasterizer> rasterizer;
 
-    /** create the rasterizer from the internal state. */
+    /** Create the rasterizer from the internal state. */
     void create_rasterizer();
 
     /*
-     * render_device_context implementation.
+     * Render context implementation.
      */
 
-    /** default constructor. */
+    /** Default constructor. */
     render_context() = default;
+
+    /* Disable copies and moves. */
+    render_context(const render_context&) = delete;
+    render_context(render_context&&) = delete;
 
     /** virtual destructor. */
     virtual ~render_context()
@@ -641,8 +964,12 @@ struct render_context
         shutdown();
     }
 
+    /* Disable copies and moves. */
+    render_context& operator=(const render_context&) = delete;
+    render_context& operator=(render_context&&) = delete;
+
     /*
-     * render object management.
+     * Render object management.
      */
 
     /**
@@ -673,10 +1000,58 @@ struct render_context
     void create_indexed_draw_command(
       vertex_buffer_mode mode,
       std::size_t count,
-      const std::vector<std::uint32_t>& index_buffer);
+      std::span<const std::uint32_t> index_buffer);
+
+    /**
+     * Insert an update command for a buffer.
+     *
+     * @param kind The buffer kind.
+     * @param id The buffer id.
+     * @param range Range in the buffer storage pool.
+     */
+    void create_update_buffer_command(
+      buffer_update_kind kind,
+      std::uint32_t id,
+      index_range range);
+
+    /**
+     * Insert an update command for a texture.
+     *
+     * @param mode Create or update the texture.
+     * @param texture_id Id of the texture to be updated.
+     * @param level ;ipmap level.
+     * @param offset_x x-offset
+     * @param offset_y y-offset
+     * @param width Width of the data
+     * @param height Height of the data
+     * @param format Pixel format of the data
+     * @param data Image data
+     */
+    void create_texture_update_command(
+      texture_update_kind mode,
+      std::uint32_t texture_id,
+      std::uint32_t level,
+      std::size_t offset_x,
+      std::size_t offset_y,
+      std::size_t width,
+      std::size_t height,
+      pixel_format format,
+      std::span<const std::uint8_t> data);
+
+    /** Insert a framebuffer texture attachment command. */
+    void create_framebuffer_texture_command(
+      std::uint32_t framebuffer_id,
+      framebuffer_attachment attachment,
+      std::uint32_t texture_id,
+      std::uint32_t level);
+
+    /** Insert a framebuffer depth renderbuffer attachment command. */
+    void create_framebuffer_renderbuffer_command(
+      std::uint32_t framebuffer_id,
+      std::uint32_t renderbuffer_id);
 
     /*
-     * buffer management.
+     * Buffer management.
      */
 
     /**
@@ -687,7 +1062,7 @@ struct render_context
     void create_clear_command(clear_kind kind);
 
     /*
-     * primitive assembly.
+     * Primitive assembly.
      */
 
     /**
@@ -716,52 +1091,61 @@ struct render_context
       render_object& obj);
 
     /*
-     * render_device_context interface.
+     * Render context interface.
      */
 
-    /** free all resources. */
+    /** Free all resources. */
     virtual void shutdown();
 
-    /** Lock color buffer for writing. On success, ensures ColorBuffer.data_ptr to be valid. */
+    /** Lock color buffer for writing. On success, ensures `framebuffer.color_buffer.info.data_ptr` to be valid. */
     virtual bool lock()
     {
         return false;
     }
 
-    /** unlock the color buffer. */
+    /** Unlock the color buffer. */
     virtual void unlock()
     {
     }
 
-    /** copy the default color buffer to some target. */
+    /** Copy the default color buffer to some target. */
     virtual void copy_default_color_buffer()
     {
     }
 };
 
-/** a render context for an SDL window. */
-class sdl_render_context final : public render_context
+/** A render context for an SDL window. */
+class sdl_render_context final
+: public render_context
 {
 protected:
-    /** context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
+    /** Context dimensions: the buffer may be a bit larger, but we only want to copy the correct rectangle. */
     SDL_FRect sdl_viewport_dimensions;
 
-    /** color buffer. */
+    /** Color buffer. */
     SDL_Texture* sdl_color_buffer{nullptr};
 
     /** SDL renderer. */
     SDL_Renderer* sdl_renderer{nullptr};
 
-    /** associated SDL window. */
+    /** Associated SDL window. */
     SDL_Window* sdl_window{nullptr};
 
-    /** return the window's pixel format, converted to swr::pixel_format. if out_sdl_pixel_format is non-null, the SDL pixel format will be written into it. */
+    /**
+     * Return the window's pixel format, converted to swr::pixel_format.
+     * If out_sdl_pixel_format is non-null, the SDL pixel format will be written into it.
+     */
     swr::pixel_format get_window_pixel_format(
       SDL_PixelFormat* out_sdl_pixel_format = nullptr) const;
 
 public:
+    /**
+     * Create an SDL render context.
+     *
+     * @param thread_hint Thread count hint for the thread pool in multi-threaded builds.
+     */
     sdl_render_context(
-      [[maybe_unused]] std::uint32_t thread_hint)
+      [[maybe_unused]] std::uint32_t thread_hint = 0)
     {
         type = context_type::sdl;
 
@@ -773,8 +1157,15 @@ public:
 #endif
     }
 
+    /* Disable copies and moves. */
+    sdl_render_context(const sdl_render_context&) = delete;
+    sdl_render_context(sdl_render_context&&) = delete;
+
+    sdl_render_context& operator=(const sdl_render_context&) = delete;
+    sdl_render_context& operator=(sdl_render_context&&) = delete;
+
     /*
-     * render_device_context interface.
+     * Render context interface.
      */
 
     void shutdown() override;
@@ -783,24 +1174,37 @@ public:
     void copy_default_color_buffer() override;
 
     /*
-     * sdl_render_context interface.
+     * SDL render context interface.
      */
 
-    /** initialize the context with the supplied SDL data and create the buffers. */
+    /**
+     * Initialize the context with the supplied SDL data and create the render buffers.
+     *
+     * @param window SDL window to create the context for.
+     * @param renderer An SDL renderer.
+     * @param width Render buffer width.
+     * @param height Render buffer height.
+     */
     void initialize(
       SDL_Window* window,
       SDL_Renderer* renderer,
       int width,
       int height);
 
-    /** (re-)create depth- and color buffers using the given width and height. */
-    void update_buffers(int width, int height);
+    /** (Re-)create depth- and color buffers using the given width and height. */
+    void update_buffers(
+      int width,
+      int height);
 };
 
-/** a offscreen render context. */
-class offscreen_render_context final : public render_context
+/** A offscreen render context. */
+class offscreen_render_context final
+: public render_context
 {
+    /** Render buffer width. */
     int width = 0;
+
+    /** Render buffer height. */
     int height = 0;
 
     /** RGBA buffer. */
@@ -810,6 +1214,11 @@ class offscreen_render_context final : public render_context
     bool locked{false};
 
 public:
+    /**
+     * Create an offscreen render context.
+     *
+     * @param thread_hint Thread count hint for the thread pool in multi-threaded builds.
+     */
     offscreen_render_context(
       [[maybe_unused]] std::uint32_t thread_hint)
     {
@@ -824,7 +1233,7 @@ public:
     }
 
     /*
-     * render_device_context interface.
+     * Render context interface.
      */
 
     void shutdown() override;
@@ -832,43 +1241,58 @@ public:
     void unlock() override;
 
     /*
-     * offscreen_render_context interface.
+     * Offscreen render context interface.
      */
 
-    /** initialize the context with the supplied SDL data and create the buffers. */
+    /**
+     * Initialize the context and create the render buffers.
+     *
+     * @param width Render buffer width.
+     * @param height Render buffer height.
+     */
     void initialize(
       int width,
       int height);
 
-    /** (re-)create depth- and color buffers using the given width and height. */
+    /** (Re-)create depth- and color buffers using the given width and height. */
     bool update_buffers(
       int width,
       int height);
 };
 
 /*
- * global render contexts.
+ * Global render contexts.
  */
 
-/** the (thread-)global rendering context. */
+/** The (thread-)global rendering context. */
 extern thread_local render_context* global_context;
 
-/** assert validity of render context in debug builds. */
+/** Assert validity of render context in debug builds. */
 #define ASSERT_INTERNAL_CONTEXT assert(impl::global_context)
 
 /*
- * texture helpers.
+ * Texture helpers.
  */
 
-/** create a default texture. */
-void create_default_texture(render_context* context);
+/**
+ * Create a default texture.
+ *
+ * @param context The render context for the texture.
+ */
+void create_default_texture(
+  render_context* context);
 
 /*
- * shader helpers.
+ * Shader helpers.
  */
 
-/** create a default shader in the supplied context which outputs empty fragments. */
-void create_default_shader(render_context* context);
+/**
+ * Create a default shader in the supplied context which outputs empty fragments.
+ *
+ * @param context The render context for the shader.
+ */
+void create_default_shader(
+  render_context* context);
 
 } /* namespace impl */
 

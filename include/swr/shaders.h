@@ -639,9 +639,6 @@ program_base* program<T>::create_instance(
 
     new_program->uniforms = bindings.uniforms;
 
-    new_program->sampler_2d_views.clear();
-    new_program->sampler_shadow_2d_views.clear();
-
     new_program->sampler_2d_views.reserve(bindings.samplers_2d.size());
     new_program->sampler_shadow_2d_views.reserve(bindings.samplers_2d.size());
 

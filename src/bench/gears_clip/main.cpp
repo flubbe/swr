@@ -91,7 +91,10 @@ public:
 
         swr::EnableAttributeBuffer(vertex_buffer_id, 0);
         swr::EnableAttributeBuffer(normal_buffer_id, 1);
-        swr::DrawIndexedElements(swr::vertex_buffer_mode::triangles, index_buffer.size(), index_buffer);
+        swr::DrawIndexedElements(
+          swr::vertex_buffer_mode::triangles,
+          index_buffer.size(),
+          index_buffer);
         swr::DisableAttributeBuffer(normal_buffer_id);
         swr::DisableAttributeBuffer(vertex_buffer_id);
     }
@@ -334,7 +337,10 @@ struct gear_object
         ib.emplace_back(cur_idx);
         ib.emplace_back(cur_idx - 1);
 
-        outside = {std::move(ib), swr::CreateAttributeBuffer(vb), swr::CreateAttributeBuffer(nb)};
+        outside = {
+          std::move(ib),
+          swr::CreateAttributeBuffer(vb),
+          swr::CreateAttributeBuffer(nb)};
         vb.clear();
         nb.clear();
         ib.clear();

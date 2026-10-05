@@ -471,18 +471,22 @@ public:
 
         display_shader_id = swr::RegisterShader(&display_shader);
 
-        quad_vertices = swr::CreateAttributeBuffer({
+        const std::array vertex_data = {
           ml::vec4{-1.0f, -1.0f, 0.0f, 1.0f},
           ml::vec4{1.0f, -1.0f, 0.0f, 1.0f},
           ml::vec4{1.0f, 1.0f, 0.0f, 1.0f},
           ml::vec4{-1.0f, 1.0f, 0.0f, 1.0f},
-        });
-        quad_uvs = swr::CreateAttributeBuffer({
+        };
+
+        const std::array uv_data = {
           ml::vec4{0.0f, 0.0f, 0.0f, 0.0f},
           ml::vec4{1.0f, 0.0f, 0.0f, 0.0f},
           ml::vec4{1.0f, 1.0f, 0.0f, 0.0f},
           ml::vec4{0.0f, 1.0f, 0.0f, 0.0f},
-        });
+        };
+
+        quad_vertices = swr::CreateAttributeBuffer(vertex_data);
+        quad_uvs = swr::CreateAttributeBuffer(uv_data);
 
         scene_color_texture = swr::CreateTexture();
         scene_depth_texture = swr::CreateTexture();

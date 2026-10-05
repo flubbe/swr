@@ -22,6 +22,7 @@
 #include <limits> /* std::numeric_limits<std::size_t>::max() */
 #include <memory> /* std::allocator_traits */
 #include <new>    /* operator new[], operator delete[] */
+#include <optional>
 #include <ranges>
 #include <type_traits>
 #include <utility>
@@ -407,46 +408,18 @@ public:
 };
 
 /*
- * simple slot map.
+ * Slot map.
  */
-
-/** Container supported by the slot map. */
-template<class C, class T>
-concept slot_map_container =
-  requires(C c, const C cc, std::size_t i, const T& value, T&& rvalue) {
-      typename C::value_type;
-      requires std::same_as<typename C::value_type, T>;
-
-      { cc.size() } -> std::convertible_to<std::size_t>;
-      { c.clear() } -> std::same_as<void>;
-
-      { c[i] } -> std::same_as<T&>;
-      { cc[i] } -> std::same_as<const T&>;
-
-      c.emplace_back(value);
-      c.emplace_back(std::move(rvalue));
-  };
-
-template<class C>
-concept shrinkable_container =
-  requires(C c) {
-      { c.shrink_to_fit() } -> std::same_as<void>;
-  };
 
 /**
  * A container of objects that keeps track of empty slots. The free slot re-usage pattern is LIFO.
  * The internal container needs to support the operations emplace_back, size, clear, shrink_to_fit, operator[].
- *
- * Some remarks:
- *  - The data is not automatically compacted/freed.
- *  - freeing only marks slots as "free" (e.g., without invalidating or destructing them).
  */
 template<
   typename T,
-  slot_map_container<T> Container = std::vector<T>>
+  template<typename...> typename Container = std::vector>
 class slot_map
 {
-public:
     using value_type = T;
     using size_type = std::size_t;
     using reference = T&;
@@ -456,85 +429,117 @@ public:
     using const_pointer = const T*;
 
 private:
-    /** data. */
-    Container data;
+    /** Slot storage type. */
+    class slot
+    {
+        alignas(T) std::byte storage[sizeof(T)];
 
-    /** occupancy. */
+        T* ptr() noexcept
+        {
+            return std::launder(
+              reinterpret_cast<T*>(storage));
+        }
+
+        const T* ptr() const noexcept
+        {
+            return std::launder(
+              reinterpret_cast<const T*>(storage));
+        }
+
+    public:
+        template<typename... Args>
+        T& construct(Args&&... args)
+        {
+            return *std::construct_at(
+              ptr(),
+              std::forward<Args>(args)...);
+        }
+
+        void destroy() noexcept
+        {
+            std::destroy_at(ptr());
+        }
+
+        T& get() noexcept
+        {
+            return *ptr();
+        }
+
+        const T& get() const noexcept
+        {
+            return *ptr();
+        }
+    };
+
+    Container<slot> data;
     std::vector<bool> occupied;
-
-    /** free object slot list. */
     std::vector<size_type> free_slots;
 
 public:
-    /** insert a new item. */
-    size_type push(const T& item)
+    /** Insert a new item. */
+    template<typename... Args>
+    size_type insert(Args&&... args)
     {
         if(!free_slots.empty())
         {
-            auto i = free_slots.back();
+            const auto i = free_slots.back();
             free_slots.pop_back();
 
-            data[i] = item;
+            data[i].construct(
+              std::forward<Args>(args)...);
+
             occupied[i] = true;
+
             return i;
         }
 
-        data.emplace_back(item);
+        auto& element = data.emplace_back();
+        element.construct(
+          std::forward<Args>(args)...);
         occupied.push_back(true);
-        return data.size() - 1;
-    }
 
-    /** insert a new item. */
-    size_type push(T&& item)
-    {
-        if(!free_slots.empty())
-        {
-            auto i = free_slots.back();
-            free_slots.pop_back();
-
-            data[i] = std::move(item);
-            occupied[i] = true;
-            return i;
-        }
-
-        data.emplace_back(std::move(item));
-        occupied.push_back(true);
         return data.size() - 1;
     }
 
     /**
-     * Removes the element from the slot map.
+     * Removes and destroys the element.
      *
-     * The underlying object remains constructed and its slot may be
-     * reused by a subsequent insertion.
+     * The slot may be reused by a subsequent insertion.
      */
     void erase(size_type i)
     {
         assert(contains(i));
+
+        data[i].destroy();
         occupied[i] = false;
         free_slots.emplace_back(i);
     }
 
-    /** clear data and list of free slots. */
+    /** Clear data and list of free slots. */
     void clear()
     {
+        for(size_type i = 0; i < data.size(); ++i)
+        {
+            if(occupied[i])
+            {
+                data[i].destroy();
+            }
+        }
+
         data.clear();
         occupied.clear();
         free_slots.clear();
     }
 
-    /** shrink to fit elements, if supported by the container. */
+    /** Shrink to fit elements, if supported by the container. */
     void shrink_to_fit()
     {
-        if constexpr(shrinkable_container<Container>)
-        {
-            data.shrink_to_fit();
-        }
+        data.shrink_to_fit();
         occupied.shrink_to_fit();
         free_slots.shrink_to_fit();
     }
 
-    /** query size. */
+    /** Query size. */
     [[nodiscard]]
     size_type size() const noexcept
     {
@@ -542,21 +547,21 @@ public:
         return data.size() - free_slots.size();
     }
 
-    /** check whether the slot map is empty. */
+    /** Check whether the slot map is empty. */
     [[nodiscard]]
     bool empty() const noexcept
     {
         return size() == 0;
     }
 
-    /** query the current slot count. */
+    /** Query the current slot count. */
     [[nodiscard]]
     size_type slot_count() const noexcept
     {
         return data.size();
     }
 
-    /** query the free slot count. */
+    /** Query the free slot count. */
     [[nodiscard]]
     size_type free_slot_count() const noexcept
     {
@@ -564,10 +569,10 @@ public:
     }
 
     /*
-     * element access.
+     * Element access.
      */
 
-    /** check whether a specific index is contained in the map. */
+    /** Check whether a specific index is contained in the map. */
     [[nodiscard]]
     bool contains(size_type i) const noexcept
     {
@@ -582,7 +587,7 @@ public:
     const_reference operator[](size_type i) const
     {
         assert(contains(i));
-        return data[i];
+        return data[i].get();
     }
 
     /**
@@ -593,11 +598,11 @@ public:
     reference operator[](size_type i)
     {
         assert(contains(i));
-        return data[i];
+        return data[i].get();
     }
 
     /**
-     * checked element access.
+     * Checked element access.
      *
      * @throws Throws `std::out_of_range` if the index is not contained in the map.
      */
@@ -608,11 +613,11 @@ public:
             throw std::out_of_range("slot_map::at");
         }
 
-        return data[i];
+        return data[i].get();
     }
 
     /**
-     * checked element access.
+     * Checked element access.
      *
      * @throws Throws `std::out_of_range` if the index is not contained in the map.
      */
@@ -623,7 +628,7 @@ public:
             throw std::out_of_range("slot_map::at");
         }
 
-        return data[i];
+        return data[i].get();
     }
 };
 
@@ -756,6 +761,33 @@ template<typename T>
 constexpr T round_to_next_power_of_two(T n)
 {
     return std::bit_ceil(n);
+}
+
+/*
+ * numerics.
+ */
+
+/**
+ * Clamps a value into the range `[0, limit]` as a `std::size_t`.
+ *
+ * @param value The value to clamp.
+ * @param limit Upper limit (inclusive).
+ * @returns The clamped value converted to `std::size_t`.
+ */
+template<std::integral T>
+    requires(
+      static_cast<std::uintmax_t>(std::numeric_limits<T>::max()) <= static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()))
+constexpr std::size_t clamp_to_size(T value, std::size_t limit)
+{
+    if constexpr(std::is_signed_v<T>)
+    {
+        if(value <= 0)
+        {
+            return 0;
+        }
+    }
+
+    return std::min(static_cast<std::size_t>(value), limit);
 }
 
 } /* namespace utils */
