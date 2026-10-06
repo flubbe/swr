@@ -11,17 +11,11 @@
 /* user headers. */
 #include "swr_internal.h"
 
-namespace
-{
-
-/*
- * Fragment quads.
- */
-
+/** Fragments per quad. */
 constexpr std::size_t quad_fragment_count = 4;
-using quad_coverage_t = std::array<bool, quad_fragment_count>;
 
-}    // namespace
+/** Fragment quad mask (only uses bits 0-3). */
+using quad_mask_t = std::uint8_t;
 
 namespace swr
 {
@@ -696,47 +690,48 @@ void default_framebuffer::depth_compare_write_block(
       depth_value[2],
       depth_value[3]};
 
-    // basic comparisons for depth test.
-    std::array<quad_coverage_t, 8> depth_compare = {{
-      {true, true, true, true},     /* pass */
-      {false, false, false, false}, /* fail */
-      {new_depth_value[0] == old_depth_value[0],
-       new_depth_value[1] == old_depth_value[1],
-       new_depth_value[2] == old_depth_value[2],
-       new_depth_value[3] == old_depth_value[3]}, /* equal */
-      {false, false, false, false},               /* not_equal */
-      {new_depth_value[0] < old_depth_value[0],
-       new_depth_value[1] < old_depth_value[1],
-       new_depth_value[2] < old_depth_value[2],
-       new_depth_value[3] < old_depth_value[3]}, /* less */
-      {false, false, false, false},              /* less_equal */
-      {false, false, false, false},              /* greater */
-      {false, false, false, false}               /* greater_equal */
-    }};
+    const quad_mask_t less_mask = static_cast<quad_mask_t>(
+      ((new_depth_value[0] < old_depth_value[0]) << 3)
+      | ((new_depth_value[1] < old_depth_value[1]) << 2)
+      | ((new_depth_value[2] < old_depth_value[2]) << 1)
+      | ((new_depth_value[3] < old_depth_value[3]) << 0));
 
-    // compound comparisons for depth test.
-    for(std::size_t k = 0; k < quad_fragment_count; ++k)
+    const quad_mask_t equal_mask = static_cast<quad_mask_t>(
+      ((new_depth_value[0] == old_depth_value[0]) << 3)
+      | ((new_depth_value[1] == old_depth_value[1]) << 2)
+      | ((new_depth_value[2] == old_depth_value[2]) << 1)
+      | ((new_depth_value[3] == old_depth_value[3]) << 0));
+
+    quad_mask_t depth_mask = 0b0000;
+    switch(depth_func)
     {
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] =
-          !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] =
-          depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k]
-          || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] =
-          !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] =
-          depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k]
-          || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
+    case swr::comparison_func::pass:
+        depth_mask = 0b1111;
+        break;
+    case swr::comparison_func::fail:
+        depth_mask = 0b0000;
+        break;
+    case swr::comparison_func::equal:
+        depth_mask = equal_mask;
+        break;
+    case swr::comparison_func::not_equal:
+        depth_mask = (~equal_mask) & 0b1111;
+        break;
+    case swr::comparison_func::less:
+        depth_mask = less_mask;
+        break;
+    case swr::comparison_func::less_equal:
+        depth_mask = less_mask | equal_mask;
+        break;
+    case swr::comparison_func::greater:
+        depth_mask = (~(less_mask | equal_mask)) & 0b1111;
+        break;
+    case swr::comparison_func::greater_equal:
+        depth_mask = (~less_mask) & 0b1111;
+        break;
     }
 
-    const quad_coverage_t depth_mask = {
-      depth_compare[static_cast<std::uint32_t>(depth_func)][0],
-      depth_compare[static_cast<std::uint32_t>(depth_func)][1],
-      depth_compare[static_cast<std::uint32_t>(depth_func)][2],
-      depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
-
-    write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
-    write_mask &= active_mask;
+    write_mask &= depth_mask & active_mask;
 
     // write depth.
     const std::array<std::uint32_t, quad_fragment_count> depth_write_mask = {
@@ -1289,40 +1284,48 @@ void framebuffer_object::depth_compare_write_block(
       depth_value[2],
       depth_value[3]};
 
-    // basic comparisons for depth test.
-    std::array<quad_coverage_t, 8> depth_compare = {{
-      {true, true, true, true},     /* pass */
-      {false, false, false, false}, /* fail */
-      {new_depth_value[0] == old_depth_value[0],
-       new_depth_value[1] == old_depth_value[1],
-       new_depth_value[2] == old_depth_value[2],
-       new_depth_value[3] == old_depth_value[3]}, /* equal */
-      {false, false, false, false},               /* not_equal */
-      {new_depth_value[0] < old_depth_value[0],
-       new_depth_value[1] < old_depth_value[1],
-       new_depth_value[2] < old_depth_value[2],
-       new_depth_value[3] < old_depth_value[3]}, /* less */
-      {false, false, false, false},              /* less_equal */
-      {false, false, false, false},              /* greater */
-      {false, false, false, false}               /* greater_equal */
-    }};
+    const quad_mask_t less_mask = static_cast<quad_mask_t>(
+      ((new_depth_value[0] < old_depth_value[0]) << 3)
+      | ((new_depth_value[1] < old_depth_value[1]) << 2)
+      | ((new_depth_value[2] < old_depth_value[2]) << 1)
+      | ((new_depth_value[3] < old_depth_value[3]) << 0));
 
-    // compound comparisons for depth test.
-    for(std::size_t k = 0; k < quad_fragment_count; ++k)
+    const quad_mask_t equal_mask = static_cast<quad_mask_t>(
+      ((new_depth_value[0] == old_depth_value[0]) << 3)
+      | ((new_depth_value[1] == old_depth_value[1]) << 2)
+      | ((new_depth_value[2] == old_depth_value[2]) << 1)
+      | ((new_depth_value[3] == old_depth_value[3]) << 0));
+
+    quad_mask_t depth_mask = 0b0000;
+    switch(depth_func)
     {
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::not_equal)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] = !depth_compare[static_cast<std::uint32_t>(swr::comparison_func::less_equal)][k];
-        depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater_equal)][k] = depth_compare[static_cast<std::uint32_t>(swr::comparison_func::greater)][k] || depth_compare[static_cast<std::uint32_t>(swr::comparison_func::equal)][k];
+    case swr::comparison_func::pass:
+        depth_mask = 0b1111;
+        break;
+    case swr::comparison_func::fail:
+        depth_mask = 0b0000;
+        break;
+    case swr::comparison_func::equal:
+        depth_mask = equal_mask;
+        break;
+    case swr::comparison_func::not_equal:
+        depth_mask = (~equal_mask) & 0b1111;
+        break;
+    case swr::comparison_func::less:
+        depth_mask = less_mask;
+        break;
+    case swr::comparison_func::less_equal:
+        depth_mask = less_mask | equal_mask;
+        break;
+    case swr::comparison_func::greater:
+        depth_mask = (~(less_mask | equal_mask)) & 0b1111;
+        break;
+    case swr::comparison_func::greater_equal:
+        depth_mask = (~less_mask) & 0b1111;
+        break;
     }
 
-    const quad_coverage_t depth_mask = {
-      depth_compare[static_cast<std::uint32_t>(depth_func)][0],
-      depth_compare[static_cast<std::uint32_t>(depth_func)][1],
-      depth_compare[static_cast<std::uint32_t>(depth_func)][2],
-      depth_compare[static_cast<std::uint32_t>(depth_func)][3]};
-
-    write_mask &= (depth_mask[0] << 3) | (depth_mask[1] << 2) | (depth_mask[2] << 1) | depth_mask[3];
+    write_mask &= depth_mask;
 
     // write depth.
     const std::array<std::uint32_t, quad_fragment_count> depth_write_mask = {
