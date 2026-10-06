@@ -449,8 +449,8 @@ struct framebuffer_draw_target
      */
     virtual void merge_color(
       std::uint32_t attachment,
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const fragment_output& frag,
       bool do_blend,
       blend_func src,
@@ -462,8 +462,8 @@ struct framebuffer_draw_target
      */
     virtual void merge_color_block(
       std::uint32_t attachment,
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const fragment_output_block& frag,
       bool do_blend,
       blend_func src,
@@ -478,8 +478,8 @@ struct framebuffer_draw_target
      * Sets write_mask to true if no depth buffer was available.
      */
     virtual void depth_compare_write(
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       float depth_value,
       comparison_func depth_func,
       bool write_depth,
@@ -495,8 +495,8 @@ struct framebuffer_draw_target
      * Sets all write_mask entries to true if no depth buffer was available.
      */
     virtual void depth_compare_write_block(
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
@@ -539,30 +539,30 @@ struct default_framebuffer final
       const utils::rect& rect) override;
     virtual void merge_color(
       std::uint32_t attachment,
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const fragment_output& frag,
       bool do_blend,
       blend_func src,
       blend_func dst) override;
     virtual void merge_color_block(
       std::uint32_t attachment,
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const fragment_output_block& frag,
       bool do_blend,
       blend_func src,
       blend_func dst) override;
     virtual void depth_compare_write(
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       float depth_value,
       comparison_func depth_func,
       bool write_depth,
       bool& write_mask) override;
     virtual void depth_compare_write_block(
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,
@@ -917,30 +917,30 @@ public:
       const utils::rect& rect) override;
     virtual void merge_color(
       std::uint32_t attachment,
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const fragment_output& frag,
       bool do_blend,
       blend_func src,
       blend_func dst) override;
     virtual void merge_color_block(
       std::uint32_t attachment,
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const fragment_output_block& frag,
       bool do_blend,
       blend_func src,
       blend_func dst) override;
     virtual void depth_compare_write(
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       float depth_value,
       comparison_func depth_func,
       bool write_depth,
       bool& write_mask) override;
     virtual void depth_compare_write_block(
-      int x,
-      int y,
+      unsigned int x,
+      unsigned int y,
       const std::array<float, 4>& depth_value,
       comparison_func depth_func,
       bool write_depth,

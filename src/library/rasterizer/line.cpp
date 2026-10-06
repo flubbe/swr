@@ -83,8 +83,8 @@ void sweep_rasterizer::draw_line(
 
             draw_target.merge_color(
               0,
-              x,
-              y,
+              static_cast<unsigned int>(x),
+              static_cast<unsigned int>(y),
               out,
               states.blending_enabled,
               states.blend_src,

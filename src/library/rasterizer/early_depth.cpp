@@ -87,10 +87,10 @@ depth_range scan_depth_range(
       depth_buffer.info.data_ptr[start_y * row_stride + start_x],
       depth_buffer.info.data_ptr[start_y * row_stride + start_x]};
 
-    for(int y = 0; y < span.height; ++y)
+    for(std::uint32_t y = 0; y < span.height; ++y)
     {
         const int row = (start_y + y) * row_stride + start_x;
-        for(int x = 0; x < span.width; ++x)
+        for(std::uint32_t x = 0; x < span.width; ++x)
         {
             const ml::fixed_32_t z = depth_buffer.info.data_ptr[row + x];
             range.min_depth = std::min(range.min_depth, z);
@@ -241,10 +241,10 @@ std::optional<depth_range> tile_depth_cache::conservative_depth_range(
     const block_span span =
       compute_block_span(
         framebuffer->depth_buffer,
-        static_cast<unsigned int>(x),
-        static_cast<unsigned int>(y));
-    if(span.width <= 0
-       || span.height <= 0)
+        x,
+        y);
+    if(span.width == 0
+       || span.height == 0)
     {
         return std::nullopt;
     }
@@ -376,8 +376,8 @@ block_depth_reject_result early_depth_controller::try_reject_block(
 
     const block_span span =
       compute_block_span(depth_buffer, request.block_x, request.block_y);
-    if(span.width <= 0
-       || span.height <= 0)
+    if(span.width == 0
+       || span.height == 0)
     {
         record_block_reject_sample(policy, collect_policy_stats, true);
         return {

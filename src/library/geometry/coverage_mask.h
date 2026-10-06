@@ -14,7 +14,7 @@ namespace geom
 {
 
 /** reduce coverage mask to 4 bits. */
-inline int reduce_coverage_mask(int x)
+inline std::uint32_t reduce_coverage_mask(std::uint32_t x)
 {
     return x & (x >> 4) & (x >> 8);
 }

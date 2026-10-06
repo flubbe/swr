@@ -119,10 +119,10 @@ struct block_depth_reject_request
     const swr::impl::render_states& states;
 
     /** Left raster coordinate of the block. */
-    unsigned int block_x{0};
+    std::uint32_t block_x{0};
 
     /** Top raster coordinate of the block. */
-    unsigned int block_y{0};
+    std::uint32_t block_y{0};
 
     /** Interpolated primitive depth plane at the block origin. */
     const geom::linear_interpolator_2d<float>& depth;

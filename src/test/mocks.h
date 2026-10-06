@@ -53,8 +53,8 @@ struct mock_draw_target final
 
     void merge_color(
       [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
+      [[maybe_unused]] unsigned int x,
+      [[maybe_unused]] unsigned int y,
       [[maybe_unused]] const swr::impl::fragment_output& frag,
       [[maybe_unused]] bool do_blend,
       [[maybe_unused]] swr::blend_func src,
@@ -64,8 +64,8 @@ struct mock_draw_target final
 
     void merge_color_block(
       [[maybe_unused]] std::uint32_t attachment,
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
+      [[maybe_unused]] unsigned int x,
+      [[maybe_unused]] unsigned int y,
       [[maybe_unused]] const swr::impl::fragment_output_block& frag,
       [[maybe_unused]] bool do_blend,
       [[maybe_unused]] swr::blend_func src,
@@ -74,8 +74,8 @@ struct mock_draw_target final
     }
 
     void depth_compare_write(
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
+      [[maybe_unused]] unsigned int x,
+      [[maybe_unused]] unsigned int y,
       [[maybe_unused]] float depth_value,
       [[maybe_unused]] swr::comparison_func depth_func,
       [[maybe_unused]] bool write_depth,
@@ -84,8 +84,8 @@ struct mock_draw_target final
     }
 
     void depth_compare_write_block(
-      [[maybe_unused]] int x,
-      [[maybe_unused]] int y,
+      [[maybe_unused]] unsigned int x,
+      [[maybe_unused]] unsigned int y,
       [[maybe_unused]] const std::array<float, 4>& depth_value,
       [[maybe_unused]] swr::comparison_func depth_func,
       [[maybe_unused]] bool write_depth,

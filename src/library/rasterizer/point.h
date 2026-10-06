@@ -8,6 +8,10 @@
  * \license Distributed under the MIT software license (see accompanying LICENSE.txt).
  */
 
+#pragma once
+
+#include <concepts>
+
 #include "../swr_internal.h"
 
 namespace rast
@@ -22,10 +26,14 @@ using point_fixed_vec2 = ml::vec2_fixed<
   ml::static_number_traits<point_fixed_t>::fractional_bits>;
 
 template<typename F>
+    requires std::invocable<
+      F&,
+      std::uint32_t,
+      std::uint32_t>
 inline void for_each_covered_point_pixel(
   point_fixed_vec2 point_coords,
-  int width,
-  int height,
+  std::size_t width,
+  std::size_t height,
   F&& f)
 {
     /*
@@ -36,17 +44,20 @@ inline void for_each_covered_point_pixel(
 
     const auto bias = cnl::wrap<point_fixed_t>(FILL_RULE_EDGE_BIAS);
 
-    const auto x = static_cast<int>(
-      cnl::floor(
-        point_coords.x - bias));
-    const auto y = static_cast<int>(
-      cnl::floor(
-        point_coords.y - bias));
+    const auto x = cnl::unwrap(
+      cnl::floor(point_coords.x - bias));
+    const auto y = cnl::unwrap(
+      cnl::floor(point_coords.y - bias));
 
-    if(x >= 0 && x < width
-       && y >= 0 && y < height)
+    if(x >= 0 && y >= 0)
     {
-        f(x, y);
+        const auto ux = static_cast<std::uint32_t>(x);
+        const auto uy = static_cast<std::uint32_t>(y);
+
+        if(ux < width && uy < height)
+        {
+            f(ux, uy);
+        }
     }
 }
 

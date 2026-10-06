@@ -28,18 +28,18 @@
  * Helpers.
  */
 
-std::vector<std::pair<int, int>> collect_covered_pixels(
+std::vector<std::pair<std::uint32_t, std::uint32_t>> collect_covered_pixels(
   rast::point_fixed_vec2 point,
-  int width,
-  int height)
+  std::size_t width,
+  std::size_t height)
 {
-    std::vector<std::pair<int, int>> out;
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> out;
 
     rast::for_each_covered_point_pixel(
       point,
       width,
       height,
-      [&](int x, int y)
+      [&](std::uint32_t x, std::uint32_t y)
       { out.emplace_back(x, y); });
 
     return out;

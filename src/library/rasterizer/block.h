@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <concepts>
+
 #include "interpolators.h"
 
 namespace rast
@@ -67,6 +69,12 @@ inline quad_bounds full_block_quad_bounds(
 
 /** Invoke a callable for each covered 2x2 quad inside a checked triangle block. */
 template<typename F>
+    requires std::invocable<
+      F&,
+      unsigned int,
+      unsigned int,
+      std::uint32_t,
+      rast::triangle_interpolator&>
 inline void for_each_covered_quad_in_checked_triangle_block(
   unsigned int block_x,
   unsigned int block_y,
@@ -110,7 +118,7 @@ inline void for_each_covered_quad_in_checked_triangle_block(
 
         for(unsigned int x = bounds.start_x; x < bounds.end_x; x += 2)
         {
-            const int mask = geom::reduce_coverage_mask(lambdas.get_coverage_mask());
+            const std::uint32_t mask = geom::reduce_coverage_mask(lambdas.get_coverage_mask());
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             ++quad_tests;
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
