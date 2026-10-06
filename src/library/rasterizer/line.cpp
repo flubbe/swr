@@ -63,8 +63,8 @@ void sweep_rasterizer::draw_line(
     auto emit_fragment = [&](int x, int y, line_emit_kind kind)
     {
         if(x >= 0 && y >= 0
-           && x < draw_target.dimensions.width
-           && y < draw_target.dimensions.height)
+           && static_cast<std::size_t>(x) < draw_target.dimensions.width
+           && static_cast<std::size_t>(y) < draw_target.dimensions.height)
         {
             attr.get_varyings(temp_varyings);
 
@@ -83,8 +83,8 @@ void sweep_rasterizer::draw_line(
 
             draw_target.merge_color(
               0,
-              x,
-              y,
+              static_cast<unsigned int>(x),
+              static_cast<unsigned int>(y),
               out,
               states.blending_enabled,
               states.blend_src,

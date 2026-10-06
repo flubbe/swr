@@ -158,6 +158,9 @@ struct render_states
      */
     void set_scissor_box(int x_min, int x_max, int y_min, int y_max)
     {
+        assert(x_min <= x_max);
+        assert(y_min <= y_max);
+
         scissor_box = utils::rect{x_min, x_max, y_min, y_max};
     }
 };

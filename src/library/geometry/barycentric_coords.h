@@ -197,10 +197,16 @@ struct barycentric_coordinate_block
      * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
      * pixel position:     tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
      */
-    int get_coverage_mask() const
+    std::uint32_t get_coverage_mask() const
     {
-        auto gen_mask = [](const fixed_24_8_array_4& f) -> int
-        { return ((f.f3 > 0) << 3) | ((f.f2 > 0) << 2) | ((f.f1 > 0) << 1) | (f.f0 > 0); };
+        auto gen_mask = [](const fixed_24_8_array_4& f) -> std::uint32_t
+        {
+            return ((f.f3 > 0) << 3)
+                   | ((f.f2 > 0) << 2)
+                   | ((f.f1 > 0) << 1)
+                   | (f.f0 > 0);
+        };
+
         return gen_mask(corners[0])
                | (gen_mask(corners[1]) << 4)
                | (gen_mask(corners[2]) << 8);

@@ -320,11 +320,11 @@ void fill_default_depth_checkerboard(
     auto& depth_buffer = render_context->framebuffer.depth_buffer;
     BOOST_REQUIRE_NE(depth_buffer.info.data_ptr, nullptr);
 
-    const int row_stride =
-      depth_buffer.info.stride / static_cast<int>(sizeof(swr::impl::attachment_depth::value_type));
-    for(int y = 0; y < depth_buffer.info.height; ++y)
+    const std::size_t row_stride =
+      depth_buffer.info.stride / sizeof(swr::impl::attachment_depth::value_type);
+    for(std::size_t y = 0; y < depth_buffer.info.height; ++y)
     {
-        for(int x = 0; x < depth_buffer.info.width; ++x)
+        for(std::size_t x = 0; x < depth_buffer.info.width; ++x)
         {
             depth_buffer.info.data_ptr[y * row_stride + x] =
               ((x + y) & 1) ? ml::fixed_32_t{far_depth} : ml::fixed_32_t{near_depth};

@@ -41,10 +41,10 @@ class tile_depth_cache
     swr::impl::default_framebuffer* framebuffer{nullptr};
 
     /** Left raster coordinate of the tile. */
-    int x{0};
+    std::uint32_t x{0};
 
     /** Top raster coordinate of the tile. */
-    int y{0};
+    std::uint32_t y{0};
 
     /** Whether range currently contains the framebuffer data for this tile. */
     bool valid{false};
@@ -56,8 +56,8 @@ public:
     /** Construct a tile depth context for one rasterizer block. */
     tile_depth_cache(
       swr::impl::default_framebuffer* framebuffer,
-      unsigned int x,
-      unsigned int y);
+      std::uint32_t x,
+      std::uint32_t y);
 
     /** Return the stored-depth range, computing it lazily on first use. */
     [[nodiscard]]
@@ -119,10 +119,10 @@ struct block_depth_reject_request
     const swr::impl::render_states& states;
 
     /** Left raster coordinate of the block. */
-    unsigned int block_x{0};
+    std::uint32_t block_x{0};
 
     /** Top raster coordinate of the block. */
-    unsigned int block_y{0};
+    std::uint32_t block_y{0};
 
     /** Interpolated primitive depth plane at the block origin. */
     const geom::linear_interpolator_2d<float>& depth;

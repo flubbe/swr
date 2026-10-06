@@ -36,14 +36,22 @@ namespace utils
 {
 
 /**
- * Load a square texture from a file. The texture has to have power-of-two dimensions.
+ * Load a square texture from a file. The texture has to have power-of-two
+ * dimensions.
  *
  * @param filename The texture filename.
+ * @param downsample Number of times to halve the texture dimensions.
+ *     0 keeps the original size, 1 produces half resolution,
+ *     2 produces quarter resolution, etc.
+ * @param linear_interpolation Whether to use bilinear interpolation when
+ *     downsampling. If false, nearest-neighbor sampling is used.
  * @returns Returns the texture id on success. Returns `std::nullopt` on failure.
- *          Call `swr::GetLastError` for further error information.
+ *     Call `swr::GetLastError` for further error information.
  */
 inline std::optional<std::uint32_t> load_uniform(
-  std::string_view filename)
+  std::string_view filename,
+  unsigned int downsample = 0,
+  bool linear_interpolation = true)
 {
     std::string filename_str{filename};    // copy to get c-string.
 
@@ -51,19 +59,132 @@ inline std::optional<std::uint32_t> load_uniform(
     unsigned char* image_data =
       stbi_load(
         filename_str.c_str(),
-        &w, &h, &comp,
+        &w,
+        &h,
+        &comp,
         STBI_rgb_alpha);
     if(!image_data)
     {
         return std::nullopt;
     }
 
-    // image size: width*height*sizeof(RGBA).
-    std::size_t image_size = static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * sizeof(std::uint32_t);
-    std::vector<std::uint8_t> image_vec{image_data, image_data + image_size};
+    // The source is required to be square and power-of-two.
+    const bool valid_dimension =
+      w > 0
+      && w == h
+      && (static_cast<unsigned int>(w) & (static_cast<unsigned int>(w) - 1)) == 0;
+
+    if(!valid_dimension)
+    {
+        stbi_image_free(image_data);
+        return std::nullopt;
+    }
+
+    const unsigned int source_size = static_cast<unsigned int>(w);
+
+    // A power-of-two texture can only be halved log2(size) times before
+    // reaching a 1x1 texture.
+    unsigned int max_downsample = 0;
+    for(unsigned int size = source_size; size > 1; size >>= 1)
+    {
+        ++max_downsample;
+    }
+
+    if(downsample > max_downsample)
+    {
+        stbi_image_free(image_data);
+        return std::nullopt;
+    }
+
+    const unsigned int size = source_size >> downsample;
+
+    const std::size_t source_stride =
+      static_cast<std::size_t>(source_size) * 4;
+    const std::size_t image_size =
+      static_cast<std::size_t>(size) * static_cast<std::size_t>(size) * sizeof(std::uint32_t);
+
+    std::vector<std::uint8_t> image_vec(image_size);
+
+    if(downsample == 0)
+    {
+        std::copy(
+          image_data,
+          image_data + image_size,
+          image_vec.begin());
+    }
+    else
+    {
+        const float scale =
+          static_cast<float>(source_size) / static_cast<float>(size);
+
+        auto sample = [&](float x, float y, unsigned int channel)
+        {
+            if(!linear_interpolation)
+            {
+                const auto sx = std::min(
+                  source_size - 1,
+                  static_cast<unsigned int>(x + 0.5f));
+                const auto sy = std::min(
+                  source_size - 1,
+                  static_cast<unsigned int>(y + 0.5f));
+
+                return static_cast<float>(
+                  image_data[static_cast<std::size_t>(sy) * source_stride + static_cast<std::size_t>(sx) * 4 + channel]);
+            }
+
+            // Clamp to the source image.
+            x = std::clamp(x, 0.0f, static_cast<float>(source_size - 1));
+            y = std::clamp(y, 0.0f, static_cast<float>(source_size - 1));
+
+            const auto x0 = static_cast<unsigned int>(x);
+            const auto y0 = static_cast<unsigned int>(y);
+            const auto x1 = std::min(x0 + 1, source_size - 1);
+            const auto y1 = std::min(y0 + 1, source_size - 1);
+
+            const float tx = x - static_cast<float>(x0);
+            const float ty = y - static_cast<float>(y0);
+
+            const auto pixel = [&](unsigned int px, unsigned int py)
+            {
+                return static_cast<float>(
+                  image_data[static_cast<std::size_t>(py) * source_stride + static_cast<std::size_t>(px) * 4 + channel]);
+            };
+
+            const float top =
+              pixel(x0, y0) * (1.0f - tx) + pixel(x1, y0) * tx;
+
+            const float bottom =
+              pixel(x0, y1) * (1.0f - tx) + pixel(x1, y1) * tx;
+
+            return top * (1.0f - ty) + bottom * ty;
+        };
+
+        for(unsigned int y = 0; y < size; ++y)
+        {
+            for(unsigned int x = 0; x < size; ++x)
+            {
+                // Map the destination pixel center into source space.
+                const float source_x =
+                  (static_cast<float>(x) + 0.5f) * scale - 0.5f;
+                const float source_y =
+                  (static_cast<float>(y) + 0.5f) * scale - 0.5f;
+
+                auto* dst =
+                  image_vec.data() + (static_cast<std::size_t>(y) * size + x) * 4;
+
+                for(unsigned int channel = 0; channel < 4; ++channel)
+                {
+                    dst[channel] = static_cast<std::uint8_t>(
+                      std::clamp(
+                        sample(source_x, source_y, channel),
+                        0.0f,
+                        255.0f));
+                }
+            }
+        }
+    }
 
     stbi_image_free(image_data);
-    image_data = nullptr;
 
     auto texture_id = swr::CreateTexture();
     if(texture_id == 0)
@@ -74,10 +195,11 @@ inline std::optional<std::uint32_t> load_uniform(
     swr::SetImage(
       texture_id,
       0,
-      w,
-      h,
+      static_cast<int>(size),
+      static_cast<int>(size),
       swr::pixel_format::rgba8888,
       image_vec);
+
     if(swr::GetLastError() != swr::error::none)
     {
         swr::ReleaseTexture(texture_id);

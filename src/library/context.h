@@ -513,11 +513,6 @@ struct texture_compare_command
     /** Texture id. */
     std::uint32_t texture_id;
 
-    std::variant<
-      texture_compare_mode,
-      comparison_func>
-      mode_or_function;
-
     /** Whether to update the mode or the function. */
     bool update_mode;
 
@@ -706,6 +701,9 @@ struct render_context
     /*
      * Command dispatch.
      */
+
+    // TODO Validation should happen on command submission,
+    //      so that these calls never fail.
 
     void execute_command(
       const impl::clear_command& cmd);

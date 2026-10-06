@@ -923,7 +923,13 @@ void process_fragment_block(
             utils::clock(stage_depth);
 #endif /* SWR_ENABLE_PIPELINE_PROFILING */
 
-            draw_target.depth_compare_write_block(x, y, depth_value, states.depth_func, states.write_depth, depth_mask);
+            draw_target.depth_compare_write_block(
+              x,
+              y,
+              depth_value,
+              states.depth_func,
+              states.write_depth,
+              depth_mask);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
             utils::unclock(stage_depth);

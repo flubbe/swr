@@ -138,13 +138,17 @@ struct barycentric_coordinate_block
      * bit:             0x800 0x400 0x200 0x100 | 0x80 0x40 0x20 0x10 | 0x8  0x4  0x2  0x1
      * pixel position:     tl    tr    bl    br |   tl   tr   bl   br |  tl   tr   bl   br
      */
-    int get_coverage_mask() const
+    std::uint32_t get_coverage_mask() const
     {
         __m128i l0 = _mm_cmpgt_epi32(corners[0], _mm_setzero_si128());
         __m128i l1 = _mm_cmpgt_epi32(corners[1], _mm_setzero_si128());
         __m128i l2 = _mm_cmpgt_epi32(corners[2], _mm_setzero_si128());
 
-        return _mm_movemask_epi8(_mm_packs_epi16(_mm_packs_epi32(l0, l1), _mm_packs_epi32(l2, _mm_setzero_si128())));
+        return static_cast<std::uint32_t>(
+          _mm_movemask_epi8(
+            _mm_packs_epi16(
+              _mm_packs_epi32(l0, l1),
+              _mm_packs_epi32(l2, _mm_setzero_si128()))));
     }
 };
 

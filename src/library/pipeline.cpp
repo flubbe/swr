@@ -2067,8 +2067,14 @@ void render_context::execute_command(
     {
         // buffer clearing respects scissoring.
         if(states.scissor_test_enabled
-           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
-               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
+           && (states.scissor_box.x_min != 0
+               || std::cmp_not_equal(
+                 states.scissor_box.x_max,
+                 framebuffer.color_buffer.info.width)
+               || states.scissor_box.y_min != 0
+               || std::cmp_not_equal(
+                 states.scissor_box.y_max,
+                 framebuffer.color_buffer.info.height)))
         {
             resolve_draw_target(
               states.draw_target)
@@ -2085,8 +2091,14 @@ void render_context::execute_command(
     {
         // buffer clearing respects scissoring.
         if(states.scissor_test_enabled
-           && (states.scissor_box.x_min != 0 || states.scissor_box.x_max != framebuffer.color_buffer.info.width
-               || states.scissor_box.y_min != 0 || states.scissor_box.y_max != framebuffer.color_buffer.info.height))
+           && (states.scissor_box.x_min != 0
+               || std::cmp_not_equal(
+                 states.scissor_box.x_max,
+                 framebuffer.depth_buffer.info.width)
+               || states.scissor_box.y_min != 0
+               || std::cmp_not_equal(
+                 states.scissor_box.y_max,
+                 framebuffer.depth_buffer.info.height)))
         {
             resolve_draw_target(
               states.draw_target)

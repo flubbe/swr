@@ -700,8 +700,8 @@ bool sweep_rasterizer::process_block_checked_impl(
     assert(data.checked_lambdas);
 
     auto process_checked_quad =
-      [&](int x,
-          int y,
+      [&](unsigned int x,
+          unsigned int y,
           int mask,
           rast::triangle_interpolator& attributes_quad)
     {

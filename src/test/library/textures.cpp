@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_CASE(mipmapped_texture_storage_is_tightly_packed)
     BOOST_CHECK_EQUAL(color_texture->data.data_ptrs[3], base_ptr + 84);
 
     swr::impl::texture_attachment_binding binding;
-    binding.attach(texture, 2);
+    BOOST_CHECK_EQUAL(binding.attach(texture, 2), swr::error::none);
     BOOST_CHECK_EQUAL(binding.info.width, 2);
     BOOST_CHECK_EQUAL(binding.info.height, 2);
     BOOST_CHECK_EQUAL(binding.info.stride, 2);
