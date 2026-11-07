@@ -19,6 +19,11 @@ namespace rast
 
 /** Invoke a callable for each 2x2 quad inside a triangle block. */
 template<typename F>
+    requires std::invocable<
+      F&,
+      unsigned int,
+      unsigned int,
+      rast::triangle_interpolator&>
 inline void for_each_quad_in_triangle_block(
   unsigned int block_x,
   unsigned int block_y,
@@ -56,7 +61,7 @@ struct quad_bounds
     }
 };
 
-inline quad_bounds full_block_quad_bounds(
+constexpr quad_bounds full_block_quad_bounds(
   unsigned int block_x,
   unsigned int block_y)
 {
@@ -149,6 +154,12 @@ inline void for_each_covered_quad_in_checked_triangle_block(
 }
 
 template<typename F>
+    requires std::invocable<
+      F&,
+      unsigned int,
+      unsigned int,
+      std::uint32_t,
+      rast::triangle_interpolator&>
 inline void for_each_covered_quad_in_checked_triangle_block(
   unsigned int block_x,
   unsigned int block_y,

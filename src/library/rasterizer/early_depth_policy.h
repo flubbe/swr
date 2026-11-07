@@ -34,7 +34,7 @@ constexpr std::uint64_t block_early_depth_reject_auto_window_samples = 4096;
 
 /** Whether the block-level auto policy should run an early depth reject test. */
 [[nodiscard]]
-inline bool block_early_depth_reject_auto_enabled(
+constexpr bool block_early_depth_reject_auto_enabled(
   std::uint64_t observed_decision_count,
   std::uint64_t observed_sample_count,
   std::uint64_t observed_rejects)
@@ -58,7 +58,7 @@ inline bool block_early_depth_reject_auto_enabled(
 struct block_early_depth_reject_auto_state
 {
     /** Number of block-level auto-policy decisions made. */
-    std::uint64_t decision_count{0};
+    mutable std::uint64_t decision_count{0};
 
     /** Number of block-level policy samples collected from executed tests. */
     std::uint64_t sample_count{0};
@@ -68,7 +68,7 @@ struct block_early_depth_reject_auto_state
 
     /** Advance one policy decision and return whether it should be tested. */
     [[nodiscard]]
-    bool should_test()
+    bool should_test() const
     {
         return block_early_depth_reject_auto_enabled(
           ++decision_count,
@@ -77,7 +77,8 @@ struct block_early_depth_reject_auto_state
     }
 
     /** Record the outcome of one executed block-level early depth reject test. */
-    void record_test_result(bool rejected)
+    void record_test_result(
+      bool rejected)
     {
         ++sample_count;
         if(rejected)
@@ -138,7 +139,7 @@ enum class early_fragment_depth_test_auto_action
 
 /** Whether observed fragment-level rejects are high enough to keep the fast path active. */
 [[nodiscard]]
-inline bool early_fragment_depth_test_auto_reject_rate_is_useful(
+constexpr bool early_fragment_depth_test_auto_reject_rate_is_useful(
   std::uint64_t observed_fragments,
   std::uint64_t observed_rejected_fragments)
 {
@@ -148,7 +149,7 @@ inline bool early_fragment_depth_test_auto_reject_rate_is_useful(
 
 /** Choose whether to disable, run fast, or collect stats for fragment-level early depth testing. */
 [[nodiscard]]
-inline early_fragment_depth_test_auto_action early_fragment_depth_test_auto_choose_action(
+constexpr early_fragment_depth_test_auto_action early_fragment_depth_test_auto_choose_action(
   std::uint64_t observed_decision_count,
   std::uint64_t observed_fragments,
   std::uint64_t observed_rejected_fragments)
@@ -177,7 +178,7 @@ inline early_fragment_depth_test_auto_action early_fragment_depth_test_auto_choo
 struct early_fragment_depth_test_auto_state
 {
     /** Number of fragment-level auto-policy decisions made. */
-    std::uint64_t decision_count{0};
+    mutable std::uint64_t decision_count{0};
 
     /** Number of fragments tested by the early fragment depth path. */
     std::uint64_t tested_fragments{0};
@@ -187,7 +188,7 @@ struct early_fragment_depth_test_auto_state
 
     /** Advance one policy decision and return the action to take. */
     [[nodiscard]]
-    early_fragment_depth_test_auto_action choose_action()
+    early_fragment_depth_test_auto_action choose_action() const
     {
         return early_fragment_depth_test_auto_choose_action(
           ++decision_count,
@@ -211,7 +212,8 @@ struct early_fragment_depth_test_auto_state
     }
 
     /** Record one collected early depth sample. */
-    void record_test_result(const early_depth_sample& sample)
+    void record_test_result(
+      const early_depth_sample& sample)
     {
         record_test_result(
           sample.tested_fragments,

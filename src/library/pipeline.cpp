@@ -2240,13 +2240,18 @@ void Present()
 
             ++draw_count;
 
-            vertex_data_total += draw->attribute_indices.count;
+            const std::size_t vertex_count = draw->attribute_indices.count;
+
+            // Reserve vertex attributes, and one additional vec4 for the vertex coordinates.
+            vertex_data_total +=
+              vertex_count * (draw->attribute_slot_count + 1);
 
             const impl::render_states& states =
               context->state_snapshots[draw->state_snapshot_index];
             if(states.shader_info)
             {
-                vertex_data_total += draw->attribute_indices.count * states.shader_info->varying_count;
+                // Reserve shader varyings.
+                vertex_data_total += vertex_count * states.shader_info->varying_count;
             }
         }
     }
