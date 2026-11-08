@@ -2259,7 +2259,7 @@ void Present()
     context->resolved_draws.reset();
     context->resolved_draws.reserve(draw_count);
     context->render_objects.reserve(draw_count);
-    context->vec4_data.reserve(vertex_data_total);
+    context->vec4_data.reserve(context->vec4_data.size() + vertex_data_total);
 
 #ifdef SWR_ENABLE_PIPELINE_PROFILING
     std::uint64_t stage_present_total = 0;

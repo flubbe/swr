@@ -114,6 +114,50 @@ public:
     }
 };
 
+class vertex_data_allocation_shader final : public swr::program<vertex_data_allocation_shader>
+{
+public:
+    swr::program_metadata get_metadata() const override
+    {
+        return {
+          .fragment_shader_may_discard = false,
+          .fragment_shader_may_write_depth = false};
+    }
+
+    void pre_link(
+      boost::container::static_vector<
+        swr::interpolation_qualifier,
+        swr::limits::max::varyings>& iqs) const override
+    {
+        iqs = {swr::interpolation_qualifier::smooth};
+    }
+
+    void vertex_shader(
+      [[maybe_unused]] int gl_VertexID,
+      [[maybe_unused]] int gl_InstanceID,
+      std::span<const ml::vec4> attribs,
+      ml::vec4& gl_Position,
+      [[maybe_unused]] float& gl_PointSize,
+      [[maybe_unused]] std::span<float> gl_ClipDistance,
+      std::span<ml::vec4> varyings) const override
+    {
+        gl_Position = attribs[0];
+        varyings[0] = attribs[2];
+    }
+
+    swr::fragment_shader_result fragment_shader(
+      [[maybe_unused]] const ml::vec4& gl_FragCoord,
+      [[maybe_unused]] bool gl_FrontFacing,
+      [[maybe_unused]] const ml::vec2& gl_PointCoord,
+      std::span<const swr::varying> varyings,
+      [[maybe_unused]] float& gl_FragDepth,
+      ml::vec4& gl_FragColor) const override
+    {
+        gl_FragColor = varyings[0];
+        return swr::fragment_shader_result::accept;
+    }
+};
+
 class texture_sampling_shader final : public swr::program<texture_sampling_shader>
 {
 public:
@@ -569,6 +613,65 @@ float min_depth_texture_value(
 }    // namespace
 
 BOOST_FIXTURE_TEST_SUITE(pipeline_tests, offscreen_context_fixture)
+
+BOOST_AUTO_TEST_CASE(vertex_data_pool_reserves_space_after_staged_attribute_uploads)
+{
+    configure_draw_state();
+
+    constexpr std::size_t vertex_count = 510;
+    constexpr std::size_t draw_count = 4;
+    const std::array triangle{
+      ml::vec4{-0.8f, -0.8f, 0.0f, 1.0f},
+      ml::vec4{0.8f, -0.8f, 0.0f, 1.0f},
+      ml::vec4{0.0f, 0.8f, 0.0f, 1.0f}};
+    std::vector<ml::vec4> positions;
+    positions.reserve(vertex_count);
+    for(std::size_t i = 0; i < vertex_count; ++i)
+    {
+        positions.push_back(triangle[i % triangle.size()]);
+    }
+
+    const std::vector<ml::vec4> normals(vertex_count);
+    const ml::vec4 draw_color{0.2f, 0.4f, 0.8f, 1.0f};
+    const std::vector<ml::vec4> colors(
+      vertex_count,
+      draw_color);
+
+    const std::uint32_t position_buffer = swr::CreateAttributeBuffer(positions);
+    const std::uint32_t normal_buffer = swr::CreateAttributeBuffer(normals);
+    const std::uint32_t color_buffer = swr::CreateAttributeBuffer(colors);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+
+    vertex_data_allocation_shader shader;
+    const std::uint32_t shader_id = swr::RegisterShader(&shader);
+    BOOST_REQUIRE_NE(shader_id, 0);
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    BOOST_REQUIRE(swr::BindShader(shader_id));
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+
+    swr::EnableAttributeBuffer(position_buffer, 0);
+    swr::EnableAttributeBuffer(normal_buffer, 1);
+    swr::EnableAttributeBuffer(color_buffer, 2);
+    for(std::size_t i = 0; i < draw_count; ++i)
+    {
+        swr::DrawElements(swr::vertex_buffer_mode::triangles, vertex_count);
+    }
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+
+    swr::Present();
+    BOOST_REQUIRE_EQUAL(swr::GetLastError(), swr::error::none);
+    BOOST_CHECK_EQUAL(
+      read_default_color_pixel(context, target_size / 2, target_size / 2),
+      to_default_color_pixel(context, draw_color));
+
+    swr::DisableAttributeBuffer(color_buffer);
+    swr::DisableAttributeBuffer(normal_buffer);
+    swr::DisableAttributeBuffer(position_buffer);
+    swr::DeleteAttributeBuffer(color_buffer);
+    swr::DeleteAttributeBuffer(normal_buffer);
+    swr::DeleteAttributeBuffer(position_buffer);
+    swr::UnregisterShader(shader_id);
+}
 
 BOOST_AUTO_TEST_CASE(nonindexed_draw_invokes_vertex_shader_once_per_submitted_vertex)
 {
